@@ -10,12 +10,12 @@ import {
   fetchRepo,
   pullRepo,
   pushRepo,
-  stashCreate,
 } from '../api';
 import { useApp } from '../app-state';
 import { matchesCommand } from '../lib/fuzzy';
 import {
   IconBranch,
+  IconClock,
   IconCommand,
   IconDownload,
   IconFolder,
@@ -106,7 +106,14 @@ export default function CommandPalette() {
           label: 'Fetch all remotes',
           search: 'fetch remote update',
           icon: <IconDownload width={15} height={15} />,
-          run: () => runAction(fetchRepo(activeRepo), 'Fetched'),
+          run: () => runAction(fetchRepo(activeRepo, false), 'Fetched'),
+        },
+        {
+          id: 'fetch-prune',
+          label: 'Fetch and prune',
+          search: 'fetch prune remove deleted remote refs',
+          icon: <IconRefresh width={15} height={15} />,
+          run: () => runAction(fetchRepo(activeRepo, true), 'Fetched and pruned'),
         },
         {
           id: 'pull',
@@ -124,10 +131,17 @@ export default function CommandPalette() {
         },
         {
           id: 'stash',
-          label: 'Stash changes',
+          label: 'Stash changes (with options)',
           search: 'stash save working changes',
           icon: <IconStash width={15} height={15} />,
-          run: () => runAction(stashCreate(activeRepo), 'Stashed'),
+          run: () => window.dispatchEvent(new CustomEvent('git2:stash')),
+        },
+        {
+          id: 'reflog',
+          label: 'View reference log',
+          search: 'reflog head history undo',
+          icon: <IconClock width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:reflog')),
         },
         {
           id: 'scope-all',

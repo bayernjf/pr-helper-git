@@ -3,13 +3,15 @@ import {
   fetchRepo,
   pullRepo,
   pushRepo,
-  stashCreate,
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
+import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
+import StashModal from './StashModal';
 import {
+  IconClock,
   IconDownload,
   IconGear,
   IconServer,
@@ -31,19 +33,27 @@ export default function Toolbar() {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRemotes, setShowRemotes] = useState(false);
+  const [showStash, setShowStash] = useState(false);
+  const [showReflog, setShowReflog] = useState(false);
 
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
     const openAdd = () => setShowAdd(true);
     const openSettings = () => setShowSettings(true);
     const openRemotes = () => setShowRemotes(true);
+    const openReflog = () => setShowReflog(true);
+    const openStash = () => setShowStash(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
+    window.addEventListener('git2:reflog', openReflog);
+    window.addEventListener('git2:stash', openStash);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
       window.removeEventListener('git2:remotes', openRemotes);
+      window.removeEventListener('git2:reflog', openReflog);
+      window.removeEventListener('git2:stash', openStash);
     };
   }, []);
 
@@ -120,8 +130,8 @@ export default function Toolbar() {
         type="button"
         className="btn"
         disabled={!activeRepo || busy}
-        title="git stash push"
-        onClick={() => runAction(stashCreate(activeRepo!), 'Stashed')}
+        title="Stash working changes"
+        onClick={() => setShowStash(true)}
       >
         <IconStash width={14} height={14} />
         Stash
@@ -146,6 +156,15 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="View reference log (reflog)"
+        disabled={!activeRepo}
+        onClick={() => setShowReflog(true)}
+      >
+        <IconClock />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="Manage remotes"
         disabled={!activeRepo}
         onClick={() => setShowRemotes(true)}
@@ -164,6 +183,8 @@ export default function Toolbar() {
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
+      {showStash && <StashModal onClose={() => setShowStash(false)} />}
+      {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
     </header>
   );
 }

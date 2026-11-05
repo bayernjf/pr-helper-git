@@ -6,6 +6,7 @@ import {
   deleteRemoteBranch,
   getStashList,
   getStashShow,
+  getTagShow,
   mergeRef,
   pushBranch,
   pushTag,
@@ -13,6 +14,7 @@ import {
   stashApply,
   stashDrop,
   type StashEntry,
+  type TagDetail,
 } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -165,9 +167,10 @@ export default function RefSidebar() {
   const [rename, setRename] = useState<RenameState | null>(null);
   const [stashList, setStashList] = useState<StashEntry[]>([]);
   const [stashView, setStashView] = useState<{ index: number; subject: string; diff: string } | null>(null);
+  const [tagView, setTagView] = useState<TagDetail | null>(null);
   const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
 
-  useEscape(() => setStashView(null));
+  useEscape(() => { setStashView(null); setTagView(null); });
 
   const groups = useMemo(() => {
     const local = refs.filter((r) => r.name.startsWith('refs/heads/'));
@@ -234,6 +237,7 @@ export default function RefSidebar() {
     }
     if (menu.kind === 'tag') {
       return [
+        { id: 'tag-details', label: 'View details', icon: <IconEye width={15} height={15} /> },
         { id: 'checkout', label: 'Checkout (detached)', icon: <IconDownload width={15} height={15} /> },
         { id: 'push-tag', label: 'Push tag to origin', icon: <IconUpload width={15} height={15} /> },
         { separator: true },
@@ -270,7 +274,14 @@ export default function RefSidebar() {
         if (ok) await runAction(deleteRemoteBranch(activeRepo, branch), `Deleted remote ${name}`);
       }
     } else if (kind === 'tag') {
-      if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      if (id === 'tag-details') {
+        try {
+          const res = await getTagShow(activeRepo, name);
+          setTagView(res.tag);
+        } catch (err: any) {
+          toast(err.message, 'error');
+        }
+      } else if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
       else if (id === 'push-tag') await runAction(pushTag(activeRepo, name), `Pushed tag ${name}`);
       else if (id === 'delete-tag') {
         const ok = await confirm(`Delete tag ${name}?`);
@@ -437,6 +448,43 @@ export default function RefSidebar() {
                 </div>
               ))}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {tagView && (
+        <div className="modal-backdrop" onClick={() => setTagView(null)}>
+          <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{tagView.tag}</h2>
+              <button type="button" className="icon-btn" onClick={() => setTagView(null)}>
+                <IconX />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="tag-detail-grid">
+                <span className="detail-label">Tagger</span>
+                <span className="detail-value">{tagView.tagger}</span>
+                <span className="detail-label">Email</span>
+                <span className="detail-value muted">{tagView.taggerEmail}</span>
+                <span className="detail-label">Date</span>
+                <span className="detail-value muted">
+                  {new Date(tagView.time * 1000).toLocaleString()}
+                </span>
+                <span className="detail-label">Target</span>
+                <span className="detail-value mono-small">{tagView.object}</span>
+              </div>
+              <div className="tag-message">
+                <div className="detail-label" style={{ marginBottom: 6 }}>Message</div>
+                <div className="tag-subject">{tagView.subject}</div>
+                {tagView.body && <div className="tag-body muted">{tagView.body}</div>}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={() => setTagView(null)}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

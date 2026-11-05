@@ -3,11 +3,12 @@ import {
   addRemote,
   getRemotes,
   removeRemote,
+  setRemoteUrl,
 } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import type { RemoteEntry } from '../types';
-import { IconTrash, IconX } from './icons';
+import { IconCheck, IconEdit, IconTrash, IconX } from './icons';
 import { useConfirm } from './ui';
 
 export default function RemoteModal({ onClose }: { onClose: () => void }) {
@@ -18,6 +19,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [working, setWorking] = useState(false);
+  const [editing, setEditing] = useState<{ name: string; value: string } | null>(null);
 
   const reload = useCallback(() => {
     if (!activeRepo) return;
@@ -63,6 +65,23 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function saveEdit() {
+    if (!editing || !activeRepo) return;
+    const value = editing.value.trim();
+    if (!value) return;
+    setWorking(true);
+    try {
+      await setRemoteUrl(activeRepo, editing.name, value);
+      toast('Remote URL updated', 'success');
+      setEditing(null);
+      reload();
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal" style={{ width: 560 }} onClick={(e) => e.stopPropagation()}>
@@ -78,12 +97,47 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
               {remotes.map((r) => (
                 <div key={r.name} className="pr-detail-item">
                   <span style={{ fontWeight: 600, minWidth: 64 }}>{r.name}</span>
-                  <span
-                    className="detail-value muted"
-                    style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                  >
-                    {r.fetch || r.push}
-                  </span>
+                  {editing?.name === r.name ? (
+                    <input
+                      className="remote-edit-input"
+                      autoFocus
+                      value={editing.value}
+                      aria-label="Remote URL"
+                      onChange={(e) => setEditing({ name: r.name, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') setEditing(null);
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="detail-value muted"
+                      style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                      {r.fetch || r.push}
+                    </span>
+                  )}
+                  {editing?.name === r.name ? (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Save URL"
+                      disabled={working || !editing.value.trim()}
+                      onClick={saveEdit}
+                    >
+                      <IconCheck width={13} height={13} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Edit URL"
+                      disabled={working}
+                      onClick={() => setEditing({ name: r.name, value: r.fetch || r.push || '' })}
+                    >
+                      <IconEdit width={13} height={13} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="icon-btn"
