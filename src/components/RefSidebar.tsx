@@ -7,6 +7,7 @@ import {
   getStashList,
   mergeRef,
   pushBranch,
+  pushTag,
   renameBranch,
   stashApply,
   stashDrop,
@@ -222,6 +223,7 @@ export default function RefSidebar() {
     if (menu.kind === 'tag') {
       return [
         { id: 'checkout', label: 'Checkout (detached)', icon: <IconDownload width={15} height={15} /> },
+        { id: 'push-tag', label: 'Push tag to origin', icon: <IconUpload width={15} height={15} /> },
         { separator: true },
         { id: 'delete-tag', label: 'Delete tag', icon: <IconTrash width={15} height={15} />, danger: true },
       ];
@@ -255,6 +257,7 @@ export default function RefSidebar() {
       }
     } else if (kind === 'tag') {
       if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      else if (id === 'push-tag') await runAction(pushTag(activeRepo, name), `Pushed tag ${name}`);
       else if (id === 'delete-tag') {
         const ok = await confirm(`Delete tag ${name}?`);
         if (ok) await runAction(deleteTag(activeRepo, name), `Deleted tag ${name}`);

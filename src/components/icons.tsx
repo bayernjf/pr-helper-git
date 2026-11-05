@@ -116,3 +116,9 @@ export const IconUndo = (p: SVGProps<SVGSVGElement>) => (
 export const IconSearch = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Svg>
 );
+export const IconRevert = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></Svg>
+);
+export const IconCommand = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3Z" /></Svg>
+);

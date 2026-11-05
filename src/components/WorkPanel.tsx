@@ -4,6 +4,7 @@ import {
   commitChanges,
   discardFile,
   getDiff,
+  ignoreFile,
   stageAll,
   stageFile,
 } from '../api';
@@ -12,6 +13,7 @@ import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import DiffView from './DiffView';
 import {
+  IconBan,
   IconChevronDown,
   IconChevronRight,
   IconFile,
@@ -42,6 +44,7 @@ function TreeRow({
   onSelect,
   onStageToggle,
   onDiscard,
+  onIgnore,
 }: {
   node: TreeNode;
   collapsed: Set<string>;
@@ -50,6 +53,7 @@ function TreeRow({
   onSelect: () => void;
   onStageToggle: () => void;
   onDiscard?: () => void;
+  onIgnore?: () => void;
 }) {
   if (node.folder) {
     const isCollapsed = collapsed.has(node.path);
@@ -93,6 +97,18 @@ function TreeRow({
       <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
       <span className="file-path">{node.name}</span>
       <span className="file-actions">
+        {onIgnore && (
+          <button
+            type="button"
+            title="Add to .gitignore"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIgnore();
+            }}
+          >
+            <IconBan width={13} height={13} />
+          </button>
+        )}
         {onDiscard && (
           <button
             type="button"
@@ -226,6 +242,10 @@ export default function WorkPanel() {
     if (ok) await runAction(discardFile(activeRepo!, file.path), 'Changes discarded');
   }
 
+  async function handleIgnore(file: StatusFile) {
+    await runAction(ignoreFile(activeRepo!, file.path), `Added ${file.path} to .gitignore`);
+  }
+
   async function handleSubmit() {
     const text = message.trim();
     if (!text) return;
@@ -276,6 +296,9 @@ export default function WorkPanel() {
         }}
         onDiscard={allowDiscard && node.file && node.file.area !== 'unmerged'
           ? () => handleDiscard(node.file!)
+          : undefined}
+        onIgnore={area === 'untracked' && node.file
+          ? () => handleIgnore(node.file!)
           : undefined}
       />
     ));

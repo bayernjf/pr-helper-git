@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { resetCommit } from '../api';
+import { resetCommit, revertCommit } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
@@ -9,6 +9,7 @@ import {
   IconBranch,
   IconCommit,
   IconCopy,
+  IconRevert,
   IconSearch,
   IconTag,
   IconX,
@@ -85,6 +86,8 @@ export default function CommitGraph() {
     toast,
     loadMore,
     logLimit,
+    logScope,
+    setLogScope,
     repoLoading,
     runAction,
   } = useApp();
@@ -136,6 +139,8 @@ export default function CommitGraph() {
     { id: 'reset-mixed', label: 'Reset branch (mixed)' },
     { id: 'reset-hard', label: 'Reset branch (hard)', danger: true },
     { separator: true },
+    { id: 'revert', label: 'Revert commit (new commit)', icon: <IconRevert width={15} height={15} /> },
+    { separator: true },
     { id: 'branch', label: 'Create branch here', icon: <IconBranch width={15} height={15} /> },
     { id: 'tag', label: 'Create tag here', icon: <IconTag width={15} height={15} /> },
   ];
@@ -156,7 +161,7 @@ export default function CommitGraph() {
     );
   }
 
-  const onMenuSelect = (id: string) => {
+  const onMenuSelect = async (id: string) => {
     if (!menu) return;
     if (id === 'copy') {
       navigator.clipboard?.writeText(menu.hash).then(
@@ -172,6 +177,15 @@ export default function CommitGraph() {
     } else if (id === 'reset-hard') {
       setMenu(null);
       return handleReset('hard');
+    } else if (id === 'revert') {
+      const hash = menu.hash;
+      setMenu(null);
+      const yes = await confirm(
+        'Revert this commit?',
+        'git revert creates a new commit that undoes the change; history is not rewritten.',
+      );
+      if (yes) await runAction(revertCommit(currentRepo!, hash), 'Commit reverted');
+      return;
     } else if (id === 'branch') {
       setBranchFrom(menu.hash);
     } else if (id === 'tag') {
@@ -212,6 +226,24 @@ export default function CommitGraph() {
         </div>
         <span className="graph-search-count">
           {visibleCommits.length} of {commits.length}
+        </span>
+        <span className="scope-toggle" role="group" aria-label="History scope">
+          <button
+            type="button"
+            className={logScope === 'all' ? 'active' : ''}
+            onClick={() => setLogScope('all')}
+            title="Show history across every branch"
+          >
+            All branches
+          </button>
+          <button
+            type="button"
+            className={logScope === 'current' ? 'active' : ''}
+            onClick={() => setLogScope('current')}
+            title="Follow only the current branch history"
+          >
+            Current branch
+          </button>
         </span>
       </div>
 
