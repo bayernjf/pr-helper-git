@@ -1,5 +1,5 @@
-// Central application state: registry, active repo data, view switching and
-// a helper that runs a write action and refreshes every affected view.
+// Central application state: registry, active repo data, view switching,
+// SSE-driven auto refresh and a helper that runs write actions then refreshes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -16,7 +16,7 @@ import type {
   RemoteInfo,
   RepoBrief,
 } from './types';
-import { useToast } from './components/ui';
+import { useToast, type ToastKind } from './components/ui';
 
 type View = 'git' | 'pr';
 const ACTIVE_KEY = 'git2-active-repo';
@@ -25,6 +25,7 @@ const PAT_KEY = 'git2-pat';
 interface AppData {
   repos: RepoBrief[];
   activeRepo: string | null;
+  currentRepo: string | null;
   activeBrief: RepoBrief | null;
   status: ParsedStatus | null;
   commits: Commit[];
@@ -34,6 +35,7 @@ interface AppData {
   view: View;
   pat: string;
   busy: boolean;
+  toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
   selectRepo: (path: string) => void;
   selectCommit: (hash: string | null) => void;
@@ -46,7 +48,7 @@ interface AppData {
 const AppContext = createContext<AppData | null>(null);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const toast = useToast();
+  const toastApi = useToast();
   const [repos, setRepos] = useState<RepoBrief[]>([]);
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [status, setStatus] = useState<ParsedStatus | null>(null);
@@ -57,6 +59,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<View>('git');
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
   const [busy, setBusy] = useState(false);
+
+  const toast = useCallback(
+    (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
+    [toastApi],
+  );
 
   const refreshRepos = useCallback(async () => {
     const { repos: list } = await getRepos();
@@ -82,9 +89,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ACTIVE_KEY, repoPath);
     setSelectedHash(null);
     loadRepoData(repoPath).catch((err) => {
-      toast.error(err.message || 'failed to load repository');
+      toastApi.error(err.message || 'failed to load repository');
     });
-  }, [loadRepoData, toast]);
+  }, [loadRepoData, toastApi]);
 
   const refresh = useCallback(async () => {
     const list = await refreshRepos();
@@ -104,8 +111,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const remembered = localStorage.getItem(ACTIVE_KEY);
       const target = list.find((r) => r.path === remembered) || list[0];
       if (target) selectRepo(target.path);
-    })().catch((err) => toast.error(err.message));
-  }, [refreshRepos, selectRepo, toast]);
+    })().catch((err) => toastApi.error(err.message));
+  }, [refreshRepos, selectRepo, toastApi]);
+
+  // SSE: silently reload the active repo when its files change.
+  useEffect(() => {
+    const source = new EventSource('/api/events');
+    source.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const repoPath = activeRepo;
+        if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
+          loadRepoData(repoPath).catch(() => {});
+        }
+      } catch {
+        /* ignore malformed frames */
+      }
+    });
+    return () => source.close();
+  }, [activeRepo, loadRepoData]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
@@ -118,22 +142,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     try {
       const result = await action;
       await refresh();
-      if (successMessage) toast.notify(successMessage, 'success');
+      if (successMessage) toastApi.notify(successMessage, 'success');
       return result;
     } catch (err: any) {
       const message = err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'action failed';
-      toast.error(message);
+      toastApi.error(message);
       return null;
     } finally {
       setBusy(false);
     }
-  }, [refresh, toast]);
+  }, [refresh, toastApi]);
 
   const value = useMemo<AppData>(() => {
     const activeBrief = repos.find((r) => r.path === activeRepo) || null;
     return {
       repos,
       activeRepo,
+      currentRepo: activeRepo,
       activeBrief,
       status,
       commits,
@@ -143,6 +168,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       view,
       pat,
       busy,
+      toast,
       setPat,
       selectRepo,
       selectCommit: setSelectedHash,
@@ -153,7 +179,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, setPat, selectRepo, refreshRepos, refresh, runAction,
+    pat, busy, toast, setPat, selectRepo, refreshRepos, refresh, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

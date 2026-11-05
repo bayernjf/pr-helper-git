@@ -1,15 +1,18 @@
-// Minimal toast and confirm-dialog primitives.
+// Toast and confirm-dialog primitives.
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { IconAlert, IconCheck, IconX } from './icons';
+
+export type ToastKind = 'info' | 'error' | 'success';
 
 interface ToastItem {
   id: number;
-  kind: 'info' | 'error' | 'success';
+  kind: ToastKind;
   message: string;
 }
 
 interface ToastApi {
-  notify: (message: string, kind?: ToastItem['kind']) => void;
+  notify: (message: string, kind?: ToastKind) => void;
   error: (message: string) => void;
 }
 
@@ -21,7 +24,11 @@ let nextId = 1;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const notify = useCallback((message: string, kind: ToastItem['kind'] = 'info') => {
+  const dismiss = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const notify = useCallback((message: string, kind: ToastKind = 'info') => {
     const id = nextId++;
     setToasts((prev) => [...prev, { id, kind, message }]);
     setTimeout(() => {
@@ -40,7 +47,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-stack">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.kind}`}>
-            {t.message}
+            <span className="toast-icon">
+              {t.kind === 'success' ? <IconCheck /> : <IconAlert />}
+            </span>
+            <span className="toast-msg">{t.message}</span>
+            <button type="button" className="toast-close" onClick={() => dismiss(t.id)}>
+              <IconX width={13} height={13} />
+            </button>
           </div>
         ))}
       </div>
@@ -78,13 +91,17 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {state && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal">
-            <h3>{state.question}</h3>
-            {state.detail && <p className="modal-detail">{state.detail}</p>}
-            <div className="modal-actions">
-              <button type="button" className="btn" onClick={() => close(false)}>
-                Cancel
-              </button>
+          <div className="modal" style={{ width: 440 }}>
+            <div className="modal-header">
+              <h2>{state.question}</h2>
+            </div>
+            {state.detail && (
+              <div className="modal-body">
+                <p style={{ margin: 0, color: 'var(--muted)' }}>{state.detail}</p>
+              </div>
+            )}
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={() => close(false)}>Cancel</button>
               <button type="button" className="btn btn-danger" onClick={() => close(true)}>
                 Confirm
               </button>

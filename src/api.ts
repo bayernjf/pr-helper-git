@@ -5,6 +5,7 @@ import type {
   DiffResult,
   ParsedStatus,
   Ref,
+  RemoteEntry,
   RemoteInfo,
   RepoBrief,
 } from './types';
@@ -82,6 +83,39 @@ export const getCommitDetail = (repo: string, sha: string) =>
 export const getRemote = (repo: string) =>
   request<{ remote: RemoteInfo | null }>(`/api/remote?repo=${encodeURIComponent(repo)}`);
 
+export const getRemotes = (repo: string) =>
+  request<{ remotes: RemoteEntry[] }>(`/api/remotes?repo=${encodeURIComponent(repo)}`);
+
+export interface CommitFile {
+  status: string;
+  path: string;
+  renamedFrom?: string;
+  additions: number;
+  deletions: number;
+}
+
+export const getCommitFiles = (repo: string, sha: string) =>
+  request<{ files: CommitFile[] }>(
+    `/api/commit-files?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,
+  );
+
+export interface StashEntry {
+  index: number;
+  selector: string;
+  subject: string;
+}
+
+export const getStashList = (repo: string) =>
+  request<{ entries: StashEntry[] }>(
+    `/api/stash-list?repo=${encodeURIComponent(repo)}`,
+  );
+
+export const getCommitDiff = (repo: string, sha: string, file: string) =>
+  request<DiffResult>(
+    `/api/commit-diff?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`
+      + `&file=${encodeURIComponent(file)}`,
+  );
+
 // ---------- git writes ----------
 
 export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage') =>
@@ -122,7 +156,54 @@ export const stashApply = (repo: string, index: number, drop: boolean) =>
 export const stashDrop = (repo: string, index: number) =>
   post('/api/stash/drop', { repo, index });
 
+export const renameBranch = (repo: string, name: string, newName: string) =>
+  post('/api/branch/rename', { repo, name, newName });
+
+export const createTag = (repo: string, name: string, message?: string, from?: string) =>
+  post('/api/tag/create', { repo, name, message: message || undefined, from });
+
+export const deleteTag = (repo: string, name: string) =>
+  post('/api/tag/delete', { repo, name });
+
+export const pushBranch = (repo: string, name: string, remote = 'origin') =>
+  post('/api/branch/push', { repo, name, remote });
+
+export const deleteRemoteBranch = (repo: string, name: string, remote = 'origin') =>
+  post('/api/branch/delete-remote', { repo, name, remote });
+
+export const amendCommit = (repo: string, message: string) =>
+  post('/api/amend', { repo, message });
+
 // ---------- GitHub proxy ----------
+
+export const mergePull = (
+  repo: string,
+  number: number,
+  mergeMethod: 'merge' | 'squash' | 'rebase',
+  pat: string,
+) =>
+  request('/api/merge-pull', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-github-pat': pat,
+    },
+    body: JSON.stringify({ repo, number, mergeMethod }),
+  }) as Promise<{ merged: boolean; changed: boolean; state: string }>;
+
+export const markReadyForReview = (repo: string, number: number, pat: string) =>
+  request('/api/ready-for-review', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-github-pat': pat,
+    },
+    body: JSON.stringify({ repo, number }),
+  }) as Promise<{
+    ready: boolean;
+    changed: boolean;
+    isDraft?: boolean;
+  }>;
 
 export function githubProxy<T>(
   pat: string,

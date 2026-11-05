@@ -63,11 +63,20 @@ export interface RemoteInfo {
   repo?: string;
 }
 
+export interface RemoteEntry {
+  name: string;
+  fetch: string | null;
+  push: string | null;
+}
+
+export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'NONE';
+
 export interface PullRequest {
   number: number;
   title: string;
   state: 'open' | 'closed';
-  merged: boolean;
+  merged?: boolean;
+  merged_at?: string | null;
   draft: boolean;
   user: { login: string; avatar_url: string };
   head: { ref: string; sha: string; label: string };
@@ -78,6 +87,7 @@ export interface PullRequest {
   mergeable: boolean | null;
   mergeable_state: string;
   labels: Array<{ name: string }>;
+  reviewState: ReviewState;
 }
 
 export interface CheckRun {
