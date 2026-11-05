@@ -20,6 +20,7 @@ import {
   listRepos,
   removeRepo,
 } from './store.mjs';
+import { ensureWatching, stopWatching } from './watcher.mjs';
 
 const DIFF_LINE_LIMIT = 2000;
 const LOG_LIMIT_DEFAULT = 200;
@@ -108,15 +109,22 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     const repos = await addRepo(target);
     await appendAudit({ action: 'repo-add', repo: target });
+    ensureWatching(target);
     return ok({ repos });
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
     const target = typeof body.repo === 'string' ? body.repo : null;
     const repos = await removeRepo(target);
+    stopWatching(target);
     await appendAudit({ action: 'repo-remove', repo: target });
     return ok({ repos });
   }
+
+  // GitHub-specific endpoints are handled by routes-github.mjs and do not
+  // carry a repo field the same way; let them fall through before the
+  // generic registered-repo guard below.
+  if (pathname === '/api/github' || pathname === '/api/remote') return null;
 
   // All remaining routes operate on a registered repo.
   const repo = await findRegistered(method === 'GET' ? query.get('repo') : body.repo);
@@ -201,6 +209,94 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ sha, detail });
     } catch (err) {
       return gitFail(err, 'git show failed');
+    }
+  }
+
+  if (pathname === '/api/commit-files' && method === 'GET') {
+    const sha = typeof query.get('sha') === 'string' ? query.get('sha').trim() : '';
+    if (!/^[0-9a-f]{7,40}$/.test(sha)) return fail(400, 'invalid commit sha');
+    try {
+      // Merge commits emit nothing under plain diff-tree; compare against
+      // the first parent so the files the merge brought in are still listed.
+      let isMerge = false;
+      try {
+        await git(['rev-parse', '--verify', `${sha}^2`], repo);
+        isMerge = true;
+      } catch {
+        isMerge = false;
+      }
+      const firstParent = isMerge
+        ? (await git(['rev-parse', `${sha}^1`], repo)).trim()
+        : null;
+      const [nameStatus, numstat] = isMerge
+        ? await Promise.all([
+            git(['diff', '--name-status', '-M', firstParent, sha], repo),
+            git(['diff', '--numstat', '-M', firstParent, sha], repo),
+          ])
+        : await Promise.all([
+            git(['diff-tree', '--no-commit-id', '--name-status', '-r', '-M', sha], repo),
+            git(['diff-tree', '--no-commit-id', '--numstat', '-r', '-M', sha], repo),
+          ]);
+      const stats = new Map();
+      for (const line of numstat.split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        const target = parts[parts.length - 1];
+        stats.set(target, {
+          additions: Number(parts[0]) || 0,
+          deletions: Number(parts[1]) || 0,
+        });
+      }
+      const files = [];
+      for (const line of nameStatus.split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        const status = parts[0];
+        const isRename = status.startsWith('R') || status.startsWith('C');
+        const path = isRename ? parts[2] : parts[1];
+        const s = stats.get(path) || { additions: 0, deletions: 0 };
+        files.push({
+          status,
+          path,
+          renamedFrom: isRename ? parts[1] : null,
+          additions: s.additions,
+          deletions: s.deletions,
+        });
+      }
+      return ok({ files });
+    } catch (err) {
+      return gitFail(err, 'commit file listing failed');
+    }
+  }
+
+  if (pathname === '/api/commit-diff' && method === 'GET') {
+    const shaRaw = query.get('sha') || '';
+    const file = normalizeRepoPath(query.get('file') || '');
+    if (!/^[0-9a-f]{7,40}$/.test(shaRaw) || !file) return fail(400, 'invalid parameters');
+    const resolved = await resolveInside(repo, file);
+    if (!resolved) return fail(403, 'path escapes repo root');
+    try {
+      const diff = await git(['show', '--format=', shaRaw, '--', file], repo);
+      return ok({ masked: false, path: file, diff, truncated: false });
+    } catch (err) {
+      return gitFail(err, 'commit diff failed');
+    }
+  }
+
+  if (pathname === '/api/stash-list' && method === 'GET') {
+    try {
+      const raw = await git(['stash', 'list', '--format=%gd\t%gs'], repo);
+      const entries = raw
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [selector, subject] = line.split('\t');
+          const m = selector.match(/stash@\{(\d+)\}/);
+          return { index: m ? Number(m[1]) : 0, selector, subject };
+        });
+      return ok({ entries });
+    } catch (err) {
+      return gitFail(err, 'stash list failed');
     }
   }
 
@@ -321,6 +417,116 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     await appendAudit({ ok: true, action: 'branch-delete', repo, branch: name });
     return ok({ ok: true, branch: name });
+  }
+
+  if (pathname === '/api/branch/rename') {
+    const name = validateRefName(body.name);
+    const newName = validateRefName(body.newName);
+    if (!name || !newName) return fail(400, 'invalid branch name');
+    try {
+      await git(['branch', '-m', name, newName], repo);
+    } catch (err) {
+      return gitFail(err, 'branch rename failed');
+    }
+    await appendAudit({ ok: true, action: 'branch-rename', repo, from: name, to: newName });
+    return ok({ ok: true, branch: newName });
+  }
+
+  if (pathname === '/api/tag/create') {
+    const name = validateRefName(body.name);
+    if (!name) return fail(400, 'invalid tag name');
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
+    if (message.length > 300) return fail(400, 'tag message too long');
+    const argv = message ? ['tag', '-a', name, '-m', message] : ['tag', name];
+    if (body.from) {
+      const from = validateRefName(body.from);
+      if (!from) return fail(400, 'invalid start ref');
+      argv.push(from);
+    }
+    try {
+      await git(argv, repo);
+    } catch (err) {
+      return gitFail(err, 'tag creation failed');
+    }
+    await appendAudit({ ok: true, action: 'tag-create', repo, tag: name, annotated: !!message });
+    return ok({ ok: true, tag: name });
+  }
+
+  if (pathname === '/api/tag/delete') {
+    const name = validateRefName(body.name);
+    if (!name) return fail(400, 'invalid tag name');
+    try {
+      await git(['tag', '-d', name], repo);
+    } catch (err) {
+      return gitFail(err, 'tag deletion failed');
+    }
+    await appendAudit({ ok: true, action: 'tag-delete', repo, tag: name });
+    return ok({ ok: true, tag: name });
+  }
+
+  if (pathname === '/api/branch/push') {
+    const name = validateRefName(body.name);
+    if (!name) return fail(400, 'invalid branch name');
+    const remoteName = typeof body.remote === 'string' && body.remote.trim()
+      ? body.remote.trim()
+      : 'origin';
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
+    try {
+      await git(['push', '-u', remoteName, name], repo);
+    } catch (err) {
+      return gitFail(err, 'branch push failed');
+    }
+    await appendAudit({ ok: true, action: 'branch-push', repo, remote: remoteName, branch: name });
+    return ok({ ok: true, branch: name });
+  }
+
+  if (pathname === '/api/branch/delete-remote') {
+    const name = validateRefName(body.name);
+    if (!name) return fail(400, 'invalid branch name');
+    const remoteName = typeof body.remote === 'string' && body.remote.trim()
+      ? body.remote.trim()
+      : 'origin';
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
+    try {
+      await git(['push', remoteName, '--delete', name], repo);
+    } catch (err) {
+      return gitFail(err, 'remote branch deletion failed');
+    }
+    await appendAudit({ ok: true, action: 'branch-delete-remote', repo, remote: remoteName, branch: name });
+    return ok({ ok: true, branch: name });
+  }
+
+  if (pathname === '/api/amend') {
+    const message = typeof body.message === 'string' ? body.message.replace(/\r\n/g, '\n').trim() : '';
+    if (!message) return fail(400, 'amend message must not be empty');
+    if (message.length > 500 || message.startsWith('-') || message.includes('\0')) {
+      return fail(400, 'invalid amend message');
+    }
+    try {
+      await git(['commit', '--amend', '-F', '-'], repo, { input: `${message}\n` });
+      const sha = (await git(['rev-parse', 'HEAD'], repo)).trim();
+      await appendAudit({ ok: true, action: 'amend', repo, commit: sha });
+      return ok({ ok: true, commit: sha });
+    } catch (err) {
+      return gitFail(err, 'amend failed');
+    }
+  }
+
+  if (pathname === '/api/remotes') {
+    try {
+      const raw = await git(['remote', '-v'], repo);
+      const remotes = [];
+      for (const line of raw.split('\n')) {
+        const m = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+        if (!m) continue;
+        const existing = remotes.find((r) => r.name === m[1]);
+        if (existing) existing[m[3]] = m[2];
+        else remotes.push({ name: m[1], fetch: m[3] === 'fetch' ? m[2] : null, push: m[3] === 'push' ? m[2] : null });
+      }
+      return ok({ remotes });
+    } catch (err) {
+      return gitFail(err, 'git remote failed');
+    }
   }
 
   if (pathname === '/api/merge') {
