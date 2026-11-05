@@ -85,6 +85,17 @@ GitHub by the application setup.
   overwrite an existing name from the create-tag dialog.
 - Delete a tag directly on the shared remote (`push --delete`) behind a
   confirmation, while the local tag is left untouched.
+- Revert a merge commit from the graph: a dialog asks which parent is the
+  mainline (`-m 1..N`), since reverting a merge needs that explicit choice.
+- Search the whole repository contents with `git grep` from a dedicated modal:
+  results are grouped by file with line numbers, and an optional path narrows
+  the scope, including a clear empty state.
+- Rename or move any file through `git mv` (history is preserved and the
+  change is staged), or delete a file from its row: tracked files use
+  `git rm` while fully untracked files are removed directly, each behind a
+  confirmation dialog.
+- Filter the commit graph by path (`git log -- <path>`) so only commits that
+  touched the chosen file or folder are shown, with the live count updated.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,

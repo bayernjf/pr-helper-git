@@ -100,6 +100,9 @@ repository is never pushed.
 - [x] Server: remote tag deletion, forced tag creation
 - [x] Client: force-push confirm, pull rebase, merge abort entry, tag actions and API helpers
 - [x] Ninth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: revert merge with mainline (-m), grep, mv, rm, log pathspec
+- [x] Client: grep modal, file rename/delete, path filter, revert merge, API helpers
+- [x] Tenth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -248,3 +251,40 @@ repository is never pushed.
   matches the remote. All temporary branches (tmp-conflict, tmp-abort,
   tmp-pull-rebase, etc.) were deleted; the test repo returned to
   main/343f1a9/clean, ahead 200 / behind 2.
+- Tenth iteration scope: revert a merge commit (`-m` mainline), repository
+  content search (`git grep`), file rename/move (`git mv`), file delete
+  (`git rm`/unlink) and commit-graph path filtering (`git log -- path`).
+  All five were confirmed as real gaps by reading the code: the revert
+  route hard-rejected merge commits, no grep route existed, file rows had
+  only stage/unstage/view/ignore/discard actions, and the log route had no
+  pathspec. None is on the excluded high-level feature list.
+- Tenth iteration backend: `/api/revert` reads the parent count via
+  `rev-list --parents -n 1`; for a merge it requires an integer
+  `mainline` in 1..parentCount (missing/out-of-range -> 400) and inserts
+  `-m <mainline>`, while ordinary commits keep the old behaviour. `/api/log`
+  accepts an optional validated `path` and appends `-- <path>`. New GET
+  `/api/grep` runs `grep -I -n --untracked <pattern> [-- path]`, parsing
+  each line on the first two colons only (exit 1 = empty result). New
+  POST `/api/mv` runs `git mv <from> <to>`. New POST `/api/rm` first
+  checks `git ls-files`: tracked files use `git rm [-f]`, fully untracked
+  files are unlinked after `resolveInside` (responses carry a `method`
+  field). All write paths are audited.
+- Tenth iteration defects found and fixed during E2E: (1) the porcelain
+  v2 rename parser swapped the names — the real row is
+  `R100 <new-path>\t<old-path>`, so the current path is the first token
+  and `renamedFrom` the second; a unit test now covers it. (2) The SSE
+  effect's dependency array omitted `logPath`, so a file-change refresh
+  used the stale empty path and overwrote filtered results; `logPath` is
+  now a dependency. (3) `git rm` cannot remove a fully untracked file
+  even with `-f` ("pathspec did not match"), hence the git/unlink split
+  above.
+- Tenth iteration E2E in the browser: GrepModal returned grouped matches
+  with line numbers and a clean empty state; the path filter narrowed the
+  graph to one commit for `src/index.js` and 200 for `bulk.txt`, and
+  cleared back to 200; the Rename modal performed a staged `git mv`
+  (shown as `RM old -> new`); the Delete confirm removed both an untracked
+  file (unlink) and a tracked file (staged `D`); right-clicking the merge
+  opened RevertMergeModal with Parent 1/2 and produced
+  `Revert "merge ui feature"`. No console errors. All temporary commits,
+  branches and probes were removed; the test repo returned to
+  main/343f1a9/clean.
