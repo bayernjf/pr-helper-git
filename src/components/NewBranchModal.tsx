@@ -13,6 +13,7 @@ interface Props {
 export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
   const { refs, runAction } = useApp();
   const [name, setName] = useState('');
+  const [noCheckout, setNoCheckout] = useState(false);
   useEscape(onClose);
   const [from, setFrom] = useState(fromRef || '');
 
@@ -25,8 +26,8 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
     const branch = name.trim();
     if (!branch) return;
     const result = await runAction(
-      createBranch(repo, branch, from || undefined),
-      `Created and switched to ${branch}`,
+      createBranch(repo, branch, from || undefined, noCheckout),
+      noCheckout ? `Created ${branch}` : `Created and switched to ${branch}`,
     );
     if (result !== null) onClose();
   }
@@ -62,6 +63,14 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
               </select>
             )}
           </div>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={noCheckout}
+              onChange={(e) => setNoCheckout(e.target.checked)}
+            />
+            Create branch without switching
+          </label>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

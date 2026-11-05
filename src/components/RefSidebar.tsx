@@ -7,7 +7,6 @@ import {
   getStashList,
   getStashShow,
   getTagShow,
-  mergeRef,
   pushBranch,
   pushTag,
   renameBranch,
@@ -37,6 +36,7 @@ import {
   IconUpload,
   IconX,
 } from './icons';
+import MergeModal from './MergeModal';
 import NewBranchModal from './NewBranchModal';
 import { useConfirm } from './ui';
 import type { Ref } from '../types';
@@ -171,6 +171,7 @@ export default function RefSidebar() {
   const [stashView, setStashView] = useState<{ index: number; subject: string; diff: string } | null>(null);
   const [tagView, setTagView] = useState<TagDetail | null>(null);
   const [upstreamPicker, setUpstreamPicker] = useState<string | null>(null);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
 
@@ -275,10 +276,8 @@ export default function RefSidebar() {
     if (kind === 'local') {
       if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
       else if (id === 'rename') setRename({ name, value: name });
-      else if (id === 'merge') {
-        const ok = await confirm(`Merge ${name} into ${currentBranch}?`, 'Conflicts must be resolved manually.');
-        if (ok) await runAction(mergeRef(activeRepo, name), `Merged ${name}`);
-      } else if (id === 'push') await runAction(pushBranch(activeRepo, name), `Pushed ${name}`);
+      else if (id === 'merge') setMergeTarget(name);
+      else if (id === 'push') await runAction(pushBranch(activeRepo, name), `Pushed ${name}`);
       else if (id === 'set-upstream') setUpstreamPicker(name);
       else if (id === 'delete') await handleDelete(name);
     } else if (kind === 'remote') {
@@ -421,6 +420,13 @@ export default function RefSidebar() {
 
       {showNew && activeRepo && (
         <NewBranchModal repo={activeRepo} onClose={() => setShowNew(false)} />
+      )}
+      {mergeTarget && activeRepo && currentBranch && (
+        <MergeModal
+          sourceRef={mergeTarget}
+          currentBranch={currentBranch}
+          onClose={() => setMergeTarget(null)}
+        />
       )}
       {menu && (
         <ContextMenu

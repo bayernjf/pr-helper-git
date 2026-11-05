@@ -181,6 +181,8 @@ export default function WorkPanel() {
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
   const [ignoreWs, setIgnoreWs] = useState(false);
+  const [context, setContext] = useState<number | undefined>(undefined);
+  const [allowEmpty, setAllowEmpty] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelHeight, setPanelHeight] = useState(300);
   const [viewer, setViewer] = useState<string | null>(null);
@@ -244,7 +246,7 @@ export default function WorkPanel() {
       return;
     }
     let cancelled = false;
-    getDiff(activeRepo, selection.path, selection.area === 'staged', ignoreWs)
+    getDiff(activeRepo, selection.path, selection.area === 'staged', ignoreWs, context)
       .then((result) => {
         if (!cancelled) setDiff(result);
       })
@@ -254,7 +256,7 @@ export default function WorkPanel() {
     return () => {
       cancelled = true;
     };
-  }, [selection, activeRepo, status, ignoreWs]);
+  }, [selection, activeRepo, status, ignoreWs, context]);
 
   async function handleDiscard(file: StatusFile) {
     const ok = await confirm(
@@ -298,9 +300,12 @@ export default function WorkPanel() {
       }
       return;
     }
-    if (groups.staged.length === 0) return;
-    const result = await runAction(commitChanges(activeRepo!, text), 'Committed');
-    if (result !== null) setMessage('');
+    if (groups.staged.length === 0 && !allowEmpty) return;
+    const result = await runAction(commitChanges(activeRepo!, text, allowEmpty), 'Committed');
+    if (result !== null) {
+      setMessage('');
+      setAllowEmpty(false);
+    }
   }
 
   // Cmd/Ctrl+Enter submits the form without needing the button focused.
@@ -345,7 +350,8 @@ export default function WorkPanel() {
       />
     ));
 
-  const canSubmit = !!message.trim() && (amend || groups.staged.length > 0);
+  const canSubmit = !!message.trim()
+    && (amend || groups.staged.length > 0 || allowEmpty);
 
   return (
     <section className="work-panel" style={{ height: panelHeight }}>
@@ -404,6 +410,20 @@ export default function WorkPanel() {
           >
             Ignore whitespace
           </button>
+          <label className="context-picker">
+            Context
+            <select
+              value={context === undefined ? '' : context}
+              title="Diff context lines (--unified)"
+              onChange={(e) => setContext(e.target.value === '' ? undefined : Number(e.target.value))}
+            >
+              <option value="">Default (3)</option>
+              <option value={0}>0 lines</option>
+              <option value={3}>3 lines</option>
+              <option value={6}>6 lines</option>
+              <option value={10}>10 lines</option>
+            </select>
+          </label>
         </div>
         <DiffView result={diff} />
       </div>
@@ -425,13 +445,27 @@ export default function WorkPanel() {
               Amend last commit
             </button>
           )}
+          {!amend && groups.staged.length === 0 && (
+            <button
+              type="button"
+              className={`amend-toggle${allowEmpty ? ' on' : ''}`}
+              title="Create a commit even when nothing is staged (--allow-empty)"
+              onClick={() => setAllowEmpty((v) => !v)}
+            >
+              Allow empty
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-primary"
             disabled={!canSubmit}
             onClick={handleSubmit}
           >
-            {amend ? 'Amend' : `Commit (${groups.staged.length})`}
+            {amend
+              ? 'Amend'
+              : groups.staged.length === 0 && allowEmpty
+                ? 'Commit (empty)'
+                : `Commit (${groups.staged.length})`}
           </button>
         </div>
       </div>
