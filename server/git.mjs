@@ -163,3 +163,61 @@ export function parseBlame(output) {
   }
   return result;
 }
+
+// Parse `git reflog` lines: "<sha> <ref>@{<n>}: <action>: <description>".
+export function parseReflog(output) {
+  const entries = [];
+  for (const line of output.split('\n')) {
+    const m = line.match(/^([0-9a-f]{4,40}) (.+?)@\{(\d+)\}: (.*)$/);
+    if (!m) continue;
+    const [, hash, refPart, index, rest] = m;
+    let action = rest;
+    let description = '';
+    const colon = rest.indexOf(': ');
+    if (colon >= 0) {
+      action = rest.slice(0, colon);
+      description = rest.slice(colon + 2);
+    }
+    entries.push({
+      hash,
+      ref: refPart.trim(),
+      index: Number(index),
+      action,
+      description,
+    });
+  }
+  return entries;
+}
+
+// Parse an annotated tag object from `git cat-file -p refs/tags/<name>`:
+// header lines, a blank line, then the subject/body message.
+export function parseTagObject(output) {
+  const result = {
+    object: '', type: '', tag: '', tagger: '', taggerEmail: '',
+    time: 0, subject: '', body: '',
+  };
+  const blank = output.indexOf('\n\n');
+  const header = blank >= 0 ? output.slice(0, blank) : output;
+  const message = blank >= 0 ? output.slice(blank + 2) : '';
+  for (const line of header.split('\n')) {
+    if (line.startsWith('object ')) {
+      result.object = line.slice(7);
+    } else if (line.startsWith('type ')) {
+      result.type = line.slice(5);
+    } else if (line.startsWith('tag ')) {
+      result.tag = line.slice(4);
+    } else if (line.startsWith('tagger ')) {
+      const rest = line.slice(7);
+      const lt = rest.lastIndexOf('<');
+      const gt = rest.indexOf('>', lt);
+      result.tagger = rest.slice(0, lt).trim();
+      result.taggerEmail = rest.slice(lt + 1, gt);
+      const ts = rest.slice(gt + 1).trim().match(/^(\d+)/);
+      if (ts) result.time = Number(ts[1]);
+    }
+  }
+  const lines = message.split('\n');
+  result.subject = lines[0] || '';
+  result.body = lines.slice(1).join('\n').trim();
+  return result;
+}

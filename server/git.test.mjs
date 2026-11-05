@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseBlame, parseLog, parsePorcelainV2, parseRefs } from './git.mjs';
+import {
+  parseBlame,
+  parseLog,
+  parsePorcelainV2,
+  parseRefs,
+  parseReflog,
+  parseTagObject,
+} from './git.mjs';
 
 describe('parsePorcelainV2', () => {
   it('parses branch, upstream and ahead/behind', () => {
@@ -108,5 +115,56 @@ describe('parseBlame', () => {
 
   it('returns an empty list for blank input', () => {
     expect(parseBlame('')).toEqual([]);
+  });
+});
+
+describe('parseReflog', () => {
+  it('parses action and description from reflog lines', () => {
+    const out = [
+      '343f1a9 HEAD@{0}: reset: moving to HEAD',
+      '1c8ce46 HEAD@{2}: revert: Revert "chore: bulk commit 200"',
+      'abcdef1 HEAD@{3}: checkout: moving from main to feature/x',
+    ].join('\n');
+    const entries = parseReflog(out);
+    expect(entries).toHaveLength(3);
+    expect(entries[0]).toMatchObject({
+      hash: '343f1a9',
+      ref: 'HEAD',
+      index: 0,
+      action: 'reset',
+      description: 'moving to HEAD',
+    });
+    expect(entries[1].action).toBe('revert');
+    expect(entries[1].description).toBe('Revert "chore: bulk commit 200"');
+    expect(entries[2].description).toBe('moving from main to feature/x');
+  });
+
+  it('keeps the whole text as action when no colon is present', () => {
+    const entries = parseReflog('abcdef1 main@{0}: some plain event');
+    expect(entries[0]).toMatchObject({ action: 'some plain event', description: '' });
+  });
+});
+
+describe('parseTagObject', () => {
+  it('parses tagger, timestamp and message', () => {
+    const out = [
+      'object 343f1a9f4fb3468c904a287b98477ddfa3f7d287',
+      'type commit',
+      'tag v0.1.0',
+      'tagger Alice <alice@example.com> 1700000000 +0800',
+      '',
+      'Release 0.1.0',
+      '',
+      'First annotated release',
+    ].join('\n');
+    const tag = parseTagObject(out);
+    expect(tag.object).toBe('343f1a9f4fb3468c904a287b98477ddfa3f7d287');
+    expect(tag.type).toBe('commit');
+    expect(tag.tag).toBe('v0.1.0');
+    expect(tag.tagger).toBe('Alice');
+    expect(tag.taggerEmail).toBe('alice@example.com');
+    expect(tag.time).toBe(1700000000);
+    expect(tag.subject).toBe('Release 0.1.0');
+    expect(tag.body).toBe('First annotated release');
   });
 });
