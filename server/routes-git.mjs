@@ -272,8 +272,10 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ masked: true, path: rel, diff: '', truncated: false });
     }
     const staged = query.get('staged') === '1';
+    const ignoreWs = query.get('ignoreWs') === '1';
     const args = ['diff'];
     if (staged) args.push('--cached');
+    if (ignoreWs) args.push('-w');
     args.push('--', rel);
     try {
       let diff = await git(args, repo);
@@ -517,6 +519,57 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/compare' && method === 'GET') {
+    const base = validateRefSpec(query.get('base'));
+    const head = validateRefSpec(query.get('head'));
+    if (!base || !head) return fail(400, 'invalid base or head ref');
+    if (base === head) return fail(400, 'base and head must differ');
+    const pretty = '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e';
+    try {
+      const [aheadRaw, behindRaw, nameStatus, numstat] = await Promise.all([
+        git(['log', `${base}..${head}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
+        git(['log', `${head}..${base}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
+        git(['diff', '--name-status', '-M', base, head], repo),
+        git(['diff', '--numstat', '-M', base, head], repo),
+      ]);
+      const stats = new Map();
+      for (const line of numstat.split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        const target = parts[parts.length - 1];
+        stats.set(target, {
+          additions: Number(parts[0]) || 0,
+          deletions: Number(parts[1]) || 0,
+        });
+      }
+      const files = [];
+      for (const line of nameStatus.split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        const status = parts[0];
+        const isRename = status.startsWith('R') || status.startsWith('C');
+        const filePath = isRename ? parts[2] : parts[1];
+        const s = stats.get(filePath) || { additions: 0, deletions: 0 };
+        files.push({
+          status,
+          path: filePath,
+          renamedFrom: isRename ? parts[1] : null,
+          additions: s.additions,
+          deletions: s.deletions,
+        });
+      }
+      return ok({
+        base,
+        head,
+        ahead: parseLog(aheadRaw),
+        behind: parseLog(behindRaw),
+        files,
+      });
+    } catch (err) {
+      return gitFail(err, 'compare failed');
+    }
+  }
+
   if (method !== 'POST') return null;
 
   // ---------- writes ----------
@@ -649,6 +702,24 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     return ok({ ok: true, branch: newName });
   }
 
+  if (pathname === '/api/branch/set-upstream') {
+    const upstream = validateRefName(body.upstream);
+    if (!upstream) return fail(400, 'invalid upstream ref');
+    const argv = ['branch', `--set-upstream-to=${upstream}`];
+    if (body.branch) {
+      const branch = validateRefName(body.branch);
+      if (!branch) return fail(400, 'invalid branch name');
+      argv.push(branch);
+    }
+    try {
+      await git(argv, repo);
+    } catch (err) {
+      return gitFail(err, 'set upstream failed');
+    }
+    await appendAudit({ ok: true, action: 'branch-set-upstream', repo, upstream });
+    return ok({ ok: true, upstream });
+  }
+
   if (pathname === '/api/tag/create') {
     const name = validateRefName(body.name);
     if (!name) return fail(400, 'invalid tag name');
@@ -779,6 +850,24 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       await appendAudit({ ok: false, action: 'remote-set-url', repo, name });
       return gitFail(err, 'git remote set-url failed');
+    }
+  }
+
+  if (pathname === '/api/remote/rename') {
+    const oldName = typeof body.oldName === 'string' ? body.oldName.trim() : '';
+    const newName = typeof body.newName === 'string' ? body.newName.trim() : '';
+    const nameRe = /^[A-Za-z0-9._-]{1,64}$/;
+    if (!nameRe.test(oldName) || oldName.startsWith('-')
+      || !nameRe.test(newName) || newName.startsWith('-')) {
+      return fail(400, 'invalid remote name');
+    }
+    try {
+      await git(['remote', 'rename', oldName, newName], repo);
+      await appendAudit({ ok: true, action: 'remote-rename', repo, oldName, newName });
+      return ok({ ok: true, oldName, newName });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'remote-rename', repo, oldName, newName });
+      return gitFail(err, 'git remote rename failed');
     }
   }
 
