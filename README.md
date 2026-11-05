@@ -68,6 +68,15 @@ GitHub by the application setup.
   branches, tags and stash entries grow.
 - Toggle ignore-whitespace (`-w`) on the working diff so indentation-only
   changes drop out; the toggle stays available even when the diff is empty.
+- Pick a merge strategy from a dedicated modal — default, `--no-ff` (always a
+  merge commit), `--ff-only` (fail if a fast-forward is impossible) or
+  `--squash` (stage incoming changes without committing).
+- Checkout a remote branch without landing in a detached HEAD: the app creates
+  a local branch that tracks the remote ref (or reuses an existing local
+  branch of the same name).
+- Choose how many diff context lines to show (`--unified`), create an empty
+  commit with `--allow-empty` when nothing is staged, and create a branch
+  without switching to it.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,

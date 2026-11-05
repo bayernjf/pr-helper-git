@@ -26,7 +26,11 @@ repository is never pushed.
   include-untracked, remote set-url editing, annotated tag details,
   two-reference comparison (ahead/behind commits and renamed-aware file
   diff with stats), branch set-upstream, remote rename, sidebar ref filter,
-  ignore-whitespace diff toggle.
+  ignore-whitespace diff toggle, merge strategies (default/no-ff/ff-only/
+  squash) with a dedicated picker, smart remote-branch checkout that creates a
+  tracking local branch (no detached HEAD), configurable diff context lines
+  (--unified), empty commits (--allow-empty), and branch creation without
+  switching (no-checkout).
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view and compose,
@@ -87,6 +91,11 @@ repository is never pushed.
 - [x] Client: CompareModal with commits/files tabs and toolbar entry
 - [x] Client: set-upstream picker, remote rename, sidebar filter, whitespace toggle
 - [x] Seventh iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: merge strategies (no-ff/ff-only/squash), checkout remote tracking
+- [x] Server: diff context lines (--unified), empty commit, branch no-checkout
+- [x] Client: MergeModal with strategy picker, API helpers for new params
+- [x] Client: diff context selector, empty-commit toggle, no-checkout checkbox
+- [x] Eighth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -97,7 +106,7 @@ repository is never pushed.
 - 47 Vitest tests pass (graph layout, formatting, security, git parsers, file
   tree, diff lines, review summaries, clone/folder validation, command palette
   fuzzy filter, blame porcelain parsing, reflog and tag-object parsing);
-  `tsc --noEmit` and `vite build` (63 modules) are green.
+  `tsc --noEmit` and `vite build` (64 modules) are green.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean
@@ -156,6 +165,26 @@ repository is never pushed.
 - Git behavior note: `-w` ignores inline whitespace changes but not the
   addition/removal of whole blank lines (that needs `--ignore-blank-lines`);
   E2E uses an inline-space change to verify the toggle.
+- Eighth iteration E2E in the browser: the Merge modal opens from a local
+  branch's "Merge into current" menu and shows four strategy cards with
+  titles and hints; choosing `--no-ff` on a branch with one independent
+  commit produced a real two-parent merge commit on main (audit recorded
+  strategy=no-ff), then the tree was reset and the branch removed. Clicking
+  the remote `origin/feature/login` checked out the existing local
+  `feature/login` branch rather than a detached HEAD (verified with
+  `git branch --show-current` and a detached count of 0). The diff context
+  selector changed the hunk header from `@@ -47,7` (default 3) to
+  `@@ -50 +50` (0) and `@@ -40,21` (10); the Allow-empty toggle enabled a
+  "Commit (empty)" button that created a commit with no file changes (reset
+  afterwards); the New branch modal's "without switching" checkbox created
+  a branch while staying on main (branch deleted afterwards). All probes
+  were cleaned and the tree returned to main/343f1a9/clean.
+- Eighth iteration finding: parsing the optional diff context query with
+  `Number(query.get('context'))` misfired when the parameter was absent,
+  because `Number(null) === 0`, so every default diff silently became
+  `--unified=0`. The route now parses context only when the parameter is
+  actually present (`query.get('context') !== null`) and falls back to the
+  default for missing or invalid values.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a
