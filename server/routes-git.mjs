@@ -769,7 +769,11 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!name) return fail(400, 'invalid tag name');
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (message.length > 300) return fail(400, 'tag message too long');
-    const argv = message ? ['tag', '-a', name, '-m', message] : ['tag', name];
+    const force = body.force === true;
+    const argv = message
+      ? ['tag', '-a', name, '-m', message]
+      : ['tag', name];
+    if (force) argv.splice(1, 0, '-f');
     if (body.from) {
       const from = validateRefName(body.from);
       if (!from) return fail(400, 'invalid start ref');
@@ -780,8 +784,8 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       return gitFail(err, 'tag creation failed');
     }
-    await appendAudit({ ok: true, action: 'tag-create', repo, tag: name, annotated: !!message });
-    return ok({ ok: true, tag: name });
+    await appendAudit({ ok: true, action: 'tag-create', repo, tag: name, annotated: !!message, force });
+    return ok({ ok: true, tag: name, force });
   }
 
   if (pathname === '/api/tag/delete') {
@@ -794,6 +798,24 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     await appendAudit({ ok: true, action: 'tag-delete', repo, tag: name });
     return ok({ ok: true, tag: name });
+  }
+
+  if (pathname === '/api/tag/delete-remote') {
+    const name = validateRefName(body.name);
+    if (!name) return fail(400, 'invalid tag name');
+    const remoteName = typeof body.remote === 'string' && body.remote.trim()
+      ? body.remote.trim()
+      : 'origin';
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
+    if (body.confirm !== true) return fail(400, 'remote tag deletion requires confirmation');
+    try {
+      const result = await git(['push', remoteName, '--delete', name], repo);
+      await appendAudit({ ok: true, action: 'tag-delete-remote', repo, tag: name, remote: remoteName });
+      return ok({ ok: true, tag: name, remote: remoteName, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'tag-delete-remote', repo, tag: name, remote: remoteName });
+      return gitFail(err, 'remote tag deletion failed');
+    }
   }
 
   if (pathname === '/api/branch/push') {
@@ -937,6 +959,17 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/merge/abort') {
+    try {
+      const result = await git(['merge', '--abort'], repo);
+      await appendAudit({ ok: true, action: 'merge-abort', repo });
+      return ok({ ok: true, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'merge-abort', repo });
+      return gitFail(err, 'git merge --abort failed');
+    }
+  }
+
   if (pathname === '/api/reset') {
     const mode = body.mode === 'soft' || body.mode === 'mixed' || body.mode === 'hard'
       ? body.mode
@@ -1074,16 +1107,25 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   }
 
   if (pathname === '/api/pull') {
+    const rebase = body.rebase === true;
     try {
-      const result = await git(['pull', '--no-edit'], repo);
-      await appendAudit({ ok: true, action: 'pull', repo });
-      return ok({ ok: true, result: result.trim() });
+      const argv = rebase ? ['pull', '--rebase'] : ['pull', '--no-edit'];
+      const result = await git(argv, repo);
+      await appendAudit({ ok: true, action: 'pull', repo, rebase });
+      return ok({ ok: true, rebase, result: result.trim() });
     } catch (err) {
+      await appendAudit({ ok: false, action: 'pull', repo, rebase });
       return gitFail(err, 'git pull failed');
     }
   }
 
   if (pathname === '/api/push') {
+    const forceMode = body.force === 'force' || body.force === 'force-with-lease'
+      ? body.force
+      : null;
+    if (forceMode && body.confirm !== true) {
+      return fail(400, 'force push requires confirm: true');
+    }
     try {
       let argv = ['push'];
       if (body.setUpstream) {
@@ -1091,10 +1133,13 @@ export async function handleGitRoute({ method, pathname, query, body }) {
         if (!status.branch) return fail(400, 'detached HEAD cannot be pushed with upstream');
         argv = ['push', '-u', 'origin', status.branch];
       }
+      if (forceMode === 'force') argv.push('--force');
+      else if (forceMode === 'force-with-lease') argv.push('--force-with-lease');
       const result = await git(argv, repo);
-      await appendAudit({ ok: true, action: 'push', repo });
-      return ok({ ok: true, result: result.trim() });
+      await appendAudit({ ok: true, action: 'push', repo, force: forceMode || 'none' });
+      return ok({ ok: true, force: forceMode || 'none', result: result.trim() });
     } catch (err) {
+      await appendAudit({ ok: false, action: 'push', repo, force: forceMode || 'none' });
       return gitFail(err, 'git push failed');
     }
   }
