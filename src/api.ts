@@ -271,10 +271,17 @@ export const mergeRef = (repo: string, ref: string, strategy: MergeStrategy = 'd
 
 export const fetchRepo = (repo: string, prune = false) => post('/api/fetch', { repo, prune });
 
-export const pullRepo = (repo: string) => post('/api/pull', { repo });
+export const pullRepo = (repo: string, rebase = false) =>
+  post('/api/pull', { repo, rebase });
 
-export const pushRepo = (repo: string, setUpstream = false) =>
-  post('/api/push', { repo, setUpstream });
+export type ForcePushMode = 'force' | 'force-with-lease';
+
+export const pushRepo = (
+  repo: string,
+  setUpstream = false,
+  force: ForcePushMode | null = null,
+  confirm = false,
+) => post('/api/push', { repo, setUpstream, force, confirm });
 
 export const stashCreate = (repo: string, message?: string, includeUntracked = false) =>
   post('/api/stash/create', { repo, message, includeUntracked });
@@ -288,11 +295,21 @@ export const stashDrop = (repo: string, index: number) =>
 export const renameBranch = (repo: string, name: string, newName: string) =>
   post('/api/branch/rename', { repo, name, newName });
 
-export const createTag = (repo: string, name: string, message?: string, from?: string) =>
-  post('/api/tag/create', { repo, name, message: message || undefined, from });
+export const createTag = (
+  repo: string,
+  name: string,
+  message?: string,
+  from?: string,
+  force = false,
+) => post('/api/tag/create', { repo, name, message: message || undefined, from, force });
 
 export const deleteTag = (repo: string, name: string) =>
   post('/api/tag/delete', { repo, name });
+
+export const deleteRemoteTag = (repo: string, name: string, remote = 'origin') =>
+  post('/api/tag/delete-remote', { repo, name, remote, confirm: true });
+
+export const abortMerge = (repo: string) => post('/api/merge/abort', { repo });
 
 export const pushBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/push', { repo, name, remote });
