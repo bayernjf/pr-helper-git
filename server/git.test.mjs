@@ -25,6 +25,17 @@ describe('parsePorcelainV2', () => {
     expect(s.files[0].area).toBe('unstaged');
     expect(s.files[1].area).toBe('untracked');
   });
+
+  it('parses rename rows with current path and original path', () => {
+    const out = '2 RM N... 100644 100644 100644 abc abc R100 new-name.txt\told-name.txt';
+    const s = parsePorcelainV2(out);
+    expect(s.files[0]).toMatchObject({
+      path: 'new-name.txt',
+      status: 'RM',
+      area: 'staged',
+      renamedFrom: 'old-name.txt',
+    });
+  });
 });
 
 describe('parseRefs', () => {

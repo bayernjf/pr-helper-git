@@ -58,11 +58,12 @@ export function parsePorcelainV2(output) {
     } else if (line[0] === '2') {
       const parts = line.split(' ');
       const xy = parts[1] || '';
-      // rename/copy: last two tokens are "origPath\tnewPath"
+      // rename/copy: the score is followed by "<path>\t<orig-path>", where
+      // <path> is the current name and <orig-path> the pre-rename name.
       const paths = parts[parts.length - 1].split('\t');
-      const path = paths[1] || paths[0];
+      const path = paths[0];
       const area = xy[0] !== '.' ? 'staged' : 'unstaged';
-      result.files.push({ path, status: xy, area, renamedFrom: paths[0] || null });
+      result.files.push({ path, status: xy, area, renamedFrom: paths[1] || null });
     } else if (line[0] === 'u') {
       const parts = line.split(' ');
       result.files.push({ path: parts.slice(10).join(' '), status: parts[1] || 'UU', area: 'unmerged' });
