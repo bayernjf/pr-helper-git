@@ -1566,3 +1566,68 @@ pre.diff {
   justify-content: space-between;
 }
 .comment-compose-side .hint { font-size: 11px; }
+
+/* ---------- file history ---------- */
+.file-history { overflow: auto; flex: 1; min-height: 0; }
+.history-item {
+  display: grid;
+  grid-template-columns: 82px 1fr 110px 96px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.history-item:hover { background: var(--hover); }
+.history-sha {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-size: 12px;
+}
+.history-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-author { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-date { color: var(--faint); font-size: 11.5px; text-align: right; }
+
+/* ---------- branch ahead/behind badge ---------- */
+.track-badge {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.track-ahead { color: var(--green); }
+.track-behind { color: var(--yellow); }
+
+/* ---------- commit hash copy ---------- */
+.hash-row { display: flex; align-items: center; gap: 8px; }
+.hash-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* ---------- stash patch viewer ---------- */
+.stash-diff { padding: 0; }
+.patch-line {
+  padding: 1px 14px;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.patch-add { background: rgba(63, 185, 80, 0.12); color: var(--green); }
+.patch-del { background: rgba(240, 85, 103, 0.12); color: var(--red); }
+.patch-hunk { color: var(--accent); }
+.patch-meta { color: var(--faint); }
