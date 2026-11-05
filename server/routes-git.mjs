@@ -8,6 +8,8 @@ import {
   parseLog,
   parsePorcelainV2,
   parseRefs,
+  parseReflog,
+  parseTagObject,
 } from './git.mjs';
 import {
   isSensitivePath,
@@ -493,6 +495,28 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/reflog' && method === 'GET') {
+    try {
+      const raw = await git(['reflog', `--max-count=${LOG_LIMIT_MAX}`], repo);
+      return ok({ entries: parseReflog(raw) });
+    } catch (err) {
+      return gitFail(err, 'git reflog failed');
+    }
+  }
+
+  if (pathname === '/api/tag-show' && method === 'GET') {
+    const tagName = validateRefSpec(query.get('tag'));
+    if (!tagName) return fail(400, 'invalid tag name');
+    try {
+      const type = (await git(['cat-file', '-t', tagName], repo)).trim();
+      if (type !== 'tag') return fail(400, 'not an annotated tag');
+      const raw = await git(['cat-file', '-p', tagName], repo);
+      return ok({ tag: parseTagObject(raw) });
+    } catch (err) {
+      return gitFail(err, 'tag show failed');
+    }
+  }
+
   if (method !== 'POST') return null;
 
   // ---------- writes ----------
@@ -737,6 +761,27 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/remote/set-url') {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const url = typeof body.url === 'string' ? body.url.trim() : '';
+    const push = body.push === true;
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(name) || name.startsWith('-')) {
+      return fail(400, 'invalid remote name');
+    }
+    if (!validateCloneUrl(url)) return fail(400, 'invalid remote url');
+    const argv = push
+      ? ['remote', 'set-url', '--push', name, url]
+      : ['remote', 'set-url', name, url];
+    try {
+      await git(argv, repo);
+      await appendAudit({ ok: true, action: 'remote-set-url', repo, name, push });
+      return ok({ ok: true, name });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'remote-set-url', repo, name });
+      return gitFail(err, 'git remote set-url failed');
+    }
+  }
+
   if (pathname === '/api/merge') {
     const ref = validateRefName(body.ref);
     if (!ref) return fail(400, 'invalid ref name');
@@ -874,12 +919,15 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/fetch') {
     const remote = typeof body.remote === 'string' && body.remote.trim() ? body.remote.trim() : null;
     if (remote && !/^[A-Za-z0-9._-]{1,64}$/.test(remote)) return fail(400, 'invalid remote name');
+    const prune = body.prune === true;
     try {
-      await git(remote ? ['fetch', '--', remote] : ['fetch', '--all'], repo);
+      const argv = remote ? ['fetch', '--', remote] : ['fetch', '--all'];
+      if (prune) argv.splice(1, 0, '--prune');
+      await git(argv, repo);
     } catch (err) {
       return gitFail(err, 'git fetch failed');
     }
-    await appendAudit({ ok: true, action: 'fetch', repo });
+    await appendAudit({ ok: true, action: 'fetch', repo, prune });
     return ok({ ok: true });
   }
 
@@ -912,14 +960,16 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/stash/create') {
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (message.length > 200) return fail(400, 'stash message too long');
+    const includeUntracked = body.includeUntracked === true;
     const argv = ['stash', 'push'];
+    if (includeUntracked) argv.push('-u');
     if (message) argv.push('-m', message);
     try {
       await git(argv, repo);
     } catch (err) {
       return gitFail(err, 'git stash failed');
     }
-    await appendAudit({ ok: true, action: 'stash-create', repo });
+    await appendAudit({ ok: true, action: 'stash-create', repo, includeUntracked });
     return ok({ ok: true });
   }
 
