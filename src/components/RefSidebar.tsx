@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  abortMerge,
   checkoutRef,
   deleteBranch,
   deleteTag,
   deleteRemoteBranch,
+  deleteRemoteTag,
   getStashList,
   getStashShow,
   getTagShow,
@@ -196,6 +198,7 @@ export default function RefSidebar() {
   }, [stashList, filter]);
 
   const currentBranch = status?.branch;
+  const mergeInProgress = !!status?.files.some((f) => f.area === 'unmerged');
 
   const loadStash = useCallback(async () => {
     if (!activeRepo) return;
@@ -255,6 +258,7 @@ export default function RefSidebar() {
         { id: 'tag-details', label: 'View details', icon: <IconEye width={15} height={15} /> },
         { id: 'checkout', label: 'Checkout (detached)', icon: <IconDownload width={15} height={15} /> },
         { id: 'push-tag', label: 'Push tag to origin', icon: <IconUpload width={15} height={15} /> },
+        { id: 'delete-remote-tag', label: 'Delete remote tag', icon: <IconTrash width={15} height={15} />, danger: true },
         { separator: true },
         { id: 'delete-tag', label: 'Delete tag', icon: <IconTrash width={15} height={15} />, danger: true },
       ];
@@ -300,6 +304,12 @@ export default function RefSidebar() {
       else if (id === 'delete-tag') {
         const ok = await confirm(`Delete tag ${name}?`);
         if (ok) await runAction(deleteTag(activeRepo, name), `Deleted tag ${name}`);
+      } else if (id === 'delete-remote-tag') {
+        const ok = await confirm(
+          `Delete remote tag ${name}?`,
+          'This affects the shared remote. The local tag is kept.',
+        );
+        if (ok) await runAction(deleteRemoteTag(activeRepo, name), `Deleted remote tag ${name}`);
       }
     } else if (kind === 'stash') {
       const idx = menu.stashIndex ?? 0;
@@ -327,6 +337,18 @@ export default function RefSidebar() {
 
   return (
     <aside className="sidebar">
+      {mergeInProgress && (
+        <div className="merge-banner">
+          <span className="merge-banner-msg">Merge in progress — resolve conflicts or abort</span>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => runAction(abortMerge(activeRepo!), 'Merge aborted')}
+          >
+            Abort merge
+          </button>
+        </div>
+      )}
       <div className="sidebar-filter">
         <IconSearch width={13} height={13} />
         <input

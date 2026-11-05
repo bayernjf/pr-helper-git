@@ -16,13 +16,14 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
   useEscape(onClose);
   const [annotated, setAnnotated] = useState(true);
   const [message, setMessage] = useState('');
+  const [force, setForce] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const tag = name.trim();
     if (!tag) return;
     const result = await runAction(
-      createTag(repo, tag, annotated ? message.trim() || tag : undefined, fromRef),
+      createTag(repo, tag, annotated ? message.trim() || tag : undefined, fromRef, force),
       `Tag ${tag} created`,
     );
     if (result !== null) onClose();
@@ -54,6 +55,14 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
               onChange={(e) => setAnnotated(e.target.checked)}
             />
             Annotated tag (stores a message)
+          </label>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={force}
+              onChange={(e) => setForce(e.target.checked)}
+            />
+            Force overwrite if the tag already exists (-f)
           </label>
           {annotated && (
             <div className="form-group">
