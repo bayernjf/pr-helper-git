@@ -19,7 +19,9 @@ repository is never pushed.
   blob file viewer (working tree or any ref, binary detection, size cap),
   git blame (per-line author/commit, porcelain parser), git clean (dry-run
   preview then force-remove untracked, ignored files untouched), remote
-  add/remove with name and URL validation.
+  add/remove with name and URL validation, per-file history (follow a path
+  across commits and jump to any revision), branch ahead/behind badges,
+  stash patch viewer, copy commit hash, Escape to close every dialog.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view and compose,
@@ -65,6 +67,11 @@ repository is never pushed.
 - [x] Client: clean button and remote management modal
 - [x] Client: PR issue comments list and composer
 - [x] Fourth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: file-history and stash-show routes
+- [x] Server: branch ahead/behind via upstream:track
+- [x] Client: FileViewer history tab with revision jump
+- [x] Client: ahead/behind badges, stash patch viewer, copy hash, Escape hook
+- [x] Fifth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -90,6 +97,17 @@ repository is never pushed.
   the read-only `/api/remotes` route was originally placed after the
   `if (method !== 'POST') return null` boundary and could never serve GET
   requests, so it was moved into the read section.
+- Fifth iteration E2E in the browser: the sidebar shows a green ↑200 badge on
+  main; the FileViewer history tab lists 200 commits for bulk.txt and clicking
+  an entry reloads the blob at that revision (header and contents update);
+  Escape closes the file viewer and the stash dialog; a temporary stash renders
+  its patch with colored hunk/add lines and is dropped afterwards; the copy
+  hash button shows the "Commit hash copied" toast. Input validation rejects
+  path traversal and bad/overflow stash indices. No external side effects.
+- Fifth iteration finding: a lazy-load effect that listed its own loading flag
+  in the dependency array could cancel itself (setLoading re-runs the effect,
+  which then returns early), leaving an eternal "Loading" state. The effect
+  now keys only on the mode and inputs and manages cancellation locally.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a

@@ -41,8 +41,12 @@ GitHub by the application setup.
   (upstream tracking supported), and stash create/apply/pop/drop.
 - Open a file content viewer from the working tree or any commit: line-numbered
   contents from the working tree or a chosen ref, binary detection, a 1 MB size
-  cap, and a one-click git blame tab that attributes every line to its author
-  and originating commit.
+  cap, a one-click git blame tab that attributes every line to its author and
+  originating commit, and a file-history tab that follows the path across
+  commits and can jump straight to any past revision.
+- See branch divergence at a glance with ahead/behind badges, inspect a stash's
+  patch before applying it, and copy a full commit hash with one click. Every
+  dialog also closes on Escape.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
   touched.
