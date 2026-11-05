@@ -11,27 +11,39 @@ GitHub by the application setup.
 
 - Register and switch between local repositories; the list is persisted under
   `~/.pr-helper-git2`.
-- Scrollable commit graph rendered as SVG: colored branch lanes, merge curves,
-  commit nodes, and badges for HEAD, local/remote branches and tags.
-- Ref sidebar with local branches, remote branches, tags and the latest stash.
-- Checkout branches/tags, create branches (with a start point), delete branches
-  (safe delete, with an optional force delete), and merge a branch into the
-  current branch.
-- Working-tree panel with staged, unstaged and untracked groups; stage/unstage
-  single files or everything, discard tracked changes, and review syntax-colored
-  diffs.
-- Commit with a message, plus fetch, pull, push (upstream tracking supported),
-  and stash create/apply/pop/drop.
+- Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
+  curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
+  branches and tags.
+- Ref sidebar with collapsible local branches, remote branches, tags and stash
+  groups; a right-click context menu exposes the full action set.
+- Checkout branches/tags, create branches (with a start point), rename and
+  delete branches (safe delete, with an optional force delete), and merge a
+  branch into the current branch.
+- Create lightweight or annotated tags, delete tags, and push or delete a
+  branch on the remote.
+- Working-tree panel rendered as a collapsible folder tree with staged,
+  unstaged and untracked groups; stage/unstage single files or everything,
+  discard tracked changes, and review syntax-colored diffs in unified or
+  side-by-side split view.
+- Commit with a message or amend the last commit, plus fetch, pull, push
+  (upstream tracking supported), and stash create/apply/pop/drop.
+- File watcher with server-sent events reloads the active repository instantly
+  whenever the working tree changes on disk — no manual refresh needed.
 
 ### Pull requests (pr-helper-like core)
 
-- Three-column board: open, merged and closed.
+- Three-column board: open, merged and closed, with a per-user review-state
+  badge (approved, changes requested, comment only, none).
 - Per-PR mergeability and check-run summaries.
-- Create a pull request from any local branch with a prefilled commit summary.
-- Inspect check runs, then merge using squash, merge commit or rebase; close and
-  reopen are also supported.
-- The GitHub personal access token is stored only in the browser and sent
-  through the local proxy; the server never writes it to disk.
+- Create a pull request from any local branch, optionally as a draft, with a
+  prefilled commit summary.
+- Convert a draft to ready for review, inspect commits, files and check runs,
+  then merge using squash, merge commit or rebase; close and reopen are also
+  supported.
+- Draft conversion and merging run through GitHub GraphQL (the REST merge
+  endpoint is unavailable in some environments); the GitHub personal access
+  token is stored only in the browser and sent through the local proxy, never
+  written to disk.
 
 ### Deliberately out of scope
 
@@ -55,6 +67,10 @@ npm start        # prints a one-time token URL, e.g. http://127.0.0.1:4789/?toke
 
 Use **+ Add repository…** in the toolbar to register a local Git folder.
 
+Temporary repositories used for end-to-end testing are registered in
+[test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
+be removed again on request.
+
 ## Security model
 
 - The server binds to `127.0.0.1` only. In production it generates a random
@@ -75,21 +91,22 @@ Use **+ Add repository…** in the toolbar to register a local Git folder.
 | Client | React 19 + TypeScript, Vite build, plain CSS |
 | Server | Node.js built-in `http`, zero runtime dependencies |
 | Git | `execFile('git', argv)` with parsers for porcelain v2, log and refs |
-| GitHub | REST API proxy with an endpoint allowlist |
+| GitHub | REST allowlist proxy plus GraphQL merge/ready endpoints |
 
 ```
 server/
-  main.mjs           HTTP entry, token/cookie auth, static hosting
+  main.mjs           HTTP entry, token/cookie auth, static hosting, SSE
   security.mjs       path validation, ref validation, token checks
   git.mjs            git runner and pure output parsers
   store.mjs          registry persistence and audit log
+  watcher.mjs        recursive file watcher and SSE broadcast hub
   routes-git.mjs     Git read/write API
-  routes-github.mjs  GitHub proxy and remote URL parsing
+  routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
 src/
   app-state.tsx      central data/state provider
   api.ts             typed API client
-  components/        UI components
-  lib/               graph layout and formatting (pure, tested)
+  components/        UI components, inline SVG icons, context menu, modals
+  lib/               graph layout, formatting, file tree, diff, review (pure)
 scripts/dev.mjs      parallel Vite + API launcher
 ```
 
