@@ -12,6 +12,8 @@ import {
   isSensitivePath,
   normalizeRepoPath,
   resolveInside,
+  validateCloneUrl,
+  validateFolderName,
   validateRefName,
 } from './security.mjs';
 import {
@@ -31,6 +33,19 @@ const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? {
 
 function gitFail(err, fallback) {
   return fail(400, fallback, err.stderr || err.message);
+}
+
+// Resolve a user-supplied parent directory and confirm it exists.
+async function resolveParentDir(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const target = path.resolve(raw.trim());
+  try {
+    const real = await fsp.realpath(target);
+    const stat = await fsp.stat(real);
+    return stat.isDirectory() ? real : null;
+  } catch {
+    return null;
+  }
 }
 
 async function findRegistered(repoArg) {
@@ -119,6 +134,60 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     stopWatching(target);
     await appendAudit({ action: 'repo-remove', repo: target });
     return ok({ repos });
+  }
+
+  if (pathname === '/api/repos/clone' && method === 'POST') {
+    const url = validateCloneUrl(body.url) ? body.url.trim() : null;
+    const name = validateFolderName(body.name);
+    if (!url) return fail(400, 'invalid or unsupported clone URL');
+    if (!name) return fail(400, 'invalid destination folder name');
+    const parent = await resolveParentDir(body.parentDir);
+    if (!parent) return fail(400, 'parent directory does not exist');
+    const target = path.join(parent, name);
+    try {
+      await fsp.stat(target);
+      return fail(409, 'destination already exists');
+    } catch { /* expected: target must not exist */ }
+    try {
+      await git(['clone', '--', url, target], process.cwd(), { timeout: 120_000 });
+    } catch (err) {
+      return gitFail(err, 'git clone failed');
+    }
+    const repos = await addRepo(target);
+    ensureWatching(target);
+    await appendAudit({ ok: true, action: 'repo-clone', repo: target, url });
+    return ok({ repos, path: target });
+  }
+
+  if (pathname === '/api/repos/init' && method === 'POST') {
+    if (typeof body.path !== 'string' || !body.path.trim()) {
+      return fail(400, 'path must be a string');
+    }
+    const target = path.resolve(body.path.trim());
+    if (target === path.parse(target).root) return fail(400, 'refusing to initialise a filesystem root');
+    const parent = await resolveParentDir(path.dirname(target));
+    if (!parent) return fail(400, 'parent directory does not exist');
+    let exists = false;
+    try {
+      const stat = await fsp.stat(target);
+      if (!stat.isDirectory()) return fail(400, 'path exists and is not a directory');
+      exists = true;
+      try {
+        await fsp.stat(path.join(target, '.git'));
+        return fail(409, 'already a git repository');
+      } catch { /* no .git yet */ }
+    } catch {
+      await fsp.mkdir(target);
+    }
+    try {
+      await git(['init'], target);
+    } catch (err) {
+      return gitFail(err, 'git init failed');
+    }
+    const repos = await addRepo(target);
+    ensureWatching(target);
+    await appendAudit({ ok: true, action: 'repo-init', repo: target, preExisting: exists });
+    return ok({ repos, path: target });
   }
 
   // GitHub-specific endpoints are handled by routes-github.mjs and do not
@@ -540,6 +609,28 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       await appendAudit({ ok: false, action: 'merge', repo, ref });
       return gitFail(err, 'git merge failed (resolve conflicts before continuing)');
     }
+  }
+
+  if (pathname === '/api/reset') {
+    const mode = body.mode === 'soft' || body.mode === 'mixed' || body.mode === 'hard'
+      ? body.mode
+      : null;
+    const sha = typeof body.sha === 'string' && /^[0-9a-f]{7,40}$/.test(body.sha.trim())
+      ? body.sha.trim()
+      : null;
+    if (!mode) return fail(400, 'mode must be soft, mixed or hard');
+    if (!sha) return fail(400, 'invalid commit sha');
+    if (mode === 'hard' && body.confirm !== true) {
+      return fail(400, 'hard reset requires confirm: true');
+    }
+    try {
+      await git(['reset', `--${mode}`, sha], repo);
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'reset', repo, mode, sha });
+      return gitFail(err, `git reset --${mode} failed`);
+    }
+    await appendAudit({ ok: true, action: 'reset', repo, mode, sha });
+    return ok({ ok: true, mode, sha });
   }
 
   if (pathname === '/api/fetch') {
