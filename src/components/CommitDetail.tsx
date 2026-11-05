@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { getCommitDiff, getCommitFiles, type CommitFile } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { formatFullDate, shortHash } from '../lib/format';
 import type { DiffResult } from '../types';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
-import { IconEye, IconFile, IconX } from './icons';
+import { IconCopy, IconEye, IconFile, IconX } from './icons';
 
 function statusColor(status: string): string {
   if (status.startsWith('A')) return 'var(--green)';
@@ -15,11 +16,23 @@ function statusColor(status: string): string {
 }
 
 export default function CommitDetail() {
-  const { commits, selectedHash, selectCommit, activeRepo } = useApp();
+  const { commits, selectedHash, selectCommit, activeRepo, toast } = useApp();
   const commit = commits.find((c) => c.hash === selectedHash);
   const [files, setFiles] = useState<CommitFile[]>([]);
   const [patch, setPatch] = useState<DiffResult | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
+
+  useEscape(() => setPatch(null), !!patch);
+
+  async function copyHash() {
+    if (!commit) return;
+    try {
+      await navigator.clipboard.writeText(commit.hash);
+      toast('Commit hash copied', 'success');
+    } catch {
+      toast('Unable to copy to clipboard', 'error');
+    }
+  }
 
   useEffect(() => {
     setFiles([]);
@@ -54,7 +67,12 @@ export default function CommitDetail() {
 
       <div className="detail-section">
         <span className="detail-label">Commit</span>
-        <div className="detail-value">{commit.hash}</div>
+        <div className="detail-value hash-row">
+          <span className="hash-text">{commit.hash}</span>
+          <button type="button" className="icon-btn" title="Copy full hash" onClick={copyHash}>
+            <IconCopy width={14} height={14} />
+          </button>
+        </div>
       </div>
 
       <div className="detail-section">

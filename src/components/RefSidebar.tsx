@@ -5,6 +5,7 @@ import {
   deleteTag,
   deleteRemoteBranch,
   getStashList,
+  getStashShow,
   mergeRef,
   pushBranch,
   pushTag,
@@ -14,6 +15,7 @@ import {
   type StashEntry,
 } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { ContextMenu, type MenuItem } from './context-menu';
 import {
   IconBranch,
@@ -21,6 +23,7 @@ import {
   IconChevronRight,
   IconDownload,
   IconEdit,
+  IconEye,
   IconMerge,
   IconMore,
   IconPlus,
@@ -28,6 +31,7 @@ import {
   IconTag,
   IconTrash,
   IconUpload,
+  IconX,
 } from './icons';
 import NewBranchModal from './NewBranchModal';
 import { useConfirm } from './ui';
@@ -77,12 +81,14 @@ function Row({
   icon,
   name,
   current,
+  badge,
   onOpen,
   onMenu,
 }: {
   icon: React.ReactNode;
   name: string;
   current?: boolean;
+  badge?: React.ReactNode;
   onOpen: () => void;
   onMenu: (e: React.MouseEvent) => void;
 }) {
@@ -90,6 +96,7 @@ function Row({
     <div className={`ref-row${current ? ' current' : ''}`} onClick={onOpen} title={name}>
       <span className="ref-icon">{icon}</span>
       <span className="ref-name">{name}</span>
+      {badge}
       <button
         type="button"
         className="row-more"
@@ -114,6 +121,7 @@ function RenameModal({
   onSubmit: (next: string) => void;
 }) {
   const [value, setValue] = useState(current);
+  useEscape(onCancel);
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <form
@@ -149,13 +157,17 @@ export default function RefSidebar() {
     refs,
     status,
     runAction,
+    toast,
   } = useApp();
   const confirm = useConfirm();
   const [showNew, setShowNew] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [rename, setRename] = useState<RenameState | null>(null);
   const [stashList, setStashList] = useState<StashEntry[]>([]);
+  const [stashView, setStashView] = useState<{ index: number; subject: string; diff: string } | null>(null);
   const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
+
+  useEscape(() => setStashView(null));
 
   const groups = useMemo(() => {
     const local = refs.filter((r) => r.name.startsWith('refs/heads/'));
@@ -229,6 +241,8 @@ export default function RefSidebar() {
       ];
     }
     return [
+      { id: 'view', label: 'View changes', icon: <IconEye width={15} height={15} /> },
+      { separator: true },
       { id: 'apply', label: 'Apply', icon: <IconDownload width={15} height={15} /> },
       { id: 'pop', label: 'Pop (apply and drop)', icon: <IconMerge width={15} height={15} /> },
       { separator: true },
@@ -264,7 +278,14 @@ export default function RefSidebar() {
       }
     } else if (kind === 'stash') {
       const idx = menu.stashIndex ?? 0;
-      if (id === 'apply') await runAction(stashApply(activeRepo, idx, false), 'Stash applied');
+      if (id === 'view') {
+        try {
+          const res = await getStashShow(activeRepo, idx);
+          setStashView({ index: idx, subject: name, diff: res.diff });
+        } catch (err: any) {
+          toast(err.message, 'error');
+        }
+      } else if (id === 'apply') await runAction(stashApply(activeRepo, idx, false), 'Stash applied');
       else if (id === 'pop') await runAction(stashApply(activeRepo, idx, true), 'Stash popped');
       else if (id === 'drop') {
         const ok = await confirm('Drop this stash?');
@@ -298,6 +319,14 @@ export default function RefSidebar() {
           icon={<IconBranch width={15} height={15} />}
           name={r.shortName}
           current={r.shortName === currentBranch}
+          badge={
+            (r.ahead > 0 || r.behind > 0) ? (
+              <span className="track-badge">
+                {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
+                {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
+              </span>
+            ) : undefined
+          }
           onOpen={() => {
             if (r.shortName !== currentBranch) {
               runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`);
@@ -378,6 +407,38 @@ export default function RefSidebar() {
             runAction(renameBranch(activeRepo!, old, next), `Renamed to ${next}`);
           }}
         />
+      )}
+
+      {stashView && (
+        <div className="modal-backdrop" onClick={() => setStashView(null)}>
+          <div
+            className="modal"
+            style={{ width: '86vw', height: '82vh', display: 'flex', flexDirection: 'column' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>stash@{stashView.index} — {stashView.subject}</h2>
+              <button type="button" className="icon-btn" onClick={() => setStashView(null)}>
+                <IconX />
+              </button>
+            </div>
+            <pre className="diff stash-diff" style={{ flex: 1, minHeight: 0, overflow: 'auto', margin: 0 }}>
+              {stashView.diff.split('\n').map((line, i) => (
+                <div
+                  key={i}
+                  className={`patch-line${
+                    line.startsWith('+++') || line.startsWith('---') ? ' patch-meta'
+                      : line.startsWith('+') ? ' patch-add'
+                        : line.startsWith('-') ? ' patch-del'
+                          : line.startsWith('@@') ? ' patch-hunk' : ''
+                  }`}
+                >
+                  {line || ' '}
+                </div>
+              ))}
+            </pre>
+          </div>
+        </div>
       )}
     </aside>
   );
