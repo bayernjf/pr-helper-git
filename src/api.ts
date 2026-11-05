@@ -103,10 +103,12 @@ export const getDiff = (
   file: string,
   staged: boolean,
   ignoreWs = false,
+  context?: number,
 ) =>
   request<DiffResult>(
     `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`
-      + `&staged=${staged ? '1' : '0'}&ignoreWs=${ignoreWs ? '1' : '0'}`,
+      + `&staged=${staged ? '1' : '0'}&ignoreWs=${ignoreWs ? '1' : '0'}`
+      + (context === undefined ? '' : `&context=${context}`),
   );
 
 export const getCommitDetail = (repo: string, sha: string) =>
@@ -248,21 +250,24 @@ export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage
 export const stageAll = (repo: string, action: 'stage' | 'unstage') =>
   post('/api/stage-all', { repo, action });
 
-export const commitChanges = (repo: string, message: string) =>
-  post('/api/commit', { repo, message });
+export const commitChanges = (repo: string, message: string, allowEmpty = false) =>
+  post('/api/commit', { repo, message, allowEmpty });
 
 export const discardFile = (repo: string, file: string) =>
   post('/api/discard', { repo, file, confirm: true });
 
 export const checkoutRef = (repo: string, ref: string) => post('/api/checkout', { repo, ref });
 
-export const createBranch = (repo: string, name: string, from?: string) =>
-  post('/api/branch/create', { repo, name, from });
+export const createBranch = (repo: string, name: string, from?: string, noCheckout = false) =>
+  post('/api/branch/create', { repo, name, from, noCheckout });
 
 export const deleteBranch = (repo: string, name: string, force = false) =>
   post('/api/branch/delete', { repo, name, force });
 
-export const mergeRef = (repo: string, ref: string) => post('/api/merge', { repo, ref });
+export type MergeStrategy = 'default' | 'no-ff' | 'ff-only' | 'squash';
+
+export const mergeRef = (repo: string, ref: string, strategy: MergeStrategy = 'default') =>
+  post('/api/merge', { repo, ref, strategy });
 
 export const fetchRepo = (repo: string, prune = false) => post('/api/fetch', { repo, prune });
 
