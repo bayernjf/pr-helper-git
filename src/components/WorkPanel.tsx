@@ -7,6 +7,7 @@ import {
   discardFile,
   getDiff,
   ignoreFile,
+  removeFile,
   stageAll,
   stageFile,
 } from '../api';
@@ -15,11 +16,13 @@ import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
+import RenameFileModal from './RenameFileModal';
 import {
   IconBan,
   IconBroom,
   IconChevronDown,
   IconChevronRight,
+  IconEdit,
   IconEye,
   IconFile,
   IconFolder,
@@ -51,6 +54,8 @@ function TreeRow({
   onView,
   onDiscard,
   onIgnore,
+  onRename,
+  onDelete,
 }: {
   node: TreeNode;
   collapsed: Set<string>;
@@ -61,6 +66,8 @@ function TreeRow({
   onView: () => void;
   onDiscard?: () => void;
   onIgnore?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
 }) {
   if (node.folder) {
     const isCollapsed = collapsed.has(node.path);
@@ -114,6 +121,31 @@ function TreeRow({
         >
           <IconEye width={13} height={13} />
         </button>
+        {onRename && (
+          <button
+            type="button"
+            title="Rename or move (git mv)"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRename();
+            }}
+          >
+            <IconEdit width={13} height={13} />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            title="Delete file (git rm)"
+            className="action-danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <IconTrash width={13} height={13} />
+          </button>
+        )}
         {onIgnore && (
           <button
             type="button"
@@ -186,6 +218,7 @@ export default function WorkPanel() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelHeight, setPanelHeight] = useState(300);
   const [viewer, setViewer] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
 
   const startResize = (event: React.PointerEvent) => {
     event.preventDefault();
@@ -270,6 +303,19 @@ export default function WorkPanel() {
     await runAction(ignoreFile(activeRepo!, file.path), `Added ${file.path} to .gitignore`);
   }
 
+  async function handleRemove(file: StatusFile) {
+    const ok = await confirm(
+      `Delete ${file.path}?`,
+      file.area === 'untracked'
+        ? 'git rm -f removes the file and stages its deletion.'
+        : 'git rm removes the file and stages the deletion; commit to finalize.',
+    );
+    if (!ok) return;
+    // Untracked files are not in HEAD yet, so git rm needs the force flag.
+    const force = file.area === 'untracked';
+    await runAction(removeFile(activeRepo!, file.path, force), `Deleted ${file.path}`);
+  }
+
   async function handleClean() {
     try {
       const preview = await cleanDryRun(activeRepo!);
@@ -341,6 +387,12 @@ export default function WorkPanel() {
           );
         }}
         onView={() => setViewer(node.path)}
+        onRename={node.file && node.file.area !== 'unmerged'
+          ? () => setRenameTarget(node.path)
+          : undefined}
+        onDelete={node.file && node.file.area !== 'unmerged'
+          ? () => handleRemove(node.file!)
+          : undefined}
         onDiscard={allowDiscard && node.file && node.file.area !== 'unmerged'
           ? () => handleDiscard(node.file!)
           : undefined}
@@ -476,6 +528,9 @@ export default function WorkPanel() {
           filePath={viewer}
           onClose={() => setViewer(null)}
         />
+      )}
+      {renameTarget && (
+        <RenameFileModal path={renameTarget} onClose={() => setRenameTarget(null)} />
       )}
     </section>
   );

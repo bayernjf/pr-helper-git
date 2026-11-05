@@ -8,6 +8,7 @@ import {
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
 import CompareModal from './CompareModal';
+import GrepModal from './GrepModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
@@ -19,6 +20,7 @@ import {
   IconClock,
   IconDownload,
   IconGear,
+  IconSearch,
   IconServer,
   IconSplit,
   IconStash,
@@ -42,6 +44,7 @@ export default function Toolbar() {
   const [showStash, setShowStash] = useState(false);
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showGrep, setShowGrep] = useState(false);
   const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
   const confirm = useConfirm();
 
@@ -53,12 +56,14 @@ export default function Toolbar() {
     const openReflog = () => setShowReflog(true);
     const openStash = () => setShowStash(true);
     const openCompare = () => setShowCompare(true);
+    const openGrep = () => setShowGrep(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
     window.addEventListener('git2:reflog', openReflog);
     window.addEventListener('git2:stash', openStash);
     window.addEventListener('git2:compare', openCompare);
+    window.addEventListener('git2:grep', openGrep);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
@@ -66,6 +71,7 @@ export default function Toolbar() {
       window.removeEventListener('git2:reflog', openReflog);
       window.removeEventListener('git2:stash', openStash);
       window.removeEventListener('git2:compare', openCompare);
+      window.removeEventListener('git2:grep', openGrep);
     };
   }, []);
 
@@ -224,6 +230,15 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Search repository contents (git grep)"
+        disabled={!activeRepo}
+        onClick={() => setShowGrep(true)}
+      >
+        <IconSearch />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="Compare two references"
         disabled={!activeRepo}
         onClick={() => setShowCompare(true)}
@@ -263,6 +278,7 @@ export default function Toolbar() {
       {showStash && <StashModal onClose={() => setShowStash(false)} />}
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
+      {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
       {dropMenu && (
         <ContextMenu
           x={dropMenu.x}

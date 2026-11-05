@@ -22,6 +22,7 @@ import {
   IconGear,
   IconPullRequest,
   IconRefresh,
+  IconSearch,
   IconStash,
   IconUpload,
 } from './icons';
@@ -142,6 +143,13 @@ export default function CommandPalette() {
           search: 'reflog head history undo',
           icon: <IconClock width={15} height={15} />,
           run: () => window.dispatchEvent(new CustomEvent('git2:reflog')),
+        },
+        {
+          id: 'grep',
+          label: 'Search repository contents (git grep)',
+          search: 'grep search find content text',
+          icon: <IconSearch width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:grep')),
         },
         {
           id: 'scope-all',

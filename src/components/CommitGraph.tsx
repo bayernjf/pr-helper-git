@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { resetCommit, revertCommit } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
@@ -15,6 +15,7 @@ import {
   IconX,
 } from './icons';
 import NewBranchModal from './NewBranchModal';
+import RevertMergeModal from './RevertMergeModal';
 import TagModal from './TagModal';
 import { useConfirm } from './ui';
 
@@ -88,6 +89,8 @@ export default function CommitGraph() {
     logLimit,
     logScope,
     setLogScope,
+    logPath,
+    setLogPath,
     repoLoading,
     runAction,
   } = useApp();
@@ -95,7 +98,12 @@ export default function CommitGraph() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [tagFrom, setTagFrom] = useState<string | null>(null);
+  const [revertMerge, setRevertMerge] = useState<{ hash: string; parentCount: number } | null>(null);
   const [search, setSearch] = useState('');
+  const [pathDraft, setPathDraft] = useState('');
+
+  // Keep the draft aligned when the active path changes externally (repo switch).
+  useEffect(() => { setPathDraft(logPath); }, [logPath, currentRepo]);
 
   const visibleCommits = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -179,7 +187,12 @@ export default function CommitGraph() {
       return handleReset('hard');
     } else if (id === 'revert') {
       const hash = menu.hash;
+      const target = commits.find((c) => c.hash === hash);
       setMenu(null);
+      if (target && target.parents.length > 1) {
+        setRevertMerge({ hash, parentCount: target.parents.length });
+        return;
+      }
       const yes = await confirm(
         'Revert this commit?',
         'git revert creates a new commit that undoes the change; history is not rewritten.',
@@ -227,6 +240,31 @@ export default function CommitGraph() {
         <span className="graph-search-count">
           {visibleCommits.length} of {commits.length}
         </span>
+        <div className="graph-path-filter">
+          <input
+            value={pathDraft}
+            placeholder="Filter by path…"
+            title="Show only commits touching this path (git log -- path); Enter to apply"
+            onChange={(e) => setPathDraft(e.target.value)}
+            onBlur={() => setLogPath(pathDraft.trim())}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setLogPath(pathDraft.trim());
+            }}
+          />
+          {pathDraft && (
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ width: 22, height: 22 }}
+              onClick={() => {
+                setPathDraft('');
+                setLogPath('');
+              }}
+            >
+              <IconX width={12} height={12} />
+            </button>
+          )}
+        </div>
         <span className="scope-toggle" role="group" aria-label="History scope">
           <button
             type="button"
@@ -336,6 +374,13 @@ export default function CommitGraph() {
           repo={currentRepo}
           fromRef={tagFrom}
           onClose={() => setTagFrom(null)}
+        />
+      )}
+      {revertMerge && (
+        <RevertMergeModal
+          hash={revertMerge.hash}
+          parentCount={revertMerge.parentCount}
+          onClose={() => setRevertMerge(null)}
         />
       )}
     </div>
