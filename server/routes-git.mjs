@@ -797,6 +797,33 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/clean') {
+    // Never pass -x/-X: ignored files (e.g. .env, keys) must stay untouched.
+    if (body.dryRun === true) {
+      try {
+        const out = await git(['clean', '-nd'], repo);
+        const paths = out.split('\n')
+          .filter((l) => l.startsWith('Would remove '))
+          .map((l) => l.slice('Would remove '.length));
+        return ok({ dryRun: true, paths });
+      } catch (err) {
+        return gitFail(err, 'git clean dry-run failed');
+      }
+    }
+    if (body.confirm !== true) return fail(400, 'clean requires confirmation');
+    try {
+      const out = await git(['clean', '-fd'], repo);
+      await appendAudit({ ok: true, action: 'clean', repo });
+      const removed = out.split('\n')
+        .filter((l) => l.startsWith('Removing '))
+        .map((l) => l.slice('Removing '.length));
+      return ok({ dryRun: false, removed });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'clean', repo });
+      return gitFail(err, 'git clean failed');
+    }
+  }
+
   if (pathname === '/api/tag/push') {
     const name = validateRefName(typeof body.name === 'string' ? body.name : '');
     const remoteName = typeof body.remote === 'string' && body.remote.trim()
