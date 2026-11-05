@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '../app-state';
+import { resetCommit } from '../api';
+import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Ref } from '../types';
@@ -8,10 +9,13 @@ import {
   IconBranch,
   IconCommit,
   IconCopy,
+  IconSearch,
   IconTag,
+  IconX,
 } from './icons';
 import NewBranchModal from './NewBranchModal';
 import TagModal from './TagModal';
+import { useConfirm } from './ui';
 
 const ROW_H = 34;
 const COL_W = 20;
@@ -73,15 +77,36 @@ interface MenuState {
 }
 
 export default function CommitGraph() {
-  const { commits, selectedHash, selectCommit, currentRepo, toast } = useApp();
+  const {
+    commits,
+    selectedHash,
+    selectCommit,
+    currentRepo,
+    toast,
+    loadMore,
+    logLimit,
+    repoLoading,
+    runAction,
+  } = useApp();
+  const confirm = useConfirm();
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [tagFrom, setTagFrom] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
-  const layout = useMemo(() => layoutGraph(commits), [commits]);
+  const visibleCommits = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return commits;
+    return commits.filter((c) =>
+      c.subject.toLowerCase().includes(term)
+      || c.authorName.toLowerCase().includes(term)
+      || c.hash.toLowerCase().includes(term));
+  }, [commits, search]);
+
+  const layout = useMemo(() => layoutGraph(visibleCommits), [visibleCommits]);
   const lanes = layout.lanes;
   const graphWidth = Math.max(70, lanes * COL_W + PAD_X * 2);
-  const totalHeight = commits.length * ROW_H;
+  const totalHeight = visibleCommits.length * ROW_H;
 
   const edges = useMemo(() => {
     const out: Array<{ key: string; d: string; color: string }> = [];
@@ -107,9 +132,29 @@ export default function CommitGraph() {
   const menuItems: MenuItem[] = [
     { id: 'copy', label: 'Copy full hash', icon: <IconCopy width={15} height={15} /> },
     { separator: true },
+    { id: 'reset-soft', label: 'Reset branch (soft)' },
+    { id: 'reset-mixed', label: 'Reset branch (mixed)' },
+    { id: 'reset-hard', label: 'Reset branch (hard)', danger: true },
+    { separator: true },
     { id: 'branch', label: 'Create branch here', icon: <IconBranch width={15} height={15} /> },
     { id: 'tag', label: 'Create tag here', icon: <IconTag width={15} height={15} /> },
   ];
+
+  async function handleReset(mode: 'soft' | 'mixed' | 'hard') {
+    if (!menu || !currentRepo) return;
+    const sha = menu.hash;
+    if (mode === 'hard') {
+      const yes = await confirm(
+        'Hard reset to this commit?',
+        'git reset --hard moves the branch and discards index and working-tree changes permanently.',
+      );
+      if (!yes) return;
+    }
+    await runAction(
+      resetCommit(currentRepo, sha, mode, mode === 'hard'),
+      `Reset (${mode})`,
+    );
+  }
 
   const onMenuSelect = (id: string) => {
     if (!menu) return;
@@ -118,6 +163,15 @@ export default function CommitGraph() {
         () => toast('Hash copied to clipboard', 'success'),
         () => toast('Copy failed', 'error'),
       );
+    } else if (id === 'reset-soft') {
+      setMenu(null);
+      return handleReset('soft');
+    } else if (id === 'reset-mixed') {
+      setMenu(null);
+      return handleReset('mixed');
+    } else if (id === 'reset-hard') {
+      setMenu(null);
+      return handleReset('hard');
     } else if (id === 'branch') {
       setBranchFrom(menu.hash);
     } else if (id === 'tag') {
@@ -125,6 +179,8 @@ export default function CommitGraph() {
     }
     setMenu(null);
   };
+
+  const canLoadMore = !search.trim() && logLimit < LOG_MAX && commits.length >= logLimit;
 
   if (!commits.length) {
     return (
@@ -140,6 +196,25 @@ export default function CommitGraph() {
 
   return (
     <div className="graph-scroll">
+      <div className="graph-toolbar">
+        <div className="graph-search">
+          <IconSearch width={14} height={14} />
+          <input
+            value={search}
+            placeholder="Filter commits by message, author or hash…"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} onClick={() => setSearch('')}>
+              <IconX width={12} height={12} />
+            </button>
+          )}
+        </div>
+        <span className="graph-search-count">
+          {visibleCommits.length} of {commits.length}
+        </span>
+      </div>
+
       <div className="graph" style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}>
         <svg className="graph-svg" width={graphWidth} height={totalHeight}>
           {edges.map((e) => (
@@ -195,6 +270,16 @@ export default function CommitGraph() {
           </div>
         ))}
       </div>
+
+      {visibleCommits.length === 0 && (
+        <div className="graph-no-match">No commits match “{search}”.</div>
+      )}
+
+      {canLoadMore && (
+        <button type="button" className="load-more" disabled={repoLoading} onClick={() => loadMore()}>
+          {repoLoading ? 'Loading…' : 'Load more commits'}
+        </button>
+      )}
 
       {menu && (
         <ContextMenu
