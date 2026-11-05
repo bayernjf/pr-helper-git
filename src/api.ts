@@ -71,8 +71,12 @@ export const resetCommit = (
   confirm = false,
 ) => post('/api/reset', { repo, sha, mode, confirm }) as Promise<{ ok: boolean; mode: string }>;
 
-export const revertCommit = (repo: string, sha: string) =>
-  post('/api/revert', { repo, sha }) as Promise<{ ok: boolean; reverted: string }>;
+export const revertCommit = (repo: string, sha: string, mainline?: number) =>
+  post('/api/revert', { repo, sha, mainline }) as Promise<{
+    ok: boolean;
+    reverted: string;
+    mainline?: number | null;
+  }>;
 
 export const ignoreFile = (repo: string, file: string) =>
   post('/api/ignore', { repo, file }) as Promise<{
@@ -80,6 +84,24 @@ export const ignoreFile = (repo: string, file: string) =>
     ignored: string;
     added: boolean;
   }>;
+
+export interface GrepMatch {
+  path: string;
+  line: number;
+  text: string;
+}
+
+export const searchGrep = (repo: string, pattern: string, path?: string) =>
+  request<{ matches: GrepMatch[]; total: number; truncated: boolean }>(
+    `/api/grep?repo=${encodeURIComponent(repo)}&pattern=${encodeURIComponent(pattern)}`
+      + (path ? `&path=${encodeURIComponent(path)}` : ''),
+  );
+
+export const moveFile = (repo: string, from: string, to: string) =>
+  post('/api/mv', { repo, from, to }) as Promise<{ ok: boolean; from: string; to: string }>;
+
+export const removeFile = (repo: string, file: string, force = false) =>
+  post('/api/rm', { repo, file, force }) as Promise<{ ok: boolean; file: string; force: boolean }>;
 
 // ---------- git reads ----------
 
@@ -90,9 +112,11 @@ export const getLog = (
   repo: string,
   limit = 200,
   scope: 'all' | 'current' = 'all',
+  path?: string,
 ) =>
-  request<{ commits: Commit[]; scope?: string }>(
-    `/api/log?repo=${encodeURIComponent(repo)}&limit=${limit}&scope=${scope}`,
+  request<{ commits: Commit[]; scope?: string; path?: string | null }>(
+    `/api/log?repo=${encodeURIComponent(repo)}&limit=${limit}&scope=${scope}`
+      + (path ? `&path=${encodeURIComponent(path)}` : ''),
   );
 
 export const getRefs = (repo: string) =>
