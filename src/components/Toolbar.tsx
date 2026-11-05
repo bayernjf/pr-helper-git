@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   fetchRepo,
   pullRepo,
@@ -28,6 +28,18 @@ export default function Toolbar() {
   } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // The command palette opens these dialogs via lightweight custom events.
+  useEffect(() => {
+    const openAdd = () => setShowAdd(true);
+    const openSettings = () => setShowSettings(true);
+    window.addEventListener('git2:add-repo', openAdd);
+    window.addEventListener('git2:settings', openSettings);
+    return () => {
+      window.removeEventListener('git2:add-repo', openAdd);
+      window.removeEventListener('git2:settings', openSettings);
+    };
+  }, []);
 
   const branchLabel = activeBrief?.branch
     ? activeBrief.branch

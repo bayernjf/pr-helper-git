@@ -1,5 +1,6 @@
 import { useApp } from './app-state';
 import { useShortcuts } from './hooks/use-shortcuts';
+import CommandPalette from './components/CommandPalette';
 import CommitDetail from './components/CommitDetail';
 import CommitGraph from './components/CommitGraph';
 import { IconFolder } from './components/icons';
@@ -51,6 +52,7 @@ export default function App() {
           <CommitDetail />
         </div>
       )}
+      <CommandPalette />
     </div>
   );
 }
