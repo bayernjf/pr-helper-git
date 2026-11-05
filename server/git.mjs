@@ -10,7 +10,7 @@ export function git(args, cwd, options = {}) {
     const child = execFile(
       'git',
       args,
-      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER },
+      { cwd, timeout: options.timeout || GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER },
       (err, stdout, stderr) => {
         if (err) {
           err.stderr = String(stderr || '').trim().slice(0, 600);

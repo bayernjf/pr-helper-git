@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   isSensitivePath,
   normalizeRepoPath,
+  validateCloneUrl,
+  validateFolderName,
   validateRefName,
 } from './security.mjs';
 
@@ -43,5 +45,35 @@ describe('validateRefName', () => {
     expect(validateRefName('-x')).toBe(false);
     expect(validateRefName('a b')).toBe(false);
     expect(validateRefName('a..b')).toBe(false);
+  });
+});
+
+describe('validateCloneUrl', () => {
+  it('accepts network transports and scp-like ssh', () => {
+    expect(validateCloneUrl('https://github.com/you/repo.git')).toBe(true);
+    expect(validateCloneUrl('git@github.com:you/repo.git')).toBe(true);
+    expect(validateCloneUrl('ssh://git@github.com/you/repo.git')).toBe(true);
+    expect(validateCloneUrl('git://example.com/repo.git')).toBe(true);
+  });
+
+  it('rejects local files, option-like and malformed input', () => {
+    expect(validateCloneUrl('file:///etc/passwd')).toBe(false);
+    expect(validateCloneUrl('/Users/you/repo')).toBe(false);
+    expect(validateCloneUrl('-u')).toBe(false);
+    expect(validateCloneUrl('')).toBe(false);
+  });
+});
+
+describe('validateFolderName', () => {
+  it('accepts a safe single component', () => {
+    expect(validateFolderName('my-repo')).toBe('my-repo');
+    expect(validateFolderName('project1')).toBe('project1');
+  });
+
+  it('rejects paths, traversal and dot names', () => {
+    expect(validateFolderName('a/b')).toBe(false);
+    expect(validateFolderName('..')).toBe(false);
+    expect(validateFolderName('.hidden')).toBe(false);
+    expect(validateFolderName('')).toBe(false);
   });
 });

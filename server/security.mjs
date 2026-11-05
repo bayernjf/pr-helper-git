@@ -71,6 +71,27 @@ export function validateRefName(name) {
   return v.length <= 256 ? v : false;
 }
 
+// Accept only network transport for cloning: http(s), ssh, git and the
+// scp-like "user@host:path" form. Reject file:// and local paths.
+export function validateCloneUrl(raw) {
+  if (typeof raw !== 'string') return false;
+  const url = raw.trim();
+  if (!url || url.length > 500 || url.includes('\0') || /\s/.test(url) || url.startsWith('-')) {
+    return false;
+  }
+  if (/^https?:\/\//i.test(url) || /^ssh:\/\//i.test(url) || /^git:\/\//i.test(url)) return true;
+  if (/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[\w./-]+$/.test(url)) return true;
+  return false;
+}
+
+// A single safe path component for a new directory.
+export function validateFolderName(raw) {
+  if (typeof raw !== 'string') return false;
+  const name = raw.trim();
+  if (!name || name === '.' || name === '..' || name.length > 128) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) ? name : false;
+}
+
 export function createTokenChecker(expected) {
   const b = Buffer.from(String(expected));
   return function tokenOk(given) {
