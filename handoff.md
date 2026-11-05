@@ -23,7 +23,10 @@ repository is never pushed.
   across commits and jump to any revision), branch ahead/behind badges,
   stash patch viewer, copy commit hash, Escape to close every dialog,
   reference log (reflog) viewer, fetch with prune, stash with message and
-  include-untracked, remote set-url editing, annotated tag details.
+  include-untracked, remote set-url editing, annotated tag details,
+  two-reference comparison (ahead/behind commits and renamed-aware file
+  diff with stats), branch set-upstream, remote rename, sidebar ref filter,
+  ignore-whitespace diff toggle.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view and compose,
@@ -79,6 +82,11 @@ repository is never pushed.
 - [x] Client: reflog modal and entry, stash options modal, remote URL editing
 - [x] Client: annotated tag details, fetch prune/reflog commands
 - [x] Sixth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: compare route (two refs, ahead/behind commits + numstat files)
+- [x] Server: branch set-upstream, remote rename, diff ignore-whitespace
+- [x] Client: CompareModal with commits/files tabs and toolbar entry
+- [x] Client: set-upstream picker, remote rename, sidebar filter, whitespace toggle
+- [x] Seventh iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -89,7 +97,7 @@ repository is never pushed.
 - 47 Vitest tests pass (graph layout, formatting, security, git parsers, file
   tree, diff lines, review summaries, clone/folder validation, command palette
   fuzzy filter, blame porcelain parsing, reflog and tag-object parsing);
-  `tsc --noEmit` and `vite build` (62 modules) are green.
+  `tsc --noEmit` and `vite build` (63 modules) are green.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean
@@ -130,6 +138,24 @@ repository is never pushed.
 - Sixth iteration finding: the reflog parser regex must match the literal
   `@{` separator (`(.+?)@\{(\d+)\}`); an earlier non-greedy pattern that
   omitted the `@` captured the `@` into the ref name.
+- Seventh iteration E2E in the browser: the Compare modal auto-runs with
+  base=main/head=feature/login and reports 2 head-only commits, 206
+  base-only commits and 6 changed files, matching `git rev-list --count`
+  and `git diff --numstat` exactly; the Commits and Files tabs both render
+  with colored status letters and add/delete counts. The sidebar "Set
+  upstream" picker sets feature/quick's tracking branch (verified via
+  `git rev-parse --abbrev-ref ...@{upstream}`) and was unset afterwards;
+  the remote modal renames origin inline (URL preserved) and was restored;
+  the ref filter narrows local/remote/tag/stash groups in real time; the
+  ignore-whitespace toggle collapses an inline-only whitespace diff to
+  "No diff available". No external side effects, tree left clean.
+- Seventh iteration finding: when `-w` makes a diff empty, DiffView returns
+  the empty hint and unmounted its own toolbar, leaving no way to switch the
+  toggle back. The whitespace toggle was lifted to a persistent WorkPanel
+  control above DiffView so it stays actionable regardless of diff content.
+- Git behavior note: `-w` ignores inline whitespace changes but not the
+  addition/removal of whole blank lines (that needs `--ignore-blank-lines`);
+  E2E uses an inline-space change to verify the toggle.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a

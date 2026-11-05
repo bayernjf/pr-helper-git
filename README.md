@@ -51,14 +51,23 @@ GitHub by the application setup.
   and directories) before removal, while ignored files such as `.env` are never
   touched.
 - Manage git remotes from a dedicated modal: inspect fetch/push URLs, add a
-  remote over a validated network URL, edit a remote's URL inline (including
-  the separate push URL), or remove one, with every write audited.
+  remote over a validated network URL, rename one, edit a remote's URL inline
+  (including the separate push URL), or remove one, with every write audited.
 - Browse the reference log (reflog) in a four-column modal to see every recent
   HEAD movement, and open an annotated tag's detail to read its tagger, date
   and message.
 - Stash through an options dialog with an optional message and an
   include-untracked toggle, and fetch with `--prune` to drop stale remote
   refs, both from the command palette.
+- Compare any two references in a dedicated modal: pick a base and a head to
+  see the commits unique to each side (ahead/behind) and the renamed-aware
+  file diff with per-file add/delete counts, with separate Commits and Files
+  tabs.
+- Point a local branch at a remote tracking branch (set-upstream), rename a
+  remote while keeping its URLs, and filter the ref sidebar by name as
+  branches, tags and stash entries grow.
+- Toggle ignore-whitespace (`-w`) on the working diff so indentation-only
+  changes drop out; the toggle stays available even when the diff is empty.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,
