@@ -734,6 +734,29 @@ pre.diff {
 .diff-line.del .diff-sign { color: var(--red); }
 .diff-content { flex: 1 1 auto; padding-right: 16px; }
 
+/* file content viewer + blame */
+.file-line { display: flex; white-space: pre; }
+.file-line:hover, .blame-line:hover { background: rgba(255, 255, 255, 0.035); }
+.file-content { flex: 1 1 auto; padding-right: 16px; }
+.blame-line { display: flex; white-space: pre; }
+.blame-meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 168px;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+.blame-author {
+  overflow: hidden;
+  max-width: 104px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.blame-sha { color: var(--faint); }
+
 /* split view */
 .diff-split-row { display: flex; }
 .diff-split-row .diff-side {
@@ -1474,3 +1497,72 @@ pre.diff {
   outline: none;
 }
 .reviewer-add input:focus { border-color: var(--accent); }
+
+.remote-add-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.remote-add-form input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+.remote-add-form input:focus { border-color: var(--accent); }
+
+/* PR comments */
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.comment-item { display: flex; gap: 10px; align-items: flex-start; }
+.comment-avatar { border-radius: 50%; }
+.comment-body { flex: 1 1 auto; min-width: 0; }
+.comment-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.comment-user { font-weight: 600; font-size: 12px; }
+.comment-text {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comment-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.comment-compose textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+.comment-compose textarea:focus { border-color: var(--accent); outline: none; }
+.comment-compose-side {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.comment-compose-side .hint { font-size: 11px; }

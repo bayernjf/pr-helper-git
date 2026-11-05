@@ -4,7 +4,8 @@ import { useApp } from '../app-state';
 import { formatFullDate, shortHash } from '../lib/format';
 import type { DiffResult } from '../types';
 import DiffView from './DiffView';
-import { IconFile, IconX } from './icons';
+import FileViewer from './FileViewer';
+import { IconEye, IconFile, IconX } from './icons';
 
 function statusColor(status: string): string {
   if (status.startsWith('A')) return 'var(--green)';
@@ -18,6 +19,7 @@ export default function CommitDetail() {
   const commit = commits.find((c) => c.hash === selectedHash);
   const [files, setFiles] = useState<CommitFile[]>([]);
   const [patch, setPatch] = useState<DiffResult | null>(null);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   useEffect(() => {
     setFiles([]);
@@ -103,6 +105,17 @@ export default function CommitDetail() {
               <span style={{ color: statusColor(f.status), width: 16 }}>{f.status.slice(0, 1)}</span>
               <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.path}</span>
+              <span
+                role="button"
+                title="View file at this commit"
+                style={{ display: 'inline-flex', padding: '0 4px', cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setViewer(f.path);
+                }}
+              >
+                <IconEye width={13} height={13} />
+              </span>
               <span className="changes-stats">
                 <span className="add">+{f.additions}</span>
                 <span className="del">-{f.deletions}</span>
@@ -130,6 +143,15 @@ export default function CommitDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {viewer && activeRepo && (
+        <FileViewer
+          repo={activeRepo}
+          filePath={viewer}
+          rev={commit.hash}
+          onClose={() => setViewer(null)}
+        />
       )}
     </aside>
   );

@@ -145,6 +145,43 @@ export const getCommitDiff = (repo: string, sha: string, file: string) =>
       + `&file=${encodeURIComponent(file)}`,
   );
 
+export interface FileContent {
+  masked: boolean;
+  path: string;
+  binary: boolean;
+  content: string;
+  truncated: boolean;
+  ref: string | null;
+}
+
+export interface BlameLine {
+  line: number;
+  sha: string;
+  author: string;
+  email: string;
+  time: number;
+  summary: string;
+  text: string;
+}
+
+export interface BlameResult {
+  masked: boolean;
+  path: string;
+  lines: BlameLine[];
+}
+
+export const getFile = (repo: string, file: string, ref?: string) =>
+  request<FileContent>(
+    `/api/file?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`
+      + (ref ? `&ref=${encodeURIComponent(ref)}` : ''),
+  );
+
+export const getBlame = (repo: string, file: string, ref?: string) =>
+  request<BlameResult>(
+    `/api/blame?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`
+      + (ref ? `&ref=${encodeURIComponent(ref)}` : ''),
+  );
+
 // ---------- git writes ----------
 
 export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage') =>
@@ -209,6 +246,21 @@ export const deleteRemoteBranch = (repo: string, name: string, remote = 'origin'
 
 export const amendCommit = (repo: string, message: string) =>
   post('/api/amend', { repo, message });
+
+export const cleanDryRun = (repo: string) =>
+  post('/api/clean', { repo, dryRun: true }) as Promise<{ dryRun: true; paths: string[] }>;
+
+export const cleanForce = (repo: string) =>
+  post('/api/clean', { repo, dryRun: false, confirm: true }) as Promise<{
+    dryRun: false;
+    removed: string[];
+  }>;
+
+export const addRemote = (repo: string, name: string, url: string) =>
+  post('/api/remote/add', { repo, name, url });
+
+export const removeRemote = (repo: string, name: string) =>
+  post('/api/remote/remove', { repo, name });
 
 // ---------- GitHub proxy ----------
 

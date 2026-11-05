@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   amendCommit,
+  cleanDryRun,
+  cleanForce,
   commitChanges,
   discardFile,
   getDiff,
@@ -12,10 +14,13 @@ import { useApp } from '../app-state';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import DiffView from './DiffView';
+import FileViewer from './FileViewer';
 import {
   IconBan,
+  IconBroom,
   IconChevronDown,
   IconChevronRight,
+  IconEye,
   IconFile,
   IconFolder,
   IconPlus,
@@ -43,6 +48,7 @@ function TreeRow({
   selected,
   onSelect,
   onStageToggle,
+  onView,
   onDiscard,
   onIgnore,
 }: {
@@ -52,6 +58,7 @@ function TreeRow({
   selected: boolean;
   onSelect: () => void;
   onStageToggle: () => void;
+  onView: () => void;
   onDiscard?: () => void;
   onIgnore?: () => void;
 }) {
@@ -97,6 +104,16 @@ function TreeRow({
       <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
       <span className="file-path">{node.name}</span>
       <span className="file-actions">
+        <button
+          type="button"
+          title="View file content"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView();
+          }}
+        >
+          <IconEye width={13} height={13} />
+        </button>
         {onIgnore && (
           <button
             type="button"
@@ -131,12 +148,14 @@ function Group({
   files,
   allLabel,
   onAll,
+  extra,
   children,
 }: {
   title: string;
   files: StatusFile[];
   allLabel: string;
   onAll: () => void;
+  extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   if (files.length === 0) return null;
@@ -145,6 +164,7 @@ function Group({
       <div className="file-group-label">
         {title}
         <span className="mini-actions">
+          {extra}
           <button type="button" onClick={onAll}>{allLabel}</button>
         </span>
       </div>
@@ -154,7 +174,7 @@ function Group({
 }
 
 export default function WorkPanel() {
-  const { activeRepo, status, runAction, commits } = useApp();
+  const { activeRepo, status, runAction, commits, toast } = useApp();
   const confirm = useConfirm();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -162,6 +182,7 @@ export default function WorkPanel() {
   const [amend, setAmend] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelHeight, setPanelHeight] = useState(300);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   const startResize = (event: React.PointerEvent) => {
     event.preventDefault();
@@ -246,6 +267,25 @@ export default function WorkPanel() {
     await runAction(ignoreFile(activeRepo!, file.path), `Added ${file.path} to .gitignore`);
   }
 
+  async function handleClean() {
+    try {
+      const preview = await cleanDryRun(activeRepo!);
+      if (preview.paths.length === 0) {
+        toast('Nothing to clean', 'info');
+        return;
+      }
+      const proceed = await confirm(
+        `Remove ${preview.paths.length} untracked item${preview.paths.length === 1 ? '' : 's'}?`,
+        preview.paths.slice(0, 12).join('\n') + (preview.paths.length > 12 ? '\n…' : ''),
+      );
+      if (!proceed) return;
+      const result = await cleanForce(activeRepo!);
+      toast(`Removed ${result.removed.length} item${result.removed.length === 1 ? '' : 's'}`, 'success');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  }
+
   async function handleSubmit() {
     const text = message.trim();
     if (!text) return;
@@ -294,6 +334,7 @@ export default function WorkPanel() {
             area === 'staged' ? 'Unstaged' : 'Staged',
           );
         }}
+        onView={() => setViewer(node.path)}
         onDiscard={allowDiscard && node.file && node.file.area !== 'unmerged'
           ? () => handleDiscard(node.file!)
           : undefined}
@@ -339,6 +380,15 @@ export default function WorkPanel() {
             files={groups.untracked}
             allLabel="Stage all"
             onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
+            extra={
+              <button
+                type="button"
+                title="Clean untracked files"
+                onClick={handleClean}
+              >
+                <IconBroom width={13} height={13} /> Clean
+              </button>
+            }
           >
             {renderTree(trees.untracked, 'untracked', false)}
           </Group>
@@ -374,6 +424,14 @@ export default function WorkPanel() {
           </button>
         </div>
       </div>
+
+      {viewer && activeRepo && (
+        <FileViewer
+          repo={activeRepo}
+          filePath={viewer}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </section>
   );
 }

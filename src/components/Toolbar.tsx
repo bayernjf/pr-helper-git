@@ -7,10 +7,12 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
+import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
 import {
   IconDownload,
   IconGear,
+  IconServer,
   IconStash,
   IconUpload,
 } from './icons';
@@ -28,16 +30,20 @@ export default function Toolbar() {
   } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRemotes, setShowRemotes] = useState(false);
 
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
     const openAdd = () => setShowAdd(true);
     const openSettings = () => setShowSettings(true);
+    const openRemotes = () => setShowRemotes(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
+    window.addEventListener('git2:remotes', openRemotes);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
+      window.removeEventListener('git2:remotes', openRemotes);
     };
   }, []);
 
@@ -140,6 +146,15 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Manage remotes"
+        disabled={!activeRepo}
+        onClick={() => setShowRemotes(true)}
+      >
+        <IconServer />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="GitHub settings"
         onClick={() => setShowSettings(true)}
       >
@@ -148,6 +163,7 @@ export default function Toolbar() {
 
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
     </header>
   );
 }

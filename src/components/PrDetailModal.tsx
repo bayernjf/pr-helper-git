@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { githubProxy, markReadyForReview, mergePull } from '../api';
 import { useApp } from '../app-state';
-import { formatFullDate, shortHash } from '../lib/format';
+import { formatFullDate, formatRelative, shortHash } from '../lib/format';
 import type { CheckRun, PullRequest } from '../types';
 import {
   IconCheck,
@@ -29,6 +29,13 @@ interface Reviewer {
   login: string;
   avatar_url: string;
 }
+interface PrComment {
+  id: number;
+  user: { login: string; avatar_url: string };
+  body: string;
+  created_at: string;
+  author_association: string;
+}
 
 const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
   merge: { name: 'Merge commit', desc: 'Preserve all commits and add a merge commit' },
@@ -52,6 +59,9 @@ export default function PrDetailModal({
   const [prFiles, setPrFiles] = useState<PrFile[]>([]);
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
   const [reviewerInput, setReviewerInput] = useState('');
+  const [comments, setComments] = useState<PrComment[]>([]);
+  const [commentBody, setCommentBody] = useState('');
+  const [posting, setPosting] = useState(false);
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [working, setWorking] = useState(false);
 
@@ -64,13 +74,15 @@ export default function PrDetailModal({
       githubProxy<PrCommit[]>(pat, `${base}/pulls/${pr.number}/commits`),
       githubProxy<PrFile[]>(pat, `${base}/pulls/${pr.number}/files`),
       githubProxy<{ users: Reviewer[] }>(pat, `${base}/pulls/${pr.number}/requested-reviewers`),
+      githubProxy<PrComment[]>(pat, `${base}/issues/${pr.number}/comments`),
     ])
-      .then(([c, cm, fl, rv]) => {
+      .then(([c, cm, fl, rv, co]) => {
         if (cancelled) return;
         setChecks(c.data?.check_runs || []);
         setPrCommits(cm.data || []);
         setPrFiles(fl.data || []);
         setReviewers(rv.data?.users || []);
+        setComments(co.data || []);
       })
       .catch(() => {
         if (!cancelled) toast('Failed to load PR details', 'error');
@@ -131,6 +143,27 @@ export default function PrDetailModal({
       toast('Reviewer requested', 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    }
+  }
+
+  async function postComment() {
+    const body = commentBody.trim();
+    if (!body) return;
+    setPosting(true);
+    try {
+      const res = await githubProxy<PrComment>(
+        pat,
+        `${base}/issues/${pr.number}/comments`,
+        'POST',
+        { body },
+      );
+      setComments((prev) => [...prev, res.data]);
+      setCommentBody('');
+      toast('Comment added', 'success');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setPosting(false);
     }
   }
 
@@ -264,6 +297,56 @@ export default function PrDetailModal({
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="detail-section">
+            <span className="detail-label">Comments ({comments.length})</span>
+            {comments.length === 0 ? (
+              <div className="detail-value muted">No comments yet.</div>
+            ) : (
+              <div className="comment-list">
+                {comments.map((c) => (
+                  <div key={c.id} className="comment-item">
+                    {c.user.avatar_url
+                      ? <img className="comment-avatar" src={c.user.avatar_url} alt="" width={24} height={24} />
+                      : <span className="detail-avatar">{c.user.login.slice(0, 1).toUpperCase()}</span>}
+                    <div className="comment-body">
+                      <div className="comment-head">
+                        <span className="comment-user">{c.user.login}</span>
+                        <span className="detail-value muted">{formatRelative(c.created_at)}</span>
+                      </div>
+                      <div className="comment-text">{c.body}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="comment-compose">
+              <textarea
+                value={commentBody}
+                placeholder="Write a comment…"
+                rows={2}
+                aria-label="Comment body"
+                onChange={(e) => setCommentBody(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    postComment();
+                  }
+                }}
+              />
+              <div className="comment-compose-side">
+                <span className="hint">Cmd/Ctrl+Enter to post</span>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={posting || !commentBody.trim()}
+                  onClick={postComment}
+                >
+                  {posting ? 'Posting…' : 'Comment'}
+                </button>
+              </div>
+            </div>
           </div>
 
           {pr.state === 'open' && (

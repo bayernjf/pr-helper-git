@@ -122,3 +122,12 @@ export const IconRevert = (p: SVGProps<SVGSVGElement>) => (
 export const IconCommand = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3Z" /></Svg>
 );
+export const IconEye = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></Svg>
+);
+export const IconBroom = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="m14 4 6 6" /><path d="M10.5 7.5 16.5 13.5" /><path d="M8 10 14 16l-3 3H4v-7Z" /><path d="M4 22h16" /></Svg>
+);
+export const IconServer = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><rect x="2" y="3" width="20" height="6" rx="2" /><rect x="2" y="15" width="20" height="6" rx="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></Svg>
+);
