@@ -9,11 +9,17 @@ GitHub by the application setup.
 
 ### Git client (GitKraken-like core)
 
-- Register and switch between local repositories; the list is persisted under
+- Register and switch between local repositories, or add a new one through a
+  three-mode dialog: open an existing folder, clone a remote over a network
+  transport, or initialise a brand-new repository. The list is persisted under
   `~/.pr-helper-git2`.
 - Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
   curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
   branches and tags.
+- Filter the graph by message, author or hash with a live result count, and
+  load history in pages beyond the first 200 commits (up to 1,000).
+- Reset the current branch to any commit with soft, mixed or hard semantics
+  (hard reset requires an explicit confirmation).
 - Ref sidebar with collapsible local branches, remote branches, tags and stash
   groups; a right-click context menu exposes the full action set.
 - Checkout branches/tags, create branches (with a start point), rename and
@@ -29,12 +35,18 @@ GitHub by the application setup.
   (upstream tracking supported), and stash create/apply/pop/drop.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
+- Keyboard shortcuts (Cmd/Ctrl+1 and +2 switch views, Cmd/Ctrl+Shift+F focuses
+  the filter, `r` refreshes, Cmd/Ctrl+Enter commits), a draggable work-panel
+  height, and responsive breakpoints for narrow windows.
+- A React error boundary prevents a white screen if a component throws, and
+  loading indicators cover the first load and every repository switch.
 
 ### Pull requests (pr-helper-like core)
 
 - Three-column board: open, merged and closed, with a per-user review-state
   badge (approved, changes requested, comment only, none).
-- Per-PR mergeability and check-run summaries.
+- Pull-request cards render their GitHub labels using each label's own color,
+  alongside per-PR mergeability and check-run summaries.
 - Create a pull request from any local branch, optionally as a draft, with a
   prefilled commit summary.
 - Convert a draft to ready for review, inspect commits, files and check runs,

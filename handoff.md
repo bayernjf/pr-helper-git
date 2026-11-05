@@ -8,9 +8,12 @@ repository is never pushed.
 
 - GitKraken-like: repo registry, commit graph, refs (branches/tags/stash),
   stage/unstage, commit, amend, checkout, branch create/rename/delete, merge,
-  fetch/pull/push, tag create/delete (lightweight + annotated), remote branch
+  reset (soft/mixed/hard), fetch/pull/push, clone and init (three-mode add
+  dialog), tag create/delete (lightweight + annotated), remote branch
   push/delete, stash, unified + split diff viewer, folder-tree working panel,
-  right-click context menu, SSE live refresh.
+  commit graph search, paginated history (load more), right-click context
+  menu, keyboard shortcuts, resizable work panel, responsive layout,
+  error boundary, loading states, SSE live refresh.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   merge PR (merge/squash/rebase), close/reopen. PAT is stored only in the
@@ -36,6 +39,11 @@ repository is never pushed.
 - [x] Client: GraphQL draft-ready and merge endpoints
 - [x] Test repository created, pushed, E2E verified and registered
 - [x] Unit tests, build verification, README, atomic commits
+- [x] Robustness: error boundary and loading states
+- [x] Server: clone, init and reset routes with input validation
+- [x] Client: three-mode Open/Clone/Init add dialog
+- [x] Client: commit graph search, load more and reset menu
+- [x] UX: shortcuts, resizable work panel, PR labels, responsive layout
 
 ## Delivery notes
 
@@ -43,8 +51,15 @@ repository is never pushed.
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
   English commits authored by the configured user, with no co-author trailers.
-- 34 Vitest tests pass (graph layout, formatting, security, git parsers, file
-  tree, diff lines, review summaries); `tsc --noEmit` and `vite build` are green.
+- 38 Vitest tests pass (graph layout, formatting, security, git parsers, file
+  tree, diff lines, review summaries, clone/folder validation); `tsc --noEmit`
+  and `vite build` are green.
+- Second iteration E2E in the browser: error boundary panel, loading bar,
+  init and clone (auto-registered), soft/hard reset semantics, search filter
+  with result count, load-more paging (200 → 213, matching `git log --all`),
+  view-switch and search shortcuts, Cmd+Enter commit, panel drag resize and
+  minimum clamp. All destructive checks were reset back to the baseline
+  afterwards.
 - E2E was run against a real private repository through the browser: graph
   forks/merge nodes, SSE auto refresh, stage/commit/push, draft creation,
   in-app ready conversion and all three merge methods.
