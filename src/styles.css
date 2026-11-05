@@ -1771,3 +1771,77 @@ pre.diff {
   cursor: pointer;
 }
 .ws-toggle.active { color: var(--accent); border-color: var(--accent); }
+
+.diff-controls { gap: 8px; align-items: center; }
+.context-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.context-picker select {
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated, var(--panel));
+  color: var(--text);
+  font-size: 11.5px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.context-picker select:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- Merge strategy modal ---------- */
+.merge-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.merge-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.merge-option:hover { border-color: var(--faint); }
+.merge-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.merge-option input[type='radio'] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.merge-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.merge-option-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.merge-option-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* ---------- Generic checkbox row ---------- */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.checkbox-row input { accent-color: var(--accent); cursor: pointer; }
