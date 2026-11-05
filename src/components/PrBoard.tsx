@@ -43,6 +43,26 @@ function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
       <div className="pr-meta">
         <span className="pr-refs">{pr.head.ref} → {pr.base.ref}</span>
       </div>
+      {pr.labels.length > 0 && (
+        <div className="pr-label-row">
+          {pr.labels.map((label) => {
+            const hex = (label.color || '6a6a78').replace('#', '');
+            return (
+              <span
+                key={label.name}
+                className="pr-label"
+                style={{
+                  color: `#${hex}`,
+                  background: `#${hex}22`,
+                  borderColor: `#${hex}55`,
+                }}
+              >
+                {label.name}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="pr-meta" style={{ marginTop: 8, gap: 6 }}>
         {pr.state === 'open' && <MergePill pr={pr} />}
         <ReviewPill state={pr.reviewState} />
