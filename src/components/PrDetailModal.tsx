@@ -25,6 +25,10 @@ interface PrFile {
   additions: number;
   deletions: number;
 }
+interface Reviewer {
+  login: string;
+  avatar_url: string;
+}
 
 const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
   merge: { name: 'Merge commit', desc: 'Preserve all commits and add a merge commit' },
@@ -46,6 +50,8 @@ export default function PrDetailModal({
   const [checks, setChecks] = useState<CheckRun[]>([]);
   const [prCommits, setPrCommits] = useState<PrCommit[]>([]);
   const [prFiles, setPrFiles] = useState<PrFile[]>([]);
+  const [reviewers, setReviewers] = useState<Reviewer[]>([]);
+  const [reviewerInput, setReviewerInput] = useState('');
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [working, setWorking] = useState(false);
 
@@ -57,12 +63,14 @@ export default function PrDetailModal({
       githubProxy<{ check_runs: CheckRun[] }>(pat, `${base}/commits/${pr.head.sha}/check-runs`),
       githubProxy<PrCommit[]>(pat, `${base}/pulls/${pr.number}/commits`),
       githubProxy<PrFile[]>(pat, `${base}/pulls/${pr.number}/files`),
+      githubProxy<{ users: Reviewer[] }>(pat, `${base}/pulls/${pr.number}/requested-reviewers`),
     ])
-      .then(([c, cm, fl]) => {
+      .then(([c, cm, fl, rv]) => {
         if (cancelled) return;
         setChecks(c.data?.check_runs || []);
         setPrCommits(cm.data || []);
         setPrFiles(fl.data || []);
+        setReviewers(rv.data?.users || []);
       })
       .catch(() => {
         if (!cancelled) toast('Failed to load PR details', 'error');
@@ -98,6 +106,31 @@ export default function PrDetailModal({
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
       setWorking(false);
+    }
+  }
+
+  async function addReviewer() {
+    const username = reviewerInput.trim().replace(/^@/, '');
+    if (!username || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(username)) {
+      toast('Enter a valid GitHub username', 'error');
+      return;
+    }
+    if (reviewers.some((r) => r.login.toLowerCase() === username.toLowerCase())) {
+      setReviewerInput('');
+      return;
+    }
+    try {
+      await githubProxy(
+        pat,
+        `${base}/pulls/${pr.number}/requested-reviewers`,
+        'POST',
+        { reviewers: [username] },
+      );
+      setReviewers((prev) => [...prev, { login: username, avatar_url: '' }]);
+      setReviewerInput('');
+      toast('Reviewer requested', 'success');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     }
   }
 
@@ -174,6 +207,41 @@ export default function PrDetailModal({
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="detail-section">
+            <span className="detail-label">Reviewers ({reviewers.length})</span>
+            {reviewers.length === 0 ? (
+              <div className="detail-value muted">No reviewers requested yet.</div>
+            ) : (
+              <div className="reviewer-list">
+                {reviewers.map((r) => (
+                  <span key={r.login} className="reviewer-chip">
+                    {r.avatar_url
+                      ? <img src={r.avatar_url} alt="" width={18} height={18} />
+                      : <span className="reviewer-avatar">{r.login.slice(0, 1).toUpperCase()}</span>}
+                    {r.login}
+                  </span>
+                ))}
+              </div>
+            )}
+            {pr.state === 'open' && (
+              <div className="reviewer-add">
+                <input
+                  value={reviewerInput}
+                  placeholder="GitHub username…"
+                  aria-label="GitHub username"
+                  onChange={(e) => setReviewerInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addReviewer();
+                    }
+                  }}
+                />
+                <button type="button" className="btn" onClick={addReviewer}>Request</button>
+              </div>
+            )}
           </div>
 
           <div className="detail-section">
