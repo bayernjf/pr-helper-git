@@ -192,6 +192,35 @@ export const getStashShow = (repo: string, index: number) =>
     `/api/stash-show?repo=${encodeURIComponent(repo)}&index=${index}`,
   );
 
+export interface ReflogEntry {
+  hash: string;
+  ref: string;
+  index: number;
+  action: string;
+  description: string;
+}
+
+export const getReflog = (repo: string) =>
+  request<{ entries: ReflogEntry[] }>(
+    `/api/reflog?repo=${encodeURIComponent(repo)}`,
+  );
+
+export interface TagDetail {
+  object: string;
+  type: string;
+  tag: string;
+  tagger: string;
+  taggerEmail: string;
+  time: number;
+  subject: string;
+  body: string;
+}
+
+export const getTagShow = (repo: string, tag: string) =>
+  request<{ tag: TagDetail }>(
+    `/api/tag-show?repo=${encodeURIComponent(repo)}&tag=${encodeURIComponent(tag)}`,
+  );
+
 // ---------- git writes ----------
 
 export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage') =>
@@ -216,15 +245,15 @@ export const deleteBranch = (repo: string, name: string, force = false) =>
 
 export const mergeRef = (repo: string, ref: string) => post('/api/merge', { repo, ref });
 
-export const fetchRepo = (repo: string) => post('/api/fetch', { repo });
+export const fetchRepo = (repo: string, prune = false) => post('/api/fetch', { repo, prune });
 
 export const pullRepo = (repo: string) => post('/api/pull', { repo });
 
 export const pushRepo = (repo: string, setUpstream = false) =>
   post('/api/push', { repo, setUpstream });
 
-export const stashCreate = (repo: string, message?: string) =>
-  post('/api/stash/create', { repo, message });
+export const stashCreate = (repo: string, message?: string, includeUntracked = false) =>
+  post('/api/stash/create', { repo, message, includeUntracked });
 
 export const stashApply = (repo: string, index: number, drop: boolean) =>
   post('/api/stash/apply', { repo, index, drop });
@@ -271,6 +300,9 @@ export const addRemote = (repo: string, name: string, url: string) =>
 
 export const removeRemote = (repo: string, name: string) =>
   post('/api/remote/remove', { repo, name });
+
+export const setRemoteUrl = (repo: string, name: string, url: string, push = false) =>
+  post('/api/remote/set-url', { repo, name, url, push });
 
 // ---------- GitHub proxy ----------
 
