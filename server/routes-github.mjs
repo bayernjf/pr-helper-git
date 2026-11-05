@@ -2,7 +2,7 @@
 // is never persisted, and only an allowlist of repo/pull-request endpoints
 // can be reached.
 import { git } from './git.mjs';
-import { appendAudit } from './store.mjs';
+import { appendAudit, listRepos } from './store.mjs';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_TIMEOUT_MS = 20_000;
@@ -11,7 +11,7 @@ const SEG = '[\\w.-]+';
 const ALLOWLIST = [
   {
     method: 'GET',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls(/\\d+(/(commits|files|requested-reviewers))?)?$`),
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls(/\\d+(/(commits|files|requested-reviewers|reviews))?)?$`),
   },
   {
     method: 'GET',
@@ -27,6 +27,32 @@ const ALLOWLIST = [
 
 const ok = (json, status = 200) => ({ status, json });
 const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
+
+// Minimal GitHub GraphQL caller used for the draft -> ready conversion, which
+// the REST endpoint silently ignores.
+async function githubGraphql(pat, query, variables) {
+  const response = await fetch(`${GITHUB_API}/graphql`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      'content-type': 'application/json',
+      'user-agent': 'pr-helper-git2',
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  const payload = await response.json();
+  if (payload.errors) {
+    const error = new Error(payload.errors.map((e) => e.message).join('; '));
+    error.status = response.status;
+    throw error;
+  }
+  if (!response.ok) {
+    const error = new Error(`GraphQL request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return payload.data;
+}
 
 function isAllowed(method, path) {
   if (typeof path !== 'string' || !path.startsWith('/') || path.includes('..')) return false;
@@ -56,12 +82,111 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
     }
   }
 
+  if (pathname === '/api/ready-for-review' && method === 'POST') {
+    const pat = String(headers['x-github-pat'] || '').trim();
+    if (!pat) return fail(401, 'missing GitHub token');
+    const number = Number(body.number);
+    const repoPath = typeof body.repo === 'string' ? body.repo : '';
+    if (!Number.isInteger(number) || number < 1) return fail(400, 'invalid pull request number');
+    const registered = await listRepos();
+    if (!registered.includes(repoPath)) return fail(403, 'unknown or unregistered repo');
+    try {
+      const originUrl = (await git(['remote', 'get-url', 'origin'], repoPath)).trim();
+      const remoteInfo = parseRemoteUrl(originUrl);
+      if (!remoteInfo?.isGithub) return fail(400, 'origin remote is not hosted on GitHub');
+      const lookup = `query($owner:String!, $name:String!, $number:Int!) {
+        repository(owner:$owner, name:$name) {
+          pullRequest(number:$number) { id isDraft }
+        }
+      }`;
+      const lookupData = await githubGraphql(
+        pat,
+        lookup,
+        { owner: remoteInfo.owner, name: remoteInfo.repo, number },
+      );
+      const pull = lookupData.repository?.pullRequest;
+      if (!pull) return fail(404, 'pull request not found');
+      if (!pull.isDraft) {
+        return ok({ ready: true, changed: false });
+      }
+      const convert = `mutation($id:ID!) {
+        markPullRequestReadyForReview(input:{ pullRequestId:$id }) {
+          pullRequest { isDraft }
+        }
+      }`;
+      const convertData = await githubGraphql(pat, convert, { id: pull.id });
+      await appendAudit({ ok: true, action: 'ready-for-review', repo: repoPath, number });
+      return ok({
+        ready: true,
+        changed: true,
+        isDraft: convertData.markPullRequestReadyForReview.pullRequest.isDraft,
+      });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'ready-for-review', repo: repoPath, number });
+      return fail(err.status || 502, 'ready-for-review failed', err.message);
+    }
+  }
+
+  if (pathname === '/api/merge-pull' && method === 'POST') {
+    const pat = String(headers['x-github-pat'] || '').trim();
+    if (!pat) return fail(401, 'missing GitHub token');
+    const number = Number(body.number);
+    const mergeMethodInput = String(body.mergeMethod || 'squash').toLowerCase();
+    const repoPath = typeof body.repo === 'string' ? body.repo : '';
+    if (!Number.isInteger(number) || number < 1) return fail(400, 'invalid pull request number');
+    if (!['merge', 'squash', 'rebase'].includes(mergeMethodInput)) {
+      return fail(400, 'invalid merge method');
+    }
+    const registered = await listRepos();
+    if (!registered.includes(repoPath)) return fail(403, 'unknown or unregistered repo');
+    try {
+      const originUrl = (await git(['remote', 'get-url', 'origin'], repoPath)).trim();
+      const remoteInfo = parseRemoteUrl(originUrl);
+      if (!remoteInfo?.isGithub) return fail(400, 'origin remote is not hosted on GitHub');
+      const lookup = `query($owner:String!, $name:String!, $number:Int!) {
+        repository(owner:$owner, name:$name) {
+          pullRequest(number:$number) { id state merged }
+        }
+      }`;
+      const lookupData = await githubGraphql(
+        pat,
+        lookup,
+        { owner: remoteInfo.owner, name: remoteInfo.repo, number },
+      );
+      const pull = lookupData.repository?.pullRequest;
+      if (!pull) return fail(404, 'pull request not found');
+      if (pull.state !== 'OPEN') {
+        return ok({ merged: pull.merged, changed: false, state: pull.state });
+      }
+      const merge = `mutation($id:ID!, $method:PullRequestMergeMethod!) {
+        mergePullRequest(input:{ pullRequestId:$id, mergeMethod:$method }) {
+          pullRequest { merged state }
+        }
+      }`;
+      const mergeData = await githubGraphql(
+        pat,
+        merge,
+        { id: pull.id, method: mergeMethodInput.toUpperCase() },
+      );
+      const result = mergeData.mergePullRequest.pullRequest;
+      await appendAudit({ ok: true, action: 'merge-pull', repo: repoPath, number, mergeMethod: mergeMethodInput });
+      return ok({ merged: result.merged, changed: true, state: result.state });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'merge-pull', repo: repoPath, number });
+      return fail(err.status || 502, 'merge failed', err.message);
+    }
+  }
+
   if (pathname !== '/api/github' || method !== 'POST') return null;
 
   const pat = String(headers['x-github-pat'] || '').trim();
   if (!pat) return fail(401, 'missing GitHub token');
   const ghMethod = typeof body.method === 'string' ? body.method.toUpperCase() : 'GET';
-  const ghPath = typeof body.path === 'string' ? body.path.trim() : '';
+  const rawPath = typeof body.path === 'string' ? body.path.trim() : '';
+  // Split the query string so the allowlist matches the path component only.
+  const queryIndex = rawPath.indexOf('?');
+  const ghPath = queryIndex === -1 ? rawPath : rawPath.slice(0, queryIndex);
+  const ghQuery = queryIndex === -1 ? '' : rawPath.slice(queryIndex);
   if (!['GET', 'POST', 'PATCH', 'PUT'].includes(ghMethod)) {
     return fail(400, 'method not allowed');
   }
@@ -71,7 +196,7 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
   const timer = setTimeout(() => controller.abort(), GITHUB_TIMEOUT_MS);
   let upstream;
   try {
-    upstream = await fetch(`${GITHUB_API}${ghPath}`, {
+    upstream = await fetch(`${GITHUB_API}${ghPath}${ghQuery}`, {
       method: ghMethod,
       headers: {
         Accept: 'application/vnd.github+json',
