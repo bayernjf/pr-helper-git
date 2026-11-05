@@ -21,6 +21,8 @@ import { useToast, type ToastKind } from './components/ui';
 type View = 'git' | 'pr';
 const ACTIVE_KEY = 'git2-active-repo';
 const PAT_KEY = 'git2-pat';
+export const LOG_PAGE_SIZE = 200;
+export const LOG_MAX = 1000;
 
 interface AppData {
   repos: RepoBrief[];
@@ -35,6 +37,8 @@ interface AppData {
   view: View;
   pat: string;
   busy: boolean;
+  repoLoading: boolean;
+  logLimit: number;
   toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
   selectRepo: (path: string) => void;
@@ -42,6 +46,7 @@ interface AppData {
   setView: (view: View) => void;
   refreshRepos: () => Promise<RepoBrief[]>;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
   runAction: <T>(action: Promise<T>, successMessage?: string) => Promise<T | null>;
 }
 
@@ -59,6 +64,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<View>('git');
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
   const [busy, setBusy] = useState(false);
+  const [repoLoading, setRepoLoading] = useState(false);
+  const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
 
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
@@ -71,10 +78,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return list;
   }, []);
 
-  const loadRepoData = useCallback(async (repoPath: string) => {
+  const loadRepoData = useCallback(async (repoPath: string, limit: number = LOG_PAGE_SIZE) => {
     const [statusRes, logRes, refsRes, remoteRes] = await Promise.all([
       getStatus(repoPath),
-      getLog(repoPath),
+      getLog(repoPath, limit),
       getRefs(repoPath),
       getRemote(repoPath),
     ]);
@@ -88,9 +95,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setActiveRepo(repoPath);
     localStorage.setItem(ACTIVE_KEY, repoPath);
     setSelectedHash(null);
-    loadRepoData(repoPath).catch((err) => {
-      toastApi.error(err.message || 'failed to load repository');
-    });
+    setLogLimit(LOG_PAGE_SIZE);
+    setRepoLoading(true);
+    loadRepoData(repoPath, LOG_PAGE_SIZE)
+      .catch((err) => {
+        toastApi.error(err.message || 'failed to load repository');
+      })
+      .finally(() => setRepoLoading(false));
   }, [loadRepoData, toastApi]);
 
   const refresh = useCallback(async () => {
@@ -100,9 +111,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setActiveRepo(null);
         return;
       }
-      await loadRepoData(activeRepo);
+      await loadRepoData(activeRepo, logLimit);
     }
-  }, [activeRepo, loadRepoData, refreshRepos]);
+  }, [activeRepo, loadRepoData, logLimit, refreshRepos]);
+
+  // Grow the loaded history window one page at a time up to LOG_MAX.
+  const loadMore = useCallback(async () => {
+    if (!activeRepo) return;
+    const nextLimit = Math.min(logLimit + LOG_PAGE_SIZE, LOG_MAX);
+    if (nextLimit === logLimit) return;
+    setRepoLoading(true);
+    try {
+      await loadRepoData(activeRepo, nextLimit);
+      setLogLimit(nextLimit);
+    } catch (err) {
+      toastApi.error((err as any)?.message || 'failed to load more history');
+    } finally {
+      setRepoLoading(false);
+    }
+  }, [activeRepo, logLimit, loadRepoData, toastApi]);
 
   // Initial load: restore the last active repo when still registered.
   useEffect(() => {
@@ -122,14 +149,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data);
         const repoPath = activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
-          loadRepoData(repoPath).catch(() => {});
+          loadRepoData(repoPath, logLimit).catch(() => {});
         }
       } catch {
         /* ignore malformed frames */
       }
     });
     return () => source.close();
-  }, [activeRepo, loadRepoData]);
+  }, [activeRepo, loadRepoData, logLimit]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
@@ -168,6 +195,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       view,
       pat,
       busy,
+      repoLoading,
+      logLimit,
       toast,
       setPat,
       selectRepo,
@@ -175,11 +204,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setView,
       refreshRepos,
       refresh,
+      loadMore,
       runAction,
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, toast, setPat, selectRepo, refreshRepos, refresh, runAction,
+    pat, busy, repoLoading, logLimit, toast, setPat, selectRepo, refreshRepos,
+    refresh, loadMore, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

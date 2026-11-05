@@ -58,6 +58,19 @@ export const addRepo = (repo: string) =>
 export const removeRepo = (repo: string) =>
   post('/api/repos/remove', { repo }) as Promise<{ repos: string[] }>;
 
+export const cloneRepo = (url: string, parentDir: string, name: string) =>
+  post('/api/repos/clone', { url, parentDir, name }) as Promise<{ repos: string[]; path: string }>;
+
+export const initRepo = (targetPath: string) =>
+  post('/api/repos/init', { path: targetPath }) as Promise<{ repos: string[]; path: string }>;
+
+export const resetCommit = (
+  repo: string,
+  sha: string,
+  mode: 'soft' | 'mixed' | 'hard',
+  confirm = false,
+) => post('/api/reset', { repo, sha, mode, confirm }) as Promise<{ ok: boolean; mode: string }>;
+
 // ---------- git reads ----------
 
 export const getStatus = (repo: string) =>

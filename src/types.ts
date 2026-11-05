@@ -86,7 +86,7 @@ export interface PullRequest {
   updated_at: string;
   mergeable: boolean | null;
   mergeable_state: string;
-  labels: Array<{ name: string }>;
+  labels: Array<{ name: string; color?: string }>;
   reviewState: ReviewState;
 }
 
