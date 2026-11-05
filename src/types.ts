@@ -47,6 +47,8 @@ export interface Ref {
   name: string;
   shortName: string;
   upstream: string | null;
+  ahead: number;
+  behind: number;
 }
 
 export interface DiffResult {

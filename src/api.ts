@@ -182,6 +182,16 @@ export const getBlame = (repo: string, file: string, ref?: string) =>
       + (ref ? `&ref=${encodeURIComponent(ref)}` : ''),
   );
 
+export const getFileHistory = (repo: string, file: string) =>
+  request<{ path: string; commits: Commit[] }>(
+    `/api/file-history?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`,
+  );
+
+export const getStashShow = (repo: string, index: number) =>
+  request<{ index: number; diff: string }>(
+    `/api/stash-show?repo=${encodeURIComponent(repo)}&index=${index}`,
+  );
+
 // ---------- git writes ----------
 
 export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage') =>
