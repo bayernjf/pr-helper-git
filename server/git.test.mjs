@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLog, parsePorcelainV2, parseRefs } from './git.mjs';
+import { parseBlame, parseLog, parsePorcelainV2, parseRefs } from './git.mjs';
 
 describe('parsePorcelainV2', () => {
   it('parses branch, upstream and ahead/behind', () => {
@@ -45,5 +45,68 @@ describe('parseLog', () => {
 
   it('returns an empty list for blank input', () => {
     expect(parseLog('')).toEqual([]);
+  });
+});
+
+describe('parseBlame', () => {
+  const A = 'aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111';
+  const B = 'bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222';
+
+  it('parses one record per final line and reuses repeated commit metadata', () => {
+    const out = [
+      `${A} 1 1 1`,
+      'author Alice',
+      'author-mail <alice@example.com>',
+      'author-time 1700000000',
+      'author-tz +0800',
+      'committer Alice',
+      'committer-mail <alice@example.com>',
+      'committer-time 1700000000',
+      'committer-tz +0800',
+      'summary first commit',
+      'filename src/app.ts',
+      '\tline one',
+      `${B} 2 2 1`,
+      'author Bob',
+      'author-mail <bob@example.com>',
+      'author-time 1700000500',
+      'author-tz +0800',
+      'committer Bob',
+      'committer-mail <bob@example.com>',
+      'committer-time 1700000500',
+      'committer-tz +0800',
+      'summary second commit',
+      'filename src/app.ts',
+      '\tline two',
+      `${B} 3 3`,
+      '\tline three',
+    ].join('\n');
+
+    const lines = parseBlame(out);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatchObject({
+      line: 1,
+      sha: A,
+      author: 'Alice',
+      email: 'alice@example.com',
+      time: 1700000000,
+      summary: 'first commit',
+      text: 'line one',
+    });
+    expect(lines[1].author).toBe('Bob');
+    expect(lines[1].email).toBe('bob@example.com');
+    expect(lines[1].text).toBe('line two');
+    // A later block for the same commit carries no metadata but still resolves it.
+    expect(lines[2]).toMatchObject({
+      line: 3,
+      sha: B,
+      author: 'Bob',
+      summary: 'second commit',
+      text: 'line three',
+    });
+  });
+
+  it('returns an empty list for blank input', () => {
+    expect(parseBlame('')).toEqual([]);
   });
 });

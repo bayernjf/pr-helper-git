@@ -4,6 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {
   git,
+  parseBlame,
   parseLog,
   parsePorcelainV2,
   parseRefs,
@@ -27,6 +28,17 @@ import { ensureWatching, stopWatching } from './watcher.mjs';
 const DIFF_LINE_LIMIT = 2000;
 const LOG_LIMIT_DEFAULT = 200;
 const LOG_LIMIT_MAX = 1000;
+const FILE_MAX_BYTES = 1_000_000;
+
+// Accept a commit SHA or an ordinary ref/branch/tag name (option-like and
+// traversal values are rejected). Used to read a blob at a specific ref.
+function validateRefSpec(raw) {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (!v || v.startsWith('-') || v.includes('..') || v.includes('\0')) return null;
+  if (/^[0-9a-f]{7,40}$/.test(v)) return v;
+  return validateRefName(v) ? v : null;
+}
 
 const ok = (json) => ({ status: 200, json });
 const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
@@ -272,6 +284,66 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ masked: false, path: rel, diff, truncated });
     } catch (err) {
       return gitFail(err, 'git diff failed');
+    }
+  }
+
+  if (pathname === '/api/file' && method === 'GET') {
+    const rel = normalizeRepoPath(query.get('file'));
+    if (!rel) return fail(400, 'invalid file path');
+    if (isSensitivePath(rel)) {
+      return ok({ masked: true, path: rel, binary: false, content: '', truncated: false, ref: null });
+    }
+    const refRaw = query.get('ref');
+    const ref = refRaw ? validateRefSpec(refRaw) : null;
+    if (refRaw && !ref) return fail(400, 'invalid ref');
+    let content = '';
+    let truncated = false;
+    try {
+      if (ref) {
+        content = await git(['show', `${ref}:${rel}`], repo);
+      } else {
+        const resolved = await resolveInside(repo, rel);
+        if (!resolved) return fail(403, 'path escapes repo root');
+        const stat = await fsp.stat(resolved);
+        if (!stat.isFile()) return fail(400, 'not a file');
+        if (stat.size > FILE_MAX_BYTES) truncated = true;
+        content = await fsp.readFile(resolved, 'utf8');
+      }
+    } catch (err) {
+      return gitFail(err, ref ? 'git show failed' : 'file read failed');
+    }
+    if (content.length > FILE_MAX_BYTES) {
+      content = content.slice(0, FILE_MAX_BYTES);
+      truncated = true;
+    }
+    const binary = content.includes('\0');
+    return ok({
+      masked: false,
+      path: rel,
+      binary,
+      content: binary ? '' : content,
+      truncated,
+      ref,
+    });
+  }
+
+  if (pathname === '/api/blame' && method === 'GET') {
+    const rel = normalizeRepoPath(query.get('file'));
+    if (!rel) return fail(400, 'invalid file path');
+    if (isSensitivePath(rel)) {
+      return ok({ masked: true, path: rel, lines: [] });
+    }
+    const refRaw = query.get('ref');
+    const ref = refRaw ? validateRefSpec(refRaw) : null;
+    if (refRaw && !ref) return fail(400, 'invalid ref');
+    const args = ['blame', '--porcelain'];
+    if (ref) args.push(ref);
+    args.push('--', rel);
+    try {
+      const lines = parseBlame(await git(args, repo));
+      return ok({ masked: false, path: rel, lines });
+    } catch (err) {
+      return gitFail(err, 'git blame failed');
     }
   }
 

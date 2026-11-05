@@ -109,3 +109,47 @@ export function parseRefs(output) {
   }
   return refs;
 }
+
+// Parse `git blame --porcelain <file>`. A commit's metadata is only printed
+// once; later blocks for the same commit repeat just the header and the
+// source line. Returns one record per final line of the file.
+export function parseBlame(output) {
+  const commits = new Map();
+  const result = [];
+  let current = null;
+  let currentSha = null;
+
+  for (const line of output.split('\n')) {
+    // The header may carry a fourth field (number of groups) on boundary commits.
+    const header = line.match(/^([0-9a-f]{40}) (\d+) (\d+)(?: \d+)?$/);
+    if (header) {
+      currentSha = header[1];
+      if (!commits.has(currentSha)) commits.set(currentSha, {});
+      current = { sha: currentSha, finalLine: Number(header[3]) };
+      continue;
+    }
+    if (!current) continue;
+    const info = commits.get(currentSha);
+    if (line.startsWith('author-mail ')) {
+      info.email = line.slice(12).replace(/[<>]/g, '');
+    } else if (line.startsWith('author-time ')) {
+      info.time = Number(line.slice(12));
+    } else if (line.startsWith('summary ')) {
+      info.summary = line.slice(8);
+    } else if (line.startsWith('author ')) {
+      info.author = line.slice(7);
+    } else if (line.startsWith('\t')) {
+      result.push({
+        line: current.finalLine,
+        sha: current.sha,
+        author: info.author || '',
+        email: info.email || '',
+        time: info.time || 0,
+        summary: info.summary || '',
+        text: line.slice(1),
+      });
+      current = null;
+    }
+  }
+  return result;
+}
