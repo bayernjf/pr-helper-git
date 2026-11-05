@@ -234,6 +234,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     const scope = String(query.get('scope') || 'all').toLowerCase() === 'current'
       ? 'current'
       : 'all';
+    // Optional pathspec: restrict history to commits touching a file/dir.
+    const pathFilter = query.get('path') ? normalizeRepoPath(query.get('path')) : null;
+    if (query.get('path') && !pathFilter) return fail(400, 'invalid path filter');
     try {
       const raw = await git(
         [
@@ -242,10 +245,11 @@ export async function handleGitRoute({ method, pathname, query, body }) {
           '--date-order',
           `--max-count=${limit}`,
           '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e',
+          ...(pathFilter ? ['--', pathFilter] : []),
         ],
         repo,
       );
-      return ok({ commits: parseLog(raw), scope });
+      return ok({ commits: parseLog(raw), scope, path: pathFilter });
     } catch (err) {
       return gitFail(err, 'git log failed');
     }
@@ -574,6 +578,35 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       });
     } catch (err) {
       return gitFail(err, 'compare failed');
+    }
+  }
+
+  if (pathname === '/api/grep' && method === 'GET') {
+    const pattern = typeof query.get('pattern') === 'string' ? query.get('pattern') : '';
+    if (!pattern) return fail(400, 'missing search pattern');
+    if (pattern.includes('\0')) return fail(400, 'invalid pattern');
+    const grepPath = query.get('path') ? normalizeRepoPath(query.get('path')) : null;
+    if (query.get('path') && !grepPath) return fail(400, 'invalid search path');
+    try {
+      // -I skips binary files, -n prints line numbers, --untracked also
+      // searches files not yet added so the result matches the working tree.
+      const argv = ['grep', '-I', '-n', '--untracked', pattern];
+      if (grepPath) argv.push('--', grepPath);
+      const raw = await git(argv, repo);
+      const matches = raw.split('\n').filter(Boolean).map((line) => {
+        const first = line.indexOf(':');
+        const second = line.indexOf(':', first + 1);
+        return {
+          path: line.slice(0, first),
+          line: Number(line.slice(first + 1, second)),
+          text: line.slice(second + 1),
+        };
+      });
+      return ok({ matches, truncated: false, total: matches.length });
+    } catch (err) {
+      // git grep exits 1 when nothing matches; treat that as an empty result.
+      if (err && err.code === 1) return ok({ matches: [], total: 0, truncated: false });
+      return gitFail(err, 'git grep failed');
     }
   }
 
@@ -998,17 +1031,30 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       : null;
     if (!sha) return fail(400, 'invalid commit sha');
     try {
-      // Reject merge commits explicitly: reverting one needs an explicit
-      // mainline parent (-m), which is intentionally not supported here.
+      // Merge commits need an explicit mainline parent (-m). The number is
+      // 1-based: parent 1 is the branch you were on when merging.
       const parents = (await git(['rev-list', '--parents', '-n', '1', sha], repo))
         .trim()
         .split(/\s+/);
-      if (parents.length > 2) {
-        return fail(400, 'cannot revert a merge commit', 'merge commits need an explicit mainline parent (-m)');
+      const parentCount = parents.length - 1;
+      let mainline = null;
+      if (parentCount > 1) {
+        const requested = Number(body.mainline);
+        if (!Number.isInteger(requested) || requested < 1 || requested > parentCount) {
+          return fail(
+            400,
+            'reverting a merge commit needs a valid mainline parent',
+            `choose mainline 1..${parentCount}`,
+          );
+        }
+        mainline = requested;
       }
-      const result = await git(['revert', '--no-edit', sha], repo);
-      await appendAudit({ ok: true, action: 'revert', repo, sha });
-      return ok({ ok: true, reverted: sha, result: result.trim() });
+      const argv = ['revert', '--no-edit'];
+      if (mainline !== null) argv.push('-m', String(mainline));
+      argv.push(sha);
+      const result = await git(argv, repo);
+      await appendAudit({ ok: true, action: 'revert', repo, sha, mainline });
+      return ok({ ok: true, reverted: sha, mainline, result: result.trim() });
     } catch (err) {
       // A conflicting revert leaves the repository in a "reverting" state.
       // Abort it so the caller is returned to a clean working tree.
@@ -1044,6 +1090,45 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       await appendAudit({ ok: false, action: 'ignore', repo, file: target });
       return fail(400, 'failed to update .gitignore', err.message);
+    }
+  }
+
+  if (pathname === '/api/mv') {
+    const from = normalizeRepoPath(typeof body.from === 'string' ? body.from : '');
+    const to = normalizeRepoPath(typeof body.to === 'string' ? body.to : '');
+    if (!from || !to) return fail(400, 'invalid source or destination path');
+    if (from === to) return fail(400, 'destination equals source');
+    try {
+      await git(['mv', from, to], repo);
+      await appendAudit({ ok: true, action: 'mv', repo, from, to });
+      return ok({ ok: true, from, to });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'mv', repo, from, to });
+      return gitFail(err, 'git mv failed');
+    }
+  }
+
+  if (pathname === '/api/rm') {
+    const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
+    if (!target) return fail(400, 'invalid file path');
+    const force = body.force === true;
+    try {
+      // git rm only works on tracked files. A fully untracked file is removed
+      // directly after resolving it inside the repository root.
+      const tracked = (await git(['ls-files', '--', target], repo)).trim();
+      if (tracked) {
+        await git(['rm', ...(force ? ['-f'] : []), target], repo);
+        await appendAudit({ ok: true, action: 'rm', repo, file: target, force, method: 'git' });
+        return ok({ ok: true, file: target, force, method: 'git' });
+      }
+      const abs = await resolveInside(repo, target);
+      if (!abs) return fail(400, 'invalid file path');
+      await fsp.unlink(abs);
+      await appendAudit({ ok: true, action: 'rm', repo, file: target, method: 'unlink' });
+      return ok({ ok: true, file: target, method: 'unlink' });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'rm', repo, file: target, force });
+      return gitFail(err, 'git rm failed');
     }
   }
 
