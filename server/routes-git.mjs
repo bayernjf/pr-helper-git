@@ -215,18 +215,23 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     let limit = Number(query.get('limit')) || LOG_LIMIT_DEFAULT;
     if (!Number.isInteger(limit) || limit <= 0) limit = LOG_LIMIT_DEFAULT;
     limit = Math.min(limit, LOG_LIMIT_MAX);
+    // scope=current follows only HEAD's history; default "all" keeps every
+    // reachable ref so the graph shows branches and their merge points.
+    const scope = String(query.get('scope') || 'all').toLowerCase() === 'current'
+      ? 'current'
+      : 'all';
     try {
       const raw = await git(
         [
           'log',
-          '--all',
+          ...(scope === 'current' ? [] : ['--all']),
           '--date-order',
           `--max-count=${limit}`,
           '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e',
         ],
         repo,
       );
-      return ok({ commits: parseLog(raw) });
+      return ok({ commits: parseLog(raw), scope });
     } catch (err) {
       return gitFail(err, 'git log failed');
     }
@@ -631,6 +636,78 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     await appendAudit({ ok: true, action: 'reset', repo, mode, sha });
     return ok({ ok: true, mode, sha });
+  }
+
+  if (pathname === '/api/revert') {
+    const sha = typeof body.sha === 'string' && /^[0-9a-f]{7,40}$/.test(body.sha.trim())
+      ? body.sha.trim()
+      : null;
+    if (!sha) return fail(400, 'invalid commit sha');
+    try {
+      // Reject merge commits explicitly: reverting one needs an explicit
+      // mainline parent (-m), which is intentionally not supported here.
+      const parents = (await git(['rev-list', '--parents', '-n', '1', sha], repo))
+        .trim()
+        .split(/\s+/);
+      if (parents.length > 2) {
+        return fail(400, 'cannot revert a merge commit', 'merge commits need an explicit mainline parent (-m)');
+      }
+      const result = await git(['revert', '--no-edit', sha], repo);
+      await appendAudit({ ok: true, action: 'revert', repo, sha });
+      return ok({ ok: true, reverted: sha, result: result.trim() });
+    } catch (err) {
+      // A conflicting revert leaves the repository in a "reverting" state.
+      // Abort it so the caller is returned to a clean working tree.
+      try {
+        await git(['revert', '--abort'], repo);
+      } catch {
+        // No revert was in progress (e.g. the failure happened earlier).
+      }
+      await appendAudit({ ok: false, action: 'revert', repo, sha });
+      return gitFail(err, 'git revert failed');
+    }
+  }
+
+  if (pathname === '/api/ignore') {
+    const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
+    if (!target) return fail(400, 'invalid file path');
+    const ignorePath = path.join(repo, '.gitignore');
+    try {
+      let current = '';
+      try {
+        current = await fsp.readFile(ignorePath, 'utf8');
+      } catch {
+        current = '';
+      }
+      const present = current.split('\n').some((l) => l.trim() === target);
+      if (present) return ok({ ok: true, ignored: target, added: false });
+      let next = current;
+      if (current.length && !current.endsWith('\n')) next += '\n';
+      next += `${target}\n`;
+      await fsp.writeFile(ignorePath, next, 'utf8');
+      await appendAudit({ ok: true, action: 'ignore', repo, file: target });
+      return ok({ ok: true, ignored: target, added: true });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'ignore', repo, file: target });
+      return fail(400, 'failed to update .gitignore', err.message);
+    }
+  }
+
+  if (pathname === '/api/tag/push') {
+    const name = validateRefName(typeof body.name === 'string' ? body.name : '');
+    const remoteName = typeof body.remote === 'string' && body.remote.trim()
+      ? body.remote.trim()
+      : 'origin';
+    if (!name) return fail(400, 'invalid tag name');
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
+    try {
+      const result = await git(['push', remoteName, name], repo);
+      await appendAudit({ ok: true, action: 'tag-push', repo, tag: name, remote: remoteName });
+      return ok({ ok: true, pushed: name, remote: remoteName, result: result.trim() });
+    } catch ( err) {
+      await appendAudit({ ok: false, action: 'tag-push', repo, tag: name, remote: remoteName });
+      return gitFail(err, 'git push tag failed');
+    }
   }
 
   if (pathname === '/api/fetch') {

@@ -21,6 +21,7 @@ const ALLOWLIST = [
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}$`) },
   { method: 'GET', regex: /^\/user$/ },
   { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },
+  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/requested-reviewers$`) },
   { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/merge$`) },
   { method: 'PATCH', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+$`) },
 ];
