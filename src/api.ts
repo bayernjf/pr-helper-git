@@ -98,10 +98,15 @@ export const getLog = (
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);
 
-export const getDiff = (repo: string, file: string, staged: boolean) =>
+export const getDiff = (
+  repo: string,
+  file: string,
+  staged: boolean,
+  ignoreWs = false,
+) =>
   request<DiffResult>(
     `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`
-      + `&staged=${staged ? '1' : '0'}`,
+      + `&staged=${staged ? '1' : '0'}&ignoreWs=${ignoreWs ? '1' : '0'}`,
   );
 
 export const getCommitDetail = (repo: string, sha: string) =>
@@ -221,6 +226,20 @@ export const getTagShow = (repo: string, tag: string) =>
     `/api/tag-show?repo=${encodeURIComponent(repo)}&tag=${encodeURIComponent(tag)}`,
   );
 
+export interface CompareResult {
+  base: string;
+  head: string;
+  ahead: Commit[];
+  behind: Commit[];
+  files: CommitFile[];
+}
+
+export const getCompare = (repo: string, base: string, head: string) =>
+  request<CompareResult>(
+    `/api/compare?repo=${encodeURIComponent(repo)}`
+      + `&base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`,
+  );
+
 // ---------- git writes ----------
 
 export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage') =>
@@ -303,6 +322,12 @@ export const removeRemote = (repo: string, name: string) =>
 
 export const setRemoteUrl = (repo: string, name: string, url: string, push = false) =>
   post('/api/remote/set-url', { repo, name, url, push });
+
+export const renameRemote = (repo: string, oldName: string, newName: string) =>
+  post('/api/remote/rename', { repo, oldName, newName });
+
+export const setBranchUpstream = (repo: string, upstream: string, branch?: string) =>
+  post('/api/branch/set-upstream', { repo, upstream, branch });
 
 // ---------- GitHub proxy ----------
 
