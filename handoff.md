@@ -28,3 +28,14 @@ performed by this project's setup.
 - [ ] Client: work panel, diff, commit
 - [x] Client: PR board, create, merge
 - [x] Tests, build verification, README, atomic commits
+
+## Delivery notes
+
+- 15 atomic conventional commits on `main`; no git remote is configured and no
+  push was performed.
+- 17 Vitest tests pass; `tsc --noEmit` and `vite build` are green.
+- Both run modes were smoke-tested: `npm run dev` (Vite + API with the dev
+  token) and `npm start` after build (random token, cookie bootstrap, static
+  hosting).
+- One post-delivery fix was folded in: `for-each-ref` does not interpret
+  `%x1f` literals, so its format now uses real tab separators.
