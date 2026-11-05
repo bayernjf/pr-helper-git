@@ -13,11 +13,14 @@ repository is never pushed.
   push/delete, stash, unified + split diff viewer, folder-tree working panel,
   commit graph search, paginated history (load more), right-click context
   menu, keyboard shortcuts, resizable work panel, responsive layout,
-  error boundary, loading states, SSE live refresh.
+  error boundary, loading states, SSE live refresh, safe revert (new commit,
+  merge commits rejected, auto-abort on conflict), add-to-.gitignore,
+  push tag, history scope (all vs current branch), Cmd+K command palette.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
-  merge PR (merge/squash/rebase), close/reopen. PAT is stored only in the
-  browser and proxied through the local server.
+  requested reviewers (view and request), merge PR (merge/squash/rebase),
+  close/reopen. PAT is stored only in the browser and proxied through the
+  local server.
 - Explicitly out of scope: interactive rebase, cherry-pick, submodules,
   worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
   gates, AI generation, in-app conflict resolution.
@@ -44,6 +47,12 @@ repository is never pushed.
 - [x] Client: three-mode Open/Clone/Init add dialog
 - [x] Client: commit graph search, load more and reset menu
 - [x] UX: shortcuts, resizable work panel, PR labels, responsive layout
+- [x] Server: revert route (merge guard, auto-abort), ignore, push tag, log scope
+- [x] Client: revert menu and history scope toggle
+- [x] Client: gitignore action and push tag menu
+- [x] Client: PR requested reviewers view and request
+- [x] UX: Cmd+K command palette with fuzzy filter and keyboard nav
+- [x] Third iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -51,9 +60,20 @@ repository is never pushed.
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
   English commits authored by the configured user, with no co-author trailers.
-- 38 Vitest tests pass (graph layout, formatting, security, git parsers, file
-  tree, diff lines, review summaries, clone/folder validation); `tsc --noEmit`
-  and `vite build` are green.
+- 42 Vitest tests pass (graph layout, formatting, security, git parsers, file
+  tree, diff lines, review summaries, clone/folder validation, command palette
+  fuzzy filter); `tsc --noEmit` and `vite build` are green.
+- Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
+  filter narrows results, arrow/enter/escape work and a command switches views;
+  history scope returns 213 (all) vs 209 (current) commits; revert rejects a
+  merge with 400, reverts HEAD cleanly into a new commit, and auto-aborts a
+  conflicting revert leaving a clean tree; gitignore adds once (duplicate is a
+  no-op) and ignores the file; push tag rejects bad names and a missing remote
+  without any external push. All temporary changes were reset/removed.
+- Tooling finding: `scripts/dev.mjs` spawns the API server without `--watch`,
+  so server-side edits require a dev restart; the client is hot-reloaded by
+  Vite. The RefSidebar menu opens from the row's "more" button, not context
+  menu; the commit graph menu does open on right-click.
 - Second iteration E2E in the browser: error boundary panel, loading bar,
   init and clone (auto-registered), soft/hard reset semantics, search filter
   with result count, load-more paging (200 → 213, matching `git log --all`),

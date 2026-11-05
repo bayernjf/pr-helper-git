@@ -20,24 +20,31 @@ GitHub by the application setup.
   load history in pages beyond the first 200 commits (up to 1,000).
 - Reset the current branch to any commit with soft, mixed or hard semantics
   (hard reset requires an explicit confirmation).
+- Safely revert a commit without rewriting history: a normal commit becomes a
+  new "Revert" commit, merge commits are rejected (they need an explicit
+  mainline), and a conflicting revert is automatically aborted so the working
+  tree is never left half-finished.
+- Switch the graph's history scope between every branch (`--all`) and the
+  current branch only, straight from the graph toolbar.
 - Ref sidebar with collapsible local branches, remote branches, tags and stash
   groups; a right-click context menu exposes the full action set.
 - Checkout branches/tags, create branches (with a start point), rename and
   delete branches (safe delete, with an optional force delete), and merge a
   branch into the current branch.
-- Create lightweight or annotated tags, delete tags, and push or delete a
-  branch on the remote.
+- Create lightweight or annotated tags, delete tags, push a tag to a chosen
+  remote, and push or delete a branch on the remote.
 - Working-tree panel rendered as a collapsible folder tree with staged,
   unstaged and untracked groups; stage/unstage single files or everything,
-  discard tracked changes, and review syntax-colored diffs in unified or
-  side-by-side split view.
+  discard tracked changes, add an untracked path straight to `.gitignore`,
+  and review syntax-colored diffs in unified or side-by-side split view.
 - Commit with a message or amend the last commit, plus fetch, pull, push
   (upstream tracking supported), and stash create/apply/pop/drop.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
-- Keyboard shortcuts (Cmd/Ctrl+1 and +2 switch views, Cmd/Ctrl+Shift+F focuses
-  the filter, `r` refreshes, Cmd/Ctrl+Enter commits), a draggable work-panel
-  height, and responsive breakpoints for narrow windows.
+- Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,
+  repositories and common actions, Cmd/Ctrl+1 and +2 switch views,
+  Cmd/Ctrl+Shift+F focuses the filter, `r` refreshes, Cmd/Ctrl+Enter commits),
+  a draggable work-panel height, and responsive breakpoints for narrow windows.
 - A React error boundary prevents a white screen if a component throws, and
   loading indicators cover the first load and every repository switch.
 
@@ -50,8 +57,8 @@ GitHub by the application setup.
 - Create a pull request from any local branch, optionally as a draft, with a
   prefilled commit summary.
 - Convert a draft to ready for review, inspect commits, files and check runs,
-  then merge using squash, merge commit or rebase; close and reopen are also
-  supported.
+  view and request reviewers, then merge using squash, merge commit or rebase;
+  close and reopen are also supported.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
   endpoint is unavailable in some environments); the GitHub personal access
   token is stored only in the browser and sent through the local proxy, never
@@ -118,7 +125,7 @@ src/
   app-state.tsx      central data/state provider
   api.ts             typed API client
   components/        UI components, inline SVG icons, context menu, modals
-  lib/               graph layout, formatting, file tree, diff, review (pure)
+  lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
 scripts/dev.mjs      parallel Vite + API launcher
 ```
 
