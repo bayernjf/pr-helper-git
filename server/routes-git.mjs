@@ -273,9 +273,16 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     const staged = query.get('staged') === '1';
     const ignoreWs = query.get('ignoreWs') === '1';
+    const contextParam = query.get('context');
+    let context = null;
+    if (contextParam !== null) {
+      const n = Number(contextParam);
+      if (Number.isInteger(n) && n >= 0 && n <= 100) context = n;
+    }
     const args = ['diff'];
     if (staged) args.push('--cached');
     if (ignoreWs) args.push('-w');
+    if (context !== null) args.push(`--unified=${context}`);
     args.push('--', rel);
     try {
       let diff = await git(args, repo);
@@ -611,12 +618,16 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!message) return fail(400, 'commit message must not be empty');
     if (message.length > 500) return fail(400, 'commit message must be at most 500 characters');
     if (message.startsWith('-') || message.includes('\0')) return fail(400, 'invalid commit message');
+    const allowEmpty = body.allowEmpty === true;
     try {
       const staged = await git(['diff', '--cached', '--name-only'], repo);
-      if (!staged.trim()) return fail(409, 'nothing staged to commit');
-      await git(['commit', '-F', '-'], repo, { input: `${message}\n` });
+      if (!staged.trim() && !allowEmpty) return fail(409, 'nothing staged to commit');
+      const commitArgs = ['commit'];
+      if (allowEmpty) commitArgs.push('--allow-empty');
+      commitArgs.push('-F', '-');
+      await git(commitArgs, repo, { input: `${message}\n` });
       const sha = (await git(['rev-parse', 'HEAD'], repo)).trim();
-      await appendAudit({ ok: true, action: 'commit', repo, commit: sha });
+      await appendAudit({ ok: true, action: 'commit', repo, commit: sha, allowEmpty });
       return ok({ ok: true, commit: sha });
     } catch (err) {
       await appendAudit({ ok: false, action: 'commit', repo });
@@ -648,21 +659,54 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/checkout') {
     const ref = validateRefName(body.ref);
     if (!ref) return fail(400, 'invalid ref name');
+    const reserved = new Set(['HEAD', 'FETCH_HEAD', 'ORIG_HEAD', 'MERGE_HEAD', 'CHERRY_PICK_HEAD']);
+    let argv;
+    let tracked = false;
     try {
-      // No "--" separator: validated refs such as "origin/feature" rely on
-      // git's DWIM behaviour to create a local tracking branch.
-      await git(['checkout', ref], repo);
+      // A remote-tracking branch such as "origin/feature" should switch to (or
+      // create) a local tracking branch, rather than leaving the user in a
+      // detached HEAD state.
+      const remotes = (await git(['remote'], repo))
+        .split('\n').map((r) => r.trim()).filter(Boolean);
+      const remoteMatch = remotes
+        .filter((remote) => ref.startsWith(`${remote}/`))
+        .sort((a, b) => b.length - a.length)[0];
+      const remoteRefExists = remoteMatch
+        ? await git(['rev-parse', '--verify', '--quiet', `refs/remotes/${ref}`], repo)
+          .then(() => true).catch(() => false)
+        : false;
+      if (remoteMatch && remoteRefExists) {
+        const localName = ref.slice(remoteMatch.length + 1);
+        if (reserved.has(localName)) {
+          argv = ['checkout', ref];
+        } else {
+          const localExists = await git(['rev-parse', '--verify', '--quiet', `refs/heads/${localName}`], repo)
+            .then(() => true).catch(() => false);
+          if (localExists) {
+            argv = ['checkout', localName];
+          } else {
+            if (!validateRefName(localName)) return fail(400, 'invalid derived branch name');
+            argv = ['checkout', '-b', localName, '--track', ref];
+            tracked = true;
+          }
+        }
+      } else {
+        // No "--" separator: local branches, tags and SHAs use plain checkout.
+        argv = ['checkout', ref];
+      }
+      await git(argv, repo);
     } catch (err) {
       return gitFail(err, 'git checkout failed');
     }
-    await appendAudit({ ok: true, action: 'checkout', repo, ref });
-    return ok({ ok: true, ref });
+    await appendAudit({ ok: true, action: 'checkout', repo, ref, tracked });
+    return ok({ ok: true, ref, tracked });
   }
 
   if (pathname === '/api/branch/create') {
     const name = validateRefName(body.name);
     if (!name) return fail(400, 'invalid branch name');
-    const argv = ['checkout', '-b', name];
+    const noCheckout = body.noCheckout === true;
+    const argv = noCheckout ? ['branch', name] : ['checkout', '-b', name];
     if (body.from) {
       const from = validateRefName(body.from);
       if (!from) return fail(400, 'invalid start ref');
@@ -673,8 +717,8 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       return gitFail(err, 'branch creation failed');
     }
-    await appendAudit({ ok: true, action: 'branch-create', repo, branch: name });
-    return ok({ ok: true, branch: name });
+    await appendAudit({ ok: true, action: 'branch-create', repo, branch: name, noCheckout });
+    return ok({ ok: true, branch: name, switched: !noCheckout });
   }
 
   if (pathname === '/api/branch/delete') {
@@ -874,12 +918,21 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/merge') {
     const ref = validateRefName(body.ref);
     if (!ref) return fail(400, 'invalid ref name');
+    const strategy = body.strategy === 'no-ff' || body.strategy === 'ff-only' || body.strategy === 'squash'
+      ? body.strategy
+      : 'default';
+    const argv = ['merge'];
+    if (strategy === 'no-ff') argv.push('--no-ff', '--no-edit');
+    else if (strategy === 'ff-only') argv.push('--ff-only');
+    else if (strategy === 'squash') argv.push('--squash');
+    else argv.push('--no-edit');
+    argv.push('--', ref);
     try {
-      const result = await git(['merge', '--no-edit', '--', ref], repo);
-      await appendAudit({ ok: true, action: 'merge', repo, ref });
-      return ok({ ok: true, ref, result: result.trim() });
+      const result = await git(argv, repo);
+      await appendAudit({ ok: true, action: 'merge', repo, ref, strategy });
+      return ok({ ok: true, ref, strategy, result: result.trim() });
     } catch (err) {
-      await appendAudit({ ok: false, action: 'merge', repo, ref });
+      await appendAudit({ ok: false, action: 'merge', repo, ref, strategy });
       return gitFail(err, 'git merge failed (resolve conflicts before continuing)');
     }
   }
