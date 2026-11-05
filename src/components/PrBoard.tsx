@@ -1,53 +1,57 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
-import type { PullRequest } from '../types';
+import type { PullRequest, ReviewState } from '../types';
+import { summarizeReviews, type GithubReview } from '../lib/review';
+import {
+  IconCheck,
+  IconInbox,
+  IconPlus,
+  IconPullRequest,
+  IconRefresh,
+  IconX,
+} from './icons';
 import CreatePrModal from './CreatePrModal';
 import PrDetailModal from './PrDetailModal';
 
 type Column = 'open' | 'merged' | 'closed';
 
-function CheckSummary({ pr }: { pr: PullRequest }) {
-  if (!pr.mergeable && pr.state === 'open') {
-    return (
-      <span className="pr-checks">
-        <span className="check-dot failure" /> conflicts
-      </span>
-    );
+function MergePill({ pr }: { pr: PullRequest }) {
+  if (pr.mergeable === false) {
+    return <span className="merge-pill blocked"><IconX width={12} height={12} /> conflicts</span>;
   }
   if (pr.mergeable_state === 'clean') {
-    return (
-      <span className="pr-checks">
-        <span className="check-dot success" /> mergeable
-      </span>
-    );
+    return <span className="merge-pill ok"><IconCheck width={12} height={12} /> mergeable</span>;
   }
-  if (pr.mergeable_state === 'unknown' || pr.mergeable_state === null) {
-    return (
-      <span className="pr-checks">
-        <span className="check-dot pending" /> computing
-      </span>
-    );
-  }
-  return (
-    <span className="pr-checks">
-      <span className="check-dot pending" /> {pr.mergeable_state}
-    </span>
-  );
+  return <span className="merge-pill unknown">computing</span>;
+}
+
+function ReviewPill({ state }: { state: ReviewState }) {
+  if (state === 'APPROVED') return <span className="review-pill approved">Approved</span>;
+  if (state === 'CHANGES_REQUESTED') return <span className="review-pill changes">Changes requested</span>;
+  if (state === 'COMMENTED') return <span className="review-pill commented">Review comments</span>;
+  return <span className="review-pill none">No review</span>;
 }
 
 function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
   return (
-    <div className="pr-card" onClick={onOpen}>
-      <div className="pr-card-title">
-        {pr.draft && <span className="draft-tag">draft</span>} #{pr.number} {pr.title}
+    <button type="button" className="pr-card" onClick={onOpen}>
+      <div className="pr-title">
+        {pr.draft && <span className="draft-tag">draft</span>}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>#{pr.number} {pr.title}</span>
       </div>
-      <div className="pr-card-meta">
-        <span>{pr.head.ref} → {pr.base.ref}</span>
-        <span>· {pr.user.login}</span>
+      <div className="pr-meta">
+        <span className="pr-refs">{pr.head.ref} → {pr.base.ref}</span>
       </div>
-      {pr.state === 'open' && <CheckSummary pr={pr} />}
-    </div>
+      <div className="pr-meta" style={{ marginTop: 8, gap: 6 }}>
+        {pr.state === 'open' && <MergePill pr={pr} />}
+        <ReviewPill state={pr.reviewState} />
+      </div>
+      <div className="pr-meta" style={{ marginTop: 8 }}>
+        <span className="mini-avatar">{pr.user.login.slice(0, 1).toUpperCase()}</span>
+        {pr.user.login}
+      </div>
+    </button>
   );
 }
 
@@ -74,7 +78,23 @@ export default function PrBoard() {
         pat,
         `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=50`,
       );
-      setPulls(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      // Attach the review summary for every open PR.
+      const enriched = await Promise.all(
+        list.map(async (pr) => {
+          if (pr.state !== 'open') return { ...pr, reviewState: 'NONE' as ReviewState };
+          try {
+            const reviews = await githubProxy<GithubReview[]>(
+              pat,
+              `/repos/${remote.owner}/${remote.repo}/pulls/${pr.number}/reviews`,
+            );
+            return { ...pr, reviewState: summarizeReviews(reviews.data || []) };
+          } catch {
+            return { ...pr, reviewState: 'NONE' as ReviewState };
+          }
+        }),
+      );
+      setPulls(enriched);
     } catch (err: any) {
       setError(err.detail ? `${err.message}: ${err.detail}` : err.message);
     } finally {
@@ -89,8 +109,10 @@ export default function PrBoard() {
   const columns = useMemo(() => {
     const bucket: Record<Column, PullRequest[]> = { open: [], merged: [], closed: [] };
     for (const pr of pulls) {
+      // The list endpoint omits the `merged` boolean; merged_at is the
+      // reliable signal that a closed PR was merged rather than abandoned.
       if (pr.state === 'open') bucket.open.push(pr);
-      else if (pr.merged) bucket.merged.push(pr);
+      else if (pr.merged || pr.merged_at) bucket.merged.push(pr);
       else bucket.closed.push(pr);
     }
     return bucket;
@@ -98,8 +120,9 @@ export default function PrBoard() {
 
   if (!remote?.isGithub) {
     return (
-      <div className="pr-board-empty">
-        <h2>No GitHub remote</h2>
+      <div className="empty-state">
+        <div className="empty-icon"><IconInbox width={28} height={28} /></div>
+        <h3>No GitHub remote</h3>
         <p>Pull-request features need an origin remote hosted on github.com for {activeRepo}.</p>
       </div>
     );
@@ -107,9 +130,10 @@ export default function PrBoard() {
 
   if (!pat) {
     return (
-      <div className="pr-board-empty">
-        <h2>No GitHub token configured</h2>
-        <p>Open settings (⚙) and add a personal access token to manage pull requests.</p>
+      <div className="empty-state">
+        <div className="empty-icon"><IconPullRequest width={28} height={28} /></div>
+        <h3>No GitHub token configured</h3>
+        <p>Open settings and add a personal access token to manage pull requests.</p>
       </div>
     );
   }
@@ -118,28 +142,35 @@ export default function PrBoard() {
 
   return (
     <>
-      <div className="pr-toolbar">
-        <strong>{remote.owner}/{remote.repo}</strong>
-        <span className="pr-toolbar-spacer" />
+      <div className="toolbar" style={{ height: 44, borderBottom: '1px solid var(--border)' }}>
+        <strong style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>
+          {remote.owner}/{remote.repo}
+        </strong>
+        <span className="spacer" />
         <button type="button" className="btn" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
+          <IconRefresh width={14} height={14} />
+          {loading ? 'Loading' : 'Refresh'}
         </button>
         <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          <IconPlus width={14} height={14} />
           New pull request
         </button>
       </div>
-      {error && <div className="pr-error">{error}</div>}
-      <div className="pr-board" style={{ paddingTop: 12 }}>
+      {error && <div className="toast error" style={{ position: 'static', margin: 10 }}>{error}</div>}
+      <div className="pr-board">
         {COLUMNS.map((col) => (
           <div key={col.key} className="pr-column">
-            <div className="pr-column-header">
-              <span>{col.label}</span>
-              <span>{columns[col.key].length}</span>
+            <div className="pr-column-head">
+              {col.label}
+              <span className="pr-count">{columns[col.key].length}</span>
             </div>
             <div className="pr-column-body">
               {columns[col.key].map((pr) => (
                 <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} />
               ))}
+              {columns[col.key].length === 0 && (
+                <div className="diff-empty" style={{ height: 80 }}>Nothing here</div>
+              )}
             </div>
           </div>
         ))}

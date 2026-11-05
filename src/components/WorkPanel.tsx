@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  amendCommit,
   commitChanges,
   discardFile,
   getDiff,
@@ -8,7 +9,18 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import type { DiffResult, FileArea, StatusFile } from '../types';
+import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import DiffView from './DiffView';
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconFile,
+  IconFolder,
+  IconPlus,
+  IconTrash,
+  IconUndo,
+  IconX,
+} from './icons';
 import { useConfirm } from './ui';
 
 interface Selection {
@@ -22,48 +34,78 @@ function statusLabel(file: StatusFile): string {
   return file.status.trim() || 'M';
 }
 
-function FileRow({
-  file,
+function TreeRow({
+  node,
+  collapsed,
+  toggleFolder,
   selected,
   onSelect,
   onStageToggle,
   onDiscard,
 }: {
-  file: StatusFile;
+  node: TreeNode;
+  collapsed: Set<string>;
+  toggleFolder: (path: string) => void;
   selected: boolean;
   onSelect: () => void;
   onStageToggle: () => void;
   onDiscard?: () => void;
 }) {
+  if (node.folder) {
+    const isCollapsed = collapsed.has(node.path);
+    return (
+      <div className="tree-folder" style={{ paddingLeft: 10 + node.depth * 13 }}>
+        <button
+          type="button"
+          className="icon-btn"
+          style={{ width: 18, height: 18 }}
+          onClick={() => toggleFolder(node.path)}
+        >
+          {isCollapsed ? <IconChevronRight width={13} height={13} /> : <IconChevronDown width={13} height={13} />}
+        </button>
+        <IconFolder width={14} height={14} />
+        {node.name}
+      </div>
+    );
+  }
+
+  const file = node.file!;
   const isStaged = file.area === 'staged';
   return (
-    <div className={`file-row${selected ? ' selected' : ''}`} onClick={onSelect}>
+    <div
+      className={`file-row tree-row${selected ? ' selected' : ''}`}
+      style={{ paddingLeft: 10 + node.depth * 13 }}
+      onClick={onSelect}
+    >
       <button
         type="button"
-        className="file-stage-btn"
+        className="icon-btn"
+        style={{ width: 20, height: 20, color: isStaged ? 'var(--accent)' : 'var(--green)' }}
         title={isStaged ? 'Unstage' : 'Stage'}
         onClick={(e) => {
           e.stopPropagation();
           onStageToggle();
         }}
       >
-        {isStaged ? '−' : '+'}
+        {isStaged ? <IconX width={13} height={13} /> : <IconPlus width={14} height={14} />}
       </button>
-      <span className={`file-status-code ${file.area}`}>{statusLabel(file)}</span>
-      <span className="file-name">{file.path}</span>
-      {onDiscard && (
-        <button
-          type="button"
-          className="file-stage-btn"
-          title="Discard changes"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDiscard();
-          }}
-        >
-          ×
-        </button>
-      )}
+      <span className={`status-code ${file.area}`}>{statusLabel(file)}</span>
+      <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
+      <span className="file-path">{node.name}</span>
+      <span className="file-actions">
+        {onDiscard && (
+          <button
+            type="button"
+            title="Discard changes"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDiscard();
+            }}
+          >
+            <IconTrash width={13} height={13} />
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -71,26 +113,24 @@ function FileRow({
 function Group({
   title,
   files,
-  actionLabel,
-  onActionAll,
+  allLabel,
+  onAll,
   children,
 }: {
   title: string;
   files: StatusFile[];
-  actionLabel?: string;
-  onActionAll?: () => void;
+  allLabel: string;
+  onAll: () => void;
   children: React.ReactNode;
 }) {
   if (files.length === 0) return null;
   return (
     <>
-      <div className="file-group-title">
-        <span>{title} ({files.length})</span>
-        {actionLabel && (
-          <button type="button" className="mini-btn" onClick={onActionAll} title={actionLabel}>
-            {actionLabel}
-          </button>
-        )}
+      <div className="file-group-label">
+        {title}
+        <span className="mini-actions">
+          <button type="button" onClick={onAll}>{allLabel}</button>
+        </span>
       </div>
       {children}
     </>
@@ -98,11 +138,13 @@ function Group({
 }
 
 export default function WorkPanel() {
-  const { activeRepo, status, runAction } = useApp();
+  const { activeRepo, status, runAction, commits } = useApp();
   const confirm = useConfirm();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [message, setMessage] = useState('');
+  const [amend, setAmend] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => {
     const files = status?.files || [];
@@ -112,6 +154,21 @@ export default function WorkPanel() {
       untracked: files.filter((f) => f.area === 'untracked'),
     };
   }, [status]);
+
+  const trees = useMemo(() => ({
+    staged: buildFileTree(groups.staged),
+    unstaged: buildFileTree(groups.unstaged),
+    untracked: buildFileTree(groups.untracked),
+  }), [groups]);
+
+  const toggleFolder = (path: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
 
   // Clear a stale selection after the file list changes.
   useEffect(() => {
@@ -124,7 +181,7 @@ export default function WorkPanel() {
     }
   }, [status, selection]);
 
-  // Load the diff whenever the selection or underlying status changes.
+  // Load the diff whenever the selection changes.
   useEffect(() => {
     if (!selection || !activeRepo) {
       setDiff(null);
@@ -151,86 +208,107 @@ export default function WorkPanel() {
     if (ok) await runAction(discardFile(activeRepo!, file.path), 'Changes discarded');
   }
 
-  async function handleCommit() {
+  async function handleSubmit() {
     const text = message.trim();
-    if (!text || groups.staged.length === 0) return;
+    if (!text) return;
+    if (amend) {
+      const result = await runAction(amendCommit(activeRepo!, text), 'Last commit amended');
+      if (result !== null) {
+        setMessage('');
+        setAmend(false);
+      }
+      return;
+    }
+    if (groups.staged.length === 0) return;
     const result = await runAction(commitChanges(activeRepo!, text), 'Committed');
     if (result !== null) setMessage('');
   }
 
+  const renderTree = (list: TreeNode[], area: FileArea, allowDiscard: boolean) =>
+    flattenTree(list, collapsed).map((node) => (
+      <TreeRow
+        key={`${node.path}-${node.folder}`}
+        node={node}
+        collapsed={collapsed}
+        toggleFolder={toggleFolder}
+        selected={selection?.path === node.path && selection?.area === area}
+        onSelect={() => {
+          if (!node.folder) setSelection({ path: node.path, area });
+        }}
+        onStageToggle={() => {
+          if (node.folder || !node.file) return;
+          runAction(
+            stageFile(activeRepo!, node.path, area === 'staged' ? 'unstage' : 'stage'),
+            area === 'staged' ? 'Unstaged' : 'Staged',
+          );
+        }}
+        onDiscard={allowDiscard && node.file && node.file.area !== 'unmerged'
+          ? () => handleDiscard(node.file!)
+          : undefined}
+      />
+    ));
+
+  const canSubmit = !!message.trim() && (amend || groups.staged.length > 0);
+
   return (
     <section className="work-panel">
-      <div className="work-body">
+      <div className="work-content">
         <div className="file-list">
           <Group
             title="Staged changes"
             files={groups.staged}
-            actionLabel="Unstage all"
-            onActionAll={() => runAction(stageAll(activeRepo!, 'unstage'), 'Unstaged all')}
+            allLabel="Unstage all"
+            onAll={() => runAction(stageAll(activeRepo!, 'unstage'), 'Unstaged all')}
           >
-            {groups.staged.map((file) => (
-              <FileRow
-                key={`s-${file.path}`}
-                file={file}
-                selected={selection?.path === file.path && selection.area === file.area}
-                onSelect={() => setSelection({ path: file.path, area: file.area })}
-                onStageToggle={() =>
-                  runAction(stageFile(activeRepo!, file.path, 'unstage'), 'Unstaged')}
-              />
-            ))}
+            {renderTree(trees.staged, 'staged', false)}
           </Group>
-
           <Group
             title="Unstaged changes"
             files={groups.unstaged}
-            actionLabel="Stage all"
-            onActionAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
+            allLabel="Stage all"
+            onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
           >
-            {groups.unstaged.map((file) => (
-              <FileRow
-                key={`u-${file.path}`}
-                file={file}
-                selected={selection?.path === file.path && selection.area === file.area}
-                onSelect={() => setSelection({ path: file.path, area: file.area })}
-                onStageToggle={() =>
-                  runAction(stageFile(activeRepo!, file.path, 'stage'), 'Staged')}
-                onDiscard={file.area === 'unmerged' ? undefined : () => handleDiscard(file)}
-              />
-            ))}
+            {renderTree(trees.unstaged, 'unstaged', true)}
           </Group>
-
-          <Group title="Untracked files" files={groups.untracked}>
-            {groups.untracked.map((file) => (
-              <FileRow
-                key={`t-${file.path}`}
-                file={file}
-                selected={selection?.path === file.path && selection.area === file.area}
-                onSelect={() => setSelection({ path: file.path, area: file.area })}
-                onStageToggle={() =>
-                  runAction(stageFile(activeRepo!, file.path, 'stage'), 'Staged')}
-              />
-            ))}
+          <Group
+            title="Untracked files"
+            files={groups.untracked}
+            allLabel="Stage all"
+            onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
+          >
+            {renderTree(trees.untracked, 'untracked', false)}
           </Group>
         </div>
 
         <DiffView result={diff} />
       </div>
 
-      <div className="commit-box">
+      <div className="commit-form">
         <textarea
-          className="input"
           placeholder="Summary of the staged changes…"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={groups.staged.length === 0 || !message.trim()}
-          onClick={handleCommit}
-        >
-          Commit ({groups.staged.length})
-        </button>
+        <div className="form-side">
+          {commits.length > 0 && (
+            <button
+              type="button"
+              className={`amend-toggle${amend ? ' on' : ''}`}
+              onClick={() => setAmend((v) => !v)}
+            >
+              <IconUndo width={13} height={13} />
+              Amend last commit
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+          >
+            {amend ? 'Amend' : `Commit (${groups.staged.length})`}
+          </button>
+        </div>
       </div>
     </section>
   );

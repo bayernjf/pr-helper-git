@@ -1,38 +1,143 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   checkoutRef,
   deleteBranch,
+  deleteTag,
+  deleteRemoteBranch,
+  getStashList,
   mergeRef,
+  pushBranch,
+  renameBranch,
   stashApply,
   stashDrop,
+  type StashEntry,
 } from '../api';
 import { useApp } from '../app-state';
-import { laneColor } from './CommitGraph';
+import { ContextMenu, type MenuItem } from './context-menu';
+import {
+  IconBranch,
+  IconChevronDown,
+  IconChevronRight,
+  IconDownload,
+  IconEdit,
+  IconMerge,
+  IconMore,
+  IconPlus,
+  IconStash,
+  IconTag,
+  IconTrash,
+  IconUpload,
+} from './icons';
 import NewBranchModal from './NewBranchModal';
 import { useConfirm } from './ui';
 import type { Ref } from '../types';
 
-function RefRow({
-  item,
-  current,
-  dotColor,
-  onClick,
-  children,
-  title,
+type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
+
+interface MenuState {
+  x: number;
+  y: number;
+  kind: MenuKind;
+  name: string;
+  stashIndex?: number;
+}
+
+interface RenameState {
+  name: string;
+  value: string;
+}
+
+function GroupHead({
+  label,
+  count,
+  open,
+  onToggle,
+  action,
 }: {
-  item?: Ref;
-  current?: boolean;
-  dotColor: string;
-  onClick: () => void;
-  children?: React.ReactNode;
-  title?: string;
+  label: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  action?: React.ReactNode;
 }) {
-  const name = item ? item.shortName : title;
   return (
-    <div className={`ref-item${current ? ' current' : ''}`} onClick={onClick} title={name}>
-      <span className="ref-dot" style={{ background: dotColor }} />
+    <div className="ref-group-head" style={{ paddingRight: 10 }}>
+      <button type="button" className="ref-group-head" style={{ padding: 0, flex: 1 }} onClick={onToggle}>
+        <span className="chev">{open ? <IconChevronDown width={13} height={13} /> : <IconChevronRight width={13} height={13} />}</span>
+        {label}
+        <span className="count">{count}</span>
+      </button>
+      {action}
+    </div>
+  );
+}
+
+function Row({
+  icon,
+  name,
+  current,
+  onOpen,
+  onMenu,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  current?: boolean;
+  onOpen: () => void;
+  onMenu: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className={`ref-row${current ? ' current' : ''}`} onClick={onOpen} title={name}>
+      <span className="ref-icon">{icon}</span>
       <span className="ref-name">{name}</span>
-      {children}
+      <button
+        type="button"
+        className="row-more"
+        onClick={(e) => {
+          e.stopPropagation();
+          onMenu(e);
+        }}
+      >
+        <IconMore width={15} height={15} />
+      </button>
+    </div>
+  );
+}
+
+function RenameModal({
+  current,
+  onCancel,
+  onSubmit,
+}: {
+  current: string;
+  onCancel: () => void;
+  onSubmit: (next: string) => void;
+}) {
+  const [value, setValue] = useState(current);
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <form
+        className="modal"
+        style={{ width: 420 }}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (value.trim()) onSubmit(value.trim());
+        }}
+      >
+        <div className="modal-header"><h2>Rename branch</h2></div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>New name</label>
+            <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={!value.trim() || value === current}>
+            Rename
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -46,6 +151,10 @@ export default function RefSidebar() {
   } = useApp();
   const confirm = useConfirm();
   const [showNew, setShowNew] = useState(false);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [rename, setRename] = useState<RenameState | null>(null);
+  const [stashList, setStashList] = useState<StashEntry[]>([]);
+  const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
 
   const groups = useMemo(() => {
     const local = refs.filter((r) => r.name.startsWith('refs/heads/'));
@@ -53,16 +162,29 @@ export default function RefSidebar() {
       (r) => r.name.startsWith('refs/remotes/') && !r.name.endsWith('/HEAD'),
     );
     const tags = refs.filter((r) => r.name.startsWith('refs/tags/'));
-    const stash = refs.find((r) => r.name === 'refs/stash');
-    return { local, remote, tags, stash };
+    return { local, remote, tags };
   }, [refs]);
 
   const currentBranch = status?.branch;
 
+  const loadStash = useCallback(async () => {
+    if (!activeRepo) return;
+    try {
+      const res = await getStashList(activeRepo);
+      setStashList(res.entries);
+    } catch {
+      setStashList([]);
+    }
+  }, [activeRepo]);
+
+  useEffect(() => {
+    loadStash();
+  }, [loadStash, refs]);
+
   async function handleDelete(branch: string) {
     const ok = await confirm(
       `Delete branch ${branch}?`,
-      'A safe delete (-d) is attempted first. If the branch is unmerged, you can force the delete.',
+      'A safe delete (-d) is attempted first; if unmerged, you can force it.',
     );
     if (!ok) return;
     const result = await runAction(deleteBranch(activeRepo!, branch, false));
@@ -72,140 +194,188 @@ export default function RefSidebar() {
     }
   }
 
-  async function handleMerge(branch: string) {
-    const ok = await confirm(
-      `Merge ${branch} into ${currentBranch}?`,
-      'git merge --no-edit; conflicts, if any, must be resolved manually.',
-    );
-    if (ok) await runAction(mergeRef(activeRepo!, branch), `Merged ${branch}`);
-  }
+  const openMenu = (e: React.MouseEvent, kind: MenuKind, name: string, stashIndex?: number) => {
+    setMenu({ x: e.clientX, y: e.clientY, kind, name, stashIndex });
+  };
+
+  const menuItems = useMemo<MenuItem[]>(() => {
+    if (!menu) return [];
+    if (menu.kind === 'local') {
+      const isCurrent = menu.name === currentBranch;
+      return [
+        { id: 'checkout', label: 'Checkout', icon: <IconDownload width={15} height={15} />, disabled: isCurrent },
+        { id: 'rename', label: 'Rename', icon: <IconEdit width={15} height={15} />, disabled: !isCurrent },
+        { separator: true },
+        { id: 'merge', label: 'Merge into current', icon: <IconMerge width={15} height={15} />, disabled: isCurrent },
+        { id: 'push', label: 'Push to origin', icon: <IconUpload width={15} height={15} /> },
+        { separator: true },
+        { id: 'delete', label: 'Delete', icon: <IconTrash width={15} height={15} />, danger: true, disabled: isCurrent },
+      ];
+    }
+    if (menu.kind === 'remote') {
+      return [
+        { id: 'checkout', label: 'Checkout as tracking branch', icon: <IconDownload width={15} height={15} /> },
+        { separator: true },
+        { id: 'delete-remote', label: 'Delete remote branch', icon: <IconTrash width={15} height={15} />, danger: true },
+      ];
+    }
+    if (menu.kind === 'tag') {
+      return [
+        { id: 'checkout', label: 'Checkout (detached)', icon: <IconDownload width={15} height={15} /> },
+        { separator: true },
+        { id: 'delete-tag', label: 'Delete tag', icon: <IconTrash width={15} height={15} />, danger: true },
+      ];
+    }
+    return [
+      { id: 'apply', label: 'Apply', icon: <IconDownload width={15} height={15} /> },
+      { id: 'pop', label: 'Pop (apply and drop)', icon: <IconMerge width={15} height={15} /> },
+      { separator: true },
+      { id: 'drop', label: 'Drop', icon: <IconTrash width={15} height={15} />, danger: true },
+    ];
+  }, [menu, currentBranch]);
+
+  const onMenuSelect = async (id: string) => {
+    if (!menu || !activeRepo) return;
+    const { kind, name } = menu;
+    setMenu(null);
+    if (kind === 'local') {
+      if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      else if (id === 'rename') setRename({ name, value: name });
+      else if (id === 'merge') {
+        const ok = await confirm(`Merge ${name} into ${currentBranch}?`, 'Conflicts must be resolved manually.');
+        if (ok) await runAction(mergeRef(activeRepo, name), `Merged ${name}`);
+      } else if (id === 'push') await runAction(pushBranch(activeRepo, name), `Pushed ${name}`);
+      else if (id === 'delete') await handleDelete(name);
+    } else if (kind === 'remote') {
+      if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      else if (id === 'delete-remote') {
+        const branch = name.includes('/') ? name.slice(name.indexOf('/') + 1) : name;
+        const ok = await confirm(`Delete remote branch ${name}?`, 'This affects the shared remote.');
+        if (ok) await runAction(deleteRemoteBranch(activeRepo, branch), `Deleted remote ${name}`);
+      }
+    } else if (kind === 'tag') {
+      if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      else if (id === 'delete-tag') {
+        const ok = await confirm(`Delete tag ${name}?`);
+        if (ok) await runAction(deleteTag(activeRepo, name), `Deleted tag ${name}`);
+      }
+    } else if (kind === 'stash') {
+      const idx = menu.stashIndex ?? 0;
+      if (id === 'apply') await runAction(stashApply(activeRepo, idx, false), 'Stash applied');
+      else if (id === 'pop') await runAction(stashApply(activeRepo, idx, true), 'Stash popped');
+      else if (id === 'drop') {
+        const ok = await confirm('Drop this stash?');
+        if (ok) {
+          await runAction(stashDrop(activeRepo, idx), 'Stash dropped');
+          loadStash();
+        }
+      }
+    }
+  };
+
+  const toggle = (key: keyof typeof openGroups) =>
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <aside className="ref-sidebar">
-      <div className="ref-section">
-        <div className="ref-section-title">
-          <span>Local branches</span>
-          <button
-            type="button"
-            className="mini-btn"
-            title="Create branch"
-            onClick={() => setShowNew(true)}
-          >
-            +
+    <aside className="sidebar">
+      <GroupHead
+        label="Local branches"
+        count={groups.local.length}
+        open={openGroups.local}
+        onToggle={() => toggle('local')}
+        action={(
+          <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title="New branch" onClick={() => setShowNew(true)}>
+            <IconPlus width={15} height={15} />
           </button>
-        </div>
-        {groups.local.map((r, i) => {
-          const isCurrent = r.shortName === currentBranch;
-          return (
-            <RefRow
-              key={r.name}
-              item={r}
-              current={isCurrent}
-              dotColor={laneColor(i)}
-              onClick={() => {
-                if (!isCurrent) {
-                  runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`);
-                }
-              }}
-            >
-              {!isCurrent && (
-                <span className="row-actions">
-                  <button
-                    type="button"
-                    className="mini-btn"
-                    title={`Merge ${r.shortName} into current branch`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMerge(r.shortName);
-                    }}
-                  >
-                    ⤵
-                  </button>
-                  <button
-                    type="button"
-                    className="mini-btn"
-                    title="Delete branch"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(r.shortName);
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-            </RefRow>
-          );
-        })}
-      </div>
+        )}
+      />
+      {openGroups.local && groups.local.map((r: Ref) => (
+        <Row
+          key={r.name}
+          icon={<IconBranch width={15} height={15} />}
+          name={r.shortName}
+          current={r.shortName === currentBranch}
+          onOpen={() => {
+            if (r.shortName !== currentBranch) {
+              runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`);
+            }
+          }}
+          onMenu={(e) => openMenu(e, 'local', r.shortName)}
+        />
+      ))}
 
-      <div className="ref-section">
-        <div className="ref-section-title">
-          <span>Remote branches</span>
-        </div>
-        {groups.remote.map((r) => (
-          <RefRow
-            key={r.name}
-            item={r}
-            dotColor="#3a6b48"
-            onClick={() => runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`)}
-          />
-        ))}
-      </div>
+      <GroupHead
+        label="Remote branches"
+        count={groups.remote.length}
+        open={openGroups.remote}
+        onToggle={() => toggle('remote')}
+      />
+      {openGroups.remote && groups.remote.map((r: Ref) => (
+        <Row
+          key={r.name}
+          icon={<IconBranch width={15} height={15} />}
+          name={r.shortName}
+          onOpen={() => runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`)}
+          onMenu={(e) => openMenu(e, 'remote', r.shortName)}
+        />
+      ))}
 
-      <div className="ref-section">
-        <div className="ref-section-title">
-          <span>Tags</span>
-        </div>
-        {groups.tags.map((r) => (
-          <RefRow
-            key={r.name}
-            item={r}
-            dotColor="var(--yellow)"
-            onClick={() => runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`)}
-          />
-        ))}
-      </div>
+      <GroupHead
+        label="Tags"
+        count={groups.tags.length}
+        open={openGroups.tag}
+        onToggle={() => toggle('tag')}
+      />
+      {openGroups.tag && groups.tags.map((r: Ref) => (
+        <Row
+          key={r.name}
+          icon={<IconTag width={15} height={15} />}
+          name={r.shortName}
+          onOpen={() => runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`)}
+          onMenu={(e) => openMenu(e, 'tag', r.shortName)}
+        />
+      ))}
 
-      {groups.stash && (
-        <div className="ref-section">
-          <div className="ref-section-title">
-            <span>Stash</span>
-          </div>
-          <RefRow
-            item={groups.stash}
-            dotColor="var(--purple)"
-            onClick={() => runAction(stashApply(activeRepo!, 0, false), 'Stash applied')}
-          >
-            <span className="row-actions">
-              <button
-                type="button"
-                className="mini-btn"
-                title="Pop (apply and drop)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  runAction(stashApply(activeRepo!, 0, true), 'Stash popped');
-                }}
-              >
-                ⤵
-              </button>
-              <button
-                type="button"
-                className="mini-btn"
-                title="Drop stash"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  runAction(stashDrop(activeRepo!, 0), 'Stash dropped');
-                }}
-              >
-                ×
-              </button>
-            </span>
-          </RefRow>
-        </div>
+      <GroupHead
+        label="Stash"
+        count={stashList.length}
+        open={openGroups.stash}
+        onToggle={() => toggle('stash')}
+      />
+      {openGroups.stash && stashList.map((entry) => (
+        <Row
+          key={entry.selector}
+          icon={<IconStash width={15} height={15} />}
+          name={entry.subject}
+          onOpen={() => runAction(stashApply(activeRepo!, entry.index, false), 'Stash applied')}
+          onMenu={(e) => openMenu(e, 'stash', entry.subject, entry.index)}
+        />
+      ))}
+
+      {showNew && activeRepo && (
+        <NewBranchModal repo={activeRepo} onClose={() => setShowNew(false)} />
       )}
-
-      {showNew && <NewBranchModal onClose={() => setShowNew(false)} />}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          title={menu.name}
+          items={menuItems}
+          onSelect={onMenuSelect}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {rename && (
+        <RenameModal
+          current={rename.value}
+          onCancel={() => setRename(null)}
+          onSubmit={(next) => {
+            const old = rename.name;
+            setRename(null);
+            runAction(renameBranch(activeRepo!, old, next), `Renamed to ${next}`);
+          }}
+        />
+      )}
     </aside>
   );
 }

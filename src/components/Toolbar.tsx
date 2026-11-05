@@ -8,6 +8,12 @@ import {
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
 import SettingsModal from './SettingsModal';
+import {
+  IconDownload,
+  IconGear,
+  IconStash,
+  IconUpload,
+} from './icons';
 
 export default function Toolbar() {
   const {
@@ -31,104 +37,102 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      <div className="toolbar-group">
-        <select
-          className="repo-select"
-          value={activeRepo || ''}
-          onChange={(e) => {
-            if (e.target.value === '__add__') {
-              setShowAdd(true);
-              e.target.value = activeRepo || '';
-            } else {
-              selectRepo(e.target.value);
-            }
-          }}
-        >
-          {repos.length === 0 && <option value="">No repository</option>}
-          {repos.map((r) => (
-            <option key={r.path} value={r.path}>
-              {r.name}
-            </option>
-          ))}
-          <option value="__add__">+ Add repository…</option>
-        </select>
-        <span className="branch-pill" title={activeRepo || ''}>
-          <span className="branch-icon" />
-          {branchLabel}
-          {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
-            <span className="ab-pill">
-              {activeBrief.ahead > 0 && <span className="ahead">↑{activeBrief.ahead}</span>}
-              {activeBrief.behind > 0 && <span className="behind">↓{activeBrief.behind}</span>}
-            </span>
-          )}
-        </span>
-      </div>
+      <select
+        className="repo-select"
+        value={activeRepo || ''}
+        onChange={(e) => {
+          if (e.target.value === '__add__') {
+            setShowAdd(true);
+            e.target.value = activeRepo || '';
+          } else {
+            selectRepo(e.target.value);
+          }
+        }}
+      >
+        {repos.length === 0 && <option value="">No repository</option>}
+        {repos.map((r) => (
+          <option key={r.path} value={r.path}>{r.name}</option>
+        ))}
+        <option value="__add__">+ Add repository…</option>
+      </select>
 
-      <div className="toolbar-group">
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          title="git fetch --all"
-          onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
-        >
-          Fetch
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          title="git pull"
-          onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
-        >
-          Pull
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          title="git push"
-          onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
-        >
-          Push
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          title="git stash push"
-          onClick={() => runAction(stashCreate(activeRepo!), 'Stashed')}
-        >
-          Stash
-        </button>
-      </div>
+      <span className="branch-pill" title={activeRepo || ''}>
+        <span className="dot" />
+        {branchLabel}
+        {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, marginLeft: 2 }}>
+            {activeBrief.ahead > 0 && <span style={{ color: 'var(--green)' }}>↑{activeBrief.ahead} </span>}
+            {activeBrief.behind > 0 && <span style={{ color: 'var(--red)' }}>↓{activeBrief.behind}</span>}
+          </span>
+        )}
+      </span>
 
-      <div className="toolbar-group">
-        <div className="view-switch">
-          <button
-            type="button"
-            className={view === 'git' ? 'active' : ''}
-            onClick={() => setView('git')}
-          >
-            Git
-          </button>
-          <button
-            type="button"
-            className={view === 'pr' ? 'active' : ''}
-            onClick={() => setView('pr')}
-          >
-            Pull Requests
-          </button>
-        </div>
+      <span className="spacer" />
+
+      <button
+        type="button"
+        className="btn"
+        disabled={!activeRepo || busy}
+        title="git fetch --all"
+        onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
+      >
+        Fetch
+      </button>
+      <button
+        type="button"
+        className="btn"
+        disabled={!activeRepo || busy}
+        title="git pull"
+        onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
+      >
+        <IconDownload width={14} height={14} />
+        Pull
+      </button>
+      <button
+        type="button"
+        className="btn"
+        disabled={!activeRepo || busy}
+        title="git push"
+        onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
+      >
+        <IconUpload width={14} height={14} />
+        Push
+      </button>
+      <button
+        type="button"
+        className="btn"
+        disabled={!activeRepo || busy}
+        title="git stash push"
+        onClick={() => runAction(stashCreate(activeRepo!), 'Stashed')}
+      >
+        <IconStash width={14} height={14} />
+        Stash
+      </button>
+
+      <span className="segmented">
         <button
           type="button"
-          className="btn btn-icon"
-          title="GitHub settings"
-          onClick={() => setShowSettings(true)}
+          className={view === 'git' ? 'active' : ''}
+          onClick={() => setView('git')}
         >
-          ⚙
+          Git
         </button>
-      </div>
+        <button
+          type="button"
+          className={view === 'pr' ? 'active' : ''}
+          onClick={() => setView('pr')}
+        >
+          Pull Requests
+        </button>
+      </span>
+      <button
+        type="button"
+        className="icon-btn"
+        title="GitHub settings"
+        onClick={() => setShowSettings(true)}
+      >
+        <IconGear />
+      </button>
 
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
