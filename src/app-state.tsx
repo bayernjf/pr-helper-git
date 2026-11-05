@@ -40,6 +40,8 @@ interface AppData {
   repoLoading: boolean;
   logLimit: number;
   logScope: 'all' | 'current';
+  logPath: string;
+  setLogPath: (path: string) => void;
   toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
   setLogScope: (scope: 'all' | 'current') => void;
@@ -69,6 +71,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [repoLoading, setRepoLoading] = useState(false);
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
   const [logScope, setLogScopeState] = useState<'all' | 'current'>('all');
+  const [logPath, setLogPathState] = useState('');
 
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
@@ -85,10 +88,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     repoPath: string,
     limit: number = LOG_PAGE_SIZE,
     scope: 'all' | 'current' = 'all',
+    pathFilter: string = '',
   ) => {
     const [statusRes, logRes, refsRes, remoteRes] = await Promise.all([
       getStatus(repoPath),
-      getLog(repoPath, limit, scope),
+      getLog(repoPath, limit, scope, pathFilter || undefined),
       getRefs(repoPath),
       getRemote(repoPath),
     ]);
@@ -104,8 +108,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setSelectedHash(null);
     setLogLimit(LOG_PAGE_SIZE);
     setLogScopeState('all');
+    setLogPathState('');
     setRepoLoading(true);
-    loadRepoData(repoPath, LOG_PAGE_SIZE, 'all')
+    loadRepoData(repoPath, LOG_PAGE_SIZE, 'all', '')
       .catch((err) => {
         toastApi.error(err.message || 'failed to load repository');
       })
@@ -119,9 +124,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setActiveRepo(null);
         return;
       }
-      await loadRepoData(activeRepo, logLimit, logScope);
+      await loadRepoData(activeRepo, logLimit, logScope, logPath);
     }
-  }, [activeRepo, loadRepoData, logLimit, logScope, refreshRepos]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, refreshRepos]);
 
   // Grow the loaded history window one page at a time up to LOG_MAX.
   const loadMore = useCallback(async () => {
@@ -130,14 +135,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (nextLimit === logLimit) return;
     setRepoLoading(true);
     try {
-      await loadRepoData(activeRepo, nextLimit, logScope);
+      await loadRepoData(activeRepo, nextLimit, logScope, logPath);
       setLogLimit(nextLimit);
     } catch (err) {
       toastApi.error((err as any)?.message || 'failed to load more history');
     } finally {
       setRepoLoading(false);
     }
-  }, [activeRepo, logLimit, logScope, loadRepoData, toastApi]);
+  }, [activeRepo, logLimit, logScope, logPath, loadRepoData, toastApi]);
 
   // Initial load: restore the last active repo when still registered.
   useEffect(() => {
@@ -157,14 +162,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data);
         const repoPath = activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
-          loadRepoData(repoPath, logLimit, logScope).catch(() => {});
+          loadRepoData(repoPath, logLimit, logScope, logPath).catch(() => {});
         }
       } catch {
         /* ignore malformed frames */
       }
     });
     return () => source.close();
-  }, [activeRepo, loadRepoData, logLimit, logScope]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
@@ -182,6 +187,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => setRepoLoading(false));
   }, [activeRepo, loadRepoData, logLimit, toastApi]);
+
+  const setLogPath = useCallback((pathFilter: string) => {
+    setLogPathState(pathFilter);
+    if (!activeRepo) return;
+    setRepoLoading(true);
+    loadRepoData(activeRepo, logLimit, logScope, pathFilter)
+      .catch((err) => {
+        toastApi.error((err as any)?.message || 'failed to apply path filter');
+      })
+      .finally(() => setRepoLoading(false));
+  }, [activeRepo, loadRepoData, logLimit, logScope, toastApi]);
 
   // Run a write action, then refresh all data. Errors are surfaced as toasts.
   const runAction = useCallback(async <T,>(action: Promise<T>, successMessage?: string) => {
@@ -218,9 +234,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       repoLoading,
       logLimit,
       logScope,
+      logPath,
       toast,
       setPat,
       setLogScope,
+      setLogPath,
       selectRepo,
       selectCommit: setSelectedHash,
       setView,
@@ -231,8 +249,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, repoLoading, logLimit, logScope, toast, setPat, setLogScope,
-    selectRepo, refreshRepos, refresh, loadMore, runAction,
+    pat, busy, repoLoading, logLimit, logScope, logPath, toast, setPat, setLogScope,
+    setLogPath, selectRepo, refreshRepos, refresh, loadMore, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
