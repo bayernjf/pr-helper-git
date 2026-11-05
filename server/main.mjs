@@ -9,6 +9,13 @@ import { fileURLToPath } from 'node:url';
 import { createTokenChecker, randomToken } from './security.mjs';
 import { handleGitRoute } from './routes-git.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
+import {
+  addClient,
+  ensureWatching,
+  removeClient,
+  watchedCount,
+} from './watcher.mjs';
+import { listRepos } from './store.mjs';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIST_DIR = path.join(REPO_ROOT, 'dist');
@@ -89,6 +96,29 @@ const server = http.createServer(async (req, res) => {
         || (req.headers.authorization || '');
       if (!tokenOk(presented)) return sendJson(res, 401, { error: 'unauthorized' });
 
+      // Server-sent events: long-lived stream for file-change notifications.
+      if (pathname === '/api/events') {
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+        });
+        res.write(`data: ${JSON.stringify({ type: 'hello', watched: watchedCount() })}\n\n`);
+        addClient(res);
+        const keepalive = setInterval(() => {
+          try {
+            res.write(': ping\n\n');
+          } catch {
+            clearInterval(keepalive);
+          }
+        }, 25000);
+        req.on('close', () => {
+          clearInterval(keepalive);
+          removeClient(res);
+        });
+        return;
+      }
+
       const body = req.method === 'POST' ? await readJsonBody(req) : { value: {} };
       if (body.error) return sendJson(res, 400, { error: body.error });
       const ctx = {
@@ -136,8 +166,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '127.0.0.1', async () => {
   const bound = server.address().port;
+  for (const repoPath of await listRepos()) {
+    ensureWatching(repoPath);
+  }
   if (isDev) {
     console.log(`API server (dev) → http://127.0.0.1:${bound}`);
   } else {
