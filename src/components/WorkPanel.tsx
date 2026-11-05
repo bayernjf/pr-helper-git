@@ -180,6 +180,7 @@ export default function WorkPanel() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
+  const [ignoreWs, setIgnoreWs] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelHeight, setPanelHeight] = useState(300);
   const [viewer, setViewer] = useState<string | null>(null);
@@ -243,7 +244,7 @@ export default function WorkPanel() {
       return;
     }
     let cancelled = false;
-    getDiff(activeRepo, selection.path, selection.area === 'staged')
+    getDiff(activeRepo, selection.path, selection.area === 'staged', ignoreWs)
       .then((result) => {
         if (!cancelled) setDiff(result);
       })
@@ -253,7 +254,7 @@ export default function WorkPanel() {
     return () => {
       cancelled = true;
     };
-  }, [selection, activeRepo, status]);
+  }, [selection, activeRepo, status, ignoreWs]);
 
   async function handleDiscard(file: StatusFile) {
     const ok = await confirm(
@@ -394,6 +395,16 @@ export default function WorkPanel() {
           </Group>
         </div>
 
+        <div className="diff-controls">
+          <button
+            type="button"
+            className={`ws-toggle${ignoreWs ? ' active' : ''}`}
+            title="Ignore whitespace changes (-w)"
+            onClick={() => setIgnoreWs((v) => !v)}
+          >
+            Ignore whitespace
+          </button>
+        </div>
         <DiffView result={diff} />
       </div>
 

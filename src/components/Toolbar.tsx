@@ -6,6 +6,7 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
+import CompareModal from './CompareModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
@@ -15,6 +16,7 @@ import {
   IconDownload,
   IconGear,
   IconServer,
+  IconSplit,
   IconStash,
   IconUpload,
 } from './icons';
@@ -35,6 +37,7 @@ export default function Toolbar() {
   const [showRemotes, setShowRemotes] = useState(false);
   const [showStash, setShowStash] = useState(false);
   const [showReflog, setShowReflog] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
@@ -43,17 +46,20 @@ export default function Toolbar() {
     const openRemotes = () => setShowRemotes(true);
     const openReflog = () => setShowReflog(true);
     const openStash = () => setShowStash(true);
+    const openCompare = () => setShowCompare(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
     window.addEventListener('git2:reflog', openReflog);
     window.addEventListener('git2:stash', openStash);
+    window.addEventListener('git2:compare', openCompare);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
       window.removeEventListener('git2:remotes', openRemotes);
       window.removeEventListener('git2:reflog', openReflog);
       window.removeEventListener('git2:stash', openStash);
+      window.removeEventListener('git2:compare', openCompare);
     };
   }, []);
 
@@ -156,6 +162,15 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Compare two references"
+        disabled={!activeRepo}
+        onClick={() => setShowCompare(true)}
+      >
+        <IconSplit />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="View reference log (reflog)"
         disabled={!activeRepo}
         onClick={() => setShowReflog(true)}
@@ -185,6 +200,7 @@ export default function Toolbar() {
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
       {showStash && <StashModal onClose={() => setShowStash(false)} />}
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
+      {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
     </header>
   );
 }

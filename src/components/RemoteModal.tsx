@@ -3,6 +3,7 @@ import {
   addRemote,
   getRemotes,
   removeRemote,
+  renameRemote,
   setRemoteUrl,
 } from '../api';
 import { useApp } from '../app-state';
@@ -20,6 +21,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState('');
   const [working, setWorking] = useState(false);
   const [editing, setEditing] = useState<{ name: string; value: string } | null>(null);
+  const [renaming, setRenaming] = useState<{ oldName: string; value: string } | null>(null);
 
   const reload = useCallback(() => {
     if (!activeRepo) return;
@@ -82,6 +84,26 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function saveRename() {
+    if (!renaming || !activeRepo) return;
+    const value = renaming.value.trim();
+    if (!value || !/^[A-Za-z0-9._-]{1,64}$/.test(value)) {
+      toast('Invalid remote name', 'error');
+      return;
+    }
+    setWorking(true);
+    try {
+      await renameRemote(activeRepo, renaming.oldName, value);
+      toast('Remote renamed', 'success');
+      setRenaming(null);
+      reload();
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal" style={{ width: 560 }} onClick={(e) => e.stopPropagation()}>
@@ -96,7 +118,43 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
             <div className="pr-detail-list" style={{ marginBottom: 16 }}>
               {remotes.map((r) => (
                 <div key={r.name} className="pr-detail-item">
-                  <span style={{ fontWeight: 600, minWidth: 64 }}>{r.name}</span>
+                  {renaming?.oldName === r.name ? (
+                    <input
+                      className="remote-edit-input"
+                      style={{ maxWidth: 120 }}
+                      autoFocus
+                      value={renaming.value}
+                      aria-label="Remote name"
+                      onChange={(e) => setRenaming({ oldName: r.name, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename();
+                        if (e.key === 'Escape') setRenaming(null);
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontWeight: 600, minWidth: 64 }}>{r.name}</span>
+                  )}
+                  {renaming?.oldName === r.name ? (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Save name"
+                      disabled={working}
+                      onClick={saveRename}
+                    >
+                      <IconCheck width={13} height={13} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Rename remote"
+                      disabled={working}
+                      onClick={() => setRenaming({ oldName: r.name, value: r.name })}
+                    >
+                      <IconEdit width={13} height={13} />
+                    </button>
+                  )}
                   {editing?.name === r.name ? (
                     <input
                       className="remote-edit-input"

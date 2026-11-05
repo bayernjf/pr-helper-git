@@ -11,6 +11,7 @@ import {
   pushBranch,
   pushTag,
   renameBranch,
+  setBranchUpstream,
   stashApply,
   stashDrop,
   type StashEntry,
@@ -29,6 +30,7 @@ import {
   IconMerge,
   IconMore,
   IconPlus,
+  IconSearch,
   IconStash,
   IconTag,
   IconTrash,
@@ -168,18 +170,29 @@ export default function RefSidebar() {
   const [stashList, setStashList] = useState<StashEntry[]>([]);
   const [stashView, setStashView] = useState<{ index: number; subject: string; diff: string } | null>(null);
   const [tagView, setTagView] = useState<TagDetail | null>(null);
+  const [upstreamPicker, setUpstreamPicker] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
   const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
 
-  useEscape(() => { setStashView(null); setTagView(null); });
+  useEscape(() => {
+    setStashView(null); setTagView(null); setUpstreamPicker(null);
+  });
 
   const groups = useMemo(() => {
-    const local = refs.filter((r) => r.name.startsWith('refs/heads/'));
+    const term = filter.trim().toLowerCase();
+    const match = (r: Ref) => !term || r.shortName.toLowerCase().includes(term);
+    const local = refs.filter((r) => r.name.startsWith('refs/heads/') && match(r));
     const remote = refs.filter(
-      (r) => r.name.startsWith('refs/remotes/') && !r.name.endsWith('/HEAD'),
+      (r) => r.name.startsWith('refs/remotes/') && !r.name.endsWith('/HEAD') && match(r),
     );
-    const tags = refs.filter((r) => r.name.startsWith('refs/tags/'));
+    const tags = refs.filter((r) => r.name.startsWith('refs/tags/') && match(r));
     return { local, remote, tags };
-  }, [refs]);
+  }, [refs, filter]);
+
+  const visibleStash = useMemo(() => {
+    const term = filter.trim().toLowerCase();
+    return term ? stashList.filter((s) => s.subject.toLowerCase().includes(term)) : stashList;
+  }, [stashList, filter]);
 
   const currentBranch = status?.branch;
 
@@ -224,6 +237,7 @@ export default function RefSidebar() {
         { separator: true },
         { id: 'merge', label: 'Merge into current', icon: <IconMerge width={15} height={15} />, disabled: isCurrent },
         { id: 'push', label: 'Push to origin', icon: <IconUpload width={15} height={15} /> },
+        { id: 'set-upstream', label: 'Set upstream…', icon: <IconBranch width={15} height={15} /> },
         { separator: true },
         { id: 'delete', label: 'Delete', icon: <IconTrash width={15} height={15} />, danger: true, disabled: isCurrent },
       ];
@@ -265,6 +279,7 @@ export default function RefSidebar() {
         const ok = await confirm(`Merge ${name} into ${currentBranch}?`, 'Conflicts must be resolved manually.');
         if (ok) await runAction(mergeRef(activeRepo, name), `Merged ${name}`);
       } else if (id === 'push') await runAction(pushBranch(activeRepo, name), `Pushed ${name}`);
+      else if (id === 'set-upstream') setUpstreamPicker(name);
       else if (id === 'delete') await handleDelete(name);
     } else if (kind === 'remote') {
       if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
@@ -313,6 +328,15 @@ export default function RefSidebar() {
 
   return (
     <aside className="sidebar">
+      <div className="sidebar-filter">
+        <IconSearch width={13} height={13} />
+        <input
+          type="text"
+          placeholder="Filter refs…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
       <GroupHead
         label="Local branches"
         count={groups.local.length}
@@ -381,11 +405,11 @@ export default function RefSidebar() {
 
       <GroupHead
         label="Stash"
-        count={stashList.length}
+        count={visibleStash.length}
         open={openGroups.stash}
         onToggle={() => toggle('stash')}
       />
-      {openGroups.stash && stashList.map((entry) => (
+      {openGroups.stash && visibleStash.map((entry) => (
         <Row
           key={entry.selector}
           icon={<IconStash width={15} height={15} />}
@@ -484,6 +508,41 @@ export default function RefSidebar() {
               <button type="button" className="btn btn-primary" onClick={() => setTagView(null)}>
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {upstreamPicker && (
+        <div className="modal-backdrop" onClick={() => setUpstreamPicker(null)}>
+          <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Set upstream for {upstreamPicker}</h2>
+              <button type="button" className="icon-btn" onClick={() => setUpstreamPicker(null)}>
+                <IconX />
+              </button>
+            </div>
+            <div className="modal-body">
+              {groups.remote.length === 0 ? (
+                <div className="list-empty">No remote tracking branches available.</div>
+              ) : (
+                <div className="pr-detail-list">
+                  {groups.remote.map((r) => (
+                    <button
+                      key={r.name}
+                      type="button"
+                      className="pr-detail-item"
+                      style={{ width: '100%', textAlign: 'left' }}
+                      onClick={() => runAction(
+                        setBranchUpstream(activeRepo!, r.shortName, upstreamPicker),
+                        `Upstream set to ${r.shortName}`,
+                      ).then((res) => { if (res !== null) setUpstreamPicker(null); })}
+                    >
+                      {r.shortName}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
