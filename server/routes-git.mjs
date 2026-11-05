@@ -252,7 +252,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/refs' && method === 'GET') {
     try {
       const raw = await git(
-        ['for-each-ref', '--format=%(objectname)\t%(objecttype)\t%(refname)\t%(upstream)\t%(refname:short)'],
+        ['for-each-ref', '--format=%(objectname)\t%(objecttype)\t%(refname)\t%(upstream)\t%(refname:short)\t%(upstream:track)'],
         repo,
       );
       return ok({ refs: parseRefs(raw) });
@@ -460,6 +460,36 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ remotes });
     } catch (err) {
       return gitFail(err, 'git remote failed');
+    }
+  }
+
+  if (pathname === '/api/file-history' && method === 'GET') {
+    const rel = normalizeRepoPath(query.get('file'));
+    if (!rel) return fail(400, 'invalid file path');
+    try {
+      const raw = await git(
+        [
+          'log', '--follow', '--date-order',
+          `--max-count=${LOG_LIMIT_MAX}`,
+          '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e',
+          '--', rel,
+        ],
+        repo,
+      );
+      return ok({ path: rel, commits: parseLog(raw) });
+    } catch (err) {
+      return gitFail(err, 'git file history failed');
+    }
+  }
+
+  if (pathname === '/api/stash-show' && method === 'GET') {
+    const safe = validateStashIndex(query.get('index'));
+    if (safe === null) return fail(400, 'invalid stash index');
+    try {
+      const diff = await git(['stash', 'show', '-p', `stash@{${safe}}`], repo);
+      return ok({ index: safe, diff });
+    } catch (err) {
+      return gitFail(err, 'stash show failed');
     }
   }
 

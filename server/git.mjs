@@ -98,13 +98,23 @@ export function parseRefs(output) {
   const refs = [];
   for (const line of output.split('\n')) {
     if (!line) continue;
-    const [hash, refType, name, upstream, shortName] = line.split('\t');
+    const [hash, refType, name, upstream, shortName, track] = line.split('\t');
+    let ahead = 0;
+    let behind = 0;
+    if (track) {
+      const a = track.match(/ahead (\d+)/);
+      const b = track.match(/behind (\d+)/);
+      if (a) ahead = Number(a[1]);
+      if (b) behind = Number(b[1]);
+    }
     refs.push({
       hash,
       type: refType,
       name,
       shortName: shortName || name,
       upstream: upstream || null,
+      ahead,
+      behind,
     });
   }
   return refs;
