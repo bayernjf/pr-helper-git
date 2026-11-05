@@ -1,4 +1,5 @@
 import { useApp } from './app-state';
+import { useShortcuts } from './hooks/use-shortcuts';
 import CommitDetail from './components/CommitDetail';
 import CommitGraph from './components/CommitGraph';
 import { IconFolder } from './components/icons';
@@ -12,18 +13,32 @@ function EmptyState() {
     <div className="empty-state">
       <div className="empty-icon"><IconFolder width={28} height={28} /></div>
       <h3>No repository selected</h3>
-      <p>Use the repository selector in the toolbar to register a local Git repository.</p>
+      <p>Use the repository selector in the toolbar to register, clone or initialise a repository.</p>
+    </div>
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <div className="loading-panel">
+      <span className="spinner" />
+      <span>Loading repository…</span>
     </div>
   );
 }
 
 export default function App() {
-  const { activeRepo, view } = useApp();
+  const { activeRepo, view, repoLoading, status, commits } = useApp();
+  useShortcuts();
+  const firstLoad = repoLoading && !status && commits.length === 0;
   return (
     <div className="app">
       <Toolbar />
+      {repoLoading && <div className="loading-bar" />}
       {!activeRepo ? (
         <EmptyState />
+      ) : firstLoad ? (
+        <LoadingPanel />
       ) : view === 'pr' ? (
         <PrBoard />
       ) : (
