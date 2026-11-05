@@ -446,6 +446,23 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  if (pathname === '/api/remotes' && method === 'GET') {
+    try {
+      const raw = await git(['remote', '-v'], repo);
+      const remotes = [];
+      for (const line of raw.split('\n')) {
+        const m = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+        if (!m) continue;
+        const existing = remotes.find((r) => r.name === m[1]);
+        if (existing) existing[m[3]] = m[2];
+        else remotes.push({ name: m[1], fetch: m[3] === 'fetch' ? m[2] : null, push: m[3] === 'push' ? m[2] : null });
+      }
+      return ok({ remotes });
+    } catch (err) {
+      return gitFail(err, 'git remote failed');
+    }
+  }
+
   if (method !== 'POST') return null;
 
   // ---------- writes ----------
@@ -658,20 +675,35 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
-  if (pathname === '/api/remotes') {
+  if (pathname === '/api/remote/add') {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const url = typeof body.url === 'string' ? body.url.trim() : '';
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(name) || name.startsWith('-')) {
+      return fail(400, 'invalid remote name');
+    }
+    if (!validateCloneUrl(url)) return fail(400, 'invalid remote url');
     try {
-      const raw = await git(['remote', '-v'], repo);
-      const remotes = [];
-      for (const line of raw.split('\n')) {
-        const m = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
-        if (!m) continue;
-        const existing = remotes.find((r) => r.name === m[1]);
-        if (existing) existing[m[3]] = m[2];
-        else remotes.push({ name: m[1], fetch: m[3] === 'fetch' ? m[2] : null, push: m[3] === 'push' ? m[2] : null });
-      }
-      return ok({ remotes });
+      await git(['remote', 'add', name, url], repo);
+      await appendAudit({ ok: true, action: 'remote-add', repo, name });
+      return ok({ ok: true, name });
     } catch (err) {
-      return gitFail(err, 'git remote failed');
+      await appendAudit({ ok: false, action: 'remote-add', repo, name });
+      return gitFail(err, 'git remote add failed');
+    }
+  }
+
+  if (pathname === '/api/remote/remove') {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(name) || name.startsWith('-')) {
+      return fail(400, 'invalid remote name');
+    }
+    try {
+      await git(['remote', 'remove', name], repo);
+      await appendAudit({ ok: true, action: 'remote-remove', repo, name });
+      return ok({ ok: true, name });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'remote-remove', repo, name });
+      return gitFail(err, 'git remote remove failed');
     }
   }
 
