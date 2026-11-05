@@ -71,13 +71,29 @@ export const resetCommit = (
   confirm = false,
 ) => post('/api/reset', { repo, sha, mode, confirm }) as Promise<{ ok: boolean; mode: string }>;
 
+export const revertCommit = (repo: string, sha: string) =>
+  post('/api/revert', { repo, sha }) as Promise<{ ok: boolean; reverted: string }>;
+
+export const ignoreFile = (repo: string, file: string) =>
+  post('/api/ignore', { repo, file }) as Promise<{
+    ok: boolean;
+    ignored: string;
+    added: boolean;
+  }>;
+
 // ---------- git reads ----------
 
 export const getStatus = (repo: string) =>
   request<{ status: ParsedStatus }>(`/api/status?repo=${encodeURIComponent(repo)}`);
 
-export const getLog = (repo: string, limit = 200) =>
-  request<{ commits: Commit[] }>(`/api/log?repo=${encodeURIComponent(repo)}&limit=${limit}`);
+export const getLog = (
+  repo: string,
+  limit = 200,
+  scope: 'all' | 'current' = 'all',
+) =>
+  request<{ commits: Commit[]; scope?: string }>(
+    `/api/log?repo=${encodeURIComponent(repo)}&limit=${limit}&scope=${scope}`,
+  );
 
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);
@@ -180,6 +196,13 @@ export const deleteTag = (repo: string, name: string) =>
 
 export const pushBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/push', { repo, name, remote });
+
+export const pushTag = (repo: string, name: string, remote = 'origin') =>
+  post('/api/tag/push', { repo, name, remote }) as Promise<{
+    ok: boolean;
+    pushed: string;
+    remote: string;
+  }>;
 
 export const deleteRemoteBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/delete-remote', { repo, name, remote });

@@ -39,8 +39,10 @@ interface AppData {
   busy: boolean;
   repoLoading: boolean;
   logLimit: number;
+  logScope: 'all' | 'current';
   toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
+  setLogScope: (scope: 'all' | 'current') => void;
   selectRepo: (path: string) => void;
   selectCommit: (hash: string | null) => void;
   setView: (view: View) => void;
@@ -66,6 +68,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
+  const [logScope, setLogScopeState] = useState<'all' | 'current'>('all');
 
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
@@ -78,10 +81,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return list;
   }, []);
 
-  const loadRepoData = useCallback(async (repoPath: string, limit: number = LOG_PAGE_SIZE) => {
+  const loadRepoData = useCallback(async (
+    repoPath: string,
+    limit: number = LOG_PAGE_SIZE,
+    scope: 'all' | 'current' = 'all',
+  ) => {
     const [statusRes, logRes, refsRes, remoteRes] = await Promise.all([
       getStatus(repoPath),
-      getLog(repoPath, limit),
+      getLog(repoPath, limit, scope),
       getRefs(repoPath),
       getRemote(repoPath),
     ]);
@@ -96,8 +103,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ACTIVE_KEY, repoPath);
     setSelectedHash(null);
     setLogLimit(LOG_PAGE_SIZE);
+    setLogScopeState('all');
     setRepoLoading(true);
-    loadRepoData(repoPath, LOG_PAGE_SIZE)
+    loadRepoData(repoPath, LOG_PAGE_SIZE, 'all')
       .catch((err) => {
         toastApi.error(err.message || 'failed to load repository');
       })
@@ -111,9 +119,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setActiveRepo(null);
         return;
       }
-      await loadRepoData(activeRepo, logLimit);
+      await loadRepoData(activeRepo, logLimit, logScope);
     }
-  }, [activeRepo, loadRepoData, logLimit, refreshRepos]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, refreshRepos]);
 
   // Grow the loaded history window one page at a time up to LOG_MAX.
   const loadMore = useCallback(async () => {
@@ -122,14 +130,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (nextLimit === logLimit) return;
     setRepoLoading(true);
     try {
-      await loadRepoData(activeRepo, nextLimit);
+      await loadRepoData(activeRepo, nextLimit, logScope);
       setLogLimit(nextLimit);
     } catch (err) {
       toastApi.error((err as any)?.message || 'failed to load more history');
     } finally {
       setRepoLoading(false);
     }
-  }, [activeRepo, logLimit, loadRepoData, toastApi]);
+  }, [activeRepo, logLimit, logScope, loadRepoData, toastApi]);
 
   // Initial load: restore the last active repo when still registered.
   useEffect(() => {
@@ -149,19 +157,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data);
         const repoPath = activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
-          loadRepoData(repoPath, logLimit).catch(() => {});
+          loadRepoData(repoPath, logLimit, logScope).catch(() => {});
         }
       } catch {
         /* ignore malformed frames */
       }
     });
     return () => source.close();
-  }, [activeRepo, loadRepoData, logLimit]);
+  }, [activeRepo, loadRepoData, logLimit, logScope]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
     localStorage.setItem(PAT_KEY, value);
   }, []);
+
+  // Switch the history scope and reload the active repo immediately.
+  const setLogScope = useCallback((scope: 'all' | 'current') => {
+    setLogScopeState(scope);
+    if (!activeRepo) return;
+    setRepoLoading(true);
+    loadRepoData(activeRepo, logLimit, scope)
+      .catch((err) => {
+        toastApi.error((err as any)?.message || 'failed to change history scope');
+      })
+      .finally(() => setRepoLoading(false));
+  }, [activeRepo, loadRepoData, logLimit, toastApi]);
 
   // Run a write action, then refresh all data. Errors are surfaced as toasts.
   const runAction = useCallback(async <T,>(action: Promise<T>, successMessage?: string) => {
@@ -197,8 +217,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       busy,
       repoLoading,
       logLimit,
+      logScope,
       toast,
       setPat,
+      setLogScope,
       selectRepo,
       selectCommit: setSelectedHash,
       setView,
@@ -209,8 +231,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, repoLoading, logLimit, toast, setPat, selectRepo, refreshRepos,
-    refresh, loadMore, runAction,
+    pat, busy, repoLoading, logLimit, logScope, toast, setPat, setLogScope,
+    selectRepo, refreshRepos, refresh, loadMore, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
