@@ -3,6 +3,7 @@ import {
   fetchRepo,
   pullRepo,
   pushRepo,
+  type ForcePushMode,
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
@@ -11,7 +12,10 @@ import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
 import StashModal from './StashModal';
+import { ContextMenu, type MenuItem } from './context-menu';
+import { useConfirm } from './ui';
 import {
+  IconChevronDown,
   IconClock,
   IconDownload,
   IconGear,
@@ -38,6 +42,8 @@ export default function Toolbar() {
   const [showStash, setShowStash] = useState(false);
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
+  const confirm = useConfirm();
 
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
@@ -68,6 +74,40 @@ export default function Toolbar() {
     : activeRepo
       ? 'detached HEAD'
       : 'no repository';
+
+  const menuItems: MenuItem[] = dropMenu?.kind === 'pull'
+    ? [
+      { id: 'pull-merge', label: 'Pull (merge)' },
+      { id: 'pull-rebase', label: 'Pull with rebase' },
+    ]
+    : [
+      { id: 'push-normal', label: 'Push' },
+      { id: 'push-lease', label: 'Force push (--force-with-lease)' },
+      { id: 'push-force', label: 'Force push (--force)', danger: true },
+    ];
+
+  async function onMenuSelect(id: string) {
+    setDropMenu(null);
+    if (!activeRepo) return;
+    if (id === 'pull-merge') await runAction(pullRepo(activeRepo, false), 'Pulled');
+    else if (id === 'pull-rebase') await runAction(pullRepo(activeRepo, true), 'Pulled with rebase');
+    else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
+    else if (id === 'push-lease' || id === 'push-force') {
+      const mode: ForcePushMode = id === 'push-lease' ? 'force-with-lease' : 'force';
+      const ok = await confirm(
+        `Force push (${mode})?`,
+        mode === 'force'
+          ? 'This overwrites the remote ref and can discard others\' commits. Prefer force-with-lease.'
+          : 'This updates the remote only if nobody else pushed in the meantime.',
+      );
+      if (ok) await runAction(pushRepo(activeRepo, false, mode, true), 'Force pushed');
+    }
+  }
+
+  function openMenu(event: React.MouseEvent, kind: 'pull' | 'push') {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setDropMenu({ x: rect.left, y: rect.bottom + 4, kind });
+  }
 
   return (
     <header className="toolbar">
@@ -112,26 +152,48 @@ export default function Toolbar() {
       >
         Fetch
       </button>
-      <button
-        type="button"
-        className="btn"
-        disabled={!activeRepo || busy}
-        title="git pull"
-        onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
-      >
-        <IconDownload width={14} height={14} />
-        Pull
-      </button>
-      <button
-        type="button"
-        className="btn"
-        disabled={!activeRepo || busy}
-        title="git push"
-        onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
-      >
-        <IconUpload width={14} height={14} />
-        Push
-      </button>
+      <span className="btn-group">
+        <button
+          type="button"
+          className="btn"
+          disabled={!activeRepo || busy}
+          title="git pull"
+          onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
+        >
+          <IconDownload width={14} height={14} />
+          Pull
+        </button>
+        <button
+          type="button"
+          className="btn btn-caret"
+          disabled={!activeRepo || busy}
+          title="Pull options"
+          onClick={(e) => openMenu(e, 'pull')}
+        >
+          <IconChevronDown width={12} height={12} />
+        </button>
+      </span>
+      <span className="btn-group">
+        <button
+          type="button"
+          className="btn"
+          disabled={!activeRepo || busy}
+          title="git push"
+          onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
+        >
+          <IconUpload width={14} height={14} />
+          Push
+        </button>
+        <button
+          type="button"
+          className="btn btn-caret"
+          disabled={!activeRepo || busy}
+          title="Push options"
+          onClick={(e) => openMenu(e, 'push')}
+        >
+          <IconChevronDown width={12} height={12} />
+        </button>
+      </span>
       <button
         type="button"
         className="btn"
@@ -201,6 +263,15 @@ export default function Toolbar() {
       {showStash && <StashModal onClose={() => setShowStash(false)} />}
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
+      {dropMenu && (
+        <ContextMenu
+          x={dropMenu.x}
+          y={dropMenu.y}
+          items={menuItems}
+          onSelect={onMenuSelect}
+          onClose={() => setDropMenu(null)}
+        />
+      )}
     </header>
   );
 }
