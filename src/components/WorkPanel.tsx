@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   amendCommit,
   commitChanges,
@@ -145,6 +145,24 @@ export default function WorkPanel() {
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [panelHeight, setPanelHeight] = useState(300);
+
+  const startResize = (event: React.PointerEvent) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startH = panelHeight;
+    const move = (ev: PointerEvent) => {
+      // Dragging the handle upward grows the working panel.
+      const next = Math.min(640, Math.max(140, startH + (startY - ev.clientY)));
+      setPanelHeight(next);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
   const groups = useMemo(() => {
     const files = status?.files || [];
@@ -224,6 +242,20 @@ export default function WorkPanel() {
     if (result !== null) setMessage('');
   }
 
+  // Cmd/Ctrl+Enter submits the form without needing the button focused.
+  const submitRef = useRef<() => void>(() => {});
+  submitRef.current = handleSubmit;
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        submitRef.current();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const renderTree = (list: TreeNode[], area: FileArea, allowDiscard: boolean) =>
     flattenTree(list, collapsed).map((node) => (
       <TreeRow
@@ -251,7 +283,16 @@ export default function WorkPanel() {
   const canSubmit = !!message.trim() && (amend || groups.staged.length > 0);
 
   return (
-    <section className="work-panel">
+    <section className="work-panel" style={{ height: panelHeight }}>
+      <div
+        className="panel-resize-handle"
+        title="Drag to resize"
+        onPointerDown={startResize}
+        role="separator"
+        aria-orientation="horizontal"
+      >
+        <span className="resize-grip" />
+      </div>
       <div className="work-content">
         <div className="file-list">
           <Group
