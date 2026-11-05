@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { addRepo, cloneRepo, initRepo } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import {
   IconDownload,
   IconFolder,
@@ -30,6 +31,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ReactNode }> = [
 
 export default function AddRepoModal({ onClose }: { onClose: () => void }) {
   const { selectRepo, refreshRepos, toast } = useApp();
+  useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');
   const [saving, setSaving] = useState(false);
 

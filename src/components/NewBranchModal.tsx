@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createBranch } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
   const { refs, runAction } = useApp();
   const [name, setName] = useState('');
+  useEscape(onClose);
   const [from, setFrom] = useState(fromRef || '');
 
   const branchRefs = refs.filter(

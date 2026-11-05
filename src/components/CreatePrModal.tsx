@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import type { Ref } from '../types';
 import { IconX } from './icons';
@@ -13,6 +14,7 @@ interface Props {
 
 export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
   const { pat, remote, status, commits, toast } = useApp();
+  useEscape(onClose);
 
   const branches = useMemo(
     () => headRefs.filter((r) => r.name.startsWith('refs/heads/')).map((r) => r.shortName),

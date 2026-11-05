@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { githubProxy, markReadyForReview, mergePull } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { formatFullDate, formatRelative, shortHash } from '../lib/format';
 import type { CheckRun, PullRequest } from '../types';
 import {
@@ -54,6 +55,7 @@ export default function PrDetailModal({
 }) {
   const { pat, remote, activeRepo, toast } = useApp();
   const confirm = useConfirm();
+  useEscape(onClose);
   const [checks, setChecks] = useState<CheckRun[]>([]);
   const [prCommits, setPrCommits] = useState<PrCommit[]>([]);
   const [prFiles, setPrFiles] = useState<PrFile[]>([]);

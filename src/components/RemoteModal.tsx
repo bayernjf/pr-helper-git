@@ -5,6 +5,7 @@ import {
   removeRemote,
 } from '../api';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import type { RemoteEntry } from '../types';
 import { IconTrash, IconX } from './icons';
 import { useConfirm } from './ui';
@@ -12,6 +13,7 @@ import { useConfirm } from './ui';
 export default function RemoteModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, toast } = useApp();
   const confirm = useConfirm();
+  useEscape(onClose);
   const [remotes, setRemotes] = useState<RemoteEntry[]>([]);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../app-state';
+import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { pat, setPat } = useApp();
   const [value, setValue] = useState(pat);
+  useEscape(onClose);
 
   function save(event: React.FormEvent) {
     event.preventDefault();
