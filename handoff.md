@@ -15,12 +15,16 @@ repository is never pushed.
   menu, keyboard shortcuts, resizable work panel, responsive layout,
   error boundary, loading states, SSE live refresh, safe revert (new commit,
   merge commits rejected, auto-abort on conflict), add-to-.gitignore,
-  push tag, history scope (all vs current branch), Cmd+K command palette.
+  push tag, history scope (all vs current branch), Cmd+K command palette,
+  blob file viewer (working tree or any ref, binary detection, size cap),
+  git blame (per-line author/commit, porcelain parser), git clean (dry-run
+  preview then force-remove untracked, ignored files untouched), remote
+  add/remove with name and URL validation.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
-  requested reviewers (view and request), merge PR (merge/squash/rebase),
-  close/reopen. PAT is stored only in the browser and proxied through the
-  local server.
+  requested reviewers (view and request), issue comments (view and compose,
+  Cmd/Ctrl+Enter to post), merge PR (merge/squash/rebase), close/reopen.
+  PAT is stored only in the browser and proxied through the local server.
 - Explicitly out of scope: interactive rebase, cherry-pick, submodules,
   worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
   gates, AI generation, in-app conflict resolution.
@@ -53,6 +57,14 @@ repository is never pushed.
 - [x] Client: PR requested reviewers view and request
 - [x] UX: Cmd+K command palette with fuzzy filter and keyboard nav
 - [x] Third iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: file content route (ref-aware, binary detection, size cap)
+- [x] Server: blame porcelain parser with unit tests
+- [x] Server: clean route (dry-run + force, ignored files protected)
+- [x] Server: remote add/remove routes with name/URL validation
+- [x] Client: FileViewer with content/blame toggle, wired to work panel and commit detail
+- [x] Client: clean button and remote management modal
+- [x] Client: PR issue comments list and composer
+- [x] Fourth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -60,9 +72,24 @@ repository is never pushed.
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
   English commits authored by the configured user, with no co-author trailers.
-- 42 Vitest tests pass (graph layout, formatting, security, git parsers, file
+- 44 Vitest tests pass (graph layout, formatting, security, git parsers, file
   tree, diff lines, review summaries, clone/folder validation, command palette
-  fuzzy filter); `tsc --noEmit` and `vite build` are green.
+  fuzzy filter, blame porcelain parsing); `tsc --noEmit` and `vite build` are green.
+- Fourth iteration E2E in the browser: FileViewer shows working-tree and
+  committed files with line numbers, binary detection and a 1 MB cap; the
+  blame tab renders per-line author/short-sha/content (200 lines); clean
+  previews two untracked items in a confirm dialog then removes the file and
+  directory, restoring a clean tree; the remote modal lists origin and an
+  add/remove cycle ends with only origin configured; the PR comments block
+  shows the empty state, composer and Cmd/Ctrl+Enter hint, enabling the
+  post button only with text (no comment was actually posted). Security
+  checks confirm sensitive-file masking, path-traversal rejection, invalid
+  ref rejection and non-network remote URL rejection.
+- Fourth iteration findings: a real `git blame --porcelain` header carries an
+  optional fourth field (number of groups), so the parser regex must allow it;
+  the read-only `/api/remotes` route was originally placed after the
+  `if (method !== 'POST') return null` boundary and could never serve GET
+  requests, so it was moved into the read section.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a

@@ -39,6 +39,15 @@ GitHub by the application setup.
   and review syntax-colored diffs in unified or side-by-side split view.
 - Commit with a message or amend the last commit, plus fetch, pull, push
   (upstream tracking supported), and stash create/apply/pop/drop.
+- Open a file content viewer from the working tree or any commit: line-numbered
+  contents from the working tree or a chosen ref, binary detection, a 1 MB size
+  cap, and a one-click git blame tab that attributes every line to its author
+  and originating commit.
+- Clean untracked files safely: a dry-run confirmation lists every path (files
+  and directories) before removal, while ignored files such as `.env` are never
+  touched.
+- Manage git remotes from a dedicated modal: inspect fetch/push URLs, add a
+  remote over a validated network URL, or remove one, with every write audited.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,
@@ -59,6 +68,9 @@ GitHub by the application setup.
 - Convert a draft to ready for review, inspect commits, files and check runs,
   view and request reviewers, then merge using squash, merge commit or rebase;
   close and reopen are also supported.
+- Read and write issue comments inside the pull-request detail, with a composer
+  that posts on Cmd/Ctrl+Enter and keeps the post button disabled until text is
+  entered.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
   endpoint is unavailable in some environments); the GitHub personal access
   token is stored only in the browser and sent through the local proxy, never
@@ -109,7 +121,7 @@ be removed again on request.
 | --- | --- |
 | Client | React 19 + TypeScript, Vite build, plain CSS |
 | Server | Node.js built-in `http`, zero runtime dependencies |
-| Git | `execFile('git', argv)` with parsers for porcelain v2, log and refs |
+| Git | `execFile('git', argv)` with parsers for porcelain v2, log, refs and blame |
 | GitHub | REST allowlist proxy plus GraphQL merge/ready endpoints |
 
 ```
