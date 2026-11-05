@@ -21,7 +21,9 @@ repository is never pushed.
   preview then force-remove untracked, ignored files untouched), remote
   add/remove with name and URL validation, per-file history (follow a path
   across commits and jump to any revision), branch ahead/behind badges,
-  stash patch viewer, copy commit hash, Escape to close every dialog.
+  stash patch viewer, copy commit hash, Escape to close every dialog,
+  reference log (reflog) viewer, fetch with prune, stash with message and
+  include-untracked, remote set-url editing, annotated tag details.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view and compose,
@@ -72,6 +74,11 @@ repository is never pushed.
 - [x] Client: FileViewer history tab with revision jump
 - [x] Client: ahead/behind badges, stash patch viewer, copy hash, Escape hook
 - [x] Fifth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: reflog route and parser, tag-show route and parser
+- [x] Server: fetch prune, stash include-untracked, remote set-url routes
+- [x] Client: reflog modal and entry, stash options modal, remote URL editing
+- [x] Client: annotated tag details, fetch prune/reflog commands
+- [x] Sixth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -79,9 +86,10 @@ repository is never pushed.
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
   English commits authored by the configured user, with no co-author trailers.
-- 44 Vitest tests pass (graph layout, formatting, security, git parsers, file
+- 47 Vitest tests pass (graph layout, formatting, security, git parsers, file
   tree, diff lines, review summaries, clone/folder validation, command palette
-  fuzzy filter, blame porcelain parsing); `tsc --noEmit` and `vite build` are green.
+  fuzzy filter, blame porcelain parsing, reflog and tag-object parsing);
+  `tsc --noEmit` and `vite build` (62 modules) are green.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean
@@ -108,6 +116,20 @@ repository is never pushed.
   in the dependency array could cancel itself (setLoading re-runs the effect,
   which then returns early), leaving an eternal "Loading" state. The effect
   now keys only on the mode and inputs and manages cancellation locally.
+- Sixth iteration E2E in the browser: the reference log modal renders 232
+  entries in a four-column grid (index, short hash, action, description) and
+  closes on Escape; the stash options modal accepts a message and an
+  include-untracked toggle, and a real stash with the toggle captured both a
+  modified tracked file and a new untracked file, leaving a clean tree (the
+  probe stash was dropped afterwards); the annotated tag detail modal shows
+  tagger, email, date, target object and the "First tagged release" message;
+  the remote modal edits origin's URL inline, the change was verified with
+  `git remote get-url` and then restored to the original SSH URL; the
+  command palette "Fetch and prune" command ran with `prune: true` in the
+  audit log. No external side effects.
+- Sixth iteration finding: the reflog parser regex must match the literal
+  `@{` separator (`(.+?)@\{(\d+)\}`); an earlier non-greedy pattern that
+  omitted the `@` captured the `@` into the ref name.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a
