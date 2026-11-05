@@ -77,6 +77,14 @@ GitHub by the application setup.
 - Choose how many diff context lines to show (`--unified`), create an empty
   commit with `--allow-empty` when nothing is staged, and create a branch
   without switching to it.
+- Pull and push through split button groups with a caret: pull using the
+  default merge or `--rebase`, and force-push with either `--force` or the
+  safer `--force-with-lease`, each protected by an explicit confirmation.
+- Abort a conflicted merge (`git merge --abort`) from an automatic banner that
+  appears while a merge is in progress, and force-create a tag (`-f`) to
+  overwrite an existing name from the create-tag dialog.
+- Delete a tag directly on the shared remote (`push --delete`) behind a
+  confirmation, while the local tag is left untouched.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,

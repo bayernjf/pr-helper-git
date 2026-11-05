@@ -96,6 +96,10 @@ repository is never pushed.
 - [x] Client: MergeModal with strategy picker, API helpers for new params
 - [x] Client: diff context selector, empty-commit toggle, no-checkout checkbox
 - [x] Eighth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: force push (force/force-with-lease), pull rebase, merge abort
+- [x] Server: remote tag deletion, forced tag creation
+- [x] Client: force-push confirm, pull rebase, merge abort entry, tag actions and API helpers
+- [x] Ninth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -211,3 +215,36 @@ repository is never pushed.
   `markPullRequestReadyForReview`).
 - Test repository registry lives in `test-repos.md`; nothing there is deleted
   without an explicit request.
+- Ninth iteration scope: force push (`--force` / `--force-with-lease`), pull
+  rebase, merge abort, remote tag deletion and forced tag creation. Two
+  pseudo-gaps were ruled out by reading the code: stash pop already exists
+  (`/api/stash/apply` with `drop:true`, plus a menu item) and local branch
+  push/set-upstream actions are already complete.
+- Ninth iteration backend: `/api/push` accepts a whitelisted `force` mode
+  (force / force-with-lease), both requiring `confirm:true` (else 400);
+  unknown values are ignored and fall back to a normal push. `/api/pull`
+  takes a `rebase` boolean (`pull --rebase` vs default `pull --no-edit`).
+  New `/api/merge/abort` runs `git merge --abort`. `/api/tag/create`
+  inserts `-f` for both annotated and lightweight tags. New
+  `/api/tag/delete-remote` runs `push <remote> --delete <name>` with
+  confirmation and remote-name validation. All audit entries record the
+  new force/rebase fields.
+- Ninth iteration E2E in the browser: Pull/Push render as split button
+  groups with a caret; the Pull menu lists merge/rebase and the Push menu
+  lists normal/lease/force. The two force items open distinct confirm
+  dialogs (lease notes the safety check; force warns it can discard
+  commits and recommends lease) and were cancelled, so no remote was
+  rewritten. A conflicting merge auto-surfaced a red "Merge in progress"
+  banner via SSE; clicking "Abort merge" restored the clean tree and the
+  banner disappeared. The tag menu shows "Delete remote tag" with a
+  confirm dialog (cancelled); the Create-tag modal has a "Force overwrite
+  (-f)" checkbox. No console errors. The real success paths of force
+  push and remote tag deletion were not triggered; their command forms
+  were verified earlier with `--dry-run` and stale-lease rejection.
+- Tag recovery note: verifying force-create temporarily repointed local
+  `v0.1.0` from its original annotated object (c0e7dc2, peeled f2910c1)
+  to the main HEAD; it was fully restored with
+  `git fetch origin refs/tags/v0.1.0:refs/tags/v0.1.0 --force` and now
+  matches the remote. All temporary branches (tmp-conflict, tmp-abort,
+  tmp-pull-rebase, etc.) were deleted; the test repo returned to
+  main/343f1a9/clean, ahead 200 / behind 2.
