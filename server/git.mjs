@@ -92,12 +92,13 @@ export function parseLog(output) {
   return commits;
 }
 
-// Parse `git for-each-ref --format=...` lines (US-separated fields).
+// Parse `git for-each-ref --format=...` lines (tab-separated fields; ref
+// names can never contain tabs).
 export function parseRefs(output) {
   const refs = [];
   for (const line of output.split('\n')) {
     if (!line) continue;
-    const [hash, refType, name, upstream, shortName] = line.split('\x1f');
+    const [hash, refType, name, upstream, shortName] = line.split('\t');
     refs.push({
       hash,
       type: refType,

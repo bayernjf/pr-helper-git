@@ -158,7 +158,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/refs' && method === 'GET') {
     try {
       const raw = await git(
-        ['for-each-ref', '--format=%(objectname)%x1f%(objecttype)%x1f%(refname)%x1f%(upstream)%x1f%(refname:short)'],
+        ['for-each-ref', '--format=%(objectname)\t%(objecttype)\t%(refname)\t%(upstream)\t%(refname:short)'],
         repo,
       );
       return ok({ refs: parseRefs(raw) });
