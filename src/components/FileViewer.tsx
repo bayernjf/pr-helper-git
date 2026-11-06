@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ApiError,
   getBlame,
   getFile,
   getFileHistory,
@@ -61,14 +62,23 @@ export default function FileViewer({
     if (saving) return;
     setSaving(true);
     try {
-      await saveFile(repo, filePath, draft);
+      // mtime is the optimistic-concurrency token; null only for a working
+      // tree blob that could not be stat'd (ref views never reach edit mode).
+      await saveFile(repo, filePath, draft, file?.mtimeMs ?? null);
       toast('File saved', 'success');
       setMode('content');
       setDraft('');
-      // Reload the blob so line numbers and watcher state stay correct.
+      // Reload the blob so line numbers and the watcher-driven view stay in sync.
       setFile(await getFile(repo, filePath));
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast('File changed on disk — reload the latest version before saving', 'error');
+        // Refresh the underlying blob so the user can compare against the
+        // new content; the draft is kept so their edits are not destroyed.
+        setFile(await getFile(repo, filePath));
+      } else {
+        toast(err instanceof Error ? err.message : 'save failed', 'error');
+      }
     } finally {
       setSaving(false);
     }
