@@ -32,13 +32,18 @@ repository is never pushed.
   (--unified), empty commits (--allow-empty), and branch creation without
   switching (no-checkout), untracked-file diffs via `--no-index`, rebase
   state detection with continue/abort, and server-side author/message/date
-  history filters.
+  history filters, in-app audit log viewer (JSONL reader with success/failure
+  markers and raw details), and in-app text-file editing with validated
+  atomic saves (sensitive/NUL/1 MB guards).
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
-  requested reviewers (view and request), issue comments (view and compose,
-  Cmd/Ctrl+Enter to post), review submission (comment/approve/request
-  changes), merge PR (merge/squash/rebase), close/reopen.
+  requested reviewers (view and request), issue comments (view, compose,
+  inline edit and delete with confirmation, Cmd/Ctrl+Enter to post), review
+  submission (comment/approve/request changes), merge PR
+  (merge/squash/rebase), close/reopen.
   PAT is stored only in the browser and proxied through the local server.
+- Hardening: nosniff on every response, strict CSP and no-referrer on the
+  HTML entry, no-store for HTML, immutable long caching for hashed assets.
 - Explicitly out of scope: interactive rebase, cherry-pick, submodules,
   worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
   gates, AI generation, in-app conflict resolution.
@@ -110,6 +115,12 @@ repository is never pushed.
 - [x] Server: GitHub reviews allowlist; client: review composer, LogFilterModal, rebase banner
 - [x] Route-level HTTP tests (real server, temp repo, isolated PR_HELPER_HOME)
 - [x] Eleventh iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: readAudit store helper, GET /api/audit; client AuditModal + entry points
+- [x] Server: POST /api/save with validation and atomic rename; client edit mode
+- [x] Server: PATCH/DELETE comment allowlist; client inline comment edit/delete
+- [x] Server: nosniff/CSP/referrer-policy and differentiated cache policy
+- [x] Component render tests (renderToString, mock app context)
+- [x] Twelfth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -330,7 +341,38 @@ repository is never pushed.
   submitted (verified via API and rendered in the Reviews section), then
   the PR was closed, the remote branch deleted and the test repo reset to
   343f1a9. No console errors.
-- Current verification: 77 Vitest tests pass across 9 files (including 29
-  new route tests); `tsc --noEmit` is clean; `vite build` transforms 68
-  modules (JS 341.49 KB, CSS 39.06 KB). Dev server stopped; ports 5173,
-  4789 and 4790 are free; the product work tree is otherwise clean.
+- Eleventh iteration verification: 77 Vitest tests passed across 9 files
+  (including 29 route tests); `tsc --noEmit` was clean; `vite build`
+  transformed 68 modules (JS 341.49 KB, CSS 39.06 KB).
+- Twelfth iteration scope: audit log reading, in-app file editing/saving,
+  PR comment edit/delete, security response headers and component render
+  tests. All five were confirmed as real gaps by reading the code: the
+  audit trail was write-only, FileViewer was read-only, comments could be
+  posted but not changed, static responses carried no security or cache
+  headers, and no component-level render test existed.
+- Twelfth iteration backend: `store.mjs` adds `readAudit(limit)` which
+  parses the JSONL (bad lines skipped, ENOENT -> empty) newest-first.
+  New read-only `GET /api/audit` (limit 1..1000). New `POST /api/save`
+  rejects sensitive paths, non-string content, NUL bytes and sizes over
+  1 MB, then writes a sibling temp file and renames atomically; every
+  save is audited. `routes-github.mjs` adds DELETE to the method set and
+  allowlists PATCH/DELETE on `issues/comments/:cid`.
+- Twelfth iteration defect found and fixed during E2E: GitHub locates a
+  single issue comment at `/repos/:o/:r/issues/comments/:cid` (no issue
+  number); the nested `issues/:n/comments/:cid` form returns 404 upstream.
+  The allowlist and client paths were corrected to the flat form, and the
+  audit trail records both the initial 404 probes and the final 200/204.
+- Twelfth iteration E2E in the browser: the audit modal listed 200 of
+  6855 entries with markers and raw details; an untracked scratch file
+  was edited and saved (verified on disk and in the audit); a temporary
+  PR (#5) was created, its first comment was edited inline and its
+  second deleted through the confirm dialog, then the PR was closed, the
+  remote branch deleted and the test repo reset to 343f1a9. Header
+  checks over a production instance confirmed nosniff on every response,
+  CSP/no-store on HTML and immutable caching on hashed assets.
+- Current verification: 85 Vitest tests pass across 10 files (including 8
+  new component render tests); `tsc --noEmit` is clean; `vite build`
+  transforms 69 modules (JS 347.71 KB / gzip 101.15 KB, CSS 41.45 KB /
+  gzip 7.59 KB). Dev server stopped; ports 5173, 4789 and 4791 are free;
+  localStorage holds only `git2-active-repo`; the product work tree is
+  otherwise clean.

@@ -113,6 +113,13 @@ GitHub by the application setup.
   a draggable work-panel height, and responsive breakpoints for narrow windows.
 - A React error boundary prevents a white screen if a component throws, and
   loading indicators cover the first load and every repository switch.
+- Audit log viewer: every mutating request and GitHub proxy call is appended
+  to a JSONL audit trail, and the in-app audit modal reads the most recent
+  entries with success/failure markers, timestamps and collapsible raw JSON.
+- In-app file editor: working-tree text files open in an edit mode with a
+  monospace textarea; saves are validated server-side (sensitive files,
+  NUL bytes and a 1 MB cap are rejected) and written atomically via a
+  temp-file rename, with every save recorded in the audit log.
 
 ### Pull requests (pr-helper-like core)
 
@@ -127,7 +134,8 @@ GitHub by the application setup.
   close and reopen are also supported.
 - Read and write issue comments inside the pull-request detail, with a composer
   that posts on Cmd/Ctrl+Enter and keeps the post button disabled until text is
-  entered.
+  entered. Existing comments can be edited (`PATCH`) or deleted (`DELETE`)
+  inline, with a confirmation dialog before deletion.
 - Submit a pull-request review from the detail modal — Comment, Approve or
   Request changes (the last requires a summary). Existing reviews are listed
   with their state, and one endpoint failing never blanks the whole modal.
@@ -170,10 +178,14 @@ be removed again on request.
   passed to a shell. Repo-relative paths are normalized and checked with
   `realpath` so symlinks cannot escape the repository root.
 - Sensitive files (`.env`, `.env.*`, `id_rsa*`, `*.key`, `*.pem`, `*.p12`,
-  `*.pfx`) have their diffs masked and cannot be discarded from the UI.
+  `*.pfx`) have their diffs masked and cannot be discarded or edited from the
+  UI, and the save endpoint rejects them independently.
 - GitHub calls go through a method/path allowlist; the PAT travels in a request
   header and is never persisted. All write actions are appended to an audit log
   under `~/.pr-helper-git2/audit.log`.
+- Every response carries `X-Content-Type-Options: nosniff`. The HTML entry is
+  served with a strict Content-Security-Policy, `Referrer-Policy: no-referrer`
+  and `no-store`, while content-hashed assets use long-lived immutable caching.
 
 ## Architecture
 
@@ -212,3 +224,9 @@ npm run build      # production build into dist/
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
 routes, validation failures, rebase-state detection and the SSE handshake.
+Component tests render key React components with `react-dom/server`
+(`renderToString`) against a mock app context, covering empty states,
+masked/binary handling and the toolbar and audit modal.
+
+All checks are run with zero third-party runtime dependencies; the test and
+build tooling is the only dev dependency set.
