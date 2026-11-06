@@ -169,10 +169,15 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--panel-2);
+  color: var(--text);
   font-weight: 600;
   font-size: 12.5px;
   overflow: hidden;
   white-space: nowrap;
+}
+.repo-select option {
+  color: var(--text);
+  background: var(--panel-2);
 }
 .repo-select .repo-name { overflow: hidden; text-overflow: ellipsis; }
 .repo-select svg { color: var(--faint); flex: 0 0 auto; }
