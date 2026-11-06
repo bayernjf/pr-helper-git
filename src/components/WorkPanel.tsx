@@ -26,6 +26,7 @@ import {
   IconEye,
   IconFile,
   IconFolder,
+  IconPencil,
   IconPlus,
   IconTrash,
   IconUndo,
@@ -52,6 +53,7 @@ function TreeRow({
   onSelect,
   onStageToggle,
   onView,
+  onEditContent,
   onDiscard,
   onIgnore,
   onRename,
@@ -64,6 +66,7 @@ function TreeRow({
   onSelect: () => void;
   onStageToggle: () => void;
   onView: () => void;
+  onEditContent?: () => void;
   onDiscard?: () => void;
   onIgnore?: () => void;
   onRename?: () => void;
@@ -121,6 +124,18 @@ function TreeRow({
         >
           <IconEye width={13} height={13} />
         </button>
+        {onEditContent && (
+          <button
+            type="button"
+            title="Edit file content"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditContent();
+            }}
+          >
+            <IconPencil width={13} height={13} />
+          </button>
+        )}
         {onRename && (
           <button
             type="button"
@@ -218,6 +233,7 @@ export default function WorkPanel() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelHeight, setPanelHeight] = useState(300);
   const [viewer, setViewer] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
 
   const startResize = (event: React.PointerEvent) => {
@@ -387,6 +403,9 @@ export default function WorkPanel() {
           );
         }}
         onView={() => setViewer(node.path)}
+        onEditContent={node.file && node.file.area !== 'unmerged'
+          ? () => setEditTarget(node.path)
+          : undefined}
         onRename={node.file && node.file.area !== 'unmerged'
           ? () => setRenameTarget(node.path)
           : undefined}
@@ -527,6 +546,14 @@ export default function WorkPanel() {
           repo={activeRepo}
           filePath={viewer}
           onClose={() => setViewer(null)}
+        />
+      )}
+      {editTarget && activeRepo && (
+        <FileViewer
+          repo={activeRepo}
+          filePath={editTarget}
+          initialMode="edit"
+          onClose={() => setEditTarget(null)}
         />
       )}
       {renameTarget && (

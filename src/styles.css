@@ -2123,3 +2123,30 @@ pre.diff {
   overflow: auto;
 }
 
+/* ---------- Twelfth iteration: in-app file editor ---------- */
+.file-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.file-editor textarea {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  resize: none;
+  border: none;
+  padding: 12px 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+  overflow: auto;
+}
+.file-editor textarea:focus { outline: none; }
+.file-editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.file-editor-actions .btn { padding: 5px 12px; font-size: 12px; }
+

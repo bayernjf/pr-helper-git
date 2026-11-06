@@ -3,6 +3,7 @@ import {
   getBlame,
   getFile,
   getFileHistory,
+  saveFile,
   type BlameResult,
   type FileContent,
 } from '../api';
@@ -12,21 +13,23 @@ import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
 import { IconX } from './icons';
 
-type Mode = 'content' | 'blame' | 'history';
+type Mode = 'content' | 'blame' | 'history' | 'edit';
 
 export default function FileViewer({
   repo,
   filePath,
   rev,
+  initialMode = 'content',
   onClose,
 }: {
   repo: string;
   filePath: string;
   rev?: string | null;
+  initialMode?: Mode;
   onClose: () => void;
 }) {
   const { toast } = useApp();
-  const [mode, setMode] = useState<Mode>('content');
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [viewRev, setViewRev] = useState<string | null>(null);
   const effectiveRev = viewRev ?? rev ?? null;
   const [file, setFile] = useState<FileContent | null>(null);
@@ -34,8 +37,42 @@ export default function FileViewer({
   const [blameLoading, setBlameLoading] = useState(false);
   const [history, setHistory] = useState<Commit[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEscape(onClose);
+
+  // Editing is only allowed for the working tree (no pinned revision) on a
+  // regular text file that is neither masked, binary nor truncated.
+  const canEdit = !effectiveRev && !!file && !file.masked && !file.binary && !file.truncated;
+
+  function startEdit() {
+    if (!file) return;
+    setDraft(file.content);
+    setMode('edit');
+  }
+
+  function cancelEdit() {
+    setMode('content');
+    setDraft('');
+  }
+
+  async function submitEdit() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await saveFile(repo, filePath, draft);
+      toast('File saved', 'success');
+      setMode('content');
+      setDraft('');
+      // Reload the blob so line numbers and watcher state stay correct.
+      setFile(await getFile(repo, filePath));
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Load the blob contents whenever the viewed revision changes.
   useEffect(() => {
@@ -46,6 +83,11 @@ export default function FileViewer({
       .catch((err) => { if (!cancelled) toast(err.message, 'error'); });
     return () => { cancelled = true; };
   }, [repo, filePath, effectiveRev, toast]);
+
+  // When opened straight into edit mode, seed the draft from the loaded blob.
+  useEffect(() => {
+    if (initialMode === 'edit' && file && !draft) setDraft(file.content);
+  }, [initialMode, file, draft]);
 
   // Reload blame automatically when in blame mode or the revision changes.
   useEffect(() => {
@@ -105,6 +147,16 @@ export default function FileViewer({
               <button type="button" className={mode === 'history' ? 'active' : ''} onClick={() => setMode('history')}>
                 History
               </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className={mode === 'edit' ? 'active' : ''}
+                  title="Edit working-tree file"
+                  onClick={startEdit}
+                >
+                  Edit
+                </button>
+              )}
             </span>
           </div>
 
@@ -114,6 +166,23 @@ export default function FileViewer({
             <div className="diff-empty">{filePath} is sensitive — its contents are masked.</div>
           ) : file?.binary && mode !== 'history' ? (
             <div className="diff-empty">Binary file — preview not available.</div>
+          ) : mode === 'edit' ? (
+            <div className="file-editor">
+              <textarea
+                value={draft}
+                spellCheck={false}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <div className="file-editor-actions">
+                <button type="button" className="btn" onClick={cancelEdit} disabled={saving}>
+                  Cancel
+                </button>
+                <button type="button" className="btn btn-primary" onClick={submitEdit} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </div>
           ) : mode === 'history' ? (
             <div className="file-history">
               {historyLoading || !history ? (
