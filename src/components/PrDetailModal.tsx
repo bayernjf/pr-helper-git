@@ -78,6 +78,8 @@ export default function PrDetailModal({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editBody, setEditBody] = useState('');
   const [editWorking, setEditWorking] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
 
   const base = `/repos/${remote!.owner}/${remote!.repo}`;
 
@@ -246,6 +248,32 @@ export default function PrDetailModal({
     }
   }
 
+  function startEditDescription() {
+    setDescriptionDraft(pr.body || '');
+    setEditingDescription(true);
+  }
+
+  async function submitEditDescription() {
+    const body = descriptionDraft;
+    setEditWorking(true);
+    try {
+      const res = await githubProxy<PullRequest>(
+        pat,
+        `${base}/pulls/${pr.number}`,
+        'PATCH',
+        { body },
+      );
+      pr.body = res.data.body;
+      setEditingDescription(false);
+      toast('Description updated', 'success');
+      onChanged();
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setEditWorking(false);
+    }
+  }
+
   async function submitReview(event: PullReviewEvent) {
     const body = reviewBody.trim();
     // GitHub requires a summary when requesting changes.
@@ -309,6 +337,55 @@ export default function PrDetailModal({
 
           <div className="detail-section">
             <span className="detail-label">
+              Description
+              {pr.state === 'open' && !editingDescription && (
+                <button
+                  type="button"
+                  className="comment-tool-btn"
+                  style={{ marginLeft: 8 }}
+                  onClick={startEditDescription}
+                >
+                  Edit
+                </button>
+              )}
+            </span>
+            {editingDescription ? (
+              <div className="review-inline-composer">
+                <textarea
+                  value={descriptionDraft}
+                  autoFocus
+                  rows={4}
+                  aria-label="Pull request description"
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                />
+                <div className="review-composer-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setEditingDescription(false)}
+                    disabled={editWorking}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={submitEditDescription}
+                    disabled={editWorking}
+                  >
+                    {editWorking ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ) : pr.body ? (
+              <div className="pr-description">{pr.body}</div>
+            ) : (
+              <div className="detail-value muted">No description provided.</div>
+            )}
+          </div>
+
+          <div className="detail-section">
+            <span className="detail-label">
               Commits ({prCommits.length})
             </span>
             <div className="pr-detail-list">
@@ -359,6 +436,10 @@ export default function PrDetailModal({
                       base={`${base}/pulls/${pr.number}`}
                       canComment={pr.state === 'open'}
                       onPosted={(c) => setReviewComments((prev) => [...prev, c])}
+                      onChanged={(c) => setReviewComments((prev) =>
+                        prev.map((item) => (item.id === c.id ? c : item)))}
+                      onDeleted={(id) => setReviewComments((prev) =>
+                        prev.filter((item) => item.id !== id))}
                     />
                   )}
                 </div>

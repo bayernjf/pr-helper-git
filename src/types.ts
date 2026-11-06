@@ -91,6 +91,7 @@ export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'NONE
 export interface PullRequest {
   number: number;
   title: string;
+  body: string;
   state: 'open' | 'closed';
   merged?: boolean;
   merged_at?: string | null;

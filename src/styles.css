@@ -2324,6 +2324,13 @@ pre.diff {
   gap: 6px;
 }
 
+/* ---------- Fifteenth iteration: description, threads, hunk discard ---------- */
+.pr-description {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  font-size: 13px;
+}
 .review-card-actions {
   display: flex;
   gap: 10px;
