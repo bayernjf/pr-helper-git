@@ -105,6 +105,9 @@ export const moveFile = (repo: string, from: string, to: string) =>
 export const removeFile = (repo: string, file: string, force = false) =>
   post('/api/rm', { repo, file, force }) as Promise<{ ok: boolean; file: string; force: boolean }>;
 
+export const saveFile = (repo: string, file: string, content: string) =>
+  post('/api/save', { repo, file, content }) as Promise<{ ok: boolean; file: string; bytes: number }>;
+
 // ---------- git reads ----------
 
 export const getAudit = (limit = 200) =>

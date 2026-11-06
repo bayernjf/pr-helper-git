@@ -29,6 +29,7 @@ import {
 import { ensureWatching, stopWatching } from './watcher.mjs';
 
 const DIFF_LINE_LIMIT = 2000;
+const SAVE_MAX_BYTES = 1024 * 1024; // matches the 1 MB file viewer cap
 const LOG_LIMIT_DEFAULT = 200;
 const LOG_LIMIT_MAX = 1000;
 const FILE_MAX_BYTES = 1_000_000;
@@ -1259,6 +1260,32 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       await appendAudit({ ok: false, action: 'rm', repo, file: target, force });
       return gitFail(err, 'git rm failed');
+    }
+  }
+
+  if (pathname === '/api/save') {
+    const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
+    if (!target) return fail(400, 'invalid file path');
+    // Sensitive files are masked everywhere; refuse to edit them here too.
+    if (isSensitivePath(target)) return fail(403, 'sensitive files cannot be edited');
+    if (typeof body.content !== 'string') return fail(400, 'missing file content');
+    if (body.content.includes('\0')) return fail(400, 'content contains NUL byte');
+    const bytes = Buffer.byteLength(body.content, 'utf8');
+    if (bytes > SAVE_MAX_BYTES) return fail(400, 'file exceeds the 1 MB save limit');
+    try {
+      const abs = await resolveInside(repo, target);
+      if (!abs) return fail(400, 'invalid file path');
+      const stat = await fsp.stat(abs).catch(() => null);
+      if (stat && stat.isDirectory()) return fail(400, 'target path is a directory');
+      // Atomic replacement: write a sibling temp file, then rename over it.
+      const tmp = `${abs}.tmp-${process.pid}`;
+      await fsp.writeFile(tmp, body.content, 'utf8');
+      await fsp.rename(tmp, abs);
+      await appendAudit({ ok: true, action: 'save', repo, file: target, bytes });
+      return ok({ ok: true, file: target, bytes });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'save', repo, file: target });
+      return gitFail(err, 'file save failed');
     }
   }
 
