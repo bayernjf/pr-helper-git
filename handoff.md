@@ -39,13 +39,17 @@ repository is never pushed.
   (sensitive/NUL/1 MB guards), mtime-based stale-save rejection (409 with
   the draft preserved), audit log rotation (1.5 MB trigger, 1 MB / 10,000
   entry retention budget, atomic rewrite), and a 413 response for oversized
-  request bodies with explicit keep-alive timeouts.
+  request bodies with explicit keep-alive timeouts, per-hunk staging
+  (server-side diff splice + `git apply --cached`, `MM` partial status,
+  unstage via reverse apply), and editor keyboard shortcuts (Cmd/Ctrl+S
+  save, Tab/Shift+Tab indent).
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
   inline edit and delete with confirmation, Cmd/Ctrl+Enter to post), review
   submission (comment/approve/request changes), merge PR
-  (merge/squash/rebase), close/reopen.
+  (merge/squash/rebase), close/reopen, and line-level review comments
+  (inline composer on diff lines, RIGHT/LEFT side, outdated-comment group).
   PAT is stored only in the browser and proxied through the local server.
 - Hardening: nosniff on every response, strict CSP and no-referrer on the
   HTML entry, no-store for HTML, immutable long caching for hashed assets.
@@ -136,6 +140,12 @@ repository is never pushed.
 - [x] Client: AuditModal drives server filters with debounced text input
 - [x] Route tests for server-side audit filtering
 - [x] Follow-up: tests, build, E2E, docs, atomic commits
+- [x] Server: splitFilePatch/buildHunkPatch helpers, POST /api/stage-hunk
+- [x] Client: DiffView hunk stage/unstage actions wired through runAction
+- [x] Server: GET/POST pulls/:n/comments GitHub allowlist entries
+- [x] Client: PrFileReview with line anchors, inline composer, outdated group
+- [x] Client: FileViewer Cmd/Ctrl+S and Tab/Shift+Tab keyboard handling
+- [x] Fourteenth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -467,3 +477,34 @@ repository is never pushed.
   tests); `tsc --noEmit` is clean; `vite build` transforms 69 modules
   (JS 348.65 KB / gzip 101.56 KB, CSS 41.91 KB / gzip 7.63 KB). Dev
   server stopped and ports free; the real audit log remains empty.
+- Fourteenth scope: a fresh capability-gap audit (66 endpoints extracted
+  from source, 20 keyword probes) confirmed three real gaps — missing
+  editor keyboard shortcuts, no line-level review comments, and
+  whole-file-only staging — while bisect/fsck/LFS/milestones/reactions
+  and similar niche items were explicitly rejected.
+- Fourteenth implementation: `splitFilePatch`/`buildHunkPatch` pure
+  helpers in git.mjs split a single-file unified diff into its header
+  and hunks; the new POST /api/stage-hunk regenerates the authoritative
+  diff server side, splices the requested hunk and applies it to the
+  index via `git apply --cached` (unstage uses `-R`), with index-range
+  validation and audit entries. DiffView renders Stage/Unstage hunk
+  buttons in the unified view and runs them through runAction so the
+  data refresh keeps the diff pane in sync.
+- Fourteenth review comments: the GitHub allowlist gains GET/POST
+  pulls/:n/comments; the new PrFileReview component expands a PR file
+  into its unified diff, anchors an inline composer to any line and
+  posts the modern commit_id/path/line/side payload (RIGHT for
+  adds/context, LEFT for deletions), grouping comments per line and
+  collecting orphaned comments as outdated.
+- Fourteenth E2E: browser verified two-hunk stage (index held only the
+  second change, `MM` porcelain status), unstage back to a clean
+  split, Tab/Shift+Tab indentation and Cmd+S save (editor closes,
+  toast confirms). The inline-comment proxy was verified against the
+  real API through a temporary PR: 201 for both RIGHT and LEFT
+  comments, GET returned them; the PR, comments and branches were
+  then deleted and scratch repos removed.
+- Fourteenth verification: 99 Vitest tests pass across 10 files (39
+  route tests, 5 new); `tsc --noEmit` is clean; `vite build`
+  transforms 70 modules (JS 354.07 KB / gzip 103.11 KB, CSS 44.27 KB
+  / gzip 8.00 KB). Dev server stopped and ports free; no scratch
+  repositories remain registered.

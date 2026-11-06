@@ -131,6 +131,15 @@ GitHub by the application setup.
   temp-file rename, with every save recorded in the audit log. Each save
   carries the file's last-known mtime, and the server rejects a stale save
   with 409 if the file changed on disk, keeping the editor's draft intact.
+  The editor binds Cmd/Ctrl+S to save without leaving the textarea, and
+  Tab/Shift+Tab indent or outdent the current line instead of moving focus.
+- Per-hunk staging: each hunk in the unified working-tree diff exposes a
+  Stage hunk action (and Unstage hunk in the staged view). The server
+  regenerates the authoritative diff, splices the chosen hunk and applies
+  it to the index with `git apply --cached`, so a file can be partially
+  staged without touching the rest of its changes. Untracked files keep
+  whole-file staging, and a partially staged file is reported with the
+  `MM` porcelain status.
 
 ### Pull requests (pr-helper-like core)
 
@@ -150,6 +159,12 @@ GitHub by the application setup.
 - Submit a pull-request review from the detail modal — Comment, Approve or
   Request changes (the last requires a summary). Existing reviews are listed
   with their state, and one endpoint failing never blanks the whole modal.
+- Line-level review comments: each file in the PR detail expands into its
+  unified diff, where every line offers an inline comment action. Comments
+  are posted through the local proxy using the modern `commit_id`/`path`/
+  `line`/`side` parameters (`RIGHT` for added/context lines, `LEFT` for
+  deletions), grouped on their line, and comments whose line no longer
+  exists are collected in an outdated-comments section.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
   endpoint is unavailable in some environments); the GitHub personal access
   token is stored only in the browser and sent through the local proxy, never
