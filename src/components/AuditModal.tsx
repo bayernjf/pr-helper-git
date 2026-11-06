@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getAudit } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
 import { IconX } from './icons';
+
+type OutcomeFilter = 'all' | 'ok' | 'fail';
 
 const SHOWN_KEYS = new Set(['at', 'ok', 'action', 'repo', 'method', 'path', 'number']);
 
@@ -34,7 +36,23 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [textFilter, setTextFilter] = useState('');
+  const [outcome, setOutcome] = useState<OutcomeFilter>('all');
   useEscape(onClose);
+
+  // Client-side filtering over the loaded window. The free-text query matches
+  // the action name and the rendered summary (case-insensitive); the outcome
+  // select narrows to successes or recorded failures.
+  const visible = useMemo(() => {
+    const needle = textFilter.trim().toLowerCase();
+    return entries.filter((entry) => {
+      if (outcome === 'ok' && entry.ok === false) return false;
+      if (outcome === 'fail' && entry.ok !== false) return false;
+      if (!needle) return true;
+      const haystack = `${entry.action || ''} ${summarize(entry)}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [entries, textFilter, outcome]);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,10 +83,27 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
             <div className="list-empty">No audit entries recorded yet.</div>
           ) : (
             <div className="audit-list">
-              <div className="audit-meta">
-                Showing {entries.length} of {total} parsed entries, newest first.
+              <div className="audit-filters">
+                <input
+                  type="text"
+                  value={textFilter}
+                  placeholder="Filter by action or summary…"
+                  spellCheck={false}
+                  onChange={(e) => setTextFilter(e.target.value)}
+                />
+                <select value={outcome} onChange={(e) => setOutcome(e.target.value as OutcomeFilter)}>
+                  <option value="all">All outcomes</option>
+                  <option value="ok">Success only</option>
+                  <option value="fail">Failures only</option>
+                </select>
               </div>
-              {entries.map((entry, i) => {
+              <div className="audit-meta">
+                Showing {visible.length} of {entries.length} loaded
+                ({total} parsed entries total), newest first.
+              </div>
+              {visible.length === 0 ? (
+                <div className="list-empty">No entries match the current filters.</div>
+              ) : visible.map((entry, i) => {
                 const extra = extraFields(entry);
                 return (
                   <div className="audit-item" key={`${entry.at}-${i}`}>

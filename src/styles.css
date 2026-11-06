@@ -2075,6 +2075,30 @@ pre.diff {
 
 /* ---------- Twelfth iteration: audit log ---------- */
 .audit-list { max-height: 64vh; overflow: auto; }
+.audit-filters {
+  display: flex;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.audit-filters input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.audit-filters input:focus { outline: none; border-color: var(--accent); }
+.audit-filters select {
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+}
 .audit-meta {
   padding: 8px 18px;
   color: var(--faint);
