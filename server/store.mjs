@@ -4,7 +4,11 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-const CONFIG_DIR = path.join(os.homedir(), '.pr-helper-git2');
+// The home override exists so tests can run against an isolated registry and
+// audit trail without touching the user's real ~/.pr-helper-git2 directory.
+const CONFIG_DIR = process.env.PR_HELPER_HOME
+  ? path.resolve(process.env.PR_HELPER_HOME)
+  : path.join(os.homedir(), '.pr-helper-git2');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const AUDIT_FILE = path.join(CONFIG_DIR, 'audit.log');
 
