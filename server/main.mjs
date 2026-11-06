@@ -46,10 +46,27 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
 };
 
+// nosniff is added to every response so a browser never MIME-sniffs a reply
+// into an executable context. The CSP is only meaningful on the HTML entry.
+const NOSNIFF = { 'x-content-type-options': 'nosniff' };
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data: https://avatars.githubusercontent.com",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 function sendJson(res, code, obj) {
   res.writeHead(code, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    ...NOSNIFF,
   });
   res.end(JSON.stringify(obj));
 }
@@ -102,6 +119,7 @@ const server = http.createServer(async (req, res) => {
           'content-type': 'text/event-stream',
           'cache-control': 'no-cache',
           connection: 'keep-alive',
+          ...NOSNIFF,
         });
         res.write(`data: ${JSON.stringify({ type: 'hello', watched: watchedCount() })}\n\n`);
         addClient(res);
@@ -141,25 +159,41 @@ const server = http.createServer(async (req, res) => {
     if (rel === '/') rel = '/index.html';
     const safe = rel.replace(/^\/+/, '');
     if (safe.includes('..') || safe.startsWith('/')) {
-      res.writeHead(400);
+      res.writeHead(400, NOSNIFF);
       return res.end('bad path');
     }
     const abs = path.join(DIST_DIR, safe);
     if (!abs.startsWith(DIST_DIR + path.sep)) {
-      res.writeHead(403);
+      res.writeHead(403, NOSNIFF);
       return res.end('forbidden');
     }
     const real = await fsp.realpath(abs);
     if (!real.startsWith(DIST_DIR + path.sep)) {
-      res.writeHead(403);
+      res.writeHead(403, NOSNIFF);
       return res.end('forbidden');
     }
     const data = await fsp.readFile(real);
-    res.writeHead(200, { 'content-type': MIME[path.extname(real)] || 'application/octet-stream' });
+    const isHtml = path.extname(real) === '.html';
+    const headers = {
+      'content-type': MIME[path.extname(real)] || 'application/octet-stream',
+      ...NOSNIFF,
+      'referrer-policy': 'no-referrer',
+    };
+    if (isHtml) {
+      // The entry must always be revalidated; hashed assets below are immutable.
+      headers['cache-control'] = 'no-store';
+      headers['content-security-policy'] = CONTENT_SECURITY_POLICY;
+    } else {
+      headers['cache-control'] = 'public, max-age=31536000, immutable';
+    }
+    res.writeHead(200, headers);
     return res.end(data);
   } catch (err) {
     if (err.code === 'ENOENT') {
-      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      res.writeHead(404, {
+        'content-type': 'text/plain; charset=utf-8',
+        ...NOSNIFF,
+      });
       return res.end('not found');
     }
     return sendJson(res, 500, { error: 'internal error', detail: String(err.message || err) });
