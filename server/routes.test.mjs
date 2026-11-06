@@ -389,6 +389,49 @@ describe('audit log endpoint and retention', () => {
     expect(capped.json.entries.length).toBeLessThanOrEqual(1000);
   });
 
+  it('filters entries by text and outcome across the whole file', async () => {
+    const auditFile = path.join(homeDir, 'audit.log');
+    const at = (i) => new Date(Date.UTC(2026, 10, 1, 0, 0, i)).toISOString();
+    const seed = [
+      { at: at(0), ok: true, action: 'stage', repo: repoDir },
+      { at: at(1), ok: false, action: 'stage', repo: repoDir },
+      { at: at(2), ok: true, action: 'save', repo: repoDir, file: 'a.txt' },
+      { at: at(3), ok: true, action: 'branch-create', repo: repoDir },
+      { at: at(4), ok: true, action: 'save', repo: repoDir, file: 'b.txt' },
+    ];
+    await fsp.writeFile(auditFile, `${seed.map((e) => JSON.stringify(e)).join('\n')}\n`);
+
+    const text = await get('/api/audit?limit=1000&q=stage');
+    expect(text.status).toBe(200);
+    expect(text.json.total).toBe(2);
+    expect(text.json.entries.every((e) => e.action === 'stage')).toBe(true);
+    // case-insensitive, and matches the summary fields (repo basename)
+    const upper = await get('/api/audit?limit=1000&q=STAGE');
+    expect(upper.json.total).toBe(2);
+
+    const fails = await get('/api/audit?limit=1000&outcome=fail');
+    expect(fails.json.total).toBe(1);
+    expect(fails.json.entries[0].ok).toBe(false);
+    expect(fails.json.entries[0].action).toBe('stage');
+
+    const success = await get('/api/audit?limit=1000&outcome=ok');
+    expect(success.json.total).toBe(4);
+    expect(success.json.entries.every((e) => e.ok !== false)).toBe(true);
+
+    const combined = await get('/api/audit?limit=1000&q=stage&outcome=fail');
+    expect(combined.json.total).toBe(1);
+    expect(combined.json.entries[0].action).toBe('stage');
+
+    const noMatch = await get('/api/audit?limit=1000&q=nonexistent-action');
+    expect(noMatch.status).toBe(200);
+    expect(noMatch.json.total).toBe(0);
+    expect(noMatch.json.entries).toEqual([]);
+
+    // invalid parameters rejected at the route
+    expect((await get('/api/audit?outcome=bogus')).status).toBe(400);
+    expect((await get(`/api/audit?q=${'x'.repeat(101)}`)).status).toBe(400);
+  });
+
   it('rotates the file once the size threshold is crossed', async () => {
     // The isolated audit path is built from the server's home dir; never use
     // the test process's configPaths(), which would resolve the real home when
