@@ -129,11 +129,16 @@ describe('PrFileReview', () => {
         base="/repos/o/r/pulls/1"
         canComment
         onPosted={() => {}}
+        onChanged={() => {}}
+        onDeleted={() => {}}
       />,
     );
     expect(html).toContain('new line');
     expect(html).toContain('please rename this');
     expect(html).toContain('alice');
+    expect(html).toContain('Reply');
+    expect(html).toContain('Edit');
+    expect(html).toContain('Delete');
   });
 });
 

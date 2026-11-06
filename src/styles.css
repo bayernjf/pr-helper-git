@@ -2324,3 +2324,13 @@ pre.diff {
   gap: 6px;
 }
 
+.review-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.review-comment-reply {
+  margin-left: 18px;
+  border-left: 2px solid var(--border-soft);
+  padding-left: 8px;
+}

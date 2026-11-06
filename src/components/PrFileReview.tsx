@@ -3,6 +3,7 @@ import { githubProxy } from '../api';
 import { useApp } from '../app-state';
 import { formatRelative } from '../lib/format';
 import { parseDiffLines } from '../lib/diff-lines';
+import { useConfirm } from './ui';
 
 export interface ReviewComment {
   id: number;
@@ -40,6 +41,8 @@ export default function PrFileReview({
   base,
   canComment,
   onPosted,
+  onChanged,
+  onDeleted,
 }: {
   file: PrFile;
   comments: ReviewComment[];
@@ -47,6 +50,8 @@ export default function PrFileReview({
   base: string;
   canComment: boolean;
   onPosted: (comment: ReviewComment) => void;
+  onChanged: (comment: ReviewComment) => void;
+  onDeleted: (id: number) => void;
 }) {
   const { pat, toast } = useApp();
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -156,7 +161,15 @@ export default function PrFileReview({
                 {rowComments.length > 0 && (
                   <div className="review-comment-group">
                     {rowComments.map((c) => (
-                      <ReviewCommentCard key={c.id} comment={c} />
+                      <ReviewCommentCard
+                        key={c.id}
+                        comment={c}
+                        base={base}
+                        canComment={canComment}
+                        onPosted={onPosted}
+                        onChanged={onChanged}
+                        onDeleted={onDeleted}
+                      />
                     ))}
                   </div>
                 )}
@@ -196,16 +209,121 @@ export default function PrFileReview({
       {outdated.length > 0 && (
         <div className="review-outdated">
           <div className="detail-label">Outdated comments</div>
-          {outdated.map((c) => <ReviewCommentCard key={c.id} comment={c} />)}
+          {outdated.map((c) => (
+            <ReviewCommentCard
+              key={c.id}
+              comment={c}
+              base={base}
+              canComment={canComment}
+              onPosted={onPosted}
+              onChanged={onChanged}
+              onDeleted={onDeleted}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function ReviewCommentCard({ comment }: { comment: ReviewComment }) {
+function ReviewCommentCard({
+  comment,
+  base,
+  canComment,
+  onPosted,
+  onChanged,
+  onDeleted,
+}: {
+  comment: ReviewComment;
+  base: string;
+  canComment: boolean;
+  onPosted: (comment: ReviewComment) => void;
+  onChanged: (comment: ReviewComment) => void;
+  onDeleted: (id: number) => void;
+}) {
+  const { pat, toast } = useApp();
+  const confirm = useConfirm();
+  const [mode, setMode] = useState<'view' | 'reply' | 'edit'>('view');
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // Single-comment review endpoints sit at the flat pulls/comments/:cid path,
+  // derived from the per-PR base (/repos/:o/:r/pulls/:n -> /repos/:o/:r).
+  const repoBase = base.replace(/\/pulls\/\d+$/, '');
+  const singleCommentPath = `${repoBase}/pulls/comments/${comment.id}`;
+
+  function openReply() {
+    setMode('reply');
+    setDraft('');
+  }
+
+  function openEdit() {
+    setMode('edit');
+    setDraft(comment.body);
+  }
+
+  function cancel() {
+    setMode('view');
+    setDraft('');
+  }
+
+  async function submit() {
+    const body = draft.trim();
+    if (!body) {
+      toast('Comment body cannot be empty', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === 'reply') {
+        // A reply only needs in_reply_to; line/side are inherited upstream.
+        const res = await githubProxy<ReviewComment>(
+          pat,
+          `${base}/comments`,
+          'POST',
+          { body, in_reply_to: comment.id },
+        );
+        onPosted(res.data);
+        toast('Reply added', 'success');
+      } else {
+        const res = await githubProxy<ReviewComment>(
+          pat,
+          singleCommentPath,
+          'PATCH',
+          { body },
+        );
+        onChanged(res.data);
+        toast('Review comment updated', 'success');
+      }
+      setMode('view');
+      setDraft('');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    const ok = await confirm(
+      'Delete this comment?',
+      'This permanently removes the comment on GitHub and cannot be undone.',
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await githubProxy(pat, singleCommentPath, 'DELETE');
+      onDeleted(comment.id);
+      toast('Review comment deleted', 'success');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="review-comment-card">
+    <div className={`review-comment-card${comment.in_reply_to_id ? ' review-comment-reply' : ''}`}>
       {comment.user.avatar_url
         ? <img src={comment.user.avatar_url} alt="" width={20} height={20} />
         : <span className="detail-avatar">{comment.user.login.slice(0, 1).toUpperCase()}</span>}
@@ -214,7 +332,65 @@ function ReviewCommentCard({ comment }: { comment: ReviewComment }) {
           <span className="comment-user">{comment.user.login}</span>
           <span className="detail-value muted">{formatRelative(comment.created_at)}</span>
         </div>
-        <div className="comment-text">{comment.body}</div>
+        {mode === 'edit' ? (
+          <div className="review-inline-composer">
+            <textarea
+              value={draft}
+              autoFocus
+              rows={2}
+              aria-label="Edit review comment"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  void submit();
+                }
+              }}
+            />
+            <div className="review-composer-actions">
+              <span className="hint">Cmd/Ctrl+Enter to save</span>
+              <button type="button" className="btn" onClick={cancel} disabled={busy}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="comment-text">{comment.body}</div>
+        )}
+
+        {mode === 'view' && canComment && (
+          <div className="review-card-actions">
+            <button type="button" className="comment-tool-btn" onClick={openReply} disabled={busy}>Reply</button>
+            <button type="button" className="comment-tool-btn" onClick={openEdit} disabled={busy}>Edit</button>
+            <button type="button" className="comment-tool-btn danger" onClick={remove} disabled={busy}>Delete</button>
+          </div>
+        )}
+
+        {mode === 'reply' && (
+          <div className="review-inline-composer">
+            <textarea
+              value={draft}
+              autoFocus
+              rows={2}
+              aria-label="Reply to review comment"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  void submit();
+                }
+              }}
+            />
+            <div className="review-composer-actions">
+              <span className="hint">Cmd/Ctrl+Enter to reply</span>
+              <button type="button" className="btn" onClick={cancel} disabled={busy}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
+                {busy ? 'Posting…' : 'Reply'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
