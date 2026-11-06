@@ -301,6 +301,45 @@ describe('write routes', () => {
     git(['restore', '--', 'hunk-test.txt'], repoDir);
   });
 
+  it('discards a single working-tree hunk without touching the index', async () => {
+    await writeFile(
+      'discard-hunk.txt',
+      `${Array.from({ length: 20 }, (_, i) => `line${i + 1}`).join('\n')}\n`,
+    );
+    git(['add', 'discard-hunk.txt'], repoDir);
+    git(['commit', '-m', 'add discard hunk test file'], repoDir);
+
+    const lines = (await fsp.readFile(path.join(repoDir, 'discard-hunk.txt'), 'utf8')).split('\n');
+    lines[1] = 'CHANGED2';
+    lines[14] = 'CHANGED15';
+    await writeFile('discard-hunk.txt', `${lines.join('\n')}`);
+
+    const noConfirm = await post('/api/discard-hunk', {
+      repo: repoDir, file: 'discard-hunk.txt', hunk: 0,
+    });
+    expect(noConfirm.status).toBe(400);
+    const outOfRange = await post('/api/discard-hunk', {
+      repo: repoDir, file: 'discard-hunk.txt', hunk: 9, confirm: true,
+    });
+    expect(outOfRange.status).toBe(400);
+
+    // Discard the first hunk: CHANGED2 is restored to the committed line,
+    // while CHANGED15 remains in the working tree and the index is untouched.
+    const r = await post('/api/discard-hunk', {
+      repo: repoDir, file: 'discard-hunk.txt', hunk: 0, confirm: true,
+    });
+    expect(r.status).toBe(200);
+    const onDisk = await fsp.readFile(path.join(repoDir, 'discard-hunk.txt'), 'utf8');
+    expect(onDisk).not.toContain('CHANGED2');
+    expect(onDisk).toContain('CHANGED15');
+    // No staged changes: the index still holds the committed blob.
+    const status = await get(`/api/status?repo=${q(repoDir)}`);
+    const entry = status.json.status.files.find((f) => f.path === 'discard-hunk.txt');
+    expect(entry.area).toBe('unstaged');
+
+    git(['restore', '--', 'discard-hunk.txt'], repoDir);
+  });
+
   it('commits staged changes and rejects empty messages', async () => {
     const bad = await post('/api/commit', { repo: repoDir, message: '   ' });
     expect(bad.status).toBe(400);

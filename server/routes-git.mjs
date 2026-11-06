@@ -797,6 +797,37 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     return ok({ ok: true, action, file: rel, hunk: hunkIndex, hunkCount: hunks.length });
   }
 
+  if (pathname === '/api/discard-hunk') {
+    if (body.confirm !== true) return fail(400, 'discard requires confirm: true');
+    const rel = normalizeRepoPath(body.file);
+    if (!rel) return fail(400, 'invalid file path');
+    if (isSensitivePath(rel)) return fail(403, 'sensitive files cannot be discarded here');
+    const resolved = await resolveInside(repo, rel);
+    if (!resolved) return fail(403, 'path escapes repo root');
+    const hunkIndex = Number(body.hunk);
+    if (!Number.isInteger(hunkIndex) || hunkIndex < 0) return fail(400, 'invalid hunk index');
+
+    let diffText;
+    try {
+      diffText = await git(['diff', '--', rel], repo);
+    } catch (err) {
+      return gitFail(err, 'git diff failed');
+    }
+    const { header, hunks } = splitFilePatch(diffText);
+    if (!hunks.length) return fail(400, 'no diff hunks available');
+    if (hunkIndex >= hunks.length) return fail(400, 'hunk index out of range');
+    const patch = buildHunkPatch(header, hunks[hunkIndex]);
+    try {
+      // Reverse-apply to the working tree only; the index is never touched.
+      await git(['apply', '-R', '-'], repo, { input: patch });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'discard-hunk', repo, file: rel, hunk: hunkIndex });
+      return gitFail(err, 'git apply discard failed');
+    }
+    await appendAudit({ ok: true, action: 'discard-hunk', repo, file: rel, hunk: hunkIndex });
+    return ok({ ok: true, file: rel, hunk: hunkIndex, hunkCount: hunks.length });
+  }
+
   if (pathname === '/api/stage-all') {
     const action = body.action === 'unstage' ? 'unstage' : 'stage';
     const argv = action === 'stage' ? ['add', '--all'] : ['restore', '--staged', '.'];

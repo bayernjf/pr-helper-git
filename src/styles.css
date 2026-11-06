@@ -750,6 +750,7 @@ pre.diff {
 }
 .hunk-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 .hunk-btn:disabled { opacity: 0.55; cursor: default; }
+.hunk-btn-danger:hover:not(:disabled) { color: var(--red); border-color: var(--red); }
 .diff-line.meta { color: var(--faint); }
 .diff-line.masked { color: var(--yellow); background: rgba(217,156,63,0.08); }
 .diff-gutter {
@@ -2322,3 +2323,4 @@ pre.diff {
   flex-direction: column;
   gap: 6px;
 }
+

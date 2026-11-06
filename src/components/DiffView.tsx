@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { stageHunk } from '../api';
+import { discardHunk, stageHunk } from '../api';
 import { useApp } from '../app-state';
 import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
 import type { DiffResult } from '../types';
@@ -89,7 +89,7 @@ export default function DiffView({
 }) {
   const { runAction } = useApp();
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
-  const [pendingHunk, setPendingHunk] = useState<number | null>(null);
+  const [pending, setPending] = useState<{ index: number; kind: string } | null>(null);
   const rows = useMemo(() => (result?.diff ? parseDiffLines(result.diff) : []), [result]);
 
   // Hunk actions are only available in the unified view for tracked changes
@@ -97,16 +97,23 @@ export default function DiffView({
   const hunkActionsEnabled = mode === 'unified' && !!repo && !!result && !result.untracked;
 
   async function applyHunk(hunkIndex: number) {
-    if (!repo || !result || pendingHunk !== null) return;
+    if (!repo || !result || pending !== null) return;
     const action = staged ? 'unstage' : 'stage';
-    setPendingHunk(hunkIndex);
+    setPending({ index: hunkIndex, kind: action });
     // runAction refreshes status and all data after the write, so the diff
     // pane reloads to reflect the new index/working-tree split.
     await runAction(
       stageHunk(repo, result.path, hunkIndex, action),
       `${action === 'unstage' ? 'Unstaged' : 'Staged'} hunk`,
     );
-    setPendingHunk(null);
+    setPending(null);
+  }
+
+  async function discardSelectedHunk(hunkIndex: number) {
+    if (!repo || !result || pending !== null) return;
+    setPending({ index: hunkIndex, kind: 'discard' });
+    await runAction(discardHunk(repo, result.path, hunkIndex), 'Discarded hunk');
+    setPending(null);
   }
 
   if (!result) return <EmptyHint>Select a file to review its changes.</EmptyHint>;
@@ -136,17 +143,32 @@ export default function DiffView({
                 <div className="diff-line hunk" key={i}>
                   <span className="hunk-header-text">{row.text}</span>
                   {hunkActionsEnabled && (
-                    <button
-                      type="button"
-                      className="hunk-btn"
-                      disabled={pendingHunk !== null}
-                      title={staged ? 'Unstage this hunk' : 'Stage this hunk'}
-                      onClick={() => applyHunk(hunkIndex)}
-                    >
-                      {pendingHunk === hunkIndex
-                        ? '…'
-                        : staged ? 'Unstage hunk' : 'Stage hunk'}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="hunk-btn"
+                        disabled={pending !== null}
+                        title={staged ? 'Unstage this hunk' : 'Stage this hunk'}
+                        onClick={() => applyHunk(hunkIndex)}
+                      >
+                        {pending?.index === hunkIndex && pending.kind !== 'discard'
+                          ? '…'
+                          : staged ? 'Unstage hunk' : 'Stage hunk'}
+                      </button>
+                      {!staged && (
+                        <button
+                          type="button"
+                          className="hunk-btn hunk-btn-danger"
+                          disabled={pending !== null}
+                          title="Discard this hunk (restore the working tree)"
+                          onClick={() => discardSelectedHunk(hunkIndex)}
+                        >
+                          {pending?.index === hunkIndex && pending.kind === 'discard'
+                            ? '…'
+                            : 'Discard hunk'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               );

@@ -85,6 +85,7 @@ describe('DiffView', () => {
       />,
     );
     expect(stage).toContain('Stage hunk');
+    expect(stage).toContain('Discard hunk');
 
     const unstage = withApp(
       <DiffView
@@ -94,6 +95,8 @@ describe('DiffView', () => {
       />,
     );
     expect(unstage).toContain('Unstage hunk');
+    // Discard only acts on the working tree; the staged view never shows it.
+    expect(unstage).not.toContain('Discard hunk');
   });
 });
 

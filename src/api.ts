@@ -315,6 +315,9 @@ export const stageHunk = (
   action: 'stage' | 'unstage',
 ) => post('/api/stage-hunk', { repo, file, hunk, action });
 
+export const discardHunk = (repo: string, file: string, hunk: number) =>
+  post('/api/discard-hunk', { repo, file, hunk, confirm: true });
+
 export const commitChanges = (repo: string, message: string, allowEmpty = false) =>
   post('/api/commit', { repo, message, allowEmpty });
 
