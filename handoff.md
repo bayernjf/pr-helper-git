@@ -33,7 +33,8 @@ repository is never pushed.
   switching (no-checkout), untracked-file diffs via `--no-index`, rebase
   state detection with continue/abort, and server-side author/message/date
   history filters, in-app audit log viewer (JSONL reader with success/failure
-  markers, raw details, text/outcome filters and no-match empty state),
+  markers, raw details, server-side text/outcome filters over the whole
+  retained file and no-match empty state),
   in-app text-file editing with validated atomic saves
   (sensitive/NUL/1 MB guards), mtime-based stale-save rejection (409 with
   the draft preserved), audit log rotation (1.5 MB trigger, 1 MB / 10,000
@@ -131,6 +132,10 @@ repository is never pushed.
 - [x] Client: FileViewer 409 handling, AuditModal text/outcome filters
 - [x] Route tests for audit rotation and save/mtime/413 behavior
 - [x] Thirteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: q/outcome query params on /api/audit, filtering over full file
+- [x] Client: AuditModal drives server filters with debounced text input
+- [x] Route tests for server-side audit filtering
+- [x] Follow-up: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -442,3 +447,23 @@ repository is never pushed.
   transforms 69 modules (JS 348.67 KB / gzip 101.47 KB, CSS 41.91 KB /
   gzip 7.63 KB). Dev server stopped; ports 5173 and 4789 are free; the
   real audit log is empty and accrues anew under the retention policy.
+- Follow-up scope (server-side audit filtering): the client-side filter
+  only covered the loaded 200-entry window, so older retained entries
+  could never be matched. `/api/audit` now accepts `q` (trimmed,
+  case-insensitive substring over the same action/summary fields the
+  modal displays, capped at 100 chars) and `outcome` (`all`/`ok`/`fail`,
+  invalid value -> 400); `readAudit` applies the filters over every
+  retained entry before taking the limit window, so `total` reports the
+  full match count across the file. The modal now requests up to 1,000
+  rows, debounces text typing by 300 ms, and distinguishes "no records"
+  from "no matches" based on whether filters are active.
+- Follow-up E2E in the browser: against a 250-entry seeded file, the
+  unfiltered modal rendered all 250 rows; `q=save` returned 25 matches
+  with the request carrying `q=save`; `outcome=fail` returned 23 failures
+  spread across the whole file (including entries beyond the old 200-row
+  window), proving whole-file coverage; a combined no-match query showed
+  the empty state. Seed data removed afterwards.
+- Updated verification: 94 Vitest tests pass across 10 files (38 route
+  tests); `tsc --noEmit` is clean; `vite build` transforms 69 modules
+  (JS 348.65 KB / gzip 101.56 KB, CSS 41.91 KB / gzip 7.63 KB). Dev
+  server stopped and ports free; the real audit log remains empty.

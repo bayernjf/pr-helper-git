@@ -118,7 +118,9 @@ GitHub by the application setup.
   entries with success/failure markers, timestamps and collapsible raw JSON.
   The modal ships with a free-text filter (action and summary) and an
   outcome selector for all, success-only or failure-only entries, plus a
-  no-match empty state.
+  no-match empty state. Filtering runs on the server over the whole retained
+  file (up to 1,000 rows returned), so matches are not limited to a small
+  loaded window; the text input is debounced while typing.
 - Audit retention: once the JSONL file crosses 1.5 MB it is rotated
   atomically, keeping the newest entries that fit a 1 MB / 10,000-entry
   budget; corrupt lines are dropped and the rewritten file always stays
@@ -238,9 +240,10 @@ npm run build      # production build into dist/
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
 routes, validation failures, rebase-state detection, the SSE handshake,
-audit rotation and mtime-based stale-save rejection (including the 413
-body cap). The isolated audit path is always built from the server's home
-directory so tests can never touch the real audit log.
+audit rotation, server-side audit filtering and mtime-based stale-save
+rejection (including the 413 body cap). The isolated audit path is always
+built from the server's home directory so tests can never touch the real
+audit log.
 Component tests render key React components with `react-dom/server`
 (`renderToString`) against a mock app context, covering empty states,
 masked/binary handling and the toolbar and audit modal.
