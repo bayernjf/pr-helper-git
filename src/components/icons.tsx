@@ -131,3 +131,6 @@ export const IconBroom = (p: SVGProps<SVGSVGElement>) => (
 export const IconServer = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><rect x="2" y="3" width="20" height="6" rx="2" /><rect x="2" y="15" width="20" height="6" rx="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></Svg>
 );
+export const IconAudit = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="8.01" y2="13" /><line x1="8" y1="17" x2="8.01" y2="17" /><line x1="12" y1="13" x2="16" y2="13" /><line x1="12" y1="17" x2="16" y2="17" /></Svg>
+);

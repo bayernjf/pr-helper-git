@@ -7,6 +7,7 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
+import AuditModal from './AuditModal';
 import CompareModal from './CompareModal';
 import GrepModal from './GrepModal';
 import ReflogModal from './ReflogModal';
@@ -16,6 +17,7 @@ import StashModal from './StashModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 import { useConfirm } from './ui';
 import {
+  IconAudit,
   IconChevronDown,
   IconClock,
   IconDownload,
@@ -45,6 +47,7 @@ export default function Toolbar() {
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showGrep, setShowGrep] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
   const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
   const confirm = useConfirm();
 
@@ -57,6 +60,7 @@ export default function Toolbar() {
     const openStash = () => setShowStash(true);
     const openCompare = () => setShowCompare(true);
     const openGrep = () => setShowGrep(true);
+    const openAudit = () => setShowAudit(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
@@ -64,6 +68,7 @@ export default function Toolbar() {
     window.addEventListener('git2:stash', openStash);
     window.addEventListener('git2:compare', openCompare);
     window.addEventListener('git2:grep', openGrep);
+    window.addEventListener('git2:audit', openAudit);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
@@ -72,6 +77,7 @@ export default function Toolbar() {
       window.removeEventListener('git2:stash', openStash);
       window.removeEventListener('git2:compare', openCompare);
       window.removeEventListener('git2:grep', openGrep);
+      window.removeEventListener('git2:audit', openAudit);
     };
   }, []);
 
@@ -266,6 +272,14 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="View audit log"
+        onClick={() => setShowAudit(true)}
+      >
+        <IconAudit />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="GitHub settings"
         onClick={() => setShowSettings(true)}
       >
@@ -279,6 +293,7 @@ export default function Toolbar() {
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
+      {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
       {dropMenu && (
         <ContextMenu
           x={dropMenu.x}

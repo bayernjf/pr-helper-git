@@ -14,6 +14,7 @@ import {
 import { useApp } from '../app-state';
 import { matchesCommand } from '../lib/fuzzy';
 import {
+  IconAudit,
   IconBranch,
   IconClock,
   IconCommand,
@@ -175,6 +176,13 @@ export default function CommandPalette() {
         search: 'add clone init new repository register',
         icon: <IconFolder width={15} height={15} />,
         run: () => window.dispatchEvent(new CustomEvent('git2:add-repo')),
+      },
+      {
+        id: 'audit',
+        label: 'View audit log',
+        search: 'audit trail history log actions',
+        icon: <IconAudit width={15} height={15} />,
+        run: () => window.dispatchEvent(new CustomEvent('git2:audit')),
       },
       {
         id: 'settings',
