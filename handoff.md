@@ -376,3 +376,16 @@ repository is never pushed.
   gzip 7.59 KB). Dev server stopped; ports 5173, 4789 and 4791 are free;
   localStorage holds only `git2-active-repo`; the product work tree is
   otherwise clean.
+- Post-iteration repository maintenance (user-confirmed): the
+  git2-e2e-test divergence (ahead 200 bulk commits / behind 2 real
+  commits from merged PR #3) was resolved with a non-destructive
+  `--no-ff` merge of origin/main (no conflicts: bulk work only touched
+  bulk.txt, the remote feature added src/settings.js) and pushed, so
+  local main and origin/main now converge with no ahead/behind. Stale
+  branches were cleaned up: feature/settings (merge commit), feature/quick
+  (local-only, fully contained), and feature/login + feature/ui (squash
+  merged via PRs #1/#2; final file contents proven identical to main)
+  were deleted both locally and on the remote. The repo now has only
+  main. Hello-World remains a clean octocat clone; git2-init-check
+  remains an empty repo with no remote; this product repo deliberately
+  stays without a remote.
