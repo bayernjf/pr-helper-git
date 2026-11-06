@@ -23,6 +23,7 @@ import {
   addRepo,
   appendAudit,
   listRepos,
+  readAudit,
   removeRepo,
 } from './store.mjs';
 import { ensureWatching, stopWatching } from './watcher.mjs';
@@ -169,6 +170,19 @@ function validateDateValue(raw) {
 export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/health' && method === 'GET') {
     return ok({ ok: true });
+  }
+
+  // Read-only audit trail. The limit is bounded in the store; an explicitly
+  // non-numeric value is rejected here so callers notice the mistake.
+  if (pathname === '/api/audit' && method === 'GET') {
+    let limit = 200;
+    const rawLimit = query.get('limit');
+    if (rawLimit !== null) {
+      if (!/^\d{1,4}$/.test(rawLimit)) return fail(400, 'invalid audit limit');
+      limit = Number(rawLimit);
+    }
+    const result = await readAudit(limit);
+    return ok({ collectedAt: new Date().toISOString(), ...result });
   }
 
   // ---------- repository registry ----------

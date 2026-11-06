@@ -114,3 +114,16 @@ export interface CheckRun {
   conclusion: string | null;
   html_url: string;
 }
+
+// Audit records share a timestamp and a small set of common fields; the
+// remaining keys depend on the action and are kept as an open index.
+export interface AuditEntry {
+  at: string;
+  ok?: boolean;
+  action?: string;
+  repo?: string;
+  method?: string;
+  path?: string;
+  number?: number;
+  [key: string]: unknown;
+}

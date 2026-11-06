@@ -63,3 +63,29 @@ export async function appendAudit(entry) {
     console.error(`audit write failed: ${err.message}`);
   }
 }
+
+// Read the JSONL audit trail. Malformed lines are skipped rather than failing
+// the whole read. Returns the most recent `limit` entries, newest first, plus
+// the count of successfully parsed lines.
+export async function readAudit(limit = 200) {
+  let raw;
+  try {
+    raw = await fsp.readFile(AUDIT_FILE, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return { entries: [], total: 0 };
+    throw err;
+  }
+  const entries = [];
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      entries.push(JSON.parse(trimmed));
+    } catch {
+      /* ignore corrupt lines */
+    }
+  }
+  const total = entries.length;
+  const bounded = Math.max(1, Math.min(1000, Number(limit) || 200));
+  return { entries: entries.slice(-bounded).reverse(), total };
+}

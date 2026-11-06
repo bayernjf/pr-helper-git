@@ -1,6 +1,7 @@
 // Thin API client. In dev the Vite proxy injects the loopback token; in
 // production the HttpOnly cookie authenticates same-origin requests.
 import type {
+  AuditEntry,
   Commit,
   DiffResult,
   LogFilters,
@@ -105,6 +106,11 @@ export const removeFile = (repo: string, file: string, force = false) =>
   post('/api/rm', { repo, file, force }) as Promise<{ ok: boolean; file: string; force: boolean }>;
 
 // ---------- git reads ----------
+
+export const getAudit = (limit = 200) =>
+  request<{ entries: AuditEntry[]; total: number; collectedAt: string }>(
+    `/api/audit?limit=${encodeURIComponent(String(limit))}`,
+  );
 
 export const getStatus = (repo: string) =>
   request<{ status: ParsedStatus; state: ParsedStatus['state'] }>(
