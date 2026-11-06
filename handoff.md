@@ -30,11 +30,14 @@ repository is never pushed.
   squash) with a dedicated picker, smart remote-branch checkout that creates a
   tracking local branch (no detached HEAD), configurable diff context lines
   (--unified), empty commits (--allow-empty), and branch creation without
-  switching (no-checkout).
+  switching (no-checkout), untracked-file diffs via `--no-index`, rebase
+  state detection with continue/abort, and server-side author/message/date
+  history filters.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view and compose,
-  Cmd/Ctrl+Enter to post), merge PR (merge/squash/rebase), close/reopen.
+  Cmd/Ctrl+Enter to post), review submission (comment/approve/request
+  changes), merge PR (merge/squash/rebase), close/reopen.
   PAT is stored only in the browser and proxied through the local server.
 - Explicitly out of scope: interactive rebase, cherry-pick, submodules,
   worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
@@ -103,6 +106,10 @@ repository is never pushed.
 - [x] Server: revert merge with mainline (-m), grep, mv, rm, log pathspec
 - [x] Client: grep modal, file rename/delete, path filter, revert merge, API helpers
 - [x] Tenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: untracked diff (no-index), rebase state, rebase continue/abort, log filters
+- [x] Server: GitHub reviews allowlist; client: review composer, LogFilterModal, rebase banner
+- [x] Route-level HTTP tests (real server, temp repo, isolated PR_HELPER_HOME)
+- [x] Eleventh iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -110,10 +117,11 @@ repository is never pushed.
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
   English commits authored by the configured user, with no co-author trailers.
-- 47 Vitest tests pass (graph layout, formatting, security, git parsers, file
-  tree, diff lines, review summaries, clone/folder validation, command palette
-  fuzzy filter, blame porcelain parsing, reflog and tag-object parsing);
-  `tsc --noEmit` and `vite build` (64 modules) are green.
+- The initial suite held 47 Vitest tests (graph layout, formatting, security,
+  git parsers, file tree, diff lines, review summaries, clone/folder
+  validation, command palette fuzzy filter, blame porcelain parsing, reflog
+  and tag-object parsing); later iterations added route-level HTTP tests,
+  bringing the current total to 77 across 9 files.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean
@@ -288,3 +296,41 @@ repository is never pushed.
   `Revert "merge ui feature"`. No console errors. All temporary commits,
   branches and probes were removed; the test repo returned to
   main/343f1a9/clean.
+- Eleventh iteration scope: untracked-file diff preview, rebase recovery
+  (continue/abort plus state detection), server-side history filters,
+  pull-request review submission and route-level HTTP tests. All five were
+  confirmed as real gaps by reading the code: plain `git diff` returns
+  nothing for untracked files, no rebase routes existed (the pull --rebase
+  path could leave an unrecoverable rebase), the graph search only covered
+  the loaded page, the GitHub allowlist had no POST reviews entry, and the
+  48 existing tests covered no HTTP routes.
+- Eleventh iteration backend: the git runner now supports per-call env and
+  preserves stdout on non-zero exits. `/api/diff` detects untracked files
+  via porcelain and runs `git diff --no-index -- /dev/null <file>` (exit 1
+  is a valid diff), returning an `untracked` flag. `/api/status` adds a
+  `state` object from `detectRepoState` (MERGE_HEAD, rebase-merge,
+  rebase-apply). New `/api/rebase/continue` (GIT_EDITOR=true) and
+  `/api/rebase/abort`. `/api/log` accepts validated `author`, `message`,
+  `since`, `until` (ISO calendar dates only; bad values -> 400).
+  `routes-github.mjs` allowlists POST `pulls/:n/reviews`. `store.mjs`
+  honors a `PR_HELPER_HOME` override for test isolation.
+- Eleventh iteration defects found and fixed during E2E: (1) the provider
+  stored only the inner porcelain object and discarded the sibling
+  `state` field, so no component could read rebase/merge state;
+  loadRepoData now attaches `state` onto the stored status. (2) GitHub
+  returns 404 on `requested-reviewers` when nobody is requested, and the
+  Promise.all detail load rejected on the first failure, blanking every
+  section; the modal now uses Promise.allSettled with per-endpoint
+  fallbacks.
+- Eleventh iteration E2E in the browser: an untracked file rendered its
+  full no-index diff; the LogFilterModal with message "bulk commit 200"
+  narrowed the graph to 1 of 1 and cleared back to 200; a real conflicted
+  rebase showed the amber banner with Continue/Abort and Abort restored
+  a clean main; a temporary PR (#4) was created, a COMMENT review was
+  submitted (verified via API and rendered in the Reviews section), then
+  the PR was closed, the remote branch deleted and the test repo reset to
+  343f1a9. No console errors.
+- Current verification: 77 Vitest tests pass across 9 files (including 29
+  new route tests); `tsc --noEmit` is clean; `vite build` transforms 68
+  modules (JS 341.49 KB, CSS 39.06 KB). Dev server stopped; ports 5173,
+  4789 and 4790 are free; the product work tree is otherwise clean.

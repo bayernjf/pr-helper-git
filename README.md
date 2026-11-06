@@ -18,6 +18,9 @@ GitHub by the application setup.
   branches and tags.
 - Filter the graph by message, author or hash with a live result count, and
   load history in pages beyond the first 200 commits (up to 1,000).
+- Server-side history filters in a dedicated dialog: author pattern, message
+  pattern and since/until calendar dates, so commits outside the loaded page
+  are still searchable; invalid dates are rejected with a 400.
 - Reset the current branch to any commit with soft, mixed or hard semantics
   (hard reset requires an explicit confirmation).
 - Safely revert a commit without rewriting history: a normal commit becomes a
@@ -96,6 +99,12 @@ GitHub by the application setup.
   confirmation dialog.
 - Filter the commit graph by path (`git log -- <path>`) so only commits that
   touched the chosen file or folder are shown, with the live count updated.
+- Untracked files render a full diff straight away: the diff route detects
+  them and runs `git diff --no-index /dev/null <file>`, marking the response
+  as untracked instead of showing an empty pane.
+- Rebase recovery: status detects `rebase-merge`/`rebase-apply` state, an
+  amber banner offers Continue (`git rebase --continue`) and Abort
+  (`git rebase --abort`), and the operation state is part of the status API.
 - File watcher with server-sent events reloads the active repository instantly
   whenever the working tree changes on disk — no manual refresh needed.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,
@@ -119,6 +128,9 @@ GitHub by the application setup.
 - Read and write issue comments inside the pull-request detail, with a composer
   that posts on Cmd/Ctrl+Enter and keeps the post button disabled until text is
   entered.
+- Submit a pull-request review from the detail modal — Comment, Approve or
+  Request changes (the last requires a summary). Existing reviews are listed
+  with their state, and one endpoint failing never blanks the whole modal.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
   endpoint is unavailable in some environments); the GitHub personal access
   token is stored only in the browser and sent through the local proxy, never
@@ -192,7 +204,11 @@ scripts/dev.mjs      parallel Vite + API launcher
 ## Checks
 
 ```bash
-npm test           # Vitest unit tests
+npm test           # Vitest unit + route-level HTTP tests
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
 ```
+
+The route tests spawn a real server on an ephemeral port against a temporary
+Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
+routes, validation failures, rebase-state detection and the SSE handshake.
