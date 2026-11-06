@@ -41,15 +41,17 @@ repository is never pushed.
   entry retention budget, atomic rewrite), and a 413 response for oversized
   request bodies with explicit keep-alive timeouts, per-hunk staging
   (server-side diff splice + `git apply --cached`, `MM` partial status,
-  unstage via reverse apply), and editor keyboard shortcuts (Cmd/Ctrl+S
+  unstage via reverse apply), per-hunk discard (reverse apply to the
+  working tree, index untouched), and editor keyboard shortcuts (Cmd/Ctrl+S
   save, Tab/Shift+Tab indent).
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
   inline edit and delete with confirmation, Cmd/Ctrl+Enter to post), review
   submission (comment/approve/request changes), merge PR
-  (merge/squash/rebase), close/reopen, and line-level review comments
-  (inline composer on diff lines, RIGHT/LEFT side, outdated-comment group).
+  (merge/squash/rebase), close/reopen, line-level review comments
+  (inline composer on diff lines, RIGHT/LEFT side, outdated-comment group,
+  threaded replies and edit/delete), and an editable PR description.
   PAT is stored only in the browser and proxied through the local server.
 - Hardening: nosniff on every response, strict CSP and no-referrer on the
   HTML entry, no-store for HTML, immutable long caching for hashed assets.
@@ -146,6 +148,10 @@ repository is never pushed.
 - [x] Client: PrFileReview with line anchors, inline composer, outdated group
 - [x] Client: FileViewer Cmd/Ctrl+S and Tab/Shift+Tab keyboard handling
 - [x] Fourteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: POST /api/discard-hunk, PATCH/DELETE pulls/comments/:cid allowlist
+- [x] Client: DiffView discard hunk, PrFileReview reply/edit/delete
+- [x] Client: PR description section with inline edit
+- [x] Fifteenth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -506,5 +512,29 @@ repository is never pushed.
 - Fourteenth verification: 99 Vitest tests pass across 10 files (39
   route tests, 5 new); `tsc --noEmit` is clean; `vite build`
   transforms 70 modules (JS 354.07 KB / gzip 103.11 KB, CSS 44.27 KB
+  / gzip 8.00 KB). Dev server stopped and ports free; no scratch
+  repositories remain registered.
+- Fifteenth scope: a fresh audit of 67 endpoints found four real flow
+  gaps — the PR body was never rendered, review comments could not be
+  replied to or edited/deleted, and only whole-file discard existed;
+  niche items (stash branch, check-run logs, suggested changes, syntax
+  highlighting) were explicitly rejected.
+- Fifteenth implementation: POST /api/discard-hunk reuses the diff
+  splice and reverse-applies the chosen hunk to the working tree
+  without touching the index; the GitHub allowlist adds PATCH/DELETE
+  on the flat pulls/comments/:cid path. The review cards gain Reply
+  (in_reply_to only), Edit (PATCH) and Delete (confirm dialog), and
+  the modal gains a Description section with inline editing via
+  PATCH pulls/:n.
+- Fifteenth E2E: browser verified Discard hunk on a two-hunk change
+  (first hunk restored, second remains, index stays clean). Through
+  the local proxy against a temporary PR: top-level comment 201,
+  threaded reply 201 with in_reply_to set, comment PATCH 200,
+  description PATCH 200, comment DELETE 204 and a GET confirming
+  zero comments remained. The PR, branches and scratch repos were
+  removed afterwards.
+- Fifteenth verification: 100 Vitest tests pass across 10 files (40
+  route tests, one new); `tsc --noEmit` is clean; `vite build`
+  transforms 70 modules (JS 353.98 KB / gzip 103.09 KB, CSS 44.27 KB
   / gzip 8.00 KB). Dev server stopped and ports free; no scratch
   repositories remain registered.

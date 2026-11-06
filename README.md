@@ -140,6 +140,10 @@ GitHub by the application setup.
   staged without touching the rest of its changes. Untracked files keep
   whole-file staging, and a partially staged file is reported with the
   `MM` porcelain status.
+- Per-hunk discard: the same hunk header offers Discard hunk, which
+  reverse-applies the chosen hunk to the working tree only (`git apply
+  -R`), leaving the index untouched so a single hunk can be reverted
+  without restoring the whole file.
 
 ### Pull requests (pr-helper-like core)
 
@@ -164,7 +168,12 @@ GitHub by the application setup.
   are posted through the local proxy using the modern `commit_id`/`path`/
   `line`/`side` parameters (`RIGHT` for added/context lines, `LEFT` for
   deletions), grouped on their line, and comments whose line no longer
-  exists are collected in an outdated-comments section.
+  exists are collected in an outdated-comments section. Each comment card
+  supports a threaded reply (`in_reply_to`), an inline edit and a delete
+  through the flat `pulls/comments/:cid` endpoint.
+- The PR description is rendered at the top of the detail and can be
+  edited inline on open pull requests via `PATCH pulls/:n`, with an empty
+  state when no description exists.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
   endpoint is unavailable in some environments); the GitHub personal access
   token is stored only in the browser and sent through the local proxy, never
