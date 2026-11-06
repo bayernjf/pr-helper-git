@@ -39,6 +39,16 @@ const ALLOWLIST = [
     method: 'DELETE',
     regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/comments/\\d+$`),
   },
+  // Line-level review comments use the flat pulls/comments/:cid endpoint
+  // (distinct from the issues/comments path used for issue-level comments).
+  {
+    method: 'PATCH',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/comments/\\d+$`),
+  },
+  {
+    method: 'DELETE',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/comments/\\d+$`),
+  },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}$`) },
   { method: 'GET', regex: /^\/user$/ },
   { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },
