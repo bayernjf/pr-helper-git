@@ -84,6 +84,38 @@ export default function FileViewer({
     }
   }
 
+  // Editor keyboard: Cmd/Ctrl+S saves without leaving the textarea, Tab inserts
+  // indentation (Shift+Tab removes it) instead of moving focus away.
+  function handleEditorKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      void submitEdit();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    if (e.shiftKey) {
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const lineHead = value.slice(lineStart, start);
+      const match = lineHead.match(/^( {1,2}|\t)/);
+      if (!match) return;
+      const next = value.slice(0, lineStart) + lineHead.slice(match[0].length) + value.slice(start);
+      setDraft(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start - match[0].length;
+      });
+    } else {
+      const insert = '  ';
+      const next = value.slice(0, start) + insert + value.slice(end);
+      setDraft(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + insert.length;
+      });
+    }
+  }
+
   // Load the blob contents whenever the viewed revision changes.
   useEffect(() => {
     let cancelled = false;
@@ -183,12 +215,20 @@ export default function FileViewer({
                 spellCheck={false}
                 autoFocus
                 onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={handleEditorKeyDown}
               />
               <div className="file-editor-actions">
+                <span className="editor-hint">Tab to indent · Cmd/Ctrl+S to save</span>
                 <button type="button" className="btn" onClick={cancelEdit} disabled={saving}>
                   Cancel
                 </button>
-                <button type="button" className="btn btn-primary" onClick={submitEdit} disabled={saving}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={submitEdit}
+                  disabled={saving}
+                  title="Save (Cmd/Ctrl+S)"
+                >
                   {saving ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
