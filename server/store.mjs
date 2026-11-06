@@ -12,6 +12,14 @@ const CONFIG_DIR = process.env.PR_HELPER_HOME
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const AUDIT_FILE = path.join(CONFIG_DIR, 'audit.log');
 
+// Retention policy. The audit trail is appended to on every local operation,
+// so once it crosses the trigger size it is rewritten to the smaller target
+// budget, keeping only the newest valid entries. Rotation runs only after a
+// threshold crossing, not on every write.
+export const AUDIT_ROTATE_BYTES = 1.5 * 1024 * 1024;
+export const AUDIT_TARGET_BYTES = 1024 * 1024;
+export const AUDIT_KEEP_ENTRIES = 10000;
+
 export function configPaths() {
   return { CONFIG_DIR, CONFIG_FILE, AUDIT_FILE };
 }
@@ -58,10 +66,51 @@ export async function appendAudit(entry) {
   try {
     await fsp.mkdir(CONFIG_DIR, { recursive: true });
     await fsp.appendFile(AUDIT_FILE, line);
+    const stat = await fsp.stat(AUDIT_FILE);
+    if (stat.size > AUDIT_ROTATE_BYTES) await rotateAudit();
   } catch (err) {
     // Audit failure must not crash the request; surface it on stderr.
     console.error(`audit write failed: ${err.message}`);
   }
+}
+
+// Rewrite the audit file keeping the newest entries that fit the byte budget
+// and the entry-count cap. Walking newest-first and accounting for the newline
+// guarantees the rewritten file stays below the rotation trigger, so the next
+// ordinary append does not re-rotate. Corrupt lines are dropped during the
+// parse, matching readAudit semantics.
+export async function rotateAudit() {
+  let raw;
+  try {
+    raw = await fsp.readFile(AUDIT_FILE, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return;
+    throw err;
+  }
+  const valid = [];
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      JSON.parse(trimmed);
+      valid.push(trimmed);
+    } catch {
+      /* ignore corrupt lines */
+    }
+  }
+  const picked = [];
+  let bytes = 0;
+  for (let i = valid.length - 1; i >= 0; i--) {
+    const lineBytes = Buffer.byteLength(valid[i], 'utf8') + 1;
+    if (picked.length >= AUDIT_KEEP_ENTRIES) break;
+    if (bytes + lineBytes > AUDIT_TARGET_BYTES && picked.length) break;
+    picked.push(valid[i]);
+    bytes += lineBytes;
+  }
+  picked.reverse();
+  const tmp = `${AUDIT_FILE}.rotate-${process.pid}`;
+  await fsp.writeFile(tmp, picked.length ? `${picked.join('\n')}\n` : '');
+  await fsp.rename(tmp, AUDIT_FILE);
 }
 
 // Read the JSONL audit trail. Malformed lines are skipped rather than failing
