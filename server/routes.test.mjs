@@ -7,6 +7,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AUDIT_KEEP_ENTRIES, AUDIT_ROTATE_BYTES } from './store.mjs';
 
 const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const serverPath = path.join(projectRoot, 'server', 'main.mjs');
@@ -358,5 +359,139 @@ describe('server-sent events', () => {
     const text = new TextDecoder().decode(value);
     expect(text).toContain('"type":"hello"');
     reader.cancel();
+  });
+});
+
+describe('audit log endpoint and retention', () => {
+  it('returns entries newest first with a total', async () => {
+    const r = await get('/api/audit?limit=50');
+    expect(r.status).toBe(200);
+    expect(r.json.entries.length).toBeLessThanOrEqual(50);
+    expect(r.json.total).toBeGreaterThan(0);
+    expect(r.json.entries.length).toBeGreaterThan(1);
+    // newest first: timestamps must be non-increasing
+    const times = r.json.entries.slice(0, 3).map((e) => e.at);
+    expect(times[0] >= times[1]).toBe(true);
+    expect(times[1] >= times[2]).toBe(true);
+  });
+
+  it('rejects a non-numeric or over-long limit', async () => {
+    expect((await get('/api/audit?limit=abc')).status).toBe(400);
+    expect((await get('/api/audit?limit=99999')).status).toBe(400);
+  });
+
+  it('honours a small limit and the 1000 cap', async () => {
+    const one = await get('/api/audit?limit=1');
+    expect(one.status).toBe(200);
+    expect(one.json.entries).toHaveLength(1);
+    const capped = await get('/api/audit?limit=1000');
+    expect(capped.status).toBe(200);
+    expect(capped.json.entries.length).toBeLessThanOrEqual(1000);
+  });
+
+  it('rotates the file once the size threshold is crossed', async () => {
+    // The isolated audit path is built from the server's home dir; never use
+    // the test process's configPaths(), which would resolve the real home when
+    // PR_HELPER_HOME is not set in the vitest process.
+    const auditFile = path.join(homeDir, 'audit.log');
+    // Seed a valid JSONL file larger than the rotation threshold.
+    const line = JSON.stringify({ at: new Date().toISOString(), action: 'seed' });
+    const perLine = line.length + 1;
+    const count = Math.ceil(AUDIT_ROTATE_BYTES / perLine) + 10;
+    await fsp.writeFile(auditFile, `${(`${line}\n`).repeat(count)}`);
+    expect((await fsp.stat(auditFile)).size).toBeGreaterThan(AUDIT_ROTATE_BYTES);
+
+    // An audited write appends one line and triggers the rotation.
+    await fsp.writeFile(path.join(repoDir, 'rot-trigger.txt'), 'rotate\n', 'utf8');
+    const staged = await post('/api/stage', {
+      repo: repoDir,
+      action: 'stage',
+      file: 'rot-trigger.txt',
+    });
+    expect(staged.status).toBe(200);
+
+    expect((await fsp.stat(auditFile)).size).toBeLessThanOrEqual(AUDIT_ROTATE_BYTES);
+    const r = await get('/api/audit?limit=1000');
+    expect(r.status).toBe(200);
+    expect(r.json.total).toBeLessThanOrEqual(AUDIT_KEEP_ENTRIES);
+    expect(r.json.entries[0].action).toBe('stage');
+  });
+});
+
+describe('file save endpoint', () => {
+  const scratch = 'save-scratch.txt';
+
+  beforeAll(async () => {
+    await fsp.writeFile(path.join(repoDir, scratch), 'initial content\n', 'utf8');
+  });
+
+  it('exposes the working-tree mtime', async () => {
+    const r = await get(`/api/file?repo=${q(repoDir)}&file=${q(scratch)}`);
+    expect(r.status).toBe(200);
+    expect(typeof r.json.mtimeMs).toBe('number');
+    expect(r.json.content).toBe('initial content\n');
+    expect(r.json.ref).toBeNull();
+  });
+
+  it('saves content atomically and returns the new mtime', async () => {
+    const before = await get(`/api/file?repo=${q(repoDir)}&file=${q(scratch)}`);
+    const r = await post('/api/save', {
+      repo: repoDir,
+      file: scratch,
+      content: 'updated content\n',
+      expectedMtime: before.json.mtimeMs,
+    });
+    expect(r.status).toBe(200);
+    expect(r.json.bytes).toBe(Buffer.byteLength('updated content\n'));
+    expect(typeof r.json.mtimeMs).toBe('number');
+    expect(r.json.mtimeMs).not.toBe(before.json.mtimeMs);
+    expect(await fsp.readFile(path.join(repoDir, scratch), 'utf8')).toBe('updated content\n');
+  });
+
+  it('rejects invalid and sensitive payloads', async () => {
+    const base = { repo: repoDir, file: scratch };
+    expect((await post('/api/save', { ...base, content: 123 })).status).toBe(400);
+    expect((await post('/api/save', { ...base, content: 'bad\0byte' })).status).toBe(400);
+    // The global 256 KB body cap binds before the route's 1 MB content check,
+    // so an oversized payload is rejected with 413 rather than a reset.
+    expect((await post('/api/save', {
+      ...base,
+      content: 'x'.repeat(1024 * 1024 + 1),
+    })).status).toBe(413);
+    expect((await post('/api/save', {
+      repo: repoDir,
+      file: '.env',
+      content: 'X=1\n',
+    })).status).toBe(403);
+    expect((await post('/api/save', {
+      repo: repoDir,
+      file: 'src',
+      content: 'x',
+    })).status).toBe(400);
+  });
+
+  it('rejects a stale save with 409 and accepts the fresh mtime', async () => {
+    const loaded = await get(`/api/file?repo=${q(repoDir)}&file=${q(scratch)}`);
+    // Change the file outside the app.
+    await fsp.writeFile(path.join(repoDir, scratch), 'external change\n', 'utf8');
+    const stale = await post('/api/save', {
+      repo: repoDir,
+      file: scratch,
+      content: 'app change\n',
+      expectedMtime: loaded.json.mtimeMs,
+    });
+    expect(stale.status).toBe(409);
+    // The external content must survive the rejected save.
+    expect(await fsp.readFile(path.join(repoDir, scratch), 'utf8')).toBe('external change\n');
+
+    const fresh = await get(`/api/file?repo=${q(repoDir)}&file=${q(scratch)}`);
+    const ok = await post('/api/save', {
+      repo: repoDir,
+      file: scratch,
+      content: 'app change\n',
+      expectedMtime: fresh.json.mtimeMs,
+    });
+    expect(ok.status).toBe(200);
+    expect(await fsp.readFile(path.join(repoDir, scratch), 'utf8')).toBe('app change\n');
   });
 });
