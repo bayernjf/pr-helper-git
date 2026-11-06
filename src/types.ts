@@ -23,12 +23,19 @@ export interface StatusFile {
   renamedFrom?: string | null;
 }
 
+export interface RepoState {
+  mergeInProgress: boolean;
+  rebaseInProgress: boolean;
+  rebaseType: 'merge' | 'apply' | null;
+}
+
 export interface ParsedStatus {
   branch: string | null;
   upstream: string | null;
   ahead: number;
   behind: number;
   files: StatusFile[];
+  state?: RepoState;
 }
 
 export interface Commit {

@@ -115,6 +115,39 @@ function validateStashIndex(raw) {
   return Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
 }
 
+// Detect in-progress multi-step operations. A standard repository has a .git
+// directory; worktrees (out of scope) replace it with a file and are skipped.
+async function detectRepoState(absRepo) {
+  const state = {
+    mergeInProgress: false,
+    rebaseInProgress: false,
+    rebaseType: null,
+  };
+  const gitDir = path.join(absRepo, '.git');
+  try {
+    const stat = await fsp.stat(gitDir);
+    if (!stat.isDirectory()) return state;
+  } catch {
+    return state;
+  }
+  try {
+    await fsp.access(path.join(gitDir, 'MERGE_HEAD'));
+    state.mergeInProgress = true;
+  } catch { /* no merge in progress */ }
+  try {
+    await fsp.access(path.join(gitDir, 'rebase-merge'));
+    state.rebaseInProgress = true;
+    state.rebaseType = 'merge';
+  } catch {
+    try {
+      await fsp.access(path.join(gitDir, 'rebase-apply'));
+      state.rebaseInProgress = true;
+      state.rebaseType = 'apply';
+    } catch { /* no rebase in progress */ }
+  }
+  return state;
+}
+
 export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/health' && method === 'GET') {
     return ok({ ok: true });
@@ -219,7 +252,8 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     try {
       const raw = await git(['status', '--porcelain=v2', '--branch'], repo);
       const status = parsePorcelainV2(raw);
-      return ok({ collectedAt: new Date().toISOString(), repo, status });
+      const state = await detectRepoState(repo);
+      return ok({ collectedAt: new Date().toISOString(), repo, status, state });
     } catch (err) {
       return gitFail(err, 'git status failed');
     }
@@ -1023,6 +1057,31 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       await appendAudit({ ok: false, action: 'merge-abort', repo });
       return gitFail(err, 'git merge --abort failed');
+    }
+  }
+
+  if (pathname === '/api/rebase/continue') {
+    // GIT_EDITOR=true lets the command finish non-interactively when only the
+    // editor would block it; unresolved conflicts still fail as expected.
+    const env = { ...process.env, GIT_EDITOR: 'true' };
+    try {
+      const result = await git(['rebase', '--continue'], repo, { env });
+      await appendAudit({ ok: true, action: 'rebase-continue', repo });
+      return ok({ ok: true, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'rebase-continue', repo });
+      return gitFail(err, 'git rebase --continue failed');
+    }
+  }
+
+  if (pathname === '/api/rebase/abort') {
+    try {
+      const result = await git(['rebase', '--abort'], repo);
+      await appendAudit({ ok: true, action: 'rebase-abort', repo });
+      return ok({ ok: true, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'rebase-abort', repo });
+      return gitFail(err, 'git rebase --abort failed');
     }
   }
 

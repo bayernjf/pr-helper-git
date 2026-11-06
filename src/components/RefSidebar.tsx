@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   abortMerge,
+  abortRebase,
+  continueRebase,
   checkoutRef,
   deleteBranch,
   deleteTag,
@@ -198,7 +200,13 @@ export default function RefSidebar() {
   }, [stashList, filter]);
 
   const currentBranch = status?.branch;
-  const mergeInProgress = !!status?.files.some((f) => f.area === 'unmerged');
+  const rebaseInProgress = !!status?.state?.rebaseInProgress;
+  // Prefer the explicit operation state; fall back to unmerged-file detection
+  // for responses from older servers. Unmerged files during a rebase must not
+  // surface the merge banner.
+  const mergeInProgress = status?.state
+    ? status.state.mergeInProgress
+    : !!status?.files.some((f) => f.area === 'unmerged') && !rebaseInProgress;
 
   const loadStash = useCallback(async () => {
     if (!activeRepo) return;
@@ -337,6 +345,27 @@ export default function RefSidebar() {
 
   return (
     <aside className="sidebar">
+      {rebaseInProgress && (
+        <div className="merge-banner rebase-banner">
+          <span className="merge-banner-msg">Rebase in progress — resolve conflicts, then continue or abort</span>
+          <div className="banner-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => runAction(continueRebase(activeRepo!), 'Rebase continued')}
+            >
+              Continue rebase
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => runAction(abortRebase(activeRepo!), 'Rebase aborted')}
+            >
+              Abort rebase
+            </button>
+          </div>
+        </div>
+      )}
       {mergeInProgress && (
         <div className="merge-banner">
           <span className="merge-banner-msg">Merge in progress — resolve conflicts or abort</span>

@@ -106,7 +106,9 @@ export const removeFile = (repo: string, file: string, force = false) =>
 // ---------- git reads ----------
 
 export const getStatus = (repo: string) =>
-  request<{ status: ParsedStatus }>(`/api/status?repo=${encodeURIComponent(repo)}`);
+  request<{ status: ParsedStatus; state: ParsedStatus['state'] }>(
+    `/api/status?repo=${encodeURIComponent(repo)}`,
+  );
 
 export const getLog = (
   repo: string,
@@ -334,6 +336,10 @@ export const deleteRemoteTag = (repo: string, name: string, remote = 'origin') =
   post('/api/tag/delete-remote', { repo, name, remote, confirm: true });
 
 export const abortMerge = (repo: string) => post('/api/merge/abort', { repo });
+
+export const continueRebase = (repo: string) => post('/api/rebase/continue', { repo });
+
+export const abortRebase = (repo: string) => post('/api/rebase/abort', { repo });
 
 export const pushBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/push', { repo, name, remote });
