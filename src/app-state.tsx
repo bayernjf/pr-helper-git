@@ -57,7 +57,9 @@ interface AppData {
   runAction: <T>(action: Promise<T>, successMessage?: string) => Promise<T | null>;
 }
 
-const AppContext = createContext<AppData | null>(null);
+// Exported so render tests can inject a mock context without booting the
+// full provider (which performs network and local-storage side effects).
+export const AppContext = createContext<AppData | null>(null);
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const toastApi = useToast();

@@ -1,0 +1,114 @@
+// Component smoke tests rendered with react-dom/server. renderToString never
+// runs effects, so no network, local-storage or timer side effects occur;
+// components that need the app context are wrapped with a mock provider.
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { AppContext } from '../app-state';
+import AuditModal from './AuditModal';
+import DiffView from './DiffView';
+import ErrorBoundary from './ErrorBoundary';
+import Toolbar from './Toolbar';
+
+function render(node: React.ReactNode): string {
+  return renderToString(node);
+}
+
+function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {}): string {
+  const value = {
+    repos: [],
+    activeRepo: null,
+    activeBrief: null,
+    view: 'git',
+    busy: false,
+    selectRepo: () => {},
+    setView: () => {},
+    runAction: async () => null,
+    toast: () => {},
+    ...overrides,
+  };
+  return render(createElement(AppContext.Provider, { value } as never, node));
+}
+
+const SAMPLE_DIFF = [
+  'diff --git a/hello.txt b/hello.txt',
+  'index 1111111..2222222 100644',
+  '--- a/hello.txt',
+  '+++ b/hello.txt',
+  '@@ -1,2 +1,2 @@',
+  ' context line',
+  '-old line',
+  '+new line',
+].join('\n');
+
+describe('DiffView', () => {
+  it('shows the empty hint before any selection', () => {
+    const html = render(<DiffView result={null} />);
+    expect(html).toContain('Select a file to review its changes.');
+    expect(html).toContain('diff-empty');
+  });
+
+  it('masks sensitive files', () => {
+    const html = render(<DiffView result={{ path: '.env', diff: '', masked: true, truncated: false }} />);
+    // SSR inserts comment nodes between text and expressions; assert separately.
+    expect(html).toContain('.env');
+    expect(html).toContain('is sensitive');
+  });
+
+  it('reports a missing diff', () => {
+    const html = render(<DiffView result={{ path: 'a.txt', diff: '', masked: false, truncated: false }} />);
+    expect(html).toContain('No diff available for this file.');
+  });
+
+  it('renders unified rows with add/delete classes', () => {
+    const html = render(
+      <DiffView result={{ path: 'hello.txt', diff: SAMPLE_DIFF, masked: false, truncated: false }} />,
+    );
+    expect(html).toContain('hello.txt');
+    expect(html).toContain('diff-line add');
+    expect(html).toContain('diff-line del');
+    expect(html).toContain('new line');
+    expect(html).toContain('old line');
+  });
+});
+
+describe('ErrorBoundary', () => {
+  it('renders children when there is no error', () => {
+    const html = render(
+      <ErrorBoundary>
+        <div className="child-marker">healthy subtree</div>
+      </ErrorBoundary>,
+    );
+    expect(html).toContain('child-marker');
+    expect(html).toContain('healthy subtree');
+  });
+});
+
+describe('AuditModal', () => {
+  it('renders the title and initial loading state', () => {
+    const html = withApp(<AuditModal onClose={() => {}} />);
+    expect(html).toContain('Audit log');
+    expect(html).toContain('Loading audit trail…');
+  });
+});
+
+describe('Toolbar', () => {
+  it('shows the no-repository state', () => {
+    const html = withApp(<Toolbar />);
+    expect(html).toContain('No repository');
+    expect(html).toContain('no repository');
+    expect(html).toContain('Fetch');
+    expect(html).toContain('Pull');
+    expect(html).toContain('Push');
+  });
+
+  it('renders the active branch pill for a registered repo', () => {
+    const html = withApp(<Toolbar />, {
+      activeRepo: '/tmp/example',
+      activeBrief: { path: '/tmp/example', name: 'example', branch: 'main', ahead: 2, behind: 0 },
+    });
+    expect(html).toContain('main');
+    // renderToString places comment nodes between the arrow and the number.
+    expect(html).toMatch(/↑<!-- -->2/);
+  });
+});
