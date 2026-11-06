@@ -34,14 +34,17 @@ export default function CommitDetail() {
     }
   }
 
+  // Depend on the selected hash rather than the commit object: a background
+  // SSE refresh recreates the commit array (new object identities) but keeps
+  // the same hash, so the open modal and file list must not be reset.
   useEffect(() => {
     setFiles([]);
     setPatch(null);
-    if (!commit || !activeRepo) return;
-    getCommitFiles(activeRepo, commit.hash)
+    if (!selectedHash || !activeRepo) return;
+    getCommitFiles(activeRepo, selectedHash)
       .then((res) => setFiles(res.files))
       .catch(() => setFiles([]));
-  }, [commit, activeRepo]);
+  }, [selectedHash, activeRepo]);
 
   async function openPatch(file: CommitFile) {
     if (!commit || !activeRepo) return;
