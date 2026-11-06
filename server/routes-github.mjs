@@ -19,6 +19,16 @@ const ALLOWLIST = [
   },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches(/${SEG})?$`) },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
+  // GitHub locates a single comment at issues/comments/:cid (no issue number);
+  // the nested .../issues/:n/comments/:cid form returns 404 upstream.
+  {
+    method: 'PATCH',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/comments/\\d+$`),
+  },
+  {
+    method: 'DELETE',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/comments/\\d+$`),
+  },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}$`) },
   { method: 'GET', regex: /^\/user$/ },
   { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },
@@ -191,7 +201,7 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
   const queryIndex = rawPath.indexOf('?');
   const ghPath = queryIndex === -1 ? rawPath : rawPath.slice(0, queryIndex);
   const ghQuery = queryIndex === -1 ? '' : rawPath.slice(queryIndex);
-  if (!['GET', 'POST', 'PATCH', 'PUT'].includes(ghMethod)) {
+  if (!['GET', 'POST', 'PATCH', 'PUT', 'DELETE'].includes(ghMethod)) {
     return fail(400, 'method not allowed');
   }
   if (!isAllowed(ghMethod, ghPath)) return fail(403, 'endpoint not in allowlist');
@@ -208,7 +218,9 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'pr-helper-git2',
       },
-      body: ghMethod === 'GET' ? undefined : JSON.stringify(body.payload || {}),
+      body: (ghMethod === 'GET' || ghMethod === 'DELETE')
+        ? undefined
+        : JSON.stringify(body.payload || {}),
       signal: controller.signal,
     });
   } catch (err) {

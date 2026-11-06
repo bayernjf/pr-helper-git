@@ -78,6 +78,9 @@ export default function PrDetailModal({
   const [submittingReview, setSubmittingReview] = useState(false);
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [working, setWorking] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editBody, setEditBody] = useState('');
+  const [editWorking, setEditWorking] = useState(false);
 
   const base = `/repos/${remote!.owner}/${remote!.repo}`;
 
@@ -184,6 +187,63 @@ export default function PrDetailModal({
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
       setPosting(false);
+    }
+  }
+
+  function startEditComment(c: PrComment) {
+    setEditingId(c.id);
+    setEditBody(c.body);
+  }
+
+  function cancelEditComment() {
+    setEditingId(null);
+    setEditBody('');
+  }
+
+  async function submitEditComment(c: PrComment) {
+    const body = editBody.trim();
+    if (!body) {
+      toast('Comment body cannot be empty', 'error');
+      return;
+    }
+    setEditWorking(true);
+    try {
+      const res = await githubProxy<PrComment>(
+        pat,
+        `${base}/issues/comments/${c.id}`,
+        'PATCH',
+        { body },
+      );
+      setComments((prev) => prev.map((item) => (item.id === c.id ? res.data : item)));
+      setEditingId(null);
+      setEditBody('');
+      toast('Comment updated', 'success');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setEditWorking(false);
+    }
+  }
+
+  async function deleteComment(c: PrComment) {
+    const ok = await confirm(
+      'Delete this comment?',
+      'This permanently removes the comment on GitHub and cannot be undone.',
+    );
+    if (!ok) return;
+    setEditWorking(true);
+    try {
+      await githubProxy(
+        pat,
+        `${base}/issues/comments/${c.id}`,
+        'DELETE',
+      );
+      setComments((prev) => prev.filter((item) => item.id !== c.id));
+      toast('Comment deleted', 'success');
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setEditWorking(false);
     }
   }
 
@@ -423,8 +483,59 @@ export default function PrDetailModal({
                       <div className="comment-head">
                         <span className="comment-user">{c.user.login}</span>
                         <span className="detail-value muted">{formatRelative(c.created_at)}</span>
+                        {editingId !== c.id && (
+                          <span className="comment-tools">
+                            <button
+                              type="button"
+                              className="comment-tool-btn"
+                              title="Edit comment"
+                              onClick={() => startEditComment(c)}
+                              disabled={editWorking}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="comment-tool-btn danger"
+                              title="Delete comment"
+                              onClick={() => deleteComment(c)}
+                              disabled={editWorking}
+                            >
+                              Delete
+                            </button>
+                          </span>
+                        )}
                       </div>
-                      <div className="comment-text">{c.body}</div>
+                      {editingId === c.id ? (
+                        <div className="comment-edit">
+                          <textarea
+                            value={editBody}
+                            autoFocus
+                            onChange={(e) => setEditBody(e.target.value)}
+                            aria-label="Edit comment body"
+                          />
+                          <div className="comment-edit-actions">
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={cancelEditComment}
+                              disabled={editWorking}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => submitEditComment(c)}
+                              disabled={editWorking}
+                            >
+                              {editWorking ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="comment-text">{c.body}</div>
+                      )}
                     </div>
                   </div>
                 ))}

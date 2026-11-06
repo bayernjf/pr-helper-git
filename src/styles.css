@@ -2150,3 +2150,32 @@ pre.diff {
 }
 .file-editor-actions .btn { padding: 5px 12px; font-size: 12px; }
 
+/* ---------- Twelfth iteration: comment edit/delete ---------- */
+.comment-tools { margin-left: auto; display: inline-flex; gap: 6px; }
+.comment-tool-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--faint);
+  font-size: 11px;
+  cursor: pointer;
+}
+.comment-tool-btn:hover { color: var(--accent); }
+.comment-tool-btn.danger:hover { color: var(--red); }
+.comment-tool-btn:disabled { opacity: 0.5; cursor: default; }
+.comment-edit { display: flex; flex-direction: column; gap: 6px; }
+.comment-edit textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.comment-edit textarea:focus { outline: none; border-color: var(--accent); }
+.comment-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.comment-edit-actions .btn { padding: 4px 12px; font-size: 12px; }
