@@ -412,13 +412,14 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     const rel = normalizeRepoPath(query.get('file'));
     if (!rel) return fail(400, 'invalid file path');
     if (isSensitivePath(rel)) {
-      return ok({ masked: true, path: rel, binary: false, content: '', truncated: false, ref: null });
+      return ok({ masked: true, path: rel, binary: false, content: '', truncated: false, ref: null, mtimeMs: null });
     }
     const refRaw = query.get('ref');
     const ref = refRaw ? validateRefSpec(refRaw) : null;
     if (refRaw && !ref) return fail(400, 'invalid ref');
     let content = '';
     let truncated = false;
+    let mtimeMs = null;
     try {
       if (ref) {
         content = await git(['show', `${ref}:${rel}`], repo);
@@ -427,6 +428,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
         if (!resolved) return fail(403, 'path escapes repo root');
         const stat = await fsp.stat(resolved);
         if (!stat.isFile()) return fail(400, 'not a file');
+        mtimeMs = stat.mtimeMs;
         if (stat.size > FILE_MAX_BYTES) truncated = true;
         content = await fsp.readFile(resolved, 'utf8');
       }
@@ -445,6 +447,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       content: binary ? '' : content,
       truncated,
       ref,
+      mtimeMs,
     });
   }
 
@@ -1272,17 +1275,28 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (body.content.includes('\0')) return fail(400, 'content contains NUL byte');
     const bytes = Buffer.byteLength(body.content, 'utf8');
     if (bytes > SAVE_MAX_BYTES) return fail(400, 'file exceeds the 1 MB save limit');
+    // Optional optimistic-concurrency guard. When the client supplies the
+    // mtime it observed on load, a mismatch means the file changed on disk
+    // (or was deleted) and the save is rejected so the change is not lost.
+    const hasExpected = typeof body.expectedMtime === 'number' && Number.isFinite(body.expectedMtime);
     try {
       const abs = await resolveInside(repo, target);
       if (!abs) return fail(400, 'invalid file path');
       const stat = await fsp.stat(abs).catch(() => null);
       if (stat && stat.isDirectory()) return fail(400, 'target path is a directory');
+      if (hasExpected) {
+        if (!stat || stat.mtimeMs !== body.expectedMtime) {
+          await appendAudit({ ok: false, action: 'save', repo, file: target, reason: 'stale' });
+          return fail(409, 'file changed on disk; reload before saving');
+        }
+      }
       // Atomic replacement: write a sibling temp file, then rename over it.
       const tmp = `${abs}.tmp-${process.pid}`;
       await fsp.writeFile(tmp, body.content, 'utf8');
       await fsp.rename(tmp, abs);
+      const newStat = await fsp.stat(abs);
       await appendAudit({ ok: true, action: 'save', repo, file: target, bytes });
-      return ok({ ok: true, file: target, bytes });
+      return ok({ ok: true, file: target, bytes, mtimeMs: newStat.mtimeMs });
     } catch (err) {
       await appendAudit({ ok: false, action: 'save', repo, file: target });
       return gitFail(err, 'file save failed');
