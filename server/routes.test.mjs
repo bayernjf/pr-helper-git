@@ -249,6 +249,58 @@ describe('write routes', () => {
     expect(status.json.status.files.some((f) => f.path === 'a.txt' && f.area === 'staged')).toBe(false);
   });
 
+  it('stages and unstages a single hunk', async () => {
+    await writeFile(
+      'hunk-test.txt',
+      `${Array.from({ length: 20 }, (_, i) => `line${i + 1}`).join('\n')}\n`,
+    );
+    git(['add', 'hunk-test.txt'], repoDir);
+    git(['commit', '-m', 'add hunk test file'], repoDir);
+
+    const lines = (await fsp.readFile(path.join(repoDir, 'hunk-test.txt'), 'utf8')).split('\n');
+    lines[1] = 'CHANGED2';
+    lines[14] = 'CHANGED15';
+    await writeFile('hunk-test.txt', `${lines.join('\n')}`);
+
+    const badAction = await post('/api/stage-hunk', {
+      repo: repoDir, file: 'hunk-test.txt', hunk: 0, action: 'bogus',
+    });
+    expect(badAction.status).toBe(400);
+    const outOfRange = await post('/api/stage-hunk', {
+      repo: repoDir, file: 'hunk-test.txt', hunk: 5, action: 'stage',
+    });
+    expect(outOfRange.status).toBe(400);
+
+    // Stage the second hunk only: CHANGED15 goes to the index, CHANGED2 stays.
+    const r = await post('/api/stage-hunk', {
+      repo: repoDir, file: 'hunk-test.txt', hunk: 1, action: 'stage',
+    });
+    expect(r.status).toBe(200);
+    expect(r.json.hunkCount).toBe(2);
+    let status = await get(`/api/status?repo=${q(repoDir)}`);
+    // Porcelain v2 reports a partially staged file as one entry with xy "MM".
+    const entry = status.json.status.files.find((f) => f.path === 'hunk-test.txt');
+    expect(entry.status).toBe('MM');
+    expect(entry.area).toBe('staged');
+    const cached = git(['show', ':hunk-test.txt'], repoDir);
+    expect(cached).toContain('CHANGED15');
+    expect(cached).not.toContain('CHANGED2');
+
+    // Unstage the same hunk. The cached diff now contains one hunk, so its
+    // index is 0 in the staged view; the index must return to the committed blob.
+    const u = await post('/api/stage-hunk', {
+      repo: repoDir, file: 'hunk-test.txt', hunk: 0, action: 'unstage',
+    });
+    expect(u.status).toBe(200);
+    status = await get(`/api/status?repo=${q(repoDir)}`);
+    const after = status.json.status.files.find((f) => f.path === 'hunk-test.txt');
+    expect(after.area).toBe('unstaged');
+
+    // Restore the committed file so later tests see a clean state.
+    git(['restore', '--staged', '--', 'hunk-test.txt'], repoDir, true);
+    git(['restore', '--', 'hunk-test.txt'], repoDir);
+  });
+
   it('commits staged changes and rejects empty messages', async () => {
     const bad = await post('/api/commit', { repo: repoDir, message: '   ' });
     expect(bad.status).toBe(400);

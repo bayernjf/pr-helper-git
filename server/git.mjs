@@ -231,3 +231,35 @@ export function parseTagObject(output) {
   result.body = lines.slice(1).join('\n').trim();
   return result;
 }
+
+// Split a single-file unified diff into its file header (everything before
+// the first hunk) and the individual hunks. Each hunk starts at a `@@` line
+// and runs until the next hunk. The arrays preserve exact line content so a
+// patch can be rebuilt byte-for-byte without introducing blank lines.
+export function splitFilePatch(diffText) {
+  const header = [];
+  const hunks = [];
+  let current = null;
+  for (const line of diffText.split('\n')) {
+    if (line.startsWith('@@')) {
+      current = [line];
+      hunks.push(current);
+    } else if (current === null) {
+      header.push(line);
+    } else {
+      current.push(line);
+    }
+  }
+  // diffText ends with a newline, so the final split element is an empty
+  // trailing line belonging to the last hunk; drop it when rebuilding.
+  if (hunks.length) {
+    const last = hunks[hunks.length - 1];
+    if (last.length && last[last.length - 1] === '') last.pop();
+  }
+  return { header, hunks };
+}
+
+// Rebuild a valid patch string containing the file header and one hunk.
+export function buildHunkPatch(header, hunk) {
+  return `${[...header, ...hunk].join('\n')}\n`;
+}

@@ -3,6 +3,7 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {
+  buildHunkPatch,
   git,
   parseBlame,
   parseLog,
@@ -10,6 +11,7 @@ import {
   parseRefs,
   parseReflog,
   parseTagObject,
+  splitFilePatch,
 } from './git.mjs';
 import {
   isSensitivePath,
@@ -755,6 +757,44 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     await appendAudit({ ok: true, action, repo, file: rel });
     return ok({ ok: true, action, file: rel });
+  }
+
+  // Stage (or unstage) a single diff hunk rather than the whole file. The
+  // authoritative diff is regenerated server side and split into hunks, so
+  // the client only sends an index; the rebuilt patch is applied to the index.
+  // Untracked files have no ordinary git diff and keep whole-file staging.
+  if (pathname === '/api/stage-hunk') {
+    const action = body.action === 'unstage' ? 'unstage' : body.action === 'stage' ? 'stage' : null;
+    if (!action) return fail(400, 'action must be "stage" or "unstage"');
+    const rel = normalizeRepoPath(body.file);
+    if (!rel) return fail(400, 'invalid file path');
+    const resolved = await resolveInside(repo, rel);
+    if (!resolved) return fail(403, 'path escapes repo root');
+    const hunkIndex = Number(body.hunk);
+    if (!Number.isInteger(hunkIndex) || hunkIndex < 0) return fail(400, 'invalid hunk index');
+
+    const diffArgs = action === 'stage'
+      ? ['diff', '--', rel]
+      : ['diff', '--cached', '--', rel];
+    let diffText;
+    try {
+      diffText = await git(diffArgs, repo);
+    } catch (err) {
+      return gitFail(err, 'git diff failed');
+    }
+    const { header, hunks } = splitFilePatch(diffText);
+    if (!hunks.length) return fail(400, 'no diff hunks available');
+    if (hunkIndex >= hunks.length) return fail(400, 'hunk index out of range');
+    const patch = buildHunkPatch(header, hunks[hunkIndex]);
+    const applyArgs = ['apply', '--cached', ...(action === 'unstage' ? ['-R'] : []), '-'];
+    try {
+      await git(applyArgs, repo, { input: patch });
+    } catch (err) {
+      await appendAudit({ ok: false, action: `${action}-hunk`, repo, file: rel, hunk: hunkIndex });
+      return gitFail(err, `git apply ${action} failed`);
+    }
+    await appendAudit({ ok: true, action: `${action}-hunk`, repo, file: rel, hunk: hunkIndex });
+    return ok({ ok: true, action, file: rel, hunk: hunkIndex, hunkCount: hunks.length });
   }
 
   if (pathname === '/api/stage-all') {

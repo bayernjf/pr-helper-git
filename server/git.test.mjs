@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildHunkPatch,
   parseBlame,
   parseLog,
   parsePorcelainV2,
   parseRefs,
   parseReflog,
   parseTagObject,
+  splitFilePatch,
 } from './git.mjs';
 
 describe('parsePorcelainV2', () => {
@@ -177,5 +179,47 @@ describe('parseTagObject', () => {
     expect(tag.time).toBe(1700000000);
     expect(tag.subject).toBe('Release 0.1.0');
     expect(tag.body).toBe('First annotated release');
+  });
+});
+
+describe('splitFilePatch', () => {
+  const diff = [
+    'diff --git a/f.txt b/f.txt',
+    'index 1111111..2222222 100644',
+    '--- a/f.txt',
+    '+++ b/f.txt',
+    '@@ -1,3 +1,3 @@',
+    ' a',
+    '-b',
+    '+B',
+    ' c',
+    '@@ -10,2 +10,2 @@',
+    ' x',
+    '-y',
+    '+Y',
+    ' z',
+    '',
+  ].join('\n');
+
+  it('splits header and hunks and drops the trailing empty line', () => {
+    const { header, hunks } = splitFilePatch(diff);
+    expect(header).toEqual([
+      'diff --git a/f.txt b/f.txt',
+      'index 1111111..2222222 100644',
+      '--- a/f.txt',
+      '+++ b/f.txt',
+    ]);
+    expect(hunks).toHaveLength(2);
+    expect(hunks[0]).toEqual(['@@ -1,3 +1,3 @@', ' a', '-b', '+B', ' c']);
+    expect(hunks[1]).toEqual(['@@ -10,2 +10,2 @@', ' x', '-y', '+Y', ' z']);
+  });
+
+  it('rebuilds a single-hunk patch with exactly one trailing newline', () => {
+    const { header, hunks } = splitFilePatch(diff);
+    const patch = buildHunkPatch(header, hunks[1]);
+    expect(patch.endsWith('\n')).toBe(true);
+    expect(patch.endsWith('\n\n')).toBe(false);
+    expect(patch).toContain('+Y');
+    expect(patch).not.toContain('+B');
   });
 });
