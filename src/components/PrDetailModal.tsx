@@ -12,6 +12,7 @@ import {
   IconRocket,
   IconX,
 } from './icons';
+import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
 import { useConfirm } from './ui';
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
@@ -19,12 +20,6 @@ type MergeMethod = 'merge' | 'squash' | 'rebase';
 interface PrCommit {
   sha: string;
   commit: { message: string };
-}
-interface PrFile {
-  filename: string;
-  status: string;
-  additions: number;
-  deletions: number;
 }
 interface Reviewer {
   login: string;
@@ -74,6 +69,8 @@ export default function PrDetailModal({
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
   const [reviews, setReviews] = useState<PrReview[]>([]);
+  const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [reviewBody, setReviewBody] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [method, setMethod] = useState<MergeMethod>('squash');
@@ -95,6 +92,7 @@ export default function PrDetailModal({
       githubProxy<{ users: Reviewer[] }>(pat, `${base}/pulls/${pr.number}/requested-reviewers`),
       githubProxy<PrComment[]>(pat, `${base}/issues/${pr.number}/comments`),
       githubProxy<PrReview[]>(pat, `${base}/pulls/${pr.number}/reviews`),
+      githubProxy<ReviewComment[]>(pat, `${base}/pulls/${pr.number}/comments`),
     ])
       .then((settled) => {
         if (cancelled) return;
@@ -106,6 +104,7 @@ export default function PrDetailModal({
         setReviewers(dataOf(settled[3], { users: [] as Reviewer[] }).users || []);
         setComments(dataOf(settled[4], [] as PrComment[]));
         setReviews(dataOf(settled[5], [] as PrReview[]));
+        setReviewComments(dataOf(settled[6], [] as ReviewComment[]));
       })
       .catch(() => {
         if (!cancelled) toast('Failed to load PR details', 'error');
@@ -334,15 +333,34 @@ export default function PrDetailModal({
             </span>
             <div className="pr-detail-list">
               {prFiles.map((f) => (
-                <div key={f.filename} className="pr-detail-item">
-                  <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {f.filename}
-                  </span>
-                  <span className="changes-stats">
-                    <span className="add">+{f.additions}</span>
-                    <span className="del">-{f.deletions}</span>
-                  </span>
+                <div key={f.filename} className="pr-file-block">
+                  <div className="pr-detail-item">
+                    <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {f.filename}
+                    </span>
+                    <span className="changes-stats">
+                      <span className="add">+{f.additions}</span>
+                      <span className="del">-{f.deletions}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="comment-tool-btn"
+                      onClick={() => setExpandedFile((cur) => (cur === f.filename ? null : f.filename))}
+                    >
+                      {expandedFile === f.filename ? 'Hide' : 'Review'}
+                    </button>
+                  </div>
+                  {expandedFile === f.filename && (
+                    <PrFileReview
+                      file={f}
+                      comments={reviewComments.filter((c) => c.path === f.filename)}
+                      headSha={pr.head.sha}
+                      base={`${base}/pulls/${pr.number}`}
+                      canComment={pr.state === 'open'}
+                      onPosted={(c) => setReviewComments((prev) => [...prev, c])}
+                    />
+                  )}
                 </div>
               ))}
             </div>

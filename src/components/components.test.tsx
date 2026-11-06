@@ -8,6 +8,7 @@ import { AppContext } from '../app-state';
 import AuditModal from './AuditModal';
 import DiffView from './DiffView';
 import ErrorBoundary from './ErrorBoundary';
+import PrFileReview from './PrFileReview';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -93,6 +94,43 @@ describe('DiffView', () => {
       />,
     );
     expect(unstage).toContain('Unstage hunk');
+  });
+});
+
+describe('PrFileReview', () => {
+  const patch = [
+    '@@ -1,2 +1,2 @@',
+    ' context line',
+    '-old line',
+    '+new line',
+  ].join('\n');
+
+  it('renders the diff and attached review comments', () => {
+    const html = withApp(
+      <PrFileReview
+        file={{ filename: 'src/app.ts', status: 'modified', additions: 1, deletions: 1, patch }}
+        comments={[{
+          id: 7,
+          user: { login: 'alice', avatar_url: '' },
+          body: 'please rename this',
+          path: 'src/app.ts',
+          line: 2,
+          original_line: 2,
+          side: 'RIGHT',
+          commit_id: 'abc',
+          in_reply_to_id: null,
+          created_at: '2026-11-01T00:00:00Z',
+          author_association: 'OWNER',
+        }]}
+        headSha="abc123"
+        base="/repos/o/r/pulls/1"
+        canComment
+        onPosted={() => {}}
+      />,
+    );
+    expect(html).toContain('new line');
+    expect(html).toContain('please rename this');
+    expect(html).toContain('alice');
   });
 });
 

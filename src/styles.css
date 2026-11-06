@@ -2218,3 +2218,101 @@ pre.diff {
 .comment-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .comment-edit-actions .btn { padding: 4px 12px; font-size: 12px; }
 
+/* ---------- Fourteenth iteration: review comments + hunk staging ---------- */
+
+.pr-file-block { display: flex; flex-direction: column; }
+
+.review-file {
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg);
+}
+.review-diff {
+  margin: 0;
+  padding: 4px 0;
+  overflow-x: auto;
+}
+.review-diff-line {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre;
+}
+.review-diff-line.add { background: rgba(63, 185, 80, 0.11); }
+.review-diff-line.del { background: rgba(240, 85, 103, 0.11); }
+.review-diff-line.hunk { color: var(--accent); background: rgba(124, 108, 255, 0.08); }
+.review-add-gutter {
+  flex: 0 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.review-add-btn {
+  visibility: hidden;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.review-diff-line:hover .review-add-btn { visibility: visible; }
+.review-add-btn:hover { color: var(--accent); }
+.review-no {
+  flex: 0 0 40px;
+  padding: 0 6px;
+  color: var(--faint);
+  text-align: right;
+  user-select: none;
+}
+.review-sign { flex: 0 0 12px; user-select: none; }
+.review-code { flex: 1 1 auto; padding-right: 12px; }
+
+.review-comment-group {
+  margin: 4px 0 6px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-comment-card {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.review-comment-body { min-width: 0; flex: 1 1 auto; }
+.review-inline-composer {
+  margin: 4px 0 6px 22px;
+  padding: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.review-inline-composer textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px;
+}
+.review-inline-composer textarea:focus { outline: none; border-color: var(--accent); }
+.review-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.review-composer-actions .hint { margin-right: auto; }
+.review-outdated {
+  margin: 6px 0 8px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
