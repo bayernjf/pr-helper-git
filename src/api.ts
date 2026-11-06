@@ -308,6 +308,13 @@ export const stageFile = (repo: string, file: string, action: 'stage' | 'unstage
 export const stageAll = (repo: string, action: 'stage' | 'unstage') =>
   post('/api/stage-all', { repo, action });
 
+export const stageHunk = (
+  repo: string,
+  file: string,
+  hunk: number,
+  action: 'stage' | 'unstage',
+) => post('/api/stage-hunk', { repo, file, hunk, action });
+
 export const commitChanges = (repo: string, message: string, allowEmpty = false) =>
   post('/api/commit', { repo, message, allowEmpty });
 

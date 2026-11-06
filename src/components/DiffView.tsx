@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { DiffResult } from '../types';
+import { stageHunk } from '../api';
+import { useApp } from '../app-state';
 import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
+import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
@@ -76,9 +78,36 @@ function SplitRow({ row }: { row: ParsedDiffLine }) {
   );
 }
 
-export default function DiffView({ result }: { result: DiffResult | null }) {
+export default function DiffView({
+  result,
+  repo,
+  staged = false,
+}: {
+  result: DiffResult | null;
+  repo?: string;
+  staged?: boolean;
+}) {
+  const { runAction } = useApp();
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
+  const [pendingHunk, setPendingHunk] = useState<number | null>(null);
   const rows = useMemo(() => (result?.diff ? parseDiffLines(result.diff) : []), [result]);
+
+  // Hunk actions are only available in the unified view for tracked changes
+  // (untracked files have no ordinary git diff and keep whole-file staging).
+  const hunkActionsEnabled = mode === 'unified' && !!repo && !!result && !result.untracked;
+
+  async function applyHunk(hunkIndex: number) {
+    if (!repo || !result || pendingHunk !== null) return;
+    const action = staged ? 'unstage' : 'stage';
+    setPendingHunk(hunkIndex);
+    // runAction refreshes status and all data after the write, so the diff
+    // pane reloads to reflect the new index/working-tree split.
+    await runAction(
+      stageHunk(repo, result.path, hunkIndex, action),
+      `${action === 'unstage' ? 'Unstaged' : 'Staged'} hunk`,
+    );
+    setPendingHunk(null);
+  }
 
   if (!result) return <EmptyHint>Select a file to review its changes.</EmptyHint>;
   if (result.masked) {
@@ -88,6 +117,9 @@ export default function DiffView({ result }: { result: DiffResult | null }) {
     return <EmptyHint>No diff available for this file.</EmptyHint>;
   }
 
+  // Assign sequential hunk indices while walking the parsed rows.
+  let hunkCounter = -1;
+
   return (
     <div className="diff-pane">
       <div className="diff-toolbar">
@@ -96,7 +128,31 @@ export default function DiffView({ result }: { result: DiffResult | null }) {
       </div>
       {mode === 'unified' ? (
         <pre className="diff">
-          {rows.map((row, i) => <UnifiedRow key={i} row={row} />)}
+          {rows.map((row, i) => {
+            if (row.kind === 'hunk') {
+              hunkCounter += 1;
+              const hunkIndex = hunkCounter;
+              return (
+                <div className="diff-line hunk" key={i}>
+                  <span className="hunk-header-text">{row.text}</span>
+                  {hunkActionsEnabled && (
+                    <button
+                      type="button"
+                      className="hunk-btn"
+                      disabled={pendingHunk !== null}
+                      title={staged ? 'Unstage this hunk' : 'Stage this hunk'}
+                      onClick={() => applyHunk(hunkIndex)}
+                    >
+                      {pendingHunk === hunkIndex
+                        ? '…'
+                        : staged ? 'Unstage hunk' : 'Stage hunk'}
+                    </button>
+                  )}
+                </div>
+              );
+            }
+            return <UnifiedRow key={i} row={row} />;
+          })}
         </pre>
       ) : (
         <pre className="diff">

@@ -43,25 +43,25 @@ const SAMPLE_DIFF = [
 
 describe('DiffView', () => {
   it('shows the empty hint before any selection', () => {
-    const html = render(<DiffView result={null} />);
+    const html = withApp(<DiffView result={null} />);
     expect(html).toContain('Select a file to review its changes.');
     expect(html).toContain('diff-empty');
   });
 
   it('masks sensitive files', () => {
-    const html = render(<DiffView result={{ path: '.env', diff: '', masked: true, truncated: false }} />);
+    const html = withApp(<DiffView result={{ path: '.env', diff: '', masked: true, truncated: false }} />);
     // SSR inserts comment nodes between text and expressions; assert separately.
     expect(html).toContain('.env');
     expect(html).toContain('is sensitive');
   });
 
   it('reports a missing diff', () => {
-    const html = render(<DiffView result={{ path: 'a.txt', diff: '', masked: false, truncated: false }} />);
+    const html = withApp(<DiffView result={{ path: 'a.txt', diff: '', masked: false, truncated: false }} />);
     expect(html).toContain('No diff available for this file.');
   });
 
   it('renders unified rows with add/delete classes', () => {
-    const html = render(
+    const html = withApp(
       <DiffView result={{ path: 'hello.txt', diff: SAMPLE_DIFF, masked: false, truncated: false }} />,
     );
     expect(html).toContain('hello.txt');
@@ -69,6 +69,30 @@ describe('DiffView', () => {
     expect(html).toContain('diff-line del');
     expect(html).toContain('new line');
     expect(html).toContain('old line');
+  });
+
+  it('renders hunk stage/unstage buttons only with a repo', () => {
+    const without = withApp(
+      <DiffView result={{ path: 'hello.txt', diff: SAMPLE_DIFF, masked: false, truncated: false }} />,
+    );
+    expect(without).not.toContain('hunk-btn');
+
+    const stage = withApp(
+      <DiffView
+        result={{ path: 'hello.txt', diff: SAMPLE_DIFF, masked: false, truncated: false }}
+        repo="/tmp/repo"
+      />,
+    );
+    expect(stage).toContain('Stage hunk');
+
+    const unstage = withApp(
+      <DiffView
+        result={{ path: 'hello.txt', diff: SAMPLE_DIFF, masked: false, truncated: false }}
+        repo="/tmp/repo"
+        staged
+      />,
+    );
+    expect(unstage).toContain('Unstage hunk');
   });
 });
 

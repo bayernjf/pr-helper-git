@@ -496,7 +496,11 @@ export default function WorkPanel() {
             </select>
           </label>
         </div>
-        <DiffView result={diff} />
+        <DiffView
+          result={diff}
+          repo={activeRepo ?? undefined}
+          staged={selection?.area === 'staged'}
+        />
       </div>
 
       <div className="commit-form">

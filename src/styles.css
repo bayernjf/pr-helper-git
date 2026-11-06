@@ -736,6 +736,20 @@ pre.diff {
 .diff-line.add { background: rgba(63, 185, 80, 0.11); }
 .diff-line.del { background: rgba(240, 85, 103, 0.11); }
 .diff-line.hunk { color: var(--accent); background: rgba(124, 108, 255, 0.08); }
+.hunk-header-text { flex: 1 1 auto; padding: 1px 6px; }
+.hunk-btn {
+  flex: 0 0 auto;
+  margin: 1px 6px 1px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.hunk-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.hunk-btn:disabled { opacity: 0.55; cursor: default; }
 .diff-line.meta { color: var(--faint); }
 .diff-line.masked { color: var(--yellow); background: rgba(217,156,63,0.08); }
 .diff-gutter {
@@ -2203,3 +2217,4 @@ pre.diff {
 .comment-edit textarea:focus { outline: none; border-color: var(--accent); }
 .comment-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .comment-edit-actions .btn { padding: 4px 12px; font-size: 12px; }
+
