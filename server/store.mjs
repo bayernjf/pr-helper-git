@@ -116,7 +116,23 @@ export async function rotateAudit() {
 // Read the JSONL audit trail. Malformed lines are skipped rather than failing
 // the whole read. Returns the most recent `limit` entries, newest first, plus
 // the count of successfully parsed lines.
-export async function readAudit(limit = 200) {
+// Build the searchable text for an entry. The client summarizes the same
+// identifying fields, so the free-text query behaves identically on the server.
+function auditHaystack(entry) {
+  return [
+    entry.action,
+    entry.method,
+    entry.path,
+    entry.repo,
+    typeof entry.number === 'number' ? `#${entry.number}` : '',
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+// Read the audit trail with optional filters applied over every retained
+// entry, before the limit window is taken. filters:
+//   q       case-insensitive substring over action/summary fields
+//   outcome 'all' (default) | 'ok' | 'fail'
+export async function readAudit(limit = 200, filters = {}) {
   let raw;
   try {
     raw = await fsp.readFile(AUDIT_FILE, 'utf8');
@@ -124,17 +140,25 @@ export async function readAudit(limit = 200) {
     if (err.code === 'ENOENT') return { entries: [], total: 0 };
     throw err;
   }
-  const entries = [];
+  const parsed = [];
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
-      entries.push(JSON.parse(trimmed));
+      parsed.push(JSON.parse(trimmed));
     } catch {
       /* ignore corrupt lines */
     }
   }
-  const total = entries.length;
+  const needle = typeof filters.q === 'string' ? filters.q.trim().toLowerCase() : '';
+  const outcome = filters.outcome === 'ok' || filters.outcome === 'fail' ? filters.outcome : 'all';
+  const matched = parsed.filter((entry) => {
+    if (outcome === 'ok' && entry.ok === false) return false;
+    if (outcome === 'fail' && entry.ok !== false) return false;
+    if (!needle) return true;
+    return auditHaystack(entry).includes(needle);
+  });
+  const total = matched.length;
   const bounded = Math.max(1, Math.min(1000, Number(limit) || 200));
-  return { entries: entries.slice(-bounded).reverse(), total };
+  return { entries: matched.slice(-bounded).reverse(), total };
 }

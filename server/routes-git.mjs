@@ -174,7 +174,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   }
 
   // Read-only audit trail. The limit is bounded in the store; an explicitly
-  // non-numeric value is rejected here so callers notice the mistake.
+  // non-numeric value is rejected here so callers notice the mistake. The
+  // q/outcome filters are validated here and applied in the store over the
+  // whole retained file, not just the returned window.
   if (pathname === '/api/audit' && method === 'GET') {
     let limit = 200;
     const rawLimit = query.get('limit');
@@ -182,7 +184,19 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       if (!/^\d{1,4}$/.test(rawLimit)) return fail(400, 'invalid audit limit');
       limit = Number(rawLimit);
     }
-    const result = await readAudit(limit);
+    const filters = {};
+    const q = query.get('q');
+    if (q !== null) {
+      const trimmed = q.trim();
+      if (trimmed.length > 100) return fail(400, 'audit query too long');
+      if (trimmed) filters.q = trimmed;
+    }
+    const outcome = query.get('outcome');
+    if (outcome !== null) {
+      if (!['all', 'ok', 'fail'].includes(outcome)) return fail(400, 'invalid audit outcome');
+      if (outcome !== 'all') filters.outcome = outcome;
+    }
+    const result = await readAudit(limit, filters);
     return ok({ collectedAt: new Date().toISOString(), ...result });
   }
 
