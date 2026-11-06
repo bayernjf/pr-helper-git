@@ -33,8 +33,12 @@ repository is never pushed.
   switching (no-checkout), untracked-file diffs via `--no-index`, rebase
   state detection with continue/abort, and server-side author/message/date
   history filters, in-app audit log viewer (JSONL reader with success/failure
-  markers and raw details), and in-app text-file editing with validated
-  atomic saves (sensitive/NUL/1 MB guards).
+  markers, raw details, text/outcome filters and no-match empty state),
+  in-app text-file editing with validated atomic saves
+  (sensitive/NUL/1 MB guards), mtime-based stale-save rejection (409 with
+  the draft preserved), audit log rotation (1.5 MB trigger, 1 MB / 10,000
+  entry retention budget, atomic rewrite), and a 413 response for oversized
+  request bodies with explicit keep-alive timeouts.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
@@ -121,6 +125,12 @@ repository is never pushed.
 - [x] Server: nosniff/CSP/referrer-policy and differentiated cache policy
 - [x] Component render tests (renderToString, mock app context)
 - [x] Twelfth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: audit rotation constants and rotateAudit with byte/entry budget
+- [x] Server: mtime on /api/file, expectedMtime 409 guard on /api/save
+- [x] Server: 413 body-cap response with Connection: close, keep-alive tuning
+- [x] Client: FileViewer 409 handling, AuditModal text/outcome filters
+- [x] Route tests for audit rotation and save/mtime/413 behavior
+- [x] Thirteenth iteration: tests, build, E2E, docs, atomic commits
 
 ## Delivery notes
 
@@ -389,3 +399,46 @@ repository is never pushed.
   main. Hello-World remains a clean octocat clone; git2-init-check
   remains an empty repo with no remote; this product repo deliberately
   stays without a remote.
+- Thirteenth iteration scope: audit log retention/rotation, stale-save
+  prevention via mtime, route-level tests for /api/audit and /api/save,
+  and AuditModal filtering. All four were confirmed as real gaps by
+  reading the code: the JSONL audit trail grew unbounded, concurrent
+  saves could silently overwrite each other, neither route had dedicated
+  tests, and the audit modal could not be narrowed.
+- Thirteenth backend: `store.mjs` exports AUDIT_ROTATE_BYTES (1.5 MB),
+  AUDIT_TARGET_BYTES (1 MB) and AUDIT_KEEP_ENTRIES (10,000); appendAudit
+  stats after each write and calls rotateAudit when the trigger is crossed.
+  rotateAudit parses valid lines, walks newest-first under both the byte
+  budget and the entry cap, and atomically replaces the file via a temp
+  rename; the result is always under the trigger so ordinary appends never
+  re-rotate. `/api/file` returns `mtimeMs` for working-tree blobs (null
+  for ref/masked views); `/api/save` accepts an optional finite
+  `expectedMtime` and returns 409 when the current stat differs or the
+  file vanished, with a successful save returning the new `mtimeMs`.
+- Thirteenth defects found and fixed during testing: (1) oversized request
+  bodies were destroyed inside readJsonBody, so clients saw a bare
+  ECONNRESET; the parser now signals tooLarge and the server flushes a
+  413 JSON response with `Connection: close` before destroying the socket,
+  which also prevents the pooled keep-alive socket from being reused.
+  (2) Default server keep-alive timing could race pooled clients; the
+  server now sets keepAliveTimeout 60s and headersTimeout 65s.
+- Thirteenth testing incident: an early version of the rotation test
+  derived the audit path from the test process's configPaths(), but the
+  vitest process had no PR_HELPER_HOME set, so it resolved to the real
+  `~/.pr-helper-git2/audit.log`; the test's truncating writeFile replaced
+  the existing 8,299-line audit history with synthetic seed lines, and no
+  backup or local snapshot existed, so the prior audit history could not be
+  recovered. The test now builds the audit path explicitly from the
+  isolated server home directory, and the real audit log starts empty.
+  No source code, credentials or repository data were affected; the loss
+  is limited to the diagnostic audit trail.
+- Thirteenth E2E in the browser: against a 30-entry seeded audit trail,
+  the text filter narrowed the list to 6 stage entries, the failures
+  selector to 4 entries all marked "!", the success selector to 26
+  entries all marked "✓", and a combined no-match query rendered the
+  empty state; the seed data was removed afterwards.
+- Current verification: 93 Vitest tests pass across 10 files (37 route
+  tests, including 8 new); `tsc --noEmit` is clean; `vite build`
+  transforms 69 modules (JS 348.67 KB / gzip 101.47 KB, CSS 41.91 KB /
+  gzip 7.63 KB). Dev server stopped; ports 5173 and 4789 are free; the
+  real audit log is empty and accrues anew under the retention policy.

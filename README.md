@@ -116,10 +116,19 @@ GitHub by the application setup.
 - Audit log viewer: every mutating request and GitHub proxy call is appended
   to a JSONL audit trail, and the in-app audit modal reads the most recent
   entries with success/failure markers, timestamps and collapsible raw JSON.
+  The modal ships with a free-text filter (action and summary) and an
+  outcome selector for all, success-only or failure-only entries, plus a
+  no-match empty state.
+- Audit retention: once the JSONL file crosses 1.5 MB it is rotated
+  atomically, keeping the newest entries that fit a 1 MB / 10,000-entry
+  budget; corrupt lines are dropped and the rewritten file always stays
+  below the trigger so ordinary appends never re-rotate.
 - In-app file editor: working-tree text files open in an edit mode with a
   monospace textarea; saves are validated server-side (sensitive files,
   NUL bytes and a 1 MB cap are rejected) and written atomically via a
-  temp-file rename, with every save recorded in the audit log.
+  temp-file rename, with every save recorded in the audit log. Each save
+  carries the file's last-known mtime, and the server rejects a stale save
+  with 409 if the file changed on disk, keeping the editor's draft intact.
 
 ### Pull requests (pr-helper-like core)
 
@@ -182,7 +191,12 @@ be removed again on request.
   UI, and the save endpoint rejects them independently.
 - GitHub calls go through a method/path allowlist; the PAT travels in a request
   header and is never persisted. All write actions are appended to an audit log
-  under `~/.pr-helper-git2/audit.log`.
+  under `~/.pr-helper-git2/audit.log`, which is size-bounded by automatic
+  rotation.
+- Request bodies are capped at 256 KB; an oversized request receives a 413
+  response with `Connection: close` before its socket is torn down, so the
+  client never sees a bare connection reset. Keep-alive timeouts are tuned
+  explicitly to avoid pooled-client races.
 - Every response carries `X-Content-Type-Options: nosniff`. The HTML entry is
   served with a strict Content-Security-Policy, `Referrer-Policy: no-referrer`
   and `no-store`, while content-hashed assets use long-lived immutable caching.
@@ -223,7 +237,10 @@ npm run build      # production build into dist/
 
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
-routes, validation failures, rebase-state detection and the SSE handshake.
+routes, validation failures, rebase-state detection, the SSE handshake,
+audit rotation and mtime-based stale-save rejection (including the 413
+body cap). The isolated audit path is always built from the server's home
+directory so tests can never touch the real audit log.
 Component tests render key React components with `react-dom/server`
 (`renderToString`) against a mock app context, covering empty states,
 masked/binary handling and the toolbar and audit modal.
