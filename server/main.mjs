@@ -214,6 +214,12 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Keep idle keep-alive sockets open long enough that pooled clients (the
+// browser fetch API, undici in tests) do not race a server-side close and
+// observe ECONNRESET. headersTimeout must stay strictly above keepAliveTimeout.
+server.keepAliveTimeout = 60_000;
+server.headersTimeout = 65_000;
+
 server.listen(PORT, '127.0.0.1', async () => {
   const bound = server.address().port;
   for (const repoPath of await listRepos()) {
