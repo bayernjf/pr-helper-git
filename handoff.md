@@ -152,6 +152,9 @@ repository is never pushed.
 - [x] Client: DiffView discard hunk, PrFileReview reply/edit/delete
 - [x] Client: PR description section with inline edit
 - [x] Fifteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: watcher filters lock/temp-object noise, exports isNoise
+- [x] Client: CommitDetail effect keyed on hash, modal survives background refresh
+- [x] Sixteenth iteration: watcher tests, full acceptance, docs, atomic commits
 
 ## Delivery notes
 
@@ -538,3 +541,21 @@ repository is never pushed.
   transforms 70 modules (JS 353.98 KB / gzip 103.09 KB, CSS 44.27 KB
   / gzip 8.00 KB). Dev server stopped and ports free; no scratch
   repositories remain registered.
+- Sixteenth scope: while preparing the product demo, the commit patch modal
+  was observed opening and closing within ~200ms. Root cause: the recursive
+  file watcher watches .git too, so transient index.lock create/delete pairs
+  (from background git activity) broadcast repo-changed frames; the SSE
+  handler reloaded the repo, recreating commit objects, and CommitDetail's
+  effect, keyed on the commit object identity, reset the patch state.
+- Sixteenth fix: watcher.mjs now exports isNoise and ignores .lock files,
+  in-flight tmp_obj_* objects and node_modules/dist events while keeping
+  meaningful HEAD/refs/index changes. CommitDetail keys its load effect on
+  the selected hash and active repo instead of the commit object, so a
+  background refresh that keeps the same commit no longer closes the modal.
+- Sixteenth E2E: browser verified the patch modal now stays open and the
+  SSE stream emits only the hello frame with no spurious repo-changed.
+- Sixteenth verification: 106 Vitest tests pass across 11 files (new
+  watcher.test.mjs with 6 isNoise cases); tsc clean; vite build transforms
+  70 modules (JS 358.58 KB / gzip 103.96 KB, CSS 44.60 KB / gzip 8.06 KB).
+  Note: overlapping vitest runs produced index.lock contention and flaky
+  403 failures; ensure prior test runs have exited before rerunning.

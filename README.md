@@ -106,7 +106,10 @@ GitHub by the application setup.
   amber banner offers Continue (`git rebase --continue`) and Abort
   (`git rebase --abort`), and the operation state is part of the status API.
 - File watcher with server-sent events reloads the active repository instantly
-  whenever the working tree changes on disk — no manual refresh needed.
+  whenever the working tree changes on disk — no manual refresh needed. Lock
+  files and in-flight temp objects are filtered so git's internal churn does
+  not broadcast spurious events, and a background refresh never closes an open
+  commit patch or file-viewer modal.
 - Keyboard shortcuts (Cmd/Ctrl+K opens a fuzzy command palette for views,
   repositories and common actions, Cmd/Ctrl+1 and +2 switch views,
   Cmd/Ctrl+Shift+F focuses the filter, `r` refreshes, Cmd/Ctrl+Enter commits),
