@@ -19,6 +19,16 @@ const ALLOWLIST = [
   },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches(/${SEG})?$`) },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
+  // Line-level review comments live under pulls (not issues); POST anchors a
+  // comment to a commit/path/line inside a PR diff.
+  {
+    method: 'GET',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/comments$`),
+  },
+  {
+    method: 'POST',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/comments$`),
+  },
   // GitHub locates a single comment at issues/comments/:cid (no issue number);
   // the nested .../issues/:n/comments/:cid form returns 404 upstream.
   {
