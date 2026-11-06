@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getAudit } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -7,6 +7,9 @@ import type { AuditEntry } from '../types';
 import { IconX } from './icons';
 
 type OutcomeFilter = 'all' | 'ok' | 'fail';
+
+const LOAD_LIMIT = 1000;
+const DEBOUNCE_MS = 300;
 
 const SHOWN_KEYS = new Set(['at', 'ok', 'action', 'repo', 'method', 'path', 'number']);
 
@@ -40,34 +43,30 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
   const [outcome, setOutcome] = useState<OutcomeFilter>('all');
   useEscape(onClose);
 
-  // Client-side filtering over the loaded window. The free-text query matches
-  // the action name and the rendered summary (case-insensitive); the outcome
-  // select narrows to successes or recorded failures.
-  const visible = useMemo(() => {
-    const needle = textFilter.trim().toLowerCase();
-    return entries.filter((entry) => {
-      if (outcome === 'ok' && entry.ok === false) return false;
-      if (outcome === 'fail' && entry.ok !== false) return false;
-      if (!needle) return true;
-      const haystack = `${entry.action || ''} ${summarize(entry)}`.toLowerCase();
-      return haystack.includes(needle);
-    });
-  }, [entries, textFilter, outcome]);
+  const filtersActive = textFilter.trim() !== '' || outcome !== 'all';
 
+  // Filtering runs on the server over the whole retained file. The text input
+  // is debounced so typing does not fire a request per keystroke; the outcome
+  // select changes immediately. The cancellation flag protects against stale
+  // responses from an earlier filter state.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    getAudit(200)
-      .then((res) => {
-        if (!cancelled) {
+    const timer = setTimeout(() => {
+      setLoading(true);
+      getAudit(LOAD_LIMIT, { q: textFilter, outcome })
+        .then((res) => {
+          if (cancelled) return;
           setEntries(res.entries);
           setTotal(res.total);
-        }
-      })
-      .catch((err) => { if (!cancelled) toast(err.message, 'error'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [toast]);
+        })
+        .catch((err) => { if (!cancelled) toast(err.message, 'error'); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, textFilter ? DEBOUNCE_MS : 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [textFilter, outcome, toast]);
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
@@ -79,8 +78,12 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
         <div className="modal-body no-pad">
           {loading ? (
             <div className="list-empty">Loading audit trail…</div>
-          ) : entries.length === 0 ? (
-            <div className="list-empty">No audit entries recorded yet.</div>
+          ) : total === 0 ? (
+            <div className="list-empty">
+              {filtersActive
+                ? 'No entries match the current filters.'
+                : 'No audit entries recorded yet.'}
+            </div>
           ) : (
             <div className="audit-list">
               <div className="audit-filters">
@@ -98,12 +101,10 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                 </select>
               </div>
               <div className="audit-meta">
-                Showing {visible.length} of {entries.length} loaded
-                ({total} parsed entries total), newest first.
+                Showing {entries.length} of {total} matching entries, newest first.
+                {total > entries.length ? ` First ${LOAD_LIMIT} loaded.` : ''}
               </div>
-              {visible.length === 0 ? (
-                <div className="list-empty">No entries match the current filters.</div>
-              ) : visible.map((entry, i) => {
+              {entries.map((entry, i) => {
                 const extra = extraFields(entry);
                 return (
                   <div className="audit-item" key={`${entry.at}-${i}`}>

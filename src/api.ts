@@ -115,10 +115,19 @@ export const saveFile = (repo: string, file: string, content: string, expectedMt
 
 // ---------- git reads ----------
 
-export const getAudit = (limit = 200) =>
-  request<{ entries: AuditEntry[]; total: number; collectedAt: string }>(
-    `/api/audit?limit=${encodeURIComponent(String(limit))}`,
+export interface AuditFilters {
+  q?: string;
+  outcome?: 'all' | 'ok' | 'fail';
+}
+
+export const getAudit = (limit = 200, filters: AuditFilters = {}) => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (filters.q) params.set('q', filters.q);
+  if (filters.outcome && filters.outcome !== 'all') params.set('outcome', filters.outcome);
+  return request<{ entries: AuditEntry[]; total: number; collectedAt: string }>(
+    `/api/audit?${params.toString()}`,
   );
+};
 
 export const getStatus = (repo: string) =>
   request<{ status: ParsedStatus; state: ParsedStatus['state'] }>(
