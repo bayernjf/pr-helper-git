@@ -114,6 +114,11 @@ GitHub by the application setup.
   repositories and common actions, Cmd/Ctrl+1 and +2 switch views,
   Cmd/Ctrl+Shift+F focuses the filter, `r` refreshes, Cmd/Ctrl+Enter commits),
   a draggable work-panel height, and responsive breakpoints for narrow windows.
+- Layout stays intact at every width: graph rows clip to a single line with the
+  subject truncating instead of pushing the author/hash/date off-screen, dense
+  ref badges scroll within their own strip rather than covering the subject,
+  the top toolbar scrolls horizontally instead of wrapping its labels, and
+  sidebar group headers never wrap.
 - A React error boundary prevents a white screen if a component throws, and
   loading indicators cover the first load and every repository switch.
 - Audit log viewer: every mutating request and GitHub proxy call is appended

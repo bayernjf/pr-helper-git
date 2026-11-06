@@ -559,3 +559,21 @@ repository is never pushed.
   70 modules (JS 358.58 KB / gzip 103.96 KB, CSS 44.60 KB / gzip 8.06 KB).
   Note: overlapping vitest runs produced index.lock contention and flaky
   403 failures; ensure prior test runs have exited before rerunning.
+- Seventeenth scope: a wide-viewport screenshot of the Hello-World graph
+  showed several layout defects — commit rows pushed the trailing date off
+  the right edge (hard-clipped), dense ref badges on the merge row crowded
+  out the subject, and at narrow widths the sidebar group headers wrapped
+  ("LOCAL/BRANCHES") while the top toolbar wrapped its "Pull Requests" label
+  and overlapped the Git button.
+- Seventeenth fix (styles.css only): .graph-row clips overflow and .graph-body
+  gets width:100%/min-width:0 so the subject shrinks and ellipsizes while
+  author/hash/date stay fixed and fully visible; .ref-badges becomes a
+  self-scrolling strip (flex 0 1, hidden scrollbar) so badges never cover the
+  subject; the top toolbar scrolls horizontally with nowrap labels instead of
+  wrapping; the graph filter toolbar wraps cleanly; .ref-group-head is
+  nowrap so section headers stay on one line.
+- Seventeenth verification: browser measured zero row overflow at 1860, 1000
+  and 786px (all dates visible), and at 600px the badge strip scrolls and the
+  subject keeps a minimum width rather than being clipped mid-label. 106 Vitest
+  tests pass across 11 files; tsc clean; vite build transforms 70 modules
+  (JS 358.58 KB / gzip 103.96 KB, CSS 45.18 KB / gzip 8.16 KB).
