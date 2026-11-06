@@ -11,6 +11,7 @@ import {
 } from './api';
 import type {
   Commit,
+  LogFilters,
   ParsedStatus,
   Ref,
   RemoteInfo,
@@ -41,7 +42,9 @@ interface AppData {
   logLimit: number;
   logScope: 'all' | 'current';
   logPath: string;
+  logFilters: LogFilters;
   setLogPath: (path: string) => void;
+  setLogFilters: (filters: LogFilters) => void;
   toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
   setLogScope: (scope: 'all' | 'current') => void;
@@ -72,6 +75,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
   const [logScope, setLogScopeState] = useState<'all' | 'current'>('all');
   const [logPath, setLogPathState] = useState('');
+  const [logFilters, setLogFiltersState] = useState<LogFilters>({});
 
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
@@ -89,14 +93,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     limit: number = LOG_PAGE_SIZE,
     scope: 'all' | 'current' = 'all',
     pathFilter: string = '',
+    filters: LogFilters = {},
   ) => {
     const [statusRes, logRes, refsRes, remoteRes] = await Promise.all([
       getStatus(repoPath),
-      getLog(repoPath, limit, scope, pathFilter || undefined),
+      getLog(repoPath, limit, scope, pathFilter || undefined, filters),
       getRefs(repoPath),
       getRemote(repoPath),
     ]);
-    setStatus(statusRes.status);
+    // The operation state is a sibling of the porcelain payload in the API
+    // response; attach it so components can read status.state.
+    setStatus({ ...statusRes.status, state: statusRes.state });
     setCommits(logRes.commits);
     setRefs(refsRes.refs);
     setRemote(remoteRes.remote);
@@ -109,6 +116,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLogLimit(LOG_PAGE_SIZE);
     setLogScopeState('all');
     setLogPathState('');
+    setLogFiltersState({});
     setRepoLoading(true);
     loadRepoData(repoPath, LOG_PAGE_SIZE, 'all', '')
       .catch((err) => {
@@ -124,9 +132,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setActiveRepo(null);
         return;
       }
-      await loadRepoData(activeRepo, logLimit, logScope, logPath);
+      await loadRepoData(activeRepo, logLimit, logScope, logPath, logFilters);
     }
-  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, refreshRepos]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters, refreshRepos]);
 
   // Grow the loaded history window one page at a time up to LOG_MAX.
   const loadMore = useCallback(async () => {
@@ -135,14 +143,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (nextLimit === logLimit) return;
     setRepoLoading(true);
     try {
-      await loadRepoData(activeRepo, nextLimit, logScope, logPath);
+      await loadRepoData(activeRepo, nextLimit, logScope, logPath, logFilters);
       setLogLimit(nextLimit);
     } catch (err) {
       toastApi.error((err as any)?.message || 'failed to load more history');
     } finally {
       setRepoLoading(false);
     }
-  }, [activeRepo, logLimit, logScope, logPath, loadRepoData, toastApi]);
+  }, [activeRepo, logLimit, logScope, logPath, logFilters, loadRepoData, toastApi]);
 
   // Initial load: restore the last active repo when still registered.
   useEffect(() => {
@@ -162,14 +170,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data);
         const repoPath = activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
-          loadRepoData(repoPath, logLimit, logScope, logPath).catch(() => {});
+          loadRepoData(repoPath, logLimit, logScope, logPath, logFilters).catch(() => {});
         }
       } catch {
         /* ignore malformed frames */
       }
     });
     return () => source.close();
-  }, [activeRepo, loadRepoData, logLimit, logScope, logPath]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
@@ -192,12 +200,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLogPathState(pathFilter);
     if (!activeRepo) return;
     setRepoLoading(true);
-    loadRepoData(activeRepo, logLimit, logScope, pathFilter)
+    loadRepoData(activeRepo, logLimit, logScope, pathFilter, logFilters)
       .catch((err) => {
         toastApi.error((err as any)?.message || 'failed to apply path filter');
       })
       .finally(() => setRepoLoading(false));
-  }, [activeRepo, loadRepoData, logLimit, logScope, toastApi]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logFilters, toastApi]);
+
+  // Apply server-side history filters. Empty fields are dropped so an empty
+  // filter object restores the unfiltered commit list.
+  const setLogFilters = useCallback((filters: LogFilters) => {
+    const next: LogFilters = {};
+    for (const [key, value] of Object.entries(filters)) {
+      const v = String(value || '').trim();
+      if (v) (next as Record<string, string>)[key] = v;
+    }
+    setLogFiltersState(next);
+    if (!activeRepo) return;
+    setRepoLoading(true);
+    loadRepoData(activeRepo, logLimit, logScope, logPath, next)
+      .catch((err) => {
+        toastApi.error((err as any)?.message || 'failed to apply history filters');
+      })
+      .finally(() => setRepoLoading(false));
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, toastApi]);
 
   // Run a write action, then refresh all data. Errors are surfaced as toasts.
   const runAction = useCallback(async <T,>(action: Promise<T>, successMessage?: string) => {
@@ -235,10 +261,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       logLimit,
       logScope,
       logPath,
+      logFilters,
       toast,
       setPat,
       setLogScope,
       setLogPath,
+      setLogFilters,
       selectRepo,
       selectCommit: setSelectedHash,
       setView,
@@ -249,8 +277,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, repoLoading, logLimit, logScope, logPath, toast, setPat, setLogScope,
-    setLogPath, selectRepo, refreshRepos, refresh, loadMore, runAction,
+    pat, busy, repoLoading, logLimit, logScope, logPath, logFilters, toast, setPat, setLogScope,
+    setLogPath, setLogFilters, selectRepo, refreshRepos, refresh, loadMore, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

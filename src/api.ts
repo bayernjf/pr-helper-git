@@ -3,6 +3,7 @@
 import type {
   Commit,
   DiffResult,
+  LogFilters,
   ParsedStatus,
   Ref,
   RemoteEntry,
@@ -115,11 +116,18 @@ export const getLog = (
   limit = 200,
   scope: 'all' | 'current' = 'all',
   path?: string,
-) =>
-  request<{ commits: Commit[]; scope?: string; path?: string | null }>(
-    `/api/log?repo=${encodeURIComponent(repo)}&limit=${limit}&scope=${scope}`
-      + (path ? `&path=${encodeURIComponent(path)}` : ''),
+  filters?: LogFilters,
+) => {
+  const params = [`/api/log?repo=${encodeURIComponent(repo)}`, `limit=${limit}`, `scope=${scope}`];
+  if (path) params.push(`path=${encodeURIComponent(path)}`);
+  if (filters?.author) params.push(`author=${encodeURIComponent(filters.author)}`);
+  if (filters?.message) params.push(`message=${encodeURIComponent(filters.message)}`);
+  if (filters?.since) params.push(`since=${encodeURIComponent(filters.since)}`);
+  if (filters?.until) params.push(`until=${encodeURIComponent(filters.until)}`);
+  return request<{ commits: Commit[]; scope?: string; path?: string | null; filters?: LogFilters }>(
+    params.join('&'),
   );
+};
 
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);

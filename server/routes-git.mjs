@@ -148,6 +148,24 @@ async function detectRepoState(absRepo) {
   return state;
 }
 
+// Free-text filter values are always joined with "=" so they can never be
+// parsed as options; NUL bytes and oversized values are still rejected.
+function validateFilterValue(raw, max = 200) {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (!v || v.includes('\0') || v.length > max) return null;
+  return v;
+}
+
+// Only calendar dates are accepted for since/until (ISO 8601 date or
+// date-time); relative git dates are deliberately not exposed.
+function validateDateValue(raw) {
+  if (raw === null) return null;
+  const v = String(raw).trim();
+  if (!v) return null;
+  return /^\d{4}-\d{2}-\d{2}(?:T[\d:.Z+-]+)?$/.test(v) ? v : null;
+}
+
 export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/health' && method === 'GET') {
     return ok({ ok: true });
@@ -271,6 +289,18 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     // Optional pathspec: restrict history to commits touching a file/dir.
     const pathFilter = query.get('path') ? normalizeRepoPath(query.get('path')) : null;
     if (query.get('path') && !pathFilter) return fail(400, 'invalid path filter');
+    // Server-side filters: author/message are regex-compatible patterns,
+    // since/until are ISO calendar dates. Invalid values are rejected rather
+    // than silently ignored so the UI never shows misleading results.
+    const author = validateFilterValue(query.get('author'));
+    if (query.get('author') && !author) return fail(400, 'invalid author filter');
+    const message = validateFilterValue(query.get('message'));
+    if (query.get('message') && !message) return fail(400, 'invalid message filter');
+    const since = validateDateValue(query.get('since'));
+    if (query.get('since') && !since) return fail(400, 'invalid since date');
+    const until = validateDateValue(query.get('until'));
+    if (query.get('until') && !until) return fail(400, 'invalid until date');
+    const filters = { author, message, since, until };
     try {
       const raw = await git(
         [
@@ -278,12 +308,16 @@ export async function handleGitRoute({ method, pathname, query, body }) {
           ...(scope === 'current' ? [] : ['--all']),
           '--date-order',
           `--max-count=${limit}`,
+          ...(author ? [`--author=${author}`] : []),
+          ...(message ? [`--grep=${message}`] : []),
+          ...(since ? [`--since=${since}`] : []),
+          ...(until ? [`--until=${until}`] : []),
           '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e',
           ...(pathFilter ? ['--', pathFilter] : []),
         ],
         repo,
       );
-      return ok({ commits: parseLog(raw), scope, path: pathFilter });
+      return ok({ commits: parseLog(raw), scope, path: pathFilter, filters });
     } catch (err) {
       return gitFail(err, 'git log failed');
     }

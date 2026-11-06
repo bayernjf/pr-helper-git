@@ -38,6 +38,13 @@ export interface ParsedStatus {
   state?: RepoState;
 }
 
+export interface LogFilters {
+  author?: string;
+  message?: string;
+  since?: string;
+  until?: string;
+}
+
 export interface Commit {
   hash: string;
   parents: string[];

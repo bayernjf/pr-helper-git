@@ -17,6 +17,7 @@ import {
 import NewBranchModal from './NewBranchModal';
 import RevertMergeModal from './RevertMergeModal';
 import TagModal from './TagModal';
+import LogFilterModal from './LogFilterModal';
 import { useConfirm } from './ui';
 
 const ROW_H = 34;
@@ -91,6 +92,7 @@ export default function CommitGraph() {
     setLogScope,
     logPath,
     setLogPath,
+    logFilters,
     repoLoading,
     runAction,
   } = useApp();
@@ -101,6 +103,8 @@ export default function CommitGraph() {
   const [revertMerge, setRevertMerge] = useState<{ hash: string; parentCount: number } | null>(null);
   const [search, setSearch] = useState('');
   const [pathDraft, setPathDraft] = useState('');
+  const [filterModal, setFilterModal] = useState(false);
+  const filterCount = Object.values(logFilters).filter(Boolean).length;
 
   // Keep the draft aligned when the active path changes externally (repo switch).
   useEffect(() => { setPathDraft(logPath); }, [logPath, currentRepo]);
@@ -265,6 +269,14 @@ export default function CommitGraph() {
             </button>
           )}
         </div>
+        <button
+          type="button"
+          className={`graph-filter-btn${filterCount ? ' active' : ''}`}
+          title="Filter history by author, message or date"
+          onClick={() => setFilterModal(true)}
+        >
+          Filters{filterCount ? ` (${filterCount})` : ''}
+        </button>
         <span className="scope-toggle" role="group" aria-label="History scope">
           <button
             type="button"
@@ -383,6 +395,7 @@ export default function CommitGraph() {
           onClose={() => setRevertMerge(null)}
         />
       )}
+      {filterModal && <LogFilterModal onClose={() => setFilterModal(false)} />}
     </div>
   );
 }
