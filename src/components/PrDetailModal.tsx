@@ -37,6 +37,15 @@ interface PrComment {
   created_at: string;
   author_association: string;
 }
+type PullReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+interface PrReview {
+  id: number;
+  user: { login: string; avatar_url: string };
+  state: PullReviewEvent | 'DISMISSED' | 'PENDING';
+  body: string;
+  submitted_at: string | null;
+  author_association: string;
+}
 
 const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
   merge: { name: 'Merge commit', desc: 'Preserve all commits and add a merge commit' },
@@ -64,6 +73,9 @@ export default function PrDetailModal({
   const [comments, setComments] = useState<PrComment[]>([]);
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
+  const [reviews, setReviews] = useState<PrReview[]>([]);
+  const [reviewBody, setReviewBody] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [working, setWorking] = useState(false);
 
@@ -71,20 +83,26 @@ export default function PrDetailModal({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
+    // allSettled: a single endpoint failing must not blank the whole modal.
+    // In particular requested-reviewers returns 404 when nobody is requested.
+    Promise.allSettled([
       githubProxy<{ check_runs: CheckRun[] }>(pat, `${base}/commits/${pr.head.sha}/check-runs`),
       githubProxy<PrCommit[]>(pat, `${base}/pulls/${pr.number}/commits`),
       githubProxy<PrFile[]>(pat, `${base}/pulls/${pr.number}/files`),
       githubProxy<{ users: Reviewer[] }>(pat, `${base}/pulls/${pr.number}/requested-reviewers`),
       githubProxy<PrComment[]>(pat, `${base}/issues/${pr.number}/comments`),
+      githubProxy<PrReview[]>(pat, `${base}/pulls/${pr.number}/reviews`),
     ])
-      .then(([c, cm, fl, rv, co]) => {
+      .then((settled) => {
         if (cancelled) return;
-        setChecks(c.data?.check_runs || []);
-        setPrCommits(cm.data || []);
-        setPrFiles(fl.data || []);
-        setReviewers(rv.data?.users || []);
-        setComments(co.data || []);
+        const dataOf = <T,>(s: PromiseSettledResult<{ data: T }>, fallback: T): T =>
+          s.status === 'fulfilled' ? s.value.data : fallback;
+        setChecks(dataOf(settled[0], { check_runs: [] }).check_runs || []);
+        setPrCommits(dataOf(settled[1], [] as PrCommit[]));
+        setPrFiles(dataOf(settled[2], [] as PrFile[]));
+        setReviewers(dataOf(settled[3], { users: [] as Reviewer[] }).users || []);
+        setComments(dataOf(settled[4], [] as PrComment[]));
+        setReviews(dataOf(settled[5], [] as PrReview[]));
       })
       .catch(() => {
         if (!cancelled) toast('Failed to load PR details', 'error');
@@ -166,6 +184,32 @@ export default function PrDetailModal({
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function submitReview(event: PullReviewEvent) {
+    const body = reviewBody.trim();
+    // GitHub requires a summary when requesting changes.
+    if (event === 'REQUEST_CHANGES' && !body) {
+      toast('A review comment is required to request changes', 'error');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const res = await githubProxy<PrReview>(
+        pat,
+        `${base}/pulls/${pr.number}/reviews`,
+        'POST',
+        { body, event },
+      );
+      setReviews((prev) => [...prev, res.data]);
+      setReviewBody('');
+      toast('Review submitted', 'success');
+      onChanged();
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -275,6 +319,69 @@ export default function PrDetailModal({
                   }}
                 />
                 <button type="button" className="btn" onClick={addReviewer}>Request</button>
+              </div>
+            )}
+          </div>
+
+          <div className="detail-section">
+            <span className="detail-label">Reviews ({reviews.length})</span>
+            {reviews.length === 0 ? (
+              <div className="detail-value muted">No reviews submitted yet.</div>
+            ) : (
+              <div className="review-list">
+                {reviews.map((rv) => (
+                  <div key={rv.id} className="pr-review-item">
+                    {rv.user.avatar_url
+                      ? <img src={rv.user.avatar_url} alt="" width={20} height={20} />
+                      : <span className="detail-avatar">{rv.user.login.slice(0, 1).toUpperCase()}</span>}
+                    <div className="pr-review-body">
+                      <div className="comment-head">
+                        <span className="comment-user">{rv.user.login}</span>
+                        <span className={`review-state review-state-${rv.state.toLowerCase()}`}>
+                          {rv.state.replace(/_/g, ' ').toLowerCase()}
+                        </span>
+                      </div>
+                      {rv.body && <div className="comment-text">{rv.body}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {pr.state === 'open' && (
+              <div className="review-compose">
+                <textarea
+                  value={reviewBody}
+                  placeholder="Review summary…"
+                  rows={2}
+                  aria-label="Review summary"
+                  onChange={(e) => setReviewBody(e.target.value)}
+                />
+                <div className="review-compose-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={submittingReview || !reviewBody.trim()}
+                    onClick={() => submitReview('COMMENT')}
+                  >
+                    Comment
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={submittingReview}
+                    onClick={() => submitReview('APPROVE')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={submittingReview}
+                    onClick={() => submitReview('REQUEST_CHANGES')}
+                  >
+                    Request changes
+                  </button>
+                </div>
               </div>
             )}
           </div>
