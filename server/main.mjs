@@ -77,8 +77,9 @@ async function readJsonBody(req) {
   for await (const chunk of req) {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      req.destroy();
-      return { error: 'request body too large' };
+      // Signal the caller to emit a 413 before the socket is torn down;
+      // destroying here would make the client see a bare ECONNRESET.
+      return { tooLarge: true };
     }
     chunks.push(chunk);
   }
@@ -138,6 +139,19 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = req.method === 'POST' ? await readJsonBody(req) : { value: {} };
+      if (body.tooLarge) {
+        // Flush the 413 response first, then close the still-writing request
+        // so the client receives a meaningful status instead of a reset.
+        res.writeHead(413, {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+          connection: 'close',
+          ...NOSNIFF,
+        });
+        res.end(JSON.stringify({ error: 'request body too large' }));
+        res.on('finish', () => req.destroy());
+        return;
+      }
       if (body.error) return sendJson(res, 400, { error: body.error });
       const ctx = {
         method: req.method,
