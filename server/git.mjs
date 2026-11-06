@@ -10,10 +10,19 @@ export function git(args, cwd, options = {}) {
     const child = execFile(
       'git',
       args,
-      { cwd, timeout: options.timeout || GIT_TIMEOUT_MS, maxBuffer: MAX_BUFFER },
+      {
+        cwd,
+        timeout: options.timeout || GIT_TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER,
+        ...(options.env ? { env: options.env } : {}),
+      },
       (err, stdout, stderr) => {
         if (err) {
           err.stderr = String(stderr || '').trim().slice(0, 600);
+          // Commands such as `git diff --no-index` and `git grep` exit non-zero
+          // while still emitting usable output on stdout.
+          err.stdout = String(stdout || '');
+          err.code = typeof err.code === 'number' ? err.code : null;
           reject(err);
         } else {
           resolve(stdout);
