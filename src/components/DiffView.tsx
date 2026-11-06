@@ -85,7 +85,7 @@ export default function DiffView({ result }: { result: DiffResult | null }) {
     return <EmptyHint>{result.path} is sensitive — its contents are masked.</EmptyHint>;
   }
   if (!result.diff) {
-    return <EmptyHint>No diff available. Untracked files show a diff after staging.</EmptyHint>;
+    return <EmptyHint>No diff available for this file.</EmptyHint>;
   }
 
   return (

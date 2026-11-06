@@ -283,20 +283,43 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       const n = Number(contextParam);
       if (Number.isInteger(n) && n >= 0 && n <= 100) context = n;
     }
-    const args = ['diff'];
-    if (staged) args.push('--cached');
-    if (ignoreWs) args.push('-w');
-    if (context !== null) args.push(`--unified=${context}`);
-    args.push('--', rel);
+    // A file not yet in the index is invisible to plain `git diff`. Confirm
+    // the untracked state explicitly, then diff against /dev/null so the
+    // whole file is rendered as an addition.
+    let isUntracked = false;
     try {
-      let diff = await git(args, repo);
+      const porcelain = await git(['status', '--porcelain', '--', rel], repo);
+      isUntracked = porcelain.split('\n').some((l) => l.startsWith('?? '));
+    } catch { /* fall through to the normal diff path */ }
+    const args = ['diff'];
+    if (isUntracked) {
+      args.push('--no-index');
+      if (ignoreWs) args.push('-w');
+      if (context !== null) args.push(`--unified=${context}`);
+      args.push('--', '/dev/null', rel);
+    } else {
+      if (staged) args.push('--cached');
+      if (ignoreWs) args.push('-w');
+      if (context !== null) args.push(`--unified=${context}`);
+      args.push('--', rel);
+    }
+    try {
+      let diff;
+      try {
+        diff = await git(args, repo);
+      } catch (err) {
+        // `git diff --no-index` exits 1 whenever the files differ; its stdout
+        // is the valid diff. Any other failure propagates.
+        if (isUntracked && err.code === 1) diff = err.stdout;
+        else throw err;
+      }
       let truncated = false;
       const lines = diff.split('\n');
       if (lines.length > DIFF_LINE_LIMIT) {
         diff = lines.slice(0, DIFF_LINE_LIMIT).join('\n');
         truncated = true;
       }
-      return ok({ masked: false, path: rel, diff, truncated });
+      return ok({ masked: false, path: rel, diff, truncated, untracked: isUntracked });
     } catch (err) {
       return gitFail(err, 'git diff failed');
     }

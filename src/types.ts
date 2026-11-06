@@ -56,6 +56,7 @@ export interface DiffResult {
   path: string;
   diff: string;
   truncated: boolean;
+  untracked?: boolean;
 }
 
 export interface RemoteInfo {
