@@ -165,7 +165,9 @@ repository is never pushed.
 - [x] Server: /api/commit-template (local/global, absolute home path); client message prefill
 - [x] CI: GitHub Actions workflow running lint, test and build; resilient test timeouts
 - [x] Client: aria-labels on icon-only controls, keyboard-shortcut help modal (? key)
-- [x] Seventeenth iteration: full 110-test acceptance, build, docs, atomic commits
+- [x] Tooling: .nvmrc + engines pin, CI npm audit advisory, react-vendor chunk split
+- [x] Server: cleanCommitMessage strips # comments on commit and amend (git strip mode)
+- [x] Eighteenth iteration: full 115-test acceptance, build, docs, atomic commits
 
 ## Delivery notes
 
@@ -177,7 +179,7 @@ repository is never pushed.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the current total to 110 across 11 files, with CI running lint,
+  bringing the current total to 115 across 11 files, with CI running lint,
   test and build on every push and pull request.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the

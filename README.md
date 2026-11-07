@@ -176,7 +176,12 @@ GitHub by the application setup.
 - Commit template support: the app reads the configured
   `commit.template` (local or global, including an absolute home-directory
   path) and prefills the commit message when the field is empty, without
-  overwriting manual edits.
+  overwriting manual edits. On commit and amend, message cleanup mirrors
+  git's `strip` mode: `#` comment lines are removed, trailing whitespace
+  trimmed and blank lines collapsed, so template comments are never committed.
+- The production build splits the React runtime into a separate cacheable
+  chunk from the application code, and the Node version is pinned via
+  `.nvmrc` and the `engines` field.
 
 ### Pull requests (pr-helper-like core)
 
