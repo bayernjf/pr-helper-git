@@ -266,6 +266,14 @@ export default function WorkPanel() {
     window.addEventListener('pointerup', up);
   };
 
+  // Restore the saved panel height when switching repositories. The lazy
+  // useState initializer only runs once on mount, so without this effect the
+  // first repository's height would leak into every later repository.
+  useEffect(() => {
+    if (!activeRepo) return;
+    setPanelHeight(getPref(repoPref(activeRepo, 'panelHeight'), 300));
+  }, [activeRepo]);
+
   const groups = useMemo(() => {
     const files = status?.files || [];
     return {
