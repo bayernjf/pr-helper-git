@@ -143,6 +143,9 @@ export default function PrDetailModal({
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      // Reset even on success: the modal stays open and the footer buttons
+      // would otherwise remain disabled after the action completed.
       setWorking(false);
     }
   }
@@ -155,6 +158,7 @@ export default function PrDetailModal({
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
       setWorking(false);
     }
   }
@@ -186,7 +190,7 @@ export default function PrDetailModal({
 
   async function postComment() {
     const body = commentBody.trim();
-    if (!body) return;
+    if (!body || posting) return;
     setPosting(true);
     try {
       const res = await githubProxy<PrComment>(
@@ -289,6 +293,7 @@ export default function PrDetailModal({
   }
 
   async function submitReview(event: PullReviewEvent) {
+    if (submittingReview) return;
     const body = reviewBody.trim();
     // GitHub requires a summary when requesting changes.
     if (event === 'REQUEST_CHANGES' && !body) {
@@ -324,6 +329,7 @@ export default function PrDetailModal({
       onChanged();
     } catch (err: any) {
       toast(err.message, 'error');
+    } finally {
       setWorking(false);
     }
   }

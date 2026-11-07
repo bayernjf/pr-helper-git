@@ -78,14 +78,10 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
         <div className="modal-body no-pad">
           {loading ? (
             <div className="list-empty">Loading audit trail…</div>
-          ) : total === 0 ? (
-            <div className="list-empty">
-              {filtersActive
-                ? 'No entries match the current filters.'
-                : 'No audit entries recorded yet.'}
-            </div>
           ) : (
             <div className="audit-list">
+              {/* Filters stay visible even when nothing matches, otherwise a
+                  zero-result filter would hide the control needed to undo it. */}
               <div className="audit-filters">
                 <input
                   type="text"
@@ -100,29 +96,39 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                   <option value="fail">Failures only</option>
                 </select>
               </div>
-              <div className="audit-meta">
-                Showing {entries.length} of {total} matching entries, newest first.
-                {total > entries.length ? ` First ${LOAD_LIMIT} loaded.` : ''}
-              </div>
-              {entries.map((entry, i) => {
-                const extra = extraFields(entry);
-                return (
-                  <div className="audit-item" key={`${entry.at}-${i}`}>
-                    <span className={`audit-ok ${entry.ok === false ? 'is-fail' : 'is-ok'}`}>
-                      {entry.ok === false ? '!' : '✓'}
-                    </span>
-                    <span className="audit-time">{formatFullDate(entry.at)}</span>
-                    <span className="audit-action">{entry.action || 'unknown'}</span>
-                    <span className="audit-summary">{summarize(entry)}</span>
-                    {extra && (
-                      <details className="audit-raw">
-                        <summary>raw</summary>
-                        <pre>{extra}</pre>
-                      </details>
-                    )}
+              {total === 0 ? (
+                <div className="list-empty">
+                  {filtersActive
+                    ? 'No entries match the current filters.'
+                    : 'No audit entries recorded yet.'}
+                </div>
+              ) : (
+                <>
+                  <div className="audit-meta">
+                    Showing {entries.length} of {total} matching entries, newest first.
+                    {total > entries.length ? ` First ${LOAD_LIMIT} loaded.` : ''}
                   </div>
-                );
-              })}
+                  {entries.map((entry, i) => {
+                    const extra = extraFields(entry);
+                    return (
+                      <div className="audit-item" key={`${entry.at}-${i}`}>
+                        <span className={`audit-ok ${entry.ok === false ? 'is-fail' : 'is-ok'}`}>
+                          {entry.ok === false ? '!' : '✓'}
+                        </span>
+                        <span className="audit-time">{formatFullDate(entry.at)}</span>
+                        <span className="audit-action">{entry.action || 'unknown'}</span>
+                        <span className="audit-summary">{summarize(entry)}</span>
+                        {extra && (
+                          <details className="audit-raw">
+                            <summary>raw</summary>
+                            <pre>{extra}</pre>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </div>

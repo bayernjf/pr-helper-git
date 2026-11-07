@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCompare, type CompareResult } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -28,18 +28,23 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<CompareResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const seqRef = useRef(0);
 
   async function run(b: string, h: string) {
     if (!activeRepo || !b || !h || b === h) return;
+    const seq = ++seqRef.current;
     setLoading(true);
     setError('');
     try {
-      setResult(await getCompare(activeRepo, b, h));
+      const res = await getCompare(activeRepo, b, h);
+      if (seq !== seqRef.current) return;
+      setResult(res);
     } catch (err: any) {
+      if (seq !== seqRef.current) return;
       setError(err.message);
       setResult(null);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }
 

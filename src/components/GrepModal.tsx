@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { searchGrep, type GrepMatch } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -11,21 +11,25 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
   const [matches, setMatches] = useState<GrepMatch[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const seqRef = useRef(0);
   useEscape(onClose);
 
   async function runSearch(event?: React.FormEvent) {
     event?.preventDefault();
     const term = pattern.trim();
     if (!term || !activeRepo) return;
+    const seq = ++seqRef.current;
     setLoading(true);
     try {
       const res = await searchGrep(activeRepo, term, path.trim() || undefined);
+      // A second search may have been started while this one was in flight.
+      if (seq !== seqRef.current) return;
       setMatches(res.matches);
       setSearched(true);
     } catch (err: any) {
-      toast(err.message, 'error');
+      if (seq === seqRef.current) toast(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }
 
