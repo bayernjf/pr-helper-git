@@ -155,6 +155,16 @@ repository is never pushed.
 - [x] Server: watcher filters lock/temp-object noise, exports isNoise
 - [x] Client: CommitDetail effect keyed on hash, modal survives background refresh
 - [x] Sixteenth iteration: watcher tests, full acceptance, docs, atomic commits
+- [x] UI fixes: graph-row overflow, ref-badge horizontal scroll, no-wrap group heads and toolbar, repo-select text color
+- [x] Client: commit graph keyboard navigation and listbox/option a11y with roving tabIndex
+- [x] Client: global modal focus trap hook with focus return on close
+- [x] Client: persistent per-repo UI preferences via localStorage (view, groups, panel height)
+- [x] Server: /api/grep-all across every registered repository; client GlobalGrepModal
+- [x] Server: /api/revert-batch (merge guard, oldest-first, abort on conflict); client multi-select batch bar
+- [x] Client: pin local branches and sort by name or recent tip commit
+- [x] Server: /api/commit-template (local/global, absolute home path); client message prefill
+- [x] CI: GitHub Actions workflow running lint, test and build; resilient test timeouts
+- [x] Seventeenth iteration: full 110-test acceptance, build, docs, atomic commits
 
 ## Delivery notes
 
@@ -166,7 +176,8 @@ repository is never pushed.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the current total to 77 across 9 files.
+  bringing the current total to 110 across 11 files, with CI running lint,
+  test and build on every push and pull request.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean

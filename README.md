@@ -152,6 +152,29 @@ GitHub by the application setup.
   reverse-applies the chosen hunk to the working tree only (`git apply
   -R`), leaving the index untouched so a single hunk can be reverted
   without restoring the whole file.
+- Keyboard-driven commit graph with accessibility semantics: the graph is
+  a single tab stop (`listbox`), rows are `option`s with a roving
+  `tabIndex`, and Arrow Up/Down move the selection, Home/End jump to the
+  first/last commit and Enter/Space open the detail, with a visible focus
+  ring. Every modal is wrapped in a focus trap that cycles Tab and returns
+  focus to the control that opened it on close.
+- Persistent UI preferences in `localStorage` (one JSON object): the
+  Git/PR view, collapsed sidebar groups, the work-panel height, and the
+  branch pinning and sort order are all restored per repository after a
+  reload, with safe fallbacks if storage is unavailable.
+- Cross-repository search from a global `git grep` modal that runs the
+  pattern across every registered repository (per-repo errors are
+  isolated), grouping matches by repository and file with a 500-result cap.
+- Multi-select commits in the graph with checkboxes to revert several
+  commits in one oldest-first batch (merge commits are rejected and the
+  batch aborts on conflict), or copy the selected SHAs, from a floating
+  batch bar.
+- Pin local branches to the top of the sidebar and sort the rest by name
+  or by the most recent tip commit, with a pin badge marking fixed rows.
+- Commit template support: the app reads the configured
+  `commit.template` (local or global, including an absolute home-directory
+  path) and prefills the commit message when the field is empty, without
+  overwriting manual edits.
 
 ### Pull requests (pr-helper-like core)
 
@@ -269,13 +292,18 @@ npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
 ```
 
+The same three steps run in CI on every push and pull request via the
+GitHub Actions workflow in `.github/workflows/ci.yml`.
+
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
 routes, validation failures, rebase-state detection, the SSE handshake,
-audit rotation, server-side audit filtering and mtime-based stale-save
-rejection (including the 413 body cap). The isolated audit path is always
-built from the server's home directory so tests can never touch the real
-audit log.
+audit rotation, server-side audit filtering, mtime-based stale-save
+rejection (including the 413 body cap), cross-repository `grep-all`,
+batch revert and the configured commit template. The isolated audit path is
+always built from the server's home directory so tests can never touch the
+real audit log, and an isolated `GIT_CONFIG_GLOBAL` keeps machine-wide
+settings such as a global `commit.template` out of the assertions.
 Component tests render key React components with `react-dom/server`
 (`renderToString`) against a mock app context, covering empty states,
 masked/binary handling and the toolbar and audit modal.
