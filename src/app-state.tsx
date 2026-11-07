@@ -194,22 +194,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     })().catch((err) => toastApi.error(err.message));
   }, [refreshRepos, selectRepo, toastApi]);
 
+  // Keep the latest reload parameters in a ref so the EventSource can be
+  // opened once and never torn down when log options change, which otherwise
+  // creates a window where change frames are missed.
+  const sseParamsRef = useRef({ activeRepo, logLimit, logScope, logPath, logFilters });
+  sseParamsRef.current = { activeRepo, logLimit, logScope, logPath, logFilters };
+
   // SSE: silently reload the active repo when its files change.
   useEffect(() => {
     const source = new EventSource('/api/events');
     source.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(event.data);
-        const repoPath = activeRepo;
+        const params = sseParamsRef.current;
+        const repoPath = params.activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
-          loadRepoData(repoPath, logLimit, logScope, logPath, logFilters).catch(() => {});
+          loadRepoData(repoPath, params.logLimit, params.logScope, params.logPath, params.logFilters)
+            .catch(() => {});
         }
       } catch {
         /* ignore malformed frames */
       }
     });
     return () => source.close();
-  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters]);
+  }, [loadRepoData]);
 
   const setPat = useCallback((value: string) => {
     setPatState(value);
