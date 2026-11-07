@@ -14,6 +14,7 @@ import {
 import { useApp } from '../app-state';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
+import { getPref, setPref, repoPref } from '../lib/prefs';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
 import RenameFileModal from './RenameFileModal';
@@ -231,7 +232,8 @@ export default function WorkPanel() {
   const [context, setContext] = useState<number | undefined>(undefined);
   const [allowEmpty, setAllowEmpty] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [panelHeight, setPanelHeight] = useState(300);
+  const [panelHeight, setPanelHeight] = useState(() =>
+    activeRepo ? getPref(repoPref(activeRepo, 'panelHeight'), 300) : 300);
   const [viewer, setViewer] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
@@ -248,6 +250,13 @@ export default function WorkPanel() {
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      // Persist only when the drag finishes, not on every pointer move.
+      if (activeRepo) {
+        setPanelHeight((current) => {
+          setPref(repoPref(activeRepo, 'panelHeight'), current);
+          return current;
+        });
+      }
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);

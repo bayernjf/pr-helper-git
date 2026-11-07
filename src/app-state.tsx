@@ -18,6 +18,7 @@ import type {
   RepoBrief,
 } from './types';
 import { useToast, type ToastKind } from './components/ui';
+import { getPref, setPref } from './lib/prefs';
 
 type View = 'git' | 'pr';
 const ACTIVE_KEY = 'git2-active-repo';
@@ -70,7 +71,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [refs, setRefs] = useState<Ref[]>([]);
   const [remote, setRemote] = useState<RemoteInfo | null>(null);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
-  const [view, setView] = useState<View>('git');
+  const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
@@ -184,6 +185,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const setPat = useCallback((value: string) => {
     setPatState(value);
     localStorage.setItem(PAT_KEY, value);
+  }, []);
+
+  // Persist the active view so a reload restores it.
+  const setView = useCallback((next: View) => {
+    setViewState(next);
+    setPref('view', next);
   }, []);
 
   // Switch the history scope and reload the active repo immediately.

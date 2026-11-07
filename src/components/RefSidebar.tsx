@@ -43,6 +43,7 @@ import {
 import MergeModal from './MergeModal';
 import NewBranchModal from './NewBranchModal';
 import { useConfirm } from './ui';
+import { getPref, setPref, repoPref } from '../lib/prefs';
 import type { Ref } from '../types';
 
 type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
@@ -177,7 +178,17 @@ export default function RefSidebar() {
   const [upstreamPicker, setUpstreamPicker] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
-  const [openGroups, setOpenGroups] = useState({ local: true, remote: true, tag: true, stash: true });
+  const defaultGroups = { local: true, remote: true, tag: true, stash: true };
+  const [openGroups, setOpenGroups] = useState(() =>
+    activeRepo
+      ? getPref(repoPref(activeRepo, 'refGroups'), defaultGroups)
+      : defaultGroups);
+
+  // Restore the collapsed/expanded state when switching repositories.
+  useEffect(() => {
+    if (!activeRepo) return;
+    setOpenGroups(getPref(repoPref(activeRepo, 'refGroups'), defaultGroups));
+  }, [activeRepo]);
 
   useEscape(() => {
     setStashView(null); setTagView(null); setUpstreamPicker(null);
@@ -341,7 +352,11 @@ export default function RefSidebar() {
   };
 
   const toggle = (key: keyof typeof openGroups) =>
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenGroups((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (activeRepo) setPref(repoPref(activeRepo, 'refGroups'), next);
+      return next;
+    });
 
   return (
     <aside className="sidebar">
