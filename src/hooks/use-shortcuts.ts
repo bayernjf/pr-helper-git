@@ -39,6 +39,12 @@ export function useShortcuts() {
         event.preventDefault();
         refresh().catch(() => {});
       }
+      // "?" opens the shortcut reference (Shift+/ produces "?"); ignored while
+      // typing so it never interferes with form entry.
+      if (!mod && !event.altKey && event.key === '?' && !isEditable(event.target)) {
+        event.preventDefault();
+        window.dispatchEvent(new Event('git2:shortcuts'));
+      }
     }
 
     window.addEventListener('keydown', onKeyDown);

@@ -1743,6 +1743,47 @@ pre.diff {
 }
 .branch-sort option { color: var(--text); background: var(--bg-elevated); }
 
+/* ---------- keyboard shortcut help ---------- */
+.shortcuts-body { padding: 8px 20px 12px; }
+.shortcuts-group { padding: 8px 0; }
+.shortcuts-group + .shortcuts-group { border-top: 1px solid var(--border); }
+.shortcuts-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.shortcuts-keys {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+.shortcuts-desc { color: var(--muted); font-size: 13px; }
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* ---------- commit hash copy ---------- */
 .hash-row { display: flex; align-items: center; gap: 8px; }
 .hash-text {

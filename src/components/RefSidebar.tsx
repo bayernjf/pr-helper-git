@@ -110,6 +110,8 @@ function Row({
       <button
         type="button"
         className="row-more"
+        aria-label={`Actions for ${name}`}
+        title="More actions"
         onClick={(e) => {
           e.stopPropagation();
           onMenu(e);
@@ -593,7 +595,7 @@ export default function RefSidebar() {
           >
             <div className="modal-header">
               <h2>stash@{stashView.index} — {stashView.subject}</h2>
-              <button type="button" className="icon-btn" onClick={() => setStashView(null)}>
+              <button type="button" className="icon-btn" aria-label="Close stash" title="Close" onClick={() => setStashView(null)}>
                 <IconX />
               </button>
             </div>
@@ -621,7 +623,7 @@ export default function RefSidebar() {
           <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{tagView.tag}</h2>
-              <button type="button" className="icon-btn" onClick={() => setTagView(null)}>
+              <button type="button" className="icon-btn" aria-label="Close tag" title="Close" onClick={() => setTagView(null)}>
                 <IconX />
               </button>
             </div>
@@ -658,7 +660,7 @@ export default function RefSidebar() {
           <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Set upstream for {upstreamPicker}</h2>
-              <button type="button" className="icon-btn" onClick={() => setUpstreamPicker(null)}>
+              <button type="button" className="icon-btn" aria-label="Close upstream picker" title="Close" onClick={() => setUpstreamPicker(null)}>
                 <IconX />
               </button>
             </div>

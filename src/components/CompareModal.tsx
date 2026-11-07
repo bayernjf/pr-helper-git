@@ -51,7 +51,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Compare references</h2>
-          <button type="button" className="icon-btn" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
         </div>
         <div className="compare-picker">
           <div className="compare-field">

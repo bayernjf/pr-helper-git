@@ -45,7 +45,7 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Search repository contents</h2>
-          <button type="button" className="icon-btn" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
         </div>
         <form className="grep-form" onSubmit={runSearch}>
           <div className="grep-input">

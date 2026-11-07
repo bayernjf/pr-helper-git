@@ -64,7 +64,7 @@ export default function MergeModal({ sourceRef, currentBranch, onClose }: Props)
             <IconMerge width={17} height={17} style={{ verticalAlign: -3, marginRight: 6 }} />
             Merge {sourceRef} into {currentBranch}
           </h2>
-          <button type="button" className="icon-btn" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="merge-options" role="radiogroup" aria-label="Merge strategy">

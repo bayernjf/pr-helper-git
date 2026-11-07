@@ -157,7 +157,9 @@ GitHub by the application setup.
   `tabIndex`, and Arrow Up/Down move the selection, Home/End jump to the
   first/last commit and Enter/Space open the detail, with a visible focus
   ring. Every modal is wrapped in a focus trap that cycles Tab and returns
-  focus to the control that opened it on close.
+  focus to the control that opened it on close. Icon-only controls carry
+  `aria-label`s, and a keyboard-shortcut reference modal (toolbar button or
+  the `?` key) lists every shortcut grouped by context.
 - Persistent UI preferences in `localStorage` (one JSON object): the
   Git/PR view, collapsed sidebar groups, the work-panel height, and the
   branch pinning and sort order are all restored per repository after a

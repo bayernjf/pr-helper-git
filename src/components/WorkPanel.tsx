@@ -82,6 +82,9 @@ function TreeRow({
           type="button"
           className="icon-btn"
           style={{ width: 18, height: 18 }}
+          aria-label={isCollapsed ? `Expand ${node.name}` : `Collapse ${node.name}`}
+          title={isCollapsed ? 'Expand folder' : 'Collapse folder'}
+          aria-expanded={!isCollapsed}
           onClick={() => toggleFolder(node.path)}
         >
           {isCollapsed ? <IconChevronRight width={13} height={13} /> : <IconChevronDown width={13} height={13} />}

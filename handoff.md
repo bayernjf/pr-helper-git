@@ -164,6 +164,7 @@ repository is never pushed.
 - [x] Client: pin local branches and sort by name or recent tip commit
 - [x] Server: /api/commit-template (local/global, absolute home path); client message prefill
 - [x] CI: GitHub Actions workflow running lint, test and build; resilient test timeouts
+- [x] Client: aria-labels on icon-only controls, keyboard-shortcut help modal (? key)
 - [x] Seventeenth iteration: full 110-test acceptance, build, docs, atomic commits
 
 ## Delivery notes

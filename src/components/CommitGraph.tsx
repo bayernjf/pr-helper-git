@@ -316,7 +316,7 @@ export default function CommitGraph() {
             onChange={(e) => setSearch(e.target.value)}
           />
           {search && (
-            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} onClick={() => setSearch('')}>
+            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label="Clear commit filter" title="Clear filter" onClick={() => setSearch('')}>
               <IconX width={12} height={12} />
             </button>
           )}
@@ -340,6 +340,8 @@ export default function CommitGraph() {
               type="button"
               className="icon-btn"
               style={{ width: 22, height: 22 }}
+              aria-label="Clear path filter"
+              title="Clear path filter"
               onClick={() => {
                 setPathDraft('');
                 setLogPath('');

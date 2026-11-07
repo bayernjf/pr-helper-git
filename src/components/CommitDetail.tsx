@@ -155,7 +155,7 @@ export default function CommitDetail() {
           >
             <div className="modal-header">
               <h2>{shortHash(commit.hash)} — {patch.path}</h2>
-              <button type="button" className="icon-btn" onClick={() => setPatch(null)}>
+              <button type="button" className="icon-btn" aria-label="Close patch" title="Close patch" onClick={() => setPatch(null)}>
                 <IconX />
               </button>
             </div>

@@ -73,7 +73,7 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Audit log</h2>
-          <button type="button" className="icon-btn" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body no-pad">
           {loading ? (

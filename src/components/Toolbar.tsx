@@ -14,6 +14,7 @@ import GlobalGrepModal from './GlobalGrepModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
+import ShortcutsHelp from './ShortcutsHelp';
 import StashModal from './StashModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 import { useConfirm } from './ui';
@@ -24,6 +25,7 @@ import {
   IconDownload,
   IconGear,
   IconGlobe,
+  IconKeyboard,
   IconSearch,
   IconServer,
   IconSplit,
@@ -51,6 +53,7 @@ export default function Toolbar() {
   const [showGrep, setShowGrep] = useState(false);
   const [showGlobalGrep, setShowGlobalGrep] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
   const confirm = useConfirm();
 
@@ -64,6 +67,7 @@ export default function Toolbar() {
     const openCompare = () => setShowCompare(true);
     const openGrep = () => setShowGrep(true);
     const openAudit = () => setShowAudit(true);
+    const openShortcuts = () => setShowShortcuts(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
@@ -72,6 +76,7 @@ export default function Toolbar() {
     window.addEventListener('git2:compare', openCompare);
     window.addEventListener('git2:grep', openGrep);
     window.addEventListener('git2:audit', openAudit);
+    window.addEventListener('git2:shortcuts', openShortcuts);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:settings', openSettings);
@@ -81,6 +86,7 @@ export default function Toolbar() {
       window.removeEventListener('git2:compare', openCompare);
       window.removeEventListener('git2:grep', openGrep);
       window.removeEventListener('git2:audit', openAudit);
+      window.removeEventListener('git2:shortcuts', openShortcuts);
     };
   }, []);
 
@@ -292,9 +298,19 @@ export default function Toolbar() {
         type="button"
         className="icon-btn"
         title="GitHub settings"
+        aria-label="GitHub settings"
         onClick={() => setShowSettings(true)}
       >
         <IconGear />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        title="Keyboard shortcuts (press ?)"
+        aria-label="Keyboard shortcuts"
+        onClick={() => setShowShortcuts(true)}
+      >
+        <IconKeyboard />
       </button>
 
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
@@ -306,6 +322,7 @@ export default function Toolbar() {
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
       {showGlobalGrep && <GlobalGrepModal onClose={() => setShowGlobalGrep(false)} />}
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
+      {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
       {dropMenu && (
         <ContextMenu
           x={dropMenu.x}
