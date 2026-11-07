@@ -168,6 +168,9 @@ repository is never pushed.
 - [x] Tooling: .nvmrc + engines pin, CI npm audit advisory, react-vendor chunk split
 - [x] Server: cleanCommitMessage strips # comments on commit and amend (git strip mode)
 - [x] Eighteenth iteration: full 115-test acceptance, build, docs, atomic commits
+- [x] Project-level code review: grep option-injection, per-repo panel height
+  restoration, graph space-key default, unused shortcut binding, malformed URI
+  status (full 117-test acceptance, five atomic commits)
 
 ## Delivery notes
 
@@ -179,7 +182,7 @@ repository is never pushed.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the current total to 115 across 11 files, with CI running lint,
+  bringing the current total to 117 across 11 files, with CI running lint,
   test and build on every push and pull request.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
@@ -591,3 +594,34 @@ repository is never pushed.
   subject keeps a minimum width rather than being clipped mid-label. 106 Vitest
   tests pass across 11 files; tsc clean; vite build transforms 70 modules
   (JS 358.58 KB / gzip 103.96 KB, CSS 45.18 KB / gzip 8.16 KB).
+- Nineteenth scope: a project-level, file-by-file code review (not a gap
+  audit) covering correctness, security, robustness, React usage, resource/
+  race handling and test blind spots. The server's core security model held
+  up: fixed-argv execFile with no shell, timing-safe token comparison,
+  realpath-guarded path containment, a fixed GitHub proxy target with
+  method/path allowlist, and SSE ping/close cleanup. Five real issues were
+  fixed in atomic commits.
+- Nineteenth fixes: (1) grep patterns were passed as bare positional args,
+  so a dash-prefixed pattern (e.g. '--foo') was misread as a git option in
+  both /api/grep and /api/grep-all; now declared via `-e`. (2) WorkPanel
+  panelHeight was lazily initialized from the per-repo preference only on
+  mount and never re-read on a repository switch, so the first repo's height
+  leaked into every later repo; an activeRepo effect now restores it.
+  (3) CommitGraph Space/Enter activation returned before preventDefault, so
+  Space scrolled the page. (4) use-shortcuts destructured an unused `view`
+  and kept it in the effect deps, needlessly recreating the listener.
+  (5) A malformed static URI made decodeURIComponent throw and surfaced as
+  500; it is now a local 400. Two new route tests cover the dash pattern and
+  malformed URI; the panel-height effect was verified in the browser
+  (220 -> 520 -> 220 across switches) since SSR tests never run effects.
+- Nineteenth design note (left unchanged): the commit message draft is
+  component state shared across repositories, so a non-empty draft carries
+  over on a repo switch and also suppresses template prefill. Clearing it
+  would be a behavior change that could discard a deliberate in-progress
+  draft, so the current behavior is retained; the textarea stays visible
+  before every commit, letting the user catch a mismatched message.
+- Nineteenth verification: 117 Vitest tests pass across 11 files (two new
+  route tests); tsc clean; vite build output unchanged in size
+  (react-vendor 223.09 KB / gzip 69.19 KB, app 147.52 KB / gzip 37.97 KB,
+  CSS 47.44 KB). A clean browser reload reports zero console errors; the
+  work tree is clean and no remote is configured.
