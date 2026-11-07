@@ -32,6 +32,7 @@ import {
   IconEye,
   IconMerge,
   IconMore,
+  IconPin,
   IconPlus,
   IconSearch,
   IconStash,
@@ -165,6 +166,7 @@ export default function RefSidebar() {
     activeRepo,
     refs,
     status,
+    commits,
     runAction,
     toast,
   } = useApp();
@@ -190,6 +192,32 @@ export default function RefSidebar() {
     setOpenGroups(getPref(repoPref(activeRepo, 'refGroups'), defaultGroups));
   }, [activeRepo]);
 
+  type BranchSort = 'default' | 'name' | 'recent';
+  const [pinned, setPinned] = useState<string[]>(() =>
+    activeRepo ? getPref(repoPref(activeRepo, 'pinnedBranches'), []) : []);
+  const [branchSort, setBranchSort] = useState<BranchSort>(() =>
+    activeRepo ? getPref(repoPref(activeRepo, 'branchSort'), 'default') : 'default');
+
+  // Restore pinning and sort order when switching repositories.
+  useEffect(() => {
+    if (!activeRepo) return;
+    setPinned(getPref(repoPref(activeRepo, 'pinnedBranches'), []));
+    setBranchSort(getPref(repoPref(activeRepo, 'branchSort'), 'default'));
+  }, [activeRepo]);
+
+  function togglePin(branch: string) {
+    setPinned((prev) => {
+      const next = prev.includes(branch) ? prev.filter((b) => b !== branch) : [...prev, branch];
+      if (activeRepo) setPref(repoPref(activeRepo, 'pinnedBranches'), next);
+      return next;
+    });
+  }
+
+  function changeSort(next: BranchSort) {
+    setBranchSort(next);
+    if (activeRepo) setPref(repoPref(activeRepo, 'branchSort'), next);
+  }
+
   useEscape(() => {
     setStashView(null); setTagView(null); setUpstreamPicker(null);
   });
@@ -209,6 +237,26 @@ export default function RefSidebar() {
     const term = filter.trim().toLowerCase();
     return term ? stashList.filter((s) => s.subject.toLowerCase().includes(term)) : stashList;
   }, [stashList, filter]);
+
+  // Tip-commit date per branch, used for the "recently committed" sort.
+  const tipDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of commits) map.set(c.hash, new Date(c.date).getTime());
+    return map;
+  }, [commits]);
+
+  // Apply pinning and the chosen sort order to local branches.
+  const orderedLocal = useMemo(() => {
+    const pinnedSet = new Set(pinned);
+    const pinnedRows = groups.local.filter((r) => pinnedSet.has(r.shortName));
+    const rest = groups.local.filter((r) => !pinnedSet.has(r.shortName));
+    if (branchSort === 'name') {
+      rest.sort((a, b) => a.shortName.localeCompare(b.shortName));
+    } else if (branchSort === 'recent') {
+      rest.sort((a, b) => (tipDate.get(b.hash) ?? 0) - (tipDate.get(a.hash) ?? 0));
+    }
+    return [...pinnedRows, ...rest];
+  }, [groups.local, pinned, branchSort, tipDate]);
 
   const currentBranch = status?.branch;
   const rebaseInProgress = !!status?.state?.rebaseInProgress;
@@ -254,9 +302,11 @@ export default function RefSidebar() {
     if (!menu) return [];
     if (menu.kind === 'local') {
       const isCurrent = menu.name === currentBranch;
+      const isPinned = pinned.includes(menu.name);
       return [
         { id: 'checkout', label: 'Checkout', icon: <IconDownload width={15} height={15} />, disabled: isCurrent },
         { id: 'rename', label: 'Rename', icon: <IconEdit width={15} height={15} />, disabled: !isCurrent },
+        { id: isPinned ? 'unpin' : 'pin', label: isPinned ? 'Unpin' : 'Pin to top', icon: <IconPin width={15} height={15} /> },
         { separator: true },
         { id: 'merge', label: 'Merge into current', icon: <IconMerge width={15} height={15} />, disabled: isCurrent },
         { id: 'push', label: 'Push to origin', icon: <IconUpload width={15} height={15} /> },
@@ -290,7 +340,7 @@ export default function RefSidebar() {
       { separator: true },
       { id: 'drop', label: 'Drop', icon: <IconTrash width={15} height={15} />, danger: true },
     ];
-  }, [menu, currentBranch]);
+  }, [menu, currentBranch, pinned]);
 
   const onMenuSelect = async (id: string) => {
     if (!menu || !activeRepo) return;
@@ -298,6 +348,7 @@ export default function RefSidebar() {
     setMenu(null);
     if (kind === 'local') {
       if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
+      else if (id === 'pin' || id === 'unpin') togglePin(name);
       else if (id === 'rename') setRename({ name, value: name });
       else if (id === 'merge') setMergeTarget(name);
       else if (id === 'push') await runAction(pushBranch(activeRepo, name), `Pushed ${name}`);
@@ -408,24 +459,41 @@ export default function RefSidebar() {
         open={openGroups.local}
         onToggle={() => toggle('local')}
         action={(
-          <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title="New branch" onClick={() => setShowNew(true)}>
-            <IconPlus width={15} height={15} />
-          </button>
+          <>
+            <select
+              className="branch-sort"
+              title="Sort local branches"
+              value={branchSort}
+              onChange={(e) => changeSort(e.target.value as BranchSort)}
+            >
+              <option value="default">Default</option>
+              <option value="name">Name</option>
+              <option value="recent">Recent</option>
+            </select>
+            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title="New branch" onClick={() => setShowNew(true)}>
+              <IconPlus width={15} height={15} />
+            </button>
+          </>
         )}
       />
-      {openGroups.local && groups.local.map((r: Ref) => (
+      {openGroups.local && orderedLocal.map((r: Ref) => (
         <Row
           key={r.name}
           icon={<IconBranch width={15} height={15} />}
           name={r.shortName}
           current={r.shortName === currentBranch}
           badge={
-            (r.ahead > 0 || r.behind > 0) ? (
-              <span className="track-badge">
-                {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
-                {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
-              </span>
-            ) : undefined
+            <>
+              {pinned.includes(r.shortName) && (
+                <span className="pin-badge" title="Pinned"><IconPin width={12} height={12} /></span>
+              )}
+              {(r.ahead > 0 || r.behind > 0) && (
+                <span className="track-badge">
+                  {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
+                  {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
+                </span>
+              )}
+            </>
           }
           onOpen={() => {
             if (r.shortName !== currentBranch) {

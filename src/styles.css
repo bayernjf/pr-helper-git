@@ -1725,6 +1725,24 @@ pre.diff {
 .track-ahead { color: var(--green); }
 .track-behind { color: var(--yellow); }
 
+.pin-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: var(--accent);
+}
+.branch-sort {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.branch-sort option { color: var(--text); background: var(--bg-elevated); }
+
 /* ---------- commit hash copy ---------- */
 .hash-row { display: flex; align-items: center; gap: 8px; }
 .hash-text {
