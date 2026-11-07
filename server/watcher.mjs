@@ -63,6 +63,13 @@ export function stopWatching(repoPath) {
   timers.delete(repoPath);
 }
 
+export function stopAllWatching() {
+  for (const watcher of watchers.values()) watcher.close();
+  watchers.clear();
+  for (const timer of timers.values()) clearTimeout(timer);
+  timers.clear();
+}
+
 export function addClient(res) {
   clients.add(res);
 }

@@ -13,6 +13,7 @@ import {
   addClient,
   ensureWatching,
   removeClient,
+  stopAllWatching,
   watchedCount,
 } from './watcher.mjs';
 import { listRepos } from './store.mjs';
@@ -30,6 +31,7 @@ if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
 }
 
 const isDev = process.env.GIT2_DEV === '1';
+const isDesktop = process.env.GIT2_DESKTOP === '1';
 const TOKEN = isDev ? 'dev-token' : randomToken();
 const tokenOk = createTokenChecker(TOKEN);
 
@@ -233,12 +235,28 @@ server.listen(PORT, '127.0.0.1', async () => {
   for (const repoPath of await listRepos()) {
     ensureWatching(repoPath);
   }
-  if (isDev) {
+  if (isDesktop) {
+    // Machine-readable one-line readiness signal for a desktop shell so it
+    // can learn the ephemeral port and token without parsing prose.
+    console.log(`GIT2_READY ${JSON.stringify({ port: bound, token: TOKEN })}`);
+  } else if (isDev) {
     console.log(`API server (dev) → http://127.0.0.1:${bound}`);
   } else {
     console.log(`PR Helper Git2 → http://127.0.0.1:${bound}/?token=${TOKEN}`);
   }
 });
 
-process.on('SIGINT', () => server.close(() => process.exit(0)));
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
+function shutdown() {
+  stopAllWatching();
+  // Tear down keep-alive and SSE sockets immediately so shutdown does not
+  // wait for long-lived clients (for example the desktop WKWebView) to close.
+  if (typeof server.closeAllConnections === 'function') {
+    server.closeAllConnections();
+  }
+  server.close(() => process.exit(0));
+  // Safety net in case the close callback never settles.
+  setTimeout(() => process.exit(0), 1000).unref();
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
