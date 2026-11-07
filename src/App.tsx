@@ -1,4 +1,5 @@
 import { useApp } from './app-state';
+import { useFocusTrap } from './hooks/use-focus-trap';
 import { useShortcuts } from './hooks/use-shortcuts';
 import CommandPalette from './components/CommandPalette';
 import CommitDetail from './components/CommitDetail';
@@ -31,6 +32,7 @@ function LoadingPanel() {
 export default function App() {
   const { activeRepo, view, repoLoading, status, commits } = useApp();
   useShortcuts();
+  useFocusTrap();
   const firstLoad = repoLoading && !status && commits.length === 0;
   return (
     <div className="app">
