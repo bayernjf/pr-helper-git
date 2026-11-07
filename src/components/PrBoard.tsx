@@ -9,6 +9,7 @@ import {
   IconPlus,
   IconPullRequest,
   IconRefresh,
+  IconSearch,
   IconX,
 } from './icons';
 import CreatePrModal from './CreatePrModal';
@@ -88,6 +89,7 @@ export default function PrBoard() {
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [detailNumber, setDetailNumber] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) return;
@@ -126,9 +128,26 @@ export default function PrBoard() {
     load();
   }, [load]);
 
+  const filteredPulls = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return pulls;
+    return pulls.filter((pr) => {
+      const haystacks = [
+        String(pr.number),
+        pr.title,
+        pr.user.login,
+        pr.head.ref,
+        pr.base.ref,
+        ...pr.labels.map((l) => l.name),
+        pr.draft ? 'draft' : '',
+      ];
+      return haystacks.some((v) => v.toLowerCase().includes(q));
+    });
+  }, [pulls, query]);
+
   const columns = useMemo(() => {
     const bucket: Record<Column, PullRequest[]> = { open: [], merged: [], closed: [] };
-    for (const pr of pulls) {
+    for (const pr of filteredPulls) {
       // The list endpoint omits the `merged` boolean; merged_at is the
       // reliable signal that a closed PR was merged rather than abandoned.
       if (pr.state === 'open') bucket.open.push(pr);
@@ -136,7 +155,7 @@ export default function PrBoard() {
       else bucket.closed.push(pr);
     }
     return bucket;
-  }, [pulls]);
+  }, [filteredPulls]);
 
   if (!remote?.isGithub) {
     return (
@@ -166,6 +185,27 @@ export default function PrBoard() {
         <strong style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>
           {remote.owner}/{remote.repo}
         </strong>
+        <div className="board-filter">
+          <IconSearch width={14} height={14} />
+          <input
+            type="text"
+            value={query}
+            placeholder="Filter by number, title, author, branch…"
+            aria-label="Filter pull requests"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Clear filter"
+              title="Clear filter"
+              onClick={() => setQuery('')}
+            >
+              <IconX width={12} height={12} />
+            </button>
+          )}
+        </div>
         <span className="spacer" />
         <button type="button" className="btn" onClick={load} disabled={loading}>
           <IconRefresh width={14} height={14} />
@@ -189,7 +229,9 @@ export default function PrBoard() {
                 <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} />
               ))}
               {columns[col.key].length === 0 && (
-                <div className="diff-empty" style={{ height: 80 }}>Nothing here</div>
+                <div className="diff-empty" style={{ height: 80 }}>
+                  {query.trim() ? 'No matches' : 'Nothing here'}
+                </div>
               )}
             </div>
           </div>

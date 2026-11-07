@@ -2145,6 +2145,29 @@ pre.diff {
   color: var(--text);
   font-size: 12.5px;
 }
+.board-filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 12px;
+  padding: 5px 9px;
+  width: 300px;
+  max-width: 42vw;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--faint);
+}
+.board-filter input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.board-filter .icon-btn { display: inline-flex; padding: 0; flex: 0 0 auto; }
 .diff-controls {
   display: flex;
   justify-content: flex-end;
