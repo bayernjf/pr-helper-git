@@ -164,6 +164,12 @@ GitHub by the application setup.
   Git/PR view, collapsed sidebar groups, the work-panel height, and the
   branch pinning and sort order are all restored per repository after a
   reload, with safe fallbacks if storage is unavailable.
+- Resizable three-pane layout: the sidebar and detail panels expose
+  draggable edge separators (pointer or keyboard arrows, Shift for a larger
+  step) that clamp to a minimum/maximum and persist their widths, with the
+  ARIA `separator` role. The stylesheet also honors
+  `prefers-reduced-motion`, collapsing every animation and transition to a
+  near-instant change instead of disabling the underlying state updates.
 - Cross-repository search from a global `git grep` modal that runs the
   pattern across every registered repository (per-repo errors are
   isolated), grouping matches by repository and file with a 500-result cap.
@@ -266,9 +272,13 @@ Double-click the app (or run `open "dist/PR Helper Git2.app"`). The shell:
   preferences survive restarts;
 - terminates the server when the window closes. On shutdown the server closes
   all keep-alive and SSE sockets immediately, and the shell force-kills the
-  process after a bounded wait if it does not exit.
+  process after a bounded wait if it does not exit;
+- ships a generated `AppIcon.icns` (rendered from `desktop/make-icon.swift`
+  and packaged with the system sips/iconutil tools) referenced through
+  `CFBundleIconFile`, and remembers the window position and size across
+  launches via `setFrameAutosaveName`, centering only on the first run.
 
-The resulting bundle is well under 1 MB. An unsigned, locally built app may
+The resulting bundle is about 1.2 MB. An unsigned, locally built app may
 need a one-time Gatekeeper approval under **System Settings → Privacy &
 Security**.
 
@@ -300,7 +310,7 @@ Security**.
 | --- | --- |
 | Client | React 19 + TypeScript, Vite build, plain CSS |
 | Server | Node.js built-in `http`, zero runtime dependencies |
-| Desktop | Swift `WKWebView` shell (`desktop/main.swift`), bundled by `scripts/desktop-build.mjs` |
+| Desktop | Swift `WKWebView` shell (`desktop/main.swift`), icon rendered by `desktop/make-icon.swift`, bundled by `scripts/desktop-build.mjs` |
 | Git | `execFile('git', argv)` with parsers for porcelain v2, log, refs and blame |
 | GitHub | REST allowlist proxy plus GraphQL merge/ready endpoints |
 
@@ -317,10 +327,12 @@ src/
   app-state.tsx      central data/state provider
   api.ts             typed API client
   components/        UI components, inline SVG icons, context menu, modals
+  hooks/             resize, escape, focus-trap and keyboard interaction hooks
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
 scripts/dev.mjs      parallel Vite + API launcher
 scripts/desktop-build.mjs  Vite build + Swift compile into a macOS .app bundle
 desktop/main.swift   native WKWebView window and Node process supervision
+desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ```
 
 ## Checks

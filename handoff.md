@@ -48,13 +48,21 @@ repository is never pushed.
   (number/title/author/branch/label/draft across every column), in-app new
   file creation (nested paths auto-create parent directories, then opens in
   the editor), and repository git config management (local/effective values
-  for a whitelisted set of keys with per-type validation and unset-to-inherit).
+  for a whitelisted set of keys with per-type validation and unset-to-inherit),
+  draggable sidebar and detail column widths (pointer and keyboard resizing,
+  min/max clamps, persisted widths, ARIA separator role), and
+  prefers-reduced-motion support (animations and transitions collapse to a
+  near-instant state change).
 - Desktop (macOS, zero third-party runtime): a `swiftc`-compiled `WKWebView`
   shell (`desktop/main.swift`) bundled by `scripts/desktop-build.mjs` via
-  `npm run desktop` into `dist/PR Helper Git2.app` (under 1 MB). It locates the
+  `npm run desktop` into `dist/PR Helper Git2.app` (~1.2 MB). It locates the
   system Node.js at well-known paths, spawns the server on an ephemeral port,
   parses the `GIT2_READY` machine-readable line, loads the one-time token URL
-  and terminates the server on window close.
+  and terminates the server on window close. The bundle ships a generated
+  `AppIcon.icns` (rendered by `desktop/make-icon.swift`, then scaled and
+  packaged with the system sips/iconutil tools) referenced through
+  `CFBundleIconFile`, and the window remembers its frame across launches via
+  `setFrameAutosaveName`.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
@@ -192,6 +200,8 @@ repository is never pushed.
 - [x] Twentieth iteration: full 121-test acceptance, build, docs, atomic commits
 - [x] Native macOS desktop shell: GIT2_READY readiness line, Swift WKWebView
   process supervision, desktop-build bundler, shutdown hardening, E2E verified
+- [x] UI/UX P0 pass: resizable sidebar/detail columns with persistence and
+  ARIA separators, app icon and window frame memory, prefers-reduced-motion
 
 ## Delivery notes
 
@@ -678,3 +688,21 @@ repository is never pushed.
   termination waits up to 3 seconds before SIGKILL. E2E via open/quit confirms
   the shell and node start, establish five connections, and both exit with no
   lingering process; 121 tests and tsc stay green.
+- UI/UX P0 pass scope: three confirmed gaps from the design review — fixed
+  column widths, no app icon/window memory, and no reduced-motion support.
+  Column resizing uses a reusable `useResizable` hook (`src/hooks/use-resizable.ts`)
+  driving edge-mounted `.col-resize` separators; both pointer and keyboard
+  (arrows, Shift for a larger step) paths clamp to a range and persist
+  `sidebarWidth`/`detailWidth`, while no inline width is applied until the user
+  first resizes so the responsive media queries keep working. The icon is
+  rendered at build time from `desktop/make-icon.swift` and packaged to
+  `AppIcon.icns` with system sips/iconutil (no checked-in binary, no new
+  dependency); the Swift shell calls `setFrameAutosaveName` and keeps `center()`
+  only for first-run placement.
+- UI/UX P0 verification: browser checked both separators' ARIA attributes,
+  keyboard resize and direction (sidebar ArrowRight widens, detail ArrowLeft
+  widens), reload restoration, min/max clamps and a synthetic pointer sequence;
+  a second desktop launch restored the saved frame (position 67,51 rather than
+  centered) and open/quit still leaves no lingering shell or node process. All
+  121 Vitest tests pass across 11 files, tsc is clean, vite build succeeds, and
+  the rebuilt bundle is ~1.2 MB with the icon in Contents/Resources.
