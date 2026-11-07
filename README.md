@@ -28,9 +28,11 @@ GitHub by the application setup.
 - Reset the current branch to any commit with soft, mixed or hard semantics
   (hard reset requires an explicit confirmation).
 - Safely revert a commit without rewriting history: a normal commit becomes a
-  new "Revert" commit, merge commits are rejected (they need an explicit
-  mainline), and a conflicting revert is automatically aborted so the working
-  tree is never left half-finished.
+  new "Revert" commit, while reverting a merge commit asks for the mainline
+  parent (`-m 1..N`) in a dialog. When a revert stops on conflicts the working
+  tree is kept as-is: status reports `revertInProgress`, and an amber banner
+  offers Continue (`git revert --continue`, refused while unmerged paths
+  remain) or Abort (`git revert --abort`).
 - Switch the graph's history scope between every branch (`--all`) and the
   current branch only, straight from the graph toolbar.
 - Ref sidebar with collapsible local branches, remote branches, tags and stash
