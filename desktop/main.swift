@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private let readySemaphore = DispatchSemaphore(value: 0)
     private var readyPort: Int?
     private var readyToken: String?
+    private var isTerminating = false
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git2.stdout")
 
@@ -61,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        isTerminating = true
         guard let process = server, process.isRunning else { return }
         process.terminate()
         // Bounded wait so a wedged server can never stall termination forever.
@@ -104,8 +106,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
         process.terminationHandler = { [weak self] exited in
             DispatchQueue.main.async {
-                guard let self = self, self.readyPort == nil else { return }
-                self.showFatal("Local server stopped", "The Node.js server exited with status \(exited.terminationStatus).")
+                // A crash after startup would otherwise leave a dead window
+                // with no explanation. Ignore exits caused by our own quit.
+                guard let self = self, !self.isTerminating else { return }
+                self.showFatal(
+                    "Local server stopped",
+                    "The Node.js server exited with status \(exited.terminationStatus).",
+                )
             }
         }
 
@@ -143,9 +150,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             "/opt/homebrew/bin/node",
             "/opt/homebrew/opt/node/bin/node",
             "/usr/local/bin/node",
+            "/usr/local/opt/node/bin/node",
             "/usr/bin/node",
         ]
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+        if let found = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+            return found
+        }
+        // GUI-launched apps inherit a minimal PATH, so version managers that
+        // only modify the login shell are invisible here. Probe their usual
+        // install roots before giving up.
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let managerPaths = [
+            home.appendingPathComponent(".volta/bin/node").path,
+            home.appendingPathComponent(".asdf/shims/node").path,
+            home.appendingPathComponent(".local/bin/node").path,
+            "/opt/local/bin/node",
+        ]
+        if let found = managerPaths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+            return found
+        }
+        // nvm keeps one directory per installed version; pick the newest.
+        let nvmRoot = home.appendingPathComponent(".nvm/versions/node")
+        if let versions = try? FileManager.default.contentsOfDirectory(atPath: nvmRoot.path) {
+            let newest = versions
+                .sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+                .first
+            if let newest = newest {
+                let path = nvmRoot.appendingPathComponent(newest).appendingPathComponent("bin/node").path
+                if FileManager.default.isExecutableFile(atPath: path) { return path }
+            }
+        }
+        return nil
     }
 
     // MARK: Window
