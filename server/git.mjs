@@ -6,10 +6,14 @@ export const GIT_TIMEOUT_MS = 20_000;
 export const MAX_BUFFER = 32 * 1024 * 1024;
 
 export function git(args, cwd, options = {}) {
+  // Keep UTF-8 paths literal instead of C-quoted octal escapes: the UI and the
+  // follow-up API calls address files by path, so `git` must report the real
+  // name.
+  const argv = ['-c', 'core.quotePath=false', ...args];
   return new Promise((resolve, reject) => {
     const child = execFile(
       'git',
-      args,
+      argv,
       {
         cwd,
         timeout: options.timeout || GIT_TIMEOUT_MS,
@@ -31,6 +35,23 @@ export function git(args, cwd, options = {}) {
     );
     if (options.input !== undefined) child.stdin.end(options.input);
   });
+}
+
+// `git diff --numstat -M` prints the destination path for renames, using the
+// compact "old => new" form (or "dir/{old => new}/file" when the names share
+// a prefix). Recover the destination so stats can be matched to the new path
+// reported by `--name-status`.
+export function numstatTarget(raw) {
+  const arrow = raw.indexOf(' => ');
+  if (arrow === -1) return raw;
+  if (raw.includes('{')) {
+    const open = raw.lastIndexOf('{', arrow);
+    const close = raw.indexOf('}', arrow);
+    if (open !== -1 && close !== -1) {
+      return raw.slice(0, open) + raw.slice(arrow + 4, close) + raw.slice(close + 1);
+    }
+  }
+  return raw.slice(arrow + 4);
 }
 
 // ---------- pure parsers ----------
@@ -69,7 +90,10 @@ export function parsePorcelainV2(output) {
       const xy = parts[1] || '';
       // rename/copy: the score is followed by "<path>\t<orig-path>", where
       // <path> is the current name and <orig-path> the pre-rename name.
-      const paths = parts[parts.length - 1].split('\t');
+      // Both paths may contain spaces, so re-join the remaining space-split
+      // fields before splitting on the path separator. Field 8 is the
+      // rename/copy score.
+      const paths = parts.slice(9).join(' ').split('\t');
       const path = paths[0];
       const area = xy[0] !== '.' ? 'staged' : 'unstaged';
       result.files.push({ path, status: xy, area, renamedFrom: paths[1] || null });

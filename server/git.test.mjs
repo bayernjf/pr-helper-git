@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildHunkPatch,
   cleanCommitMessage,
+  numstatTarget,
   parseBlame,
   parseLog,
   parsePorcelainV2,
@@ -38,6 +39,28 @@ describe('parsePorcelainV2', () => {
       area: 'staged',
       renamedFrom: 'old-name.txt',
     });
+  });
+  it('parses rename rows whose paths contain spaces', () => {
+    const out = '2 RM N... 100644 100644 100644 abc abc R100 new name.txt\told name.txt';
+    const s = parsePorcelainV2(out);
+    expect(s.files[0]).toMatchObject({
+      path: 'new name.txt',
+      renamedFrom: 'old name.txt',
+    });
+  });
+});
+
+describe('numstatTarget', () => {
+  it('keeps ordinary paths unchanged', () => {
+    expect(numstatTarget('src/app.ts')).toBe('src/app.ts');
+  });
+
+  it('extracts the destination of a rename', () => {
+    expect(numstatTarget('old name.txt => new name.txt')).toBe('new name.txt');
+  });
+
+  it('rebuilds a renamed path inside a shared directory prefix', () => {
+    expect(numstatTarget('docs/{old.md => new.md}/index.md')).toBe('docs/new.md/index.md');
   });
 });
 
