@@ -167,6 +167,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         )
         window.center()
         window.title = "PR Helper Git2"
+        // Persist and restore the window position/size across launches. On the
+        // first run there is no saved frame, so the centering above is used.
+        window.setFrameAutosaveName("PR Helper Git2 Main Window")
         window.contentView = webView
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
