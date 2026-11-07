@@ -13,20 +13,35 @@ export function parseDiffLines(diff: string): ParsedDiffLine[] {
   const rows: ParsedDiffLine[] = [];
   let oldNo = 0;
   let newNo = 0;
+  let inHunk = false;
 
   for (const raw of diff.split('\n')) {
+    if (raw.startsWith('diff --git')) {
+      // A new file header ends the previous file's hunk section.
+      inHunk = false;
+    }
     if (raw.startsWith('@@')) {
       const m = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       oldNo = m ? Number(m[1]) : 0;
       newNo = m ? Number(m[2]) : 0;
+      inHunk = true;
       rows.push({ kind: 'hunk', text: raw, oldNo: null, newNo: null });
       continue;
     }
-    if (raw.startsWith('diff --git') || raw.startsWith('index ')
+    // Header lines only appear before the first hunk. Inside a hunk a removed
+    // or added line can itself start with "--"/"++" (e.g. deleting a SQL or
+    // Markdown separator), so those must stay content rows.
+    if (!inHunk && (raw.startsWith('diff --git') || raw.startsWith('index ')
       || raw.startsWith('---') || raw.startsWith('+++')
       || raw.startsWith('new file') || raw.startsWith('deleted file')
       || raw.startsWith('rename ') || raw.startsWith('similarity ')
-      || raw.startsWith('Binary')) {
+      || raw.startsWith('Binary'))) {
+      rows.push({ kind: 'meta', text: raw, oldNo: null, newNo: null });
+      continue;
+    }
+    // "\ No newline at end of file" marks a missing trailing newline; it is
+    // not a content line and must not advance the counters.
+    if (raw.startsWith('\\ No newline at end of file')) {
       rows.push({ kind: 'meta', text: raw, oldNo: null, newNo: null });
       continue;
     }

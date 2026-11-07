@@ -83,18 +83,32 @@ export default function PrDetailModal({
 
   const base = `/repos/${remote!.owner}/${remote!.repo}`;
 
+  // GitHub caps list endpoints at 30 items by default; large pull requests
+  // would silently lose files, commits and comments. Walk pages until a short
+  // page arrives (bounded so a misbehaving server cannot loop forever).
+  async function fetchPages<T>(path: string): Promise<{ data: T[] }> {
+    const all: T[] = [];
+    for (let page = 1; page <= 10; page += 1) {
+      const res = await githubProxy<T[]>(pat, `${path}?per_page=100&page=${page}`);
+      const items = Array.isArray(res.data) ? res.data : [];
+      all.push(...items);
+      if (items.length < 100) break;
+    }
+    return { data: all };
+  }
+
   useEffect(() => {
     let cancelled = false;
     // allSettled: a single endpoint failing must not blank the whole modal.
     // In particular requested-reviewers returns 404 when nobody is requested.
     Promise.allSettled([
       githubProxy<{ check_runs: CheckRun[] }>(pat, `${base}/commits/${pr.head.sha}/check-runs`),
-      githubProxy<PrCommit[]>(pat, `${base}/pulls/${pr.number}/commits`),
-      githubProxy<PrFile[]>(pat, `${base}/pulls/${pr.number}/files`),
+      fetchPages<PrCommit>(`${base}/pulls/${pr.number}/commits`),
+      fetchPages<PrFile>(`${base}/pulls/${pr.number}/files`),
       githubProxy<{ users: Reviewer[] }>(pat, `${base}/pulls/${pr.number}/requested-reviewers`),
-      githubProxy<PrComment[]>(pat, `${base}/issues/${pr.number}/comments`),
-      githubProxy<PrReview[]>(pat, `${base}/pulls/${pr.number}/reviews`),
-      githubProxy<ReviewComment[]>(pat, `${base}/pulls/${pr.number}/comments`),
+      fetchPages<PrComment>(`${base}/issues/${pr.number}/comments`),
+      fetchPages<PrReview>(`${base}/pulls/${pr.number}/reviews`),
+      fetchPages<ReviewComment>(`${base}/pulls/${pr.number}/comments`),
     ])
       .then((settled) => {
         if (cancelled) return;

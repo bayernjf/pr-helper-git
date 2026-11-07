@@ -11,7 +11,18 @@ import {
 
 type Mode = 'open' | 'clone' | 'init';
 
-const DEFAULT_PARENT = '/Users/jiangfeng/000mycodes';
+const PARENT_KEY = 'git2-clone-parent';
+
+// Start from the last directory the user cloned into, then fall back to the
+// parent of the repository already open. Never hard-code a machine-specific
+// path: the app also runs on other accounts and platforms.
+function initialParentDir(activeRepo: string | null): string {
+  const saved = localStorage.getItem(PARENT_KEY);
+  if (saved) return saved;
+  if (!activeRepo) return '';
+  const slash = activeRepo.lastIndexOf('/');
+  return slash > 0 ? activeRepo.slice(0, slash) : activeRepo;
+}
 
 // Derive a folder name from a clone URL: strip a trailing .git and take the
 // last path component.
@@ -30,24 +41,28 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ReactNode }> = [
 ];
 
 export default function AddRepoModal({ onClose }: { onClose: () => void }) {
-  const { selectRepo, refreshRepos, toast } = useApp();
+  const { selectRepo, refreshRepos, toast, activeRepo } = useApp();
   useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');
   const [saving, setSaving] = useState(false);
 
   const [localPath, setLocalPath] = useState('');
   const [url, setUrl] = useState('');
-  const [parentDir, setParentDir] = useState(DEFAULT_PARENT);
+  const [parentDir, setParentDir] = useState(() => initialParentDir(activeRepo));
   const [name, setName] = useState('');
   const [initName, setInitName] = useState('');
 
-  async function adopt(returnedPath: string) {
+  async function adopt(returnedPath?: string) {
     const updated = await refreshRepos();
-    const match = updated.find((r) => r.path === returnedPath)
-      || updated.find((r) => r.path === localPath)
-      || updated[updated.length - 1];
+    const match = (returnedPath ? updated.find((r) => r.path === returnedPath) : undefined)
+      || updated.find((r) => r.path === localPath);
     if (match) selectRepo(match.path);
     onClose();
+  }
+
+  function rememberParent() {
+    const trimmed = parentDir.trim();
+    if (trimmed) localStorage.setItem(PARENT_KEY, trimmed);
   }
 
   async function submit(event: React.FormEvent) {
@@ -57,20 +72,22 @@ export default function AddRepoModal({ onClose }: { onClose: () => void }) {
       if (mode === 'open') {
         const target = localPath.trim();
         if (!target) return;
-        await addRepo(target);
-        await adopt(target);
+        const res = await addRepo(target);
+        await adopt(res.path);
       } else if (mode === 'clone') {
         const source = url.trim();
         const folder = name.trim() || suggestName(source);
         if (!source || !folder) return;
         const res = await cloneRepo(source, parentDir.trim(), folder);
+        rememberParent();
         await adopt(res.path);
       } else {
         const folder = initName.trim();
         if (!folder) return;
         const full = `${parentDir.trim().replace(/\/$/, '')}/${folder}`;
-        const res = initRepo(full);
-        await adopt((await res).path);
+        const res = await initRepo(full);
+        rememberParent();
+        await adopt(res.path);
       }
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');

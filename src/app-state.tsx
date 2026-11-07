@@ -1,6 +1,6 @@
 // Central application state: registry, active repo data, view switching,
 // SSE-driven auto refresh and a helper that runs write actions then refreshes.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   getRefs,
@@ -84,6 +84,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [logPath, setLogPathState] = useState('');
   const [logFilters, setLogFiltersState] = useState<LogFilters>({});
 
+  // Every load belongs to a request generation. Switching repositories (or
+  // firing a newer refresh) bumps it, so a slow response from the previous
+  // repository can no longer overwrite the data of the current one.
+  const activeRepoRef = useRef<string | null>(null);
+  const loadSeqRef = useRef(0);
+
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
     [toastApi],
@@ -102,24 +108,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     pathFilter: string = '',
     filters: LogFilters = {},
   ) => {
+    const seq = ++loadSeqRef.current;
     const [statusRes, logRes, refsRes, remoteRes] = await Promise.all([
       getStatus(repoPath),
       getLog(repoPath, limit, scope, pathFilter || undefined, filters),
       getRefs(repoPath),
       getRemote(repoPath),
     ]);
+    // Drop the result when a newer load started or the user moved to another
+    // repository while these requests were in flight.
+    if (seq !== loadSeqRef.current || repoPath !== activeRepoRef.current) return false;
     // The operation state is a sibling of the porcelain payload in the API
     // response; attach it so components can read status.state.
     setStatus({ ...statusRes.status, state: statusRes.state });
     setCommits(logRes.commits);
     setRefs(refsRes.refs);
     setRemote(remoteRes.remote);
+    return true;
   }, []);
 
   const selectRepo = useCallback((repoPath: string) => {
+    activeRepoRef.current = repoPath;
     setActiveRepo(repoPath);
     localStorage.setItem(ACTIVE_KEY, repoPath);
     setSelectedHash(null);
+    // Clear the previous repository's data immediately so the graph/detail
+    // panes never show stale commits under the new repository name.
+    setStatus(null);
+    setCommits([]);
+    setRefs([]);
+    setRemote(null);
     setLogLimit(LOG_PAGE_SIZE);
     setLogScopeState('all');
     setLogPathState('');
@@ -136,7 +154,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const list = await refreshRepos();
     if (activeRepo) {
       if (!list.some((r) => r.path === activeRepo)) {
+        activeRepoRef.current = null;
         setActiveRepo(null);
+        setStatus(null);
+        setCommits([]);
+        setRefs([]);
+        setRemote(null);
+        setSelectedHash(null);
         return;
       }
       await loadRepoData(activeRepo, logLimit, logScope, logPath, logFilters);
@@ -150,8 +174,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (nextLimit === logLimit) return;
     setRepoLoading(true);
     try {
-      await loadRepoData(activeRepo, nextLimit, logScope, logPath, logFilters);
-      setLogLimit(nextLimit);
+      if (await loadRepoData(activeRepo, nextLimit, logScope, logPath, logFilters)) {
+        setLogLimit(nextLimit);
+      }
     } catch (err) {
       toastApi.error((err as any)?.message || 'failed to load more history');
     } finally {
@@ -208,17 +233,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
 
-  // Switch the history scope and reload the active repo immediately.
+  // Switch the history scope and reload the active repo immediately. Keep the
+  // path/author filters: the UI still shows them, so dropping them here would
+  // silently display unfiltered history.
   const setLogScope = useCallback((scope: 'all' | 'current') => {
     setLogScopeState(scope);
     if (!activeRepo) return;
     setRepoLoading(true);
-    loadRepoData(activeRepo, logLimit, scope)
+    loadRepoData(activeRepo, logLimit, scope, logPath, logFilters)
       .catch((err) => {
         toastApi.error((err as any)?.message || 'failed to change history scope');
       })
       .finally(() => setRepoLoading(false));
-  }, [activeRepo, loadRepoData, logLimit, toastApi]);
+  }, [activeRepo, loadRepoData, logLimit, logPath, logFilters, toastApi]);
 
   const setLogPath = useCallback((pathFilter: string) => {
     setLogPathState(pathFilter);

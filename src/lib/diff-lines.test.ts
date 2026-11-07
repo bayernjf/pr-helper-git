@@ -56,4 +56,19 @@ describe('parseDiffLines', () => {
     expect(last.oldNo).toBe(20);
     expect(last.newNo).toBe(30);
   });
+
+  it('treats header-like content lines inside a hunk as content', () => {
+    const withSeparators = [
+      'diff --git a/schema.sql b/schema.sql',
+      '--- a/schema.sql',
+      '+++ b/schema.sql',
+      '@@ -1,2 +1,2 @@',
+      '--- old separator',
+      '+++ new separator',
+    ].join('\n');
+    const rows = parseDiffLines(withSeparators);
+    expect(rows.filter((r) => r.kind === 'meta')).toHaveLength(3);
+    expect(rows[4]).toMatchObject({ kind: 'del', text: '-- old separator', oldNo: 1 });
+    expect(rows[5]).toMatchObject({ kind: 'add', text: '++ new separator', newNo: 1 });
+  });
 });

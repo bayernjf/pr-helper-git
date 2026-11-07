@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   getBlame,
@@ -127,9 +127,17 @@ export default function FileViewer({
   }, [repo, filePath, effectiveRev, toast]);
 
   // When opened straight into edit mode, seed the draft from the loaded blob.
+  // Seed once per file/revision: re-seeding whenever the draft is empty would
+  // restore the original content as soon as the user cleared the editor, making
+  // it impossible to save an empty file.
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (initialMode === 'edit' && file && !draft) setDraft(file.content);
-  }, [initialMode, file, draft]);
+    if (initialMode !== 'edit' || !file) return;
+    const key = `${repo}\0${filePath}\0${effectiveRev || ''}`;
+    if (seededFor.current === key) return;
+    seededFor.current = key;
+    setDraft(file.content);
+  }, [initialMode, file, repo, filePath, effectiveRev]);
 
   // Reload blame automatically when in blame mode or the revision changes.
   useEffect(() => {

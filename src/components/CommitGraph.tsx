@@ -280,8 +280,15 @@ export default function CommitGraph() {
       'git revert creates one new commit per selected change; history is not rewritten.',
     );
     if (!yes) return;
+    // Order the selection newest-first (the order the graph lists commits).
+    // Checkbox clicks arrive in arbitrary order, and `git revert` applies each
+    // commit in sequence, so reverting an older commit first can conflict with
+    // changes that the newer, still-present commits introduced.
+    const ordered = commits
+      .filter((c) => checked.has(c.hash))
+      .map((c) => c.hash);
     const result = await runAction(
-      revertCommitsBatch(currentRepo, [...checked]),
+      revertCommitsBatch(currentRepo, ordered),
       `Reverted ${checked.size} commits`,
     );
     if (result !== null) setChecked(new Set());

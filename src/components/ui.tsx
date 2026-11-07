@@ -1,6 +1,7 @@
 // Toast and confirm-dialog primitives.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useEscape } from '../hooks/use-escape';
 import { IconAlert, IconCheck, IconX } from './icons';
 
 export type ToastKind = 'info' | 'error' | 'success';
@@ -86,15 +87,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     setState(null);
   };
 
-  // Escape cancels the confirmation, mirroring the Cancel button.
-  useEffect(() => {
-    if (!state) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') close(false);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [state]);
+  // Escape cancels the confirmation, mirroring the Cancel button. This goes
+  // through the shared stack so the modal underneath stays open.
+  useEscape(() => close(false), !!state);
 
   return (
     <ConfirmContext.Provider value={ask}>

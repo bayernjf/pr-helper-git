@@ -128,7 +128,12 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                       onChange={(e) => setRenaming({ oldName: r.name, value: e.target.value })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') saveRename();
-                        if (e.key === 'Escape') setRenaming(null);
+                        // Escape only cancels the inline edit; stop it from
+                        // reaching the dialog's own Escape handler.
+                        if (e.key === 'Escape') {
+                          e.stopPropagation();
+                          setRenaming(null);
+                        }
                       }}
                     />
                   ) : (
@@ -164,7 +169,10 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                       onChange={(e) => setEditing({ name: r.name, value: e.target.value })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') saveEdit();
-                        if (e.key === 'Escape') setEditing(null);
+                        if (e.key === 'Escape') {
+                          e.stopPropagation();
+                          setEditing(null);
+                        }
                       }}
                     />
                   ) : (

@@ -178,7 +178,17 @@ export default function DiffView({
         </pre>
       ) : (
         <pre className="diff">
-          {rows.map((row, i) => <SplitRow key={i} row={row} />)}
+          {rows.map((row, i) => (
+            row.kind === 'meta' || row.kind === 'hunk'
+              // File headers and hunk markers belong to both sides; rendering
+              // them through SplitRow would duplicate them in both columns.
+              ? (
+                <div key={i} className={`diff-line ${row.kind}`}>
+                  <span className="diff-content">{row.text}</span>
+                </div>
+              )
+              : <SplitRow key={i} row={row} />
+          ))}
         </pre>
       )}
       {result.truncated && <div className="diff-empty">Diff truncated at 2000 lines.</div>}

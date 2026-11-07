@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
 import type { PullRequest, ReviewState } from '../types';
@@ -16,6 +16,9 @@ import CreatePrModal from './CreatePrModal';
 import PrDetailModal from './PrDetailModal';
 
 type Column = 'open' | 'merged' | 'closed';
+
+// GitHub's maximum page size for the pulls listing.
+const PAGE_SIZE = 100;
 
 function MergePill({ pr }: { pr: PullRequest }) {
   if (pr.mergeable === false) {
@@ -90,39 +93,84 @@ export default function PrBoard() {
   const [showCreate, setShowCreate] = useState(false);
   const [detailNumber, setDetailNumber] = useState<number | null>(null);
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  // Guards against a slow page landing after the repo/token changed or after a
+  // newer refresh started.
+  const loadSeq = useRef(0);
+
+  // Fetch one page of PRs and attach the review summary for each open PR.
+  const fetchPage = useCallback(async (pageNo: number): Promise<PullRequest[]> => {
+    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) return [];
+    const res = await githubProxy<PullRequest[]>(
+      pat,
+      `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=${PAGE_SIZE}&page=${pageNo}`,
+    );
+    const list = Array.isArray(res.data) ? res.data : [];
+    return Promise.all(
+      list.map(async (pr) => {
+        if (pr.state !== 'open') return { ...pr, reviewState: 'NONE' as ReviewState };
+        try {
+          const reviews = await githubProxy<GithubReview[]>(
+            pat,
+            `/repos/${remote.owner}/${remote.repo}/pulls/${pr.number}/reviews`,
+          );
+          return { ...pr, reviewState: summarizeReviews(reviews.data || []) };
+        } catch {
+          return { ...pr, reviewState: 'NONE' as ReviewState };
+        }
+      }),
+    );
+  }, [pat, remote]);
 
   const load = useCallback(async () => {
-    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) return;
+    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) {
+      setPulls([]);
+      setHasMore(false);
+      setPage(1);
+      return;
+    }
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     try {
-      const res = await githubProxy<PullRequest[]>(
-        pat,
-        `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=50`,
-      );
-      const list = Array.isArray(res.data) ? res.data : [];
-      // Attach the review summary for every open PR.
-      const enriched = await Promise.all(
-        list.map(async (pr) => {
-          if (pr.state !== 'open') return { ...pr, reviewState: 'NONE' as ReviewState };
-          try {
-            const reviews = await githubProxy<GithubReview[]>(
-              pat,
-              `/repos/${remote.owner}/${remote.repo}/pulls/${pr.number}/reviews`,
-            );
-            return { ...pr, reviewState: summarizeReviews(reviews.data || []) };
-          } catch {
-            return { ...pr, reviewState: 'NONE' as ReviewState };
-          }
-        }),
-      );
-      setPulls(enriched);
+      const list = await fetchPage(1);
+      if (seq !== loadSeq.current) return;
+      setPulls(list);
+      setPage(1);
+      setHasMore(list.length >= PAGE_SIZE);
     } catch (err: any) {
+      if (seq !== loadSeq.current) return;
       setError(err.detail ? `${err.message}: ${err.detail}` : err.message);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
-  }, [pat, remote]);
+  }, [pat, remote, fetchPage]);
+
+  // Append the next page; GitHub numbers PRs so a number-based merge keeps the
+  // list stable even if a PR is edited between requests.
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return;
+    const seq = ++loadSeq.current;
+    const nextPage = page + 1;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await fetchPage(nextPage);
+      if (seq !== loadSeq.current) return;
+      setPulls((prev) => {
+        const seen = new Set(prev.map((p) => p.number));
+        return [...prev, ...list.filter((p) => !seen.has(p.number))];
+      });
+      setPage(nextPage);
+      setHasMore(list.length >= PAGE_SIZE);
+    } catch (err: any) {
+      if (seq !== loadSeq.current) return;
+      setError(err.detail ? `${err.message}: ${err.detail}` : err.message);
+    } finally {
+      if (seq === loadSeq.current) setLoading(false);
+    }
+  }, [loading, hasMore, page, fetchPage]);
 
   useEffect(() => {
     load();
@@ -237,6 +285,14 @@ export default function PrBoard() {
           </div>
         ))}
       </div>
+      {hasMore && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 14px' }}>
+          <button type="button" className="btn" onClick={loadMore} disabled={loading}>
+            <IconRefresh width={14} height={14} />
+            {loading ? 'Loading' : 'Load more pull requests'}
+          </button>
+        </div>
+      )}
 
       {showCreate && (
         <CreatePrModal

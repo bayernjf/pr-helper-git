@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getCommitDiff, getCommitFiles, type CommitFile } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -31,7 +31,14 @@ export default function CommitDetail() {
     label: 'Resize commit detail panel',
   });
 
-  useEscape(() => setPatch(null), !!patch);
+  useEscape(() => closePatch(), !!patch);
+
+  function closePatch() {
+    // Invalidate any patch request still in flight so it cannot reopen the
+    // dialog after the user closed it.
+    patchSeq.current += 1;
+    setPatch(null);
+  }
 
   async function copyHash() {
     if (!commit) return;
@@ -46,22 +53,29 @@ export default function CommitDetail() {
   // Depend on the selected hash rather than the commit object: a background
   // SSE refresh recreates the commit array (new object identities) but keeps
   // the same hash, so the open modal and file list must not be reset.
+  const patchSeq = useRef(0);
   useEffect(() => {
+    let cancelled = false;
     setFiles([]);
     setPatch(null);
     if (!selectedHash || !activeRepo) return;
     getCommitFiles(activeRepo, selectedHash)
-      .then((res) => setFiles(res.files))
-      .catch(() => setFiles([]));
+      .then((res) => { if (!cancelled) setFiles(res.files); })
+      .catch(() => { if (!cancelled) setFiles([]); });
+    return () => { cancelled = true; };
   }, [selectedHash, activeRepo]);
 
   async function openPatch(file: CommitFile) {
     if (!commit || !activeRepo) return;
+    // Ignore a stale response when the user clicks another file meanwhile.
+    const seq = ++patchSeq.current;
     try {
       const result = await getCommitDiff(activeRepo, commit.hash, file.path);
-      setPatch(result);
-    } catch {
+      if (seq === patchSeq.current) setPatch(result);
+    } catch (err: any) {
+      if (seq !== patchSeq.current) return;
       setPatch(null);
+      toast(err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'cannot load patch', 'error');
     }
   }
 
@@ -158,7 +172,7 @@ export default function CommitDetail() {
       </div>
 
       {patch && (
-        <div className="modal-backdrop" onClick={() => setPatch(null)}>
+        <div className="modal-backdrop" onClick={closePatch}>
           <div
             className="modal"
             style={{ width: '86vw', height: '82vh', display: 'flex', flexDirection: 'column' }}
@@ -166,7 +180,7 @@ export default function CommitDetail() {
           >
             <div className="modal-header">
               <h2>{shortHash(commit.hash)} — {patch.path}</h2>
-              <button type="button" className="icon-btn" aria-label="Close patch" title="Close patch" onClick={() => setPatch(null)}>
+              <button type="button" className="icon-btn" aria-label="Close patch" title="Close patch" onClick={closePatch}>
                 <IconX />
               </button>
             </div>

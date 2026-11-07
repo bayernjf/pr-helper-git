@@ -55,7 +55,7 @@ function post(path: string, body: unknown) {
 export const getRepos = () => request<{ repos: RepoBrief[] }>('/api/repos');
 
 export const addRepo = (repo: string) =>
-  post('/api/repos/add', { repo }) as Promise<{ repos: string[] }>;
+  post('/api/repos/add', { repo }) as Promise<{ repos: string[]; path: string }>;
 
 export const removeRepo = (repo: string) =>
   post('/api/repos/remove', { repo }) as Promise<{ repos: string[] }>;
