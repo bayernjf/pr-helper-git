@@ -10,6 +10,7 @@ import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
 import CompareModal from './CompareModal';
 import GrepModal from './GrepModal';
+import GlobalGrepModal from './GlobalGrepModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import SettingsModal from './SettingsModal';
@@ -22,6 +23,7 @@ import {
   IconClock,
   IconDownload,
   IconGear,
+  IconGlobe,
   IconSearch,
   IconServer,
   IconSplit,
@@ -47,6 +49,7 @@ export default function Toolbar() {
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showGrep, setShowGrep] = useState(false);
+  const [showGlobalGrep, setShowGlobalGrep] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
   const confirm = useConfirm();
@@ -245,6 +248,14 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Search across all repositories"
+        onClick={() => setShowGlobalGrep(true)}
+      >
+        <IconGlobe />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="Compare two references"
         disabled={!activeRepo}
         onClick={() => setShowCompare(true)}
@@ -293,6 +304,7 @@ export default function Toolbar() {
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
+      {showGlobalGrep && <GlobalGrepModal onClose={() => setShowGlobalGrep(false)} />}
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
       {dropMenu && (
         <ContextMenu

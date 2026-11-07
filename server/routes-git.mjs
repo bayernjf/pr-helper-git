@@ -53,6 +53,19 @@ function gitFail(err, fallback) {
   return fail(400, fallback, err.stderr || err.message);
 }
 
+// Parse `git grep -n` output lines ("path:line:text") into structured matches.
+function parseGrepLines(raw) {
+  return raw.split('\n').filter(Boolean).map((line) => {
+    const first = line.indexOf(':');
+    const second = line.indexOf(':', first + 1);
+    return {
+      path: line.slice(0, first),
+      line: Number(line.slice(first + 1, second)),
+      text: line.slice(second + 1),
+    };
+  });
+}
+
 // Resolve a user-supplied parent directory and confirm it exists.
 async function resolveParentDir(raw) {
   if (typeof raw !== 'string' || !raw.trim()) return null;
@@ -284,6 +297,47 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     ensureWatching(target);
     await appendAudit({ ok: true, action: 'repo-init', repo: target, preExisting: exists });
     return ok({ repos, path: target });
+  }
+
+  // Search the same pattern across every registered repository. A failure in
+  // one repo (no match, missing work tree, etc.) is reported for that repo
+  // instead of failing the whole aggregation.
+  if (pathname === '/api/grep-all' && method === 'GET') {
+    const pattern = typeof query.get('pattern') === 'string' ? query.get('pattern') : '';
+    if (!pattern) return fail(400, 'missing search pattern');
+    if (pattern.includes('\0')) return fail(400, 'invalid pattern');
+    const GLOBAL_MATCH_CAP = 500;
+    const registered = await listRepos();
+    const results = [];
+    let budget = GLOBAL_MATCH_CAP;
+    let truncated = false;
+    for (const repo of registered) {
+      let matches;
+      try {
+        const raw = await git(['grep', '-I', '-n', '--untracked', pattern], repo);
+        matches = parseGrepLines(raw);
+      } catch (err) {
+        // git grep exits 1 when nothing matches; other errors are isolated.
+        if (err && err.code === 1) {
+          matches = [];
+        } else {
+          results.push({ repo, name: path.basename(repo), matches: [], error: err.stderr || err.message });
+          continue;
+        }
+      }
+      if (matches.length > budget) {
+        matches = matches.slice(0, budget);
+        truncated = true;
+      }
+      budget -= matches.length;
+      results.push({ repo, name: path.basename(repo), matches });
+      if (budget <= 0) {
+        truncated = true;
+        break;
+      }
+    }
+    const total = results.reduce((sum, r) => sum + r.matches.length, 0);
+    return ok({ pattern, results, total, truncated, limit: GLOBAL_MATCH_CAP });
   }
 
   // GitHub-specific endpoints are handled by routes-github.mjs and do not
@@ -718,15 +772,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       const argv = ['grep', '-I', '-n', '--untracked', pattern];
       if (grepPath) argv.push('--', grepPath);
       const raw = await git(argv, repo);
-      const matches = raw.split('\n').filter(Boolean).map((line) => {
-        const first = line.indexOf(':');
-        const second = line.indexOf(':', first + 1);
-        return {
-          path: line.slice(0, first),
-          line: Number(line.slice(first + 1, second)),
-          text: line.slice(second + 1),
-        };
-      });
+      const matches = parseGrepLines(raw);
       return ok({ matches, truncated: false, total: matches.length });
     } catch (err) {
       // git grep exits 1 when nothing matches; treat that as an empty result.

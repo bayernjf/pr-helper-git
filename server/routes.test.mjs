@@ -235,6 +235,21 @@ describe('read routes', () => {
     expect(miss.status).toBe(200);
     expect(miss.json.total).toBe(0);
   });
+
+  it('searches across every registered repository with grep-all', async () => {
+    const hit = await get(`/api/grep-all?pattern=${q('bravo')}`);
+    expect(hit.status).toBe(200);
+    expect(hit.json.results).toHaveLength(1);
+    expect(hit.json.results[0].repo).toBe(repoDir);
+    expect(hit.json.results[0].matches[0].path).toBe('b.txt');
+    expect(hit.json.total).toBe(1);
+    expect(hit.json.truncated).toBe(false);
+    const miss = await get(`/api/grep-all?pattern=${q('no-such-term-xyz')}`);
+    expect(miss.status).toBe(200);
+    expect(miss.json.total).toBe(0);
+    const bad = await get('/api/grep-all');
+    expect(bad.status).toBe(400);
+  });
 });
 
 describe('write routes', () => {

@@ -99,6 +99,22 @@ export const searchGrep = (repo: string, pattern: string, path?: string) =>
       + (path ? `&path=${encodeURIComponent(path)}` : ''),
   );
 
+export interface GrepRepoResult {
+  repo: string;
+  name: string;
+  matches: GrepMatch[];
+  error?: string;
+}
+
+export const searchAllGrep = (pattern: string) =>
+  request<{
+    pattern: string;
+    results: GrepRepoResult[];
+    total: number;
+    truncated: boolean;
+    limit: number;
+  }>(`/api/grep-all?pattern=${encodeURIComponent(pattern)}`);
+
 export const moveFile = (repo: string, from: string, to: string) =>
   post('/api/mv', { repo, from, to }) as Promise<{ ok: boolean; from: string; to: string }>;
 
