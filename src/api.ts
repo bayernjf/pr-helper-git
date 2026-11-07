@@ -74,10 +74,17 @@ export const resetCommit = (
 ) => post('/api/reset', { repo, sha, mode, confirm }) as Promise<{ ok: boolean; mode: string }>;
 
 export const revertCommit = (repo: string, sha: string, mainline?: number) =>
-  post('/api/revert', { repo, sha, mainline }) as Promise<{
+  post('/api/revert', { repo, sha, mainline}) as Promise<{
     ok: boolean;
     reverted: string;
     mainline?: number | null;
+  }>;
+
+export const revertCommitsBatch = (repo: string, shas: string[]) =>
+  post('/api/revert-batch', { repo, shas }) as Promise<{
+    ok: boolean;
+    reverted: string[];
+    count: number;
   }>;
 
 export const ignoreFile = (repo: string, file: string) =>

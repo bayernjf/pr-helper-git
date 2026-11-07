@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { resetCommit, revertCommit } from '../api';
+import { resetCommit, revertCommit, revertCommitsBatch } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
@@ -104,7 +104,20 @@ export default function CommitGraph() {
   const [search, setSearch] = useState('');
   const [pathDraft, setPathDraft] = useState('');
   const [filterModal, setFilterModal] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const filterCount = Object.values(logFilters).filter(Boolean).length;
+
+  // Batch selection belongs to one repository; drop it when switching repos.
+  useEffect(() => { setChecked(new Set()); }, [currentRepo]);
+
+  function toggleChecked(hash: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(hash)) next.delete(hash);
+      else next.add(hash);
+      return next;
+    });
+  }
 
   // Keep the draft aligned when the active path changes externally (repo switch).
   useEffect(() => { setPathDraft(logPath); }, [logPath, currentRepo]);
@@ -250,6 +263,36 @@ export default function CommitGraph() {
 
   const canLoadMore = !search.trim() && logLimit < LOG_MAX && commits.length >= logLimit;
 
+  async function handleBatchRevert() {
+    if (!currentRepo || checked.size < 2) return;
+    const hasMerge = [...checked].some((hash) => {
+      const target = commits.find((c) => c.hash === hash);
+      return target && target.parents.length > 1;
+    });
+    if (hasMerge) {
+      toast('Merge commits cannot be batch reverted; revert them individually', 'error');
+      return;
+    }
+    const yes = await confirm(
+      `Revert ${checked.size} commits?`,
+      'git revert creates one new commit per selected change; history is not rewritten.',
+    );
+    if (!yes) return;
+    const result = await runAction(
+      revertCommitsBatch(currentRepo, [...checked]),
+      `Reverted ${checked.size} commits`,
+    );
+    if (result !== null) setChecked(new Set());
+  }
+
+  function handleBatchCopy() {
+    const shas = [...checked].join('\n');
+    navigator.clipboard?.writeText(shas).then(
+      () => toast(`${checked.size} SHAs copied to clipboard`, 'success'),
+      () => toast('Copy failed', 'error'),
+    );
+  }
+
   if (!commits.length) {
     return (
       <div className="graph-scroll">
@@ -394,6 +437,15 @@ export default function CommitGraph() {
             }}
           >
             <div className="graph-body" style={{ paddingLeft: graphWidth }}>
+              <input
+                type="checkbox"
+                className="graph-check"
+                title="Select for batch actions"
+                checked={checked.has(commit.hash)}
+                aria-label={`Select commit ${shortHash(commit.hash)} for batch actions`}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleChecked(commit.hash)}
+              />
               <RefBadges hash={commit.hash} />
               <span className="graph-subject">{commit.subject}</span>
               <span className="graph-author">{commit.authorName}</span>
@@ -406,6 +458,32 @@ export default function CommitGraph() {
 
       {visibleCommits.length === 0 && (
         <div className="graph-no-match">No commits match “{search}”.</div>
+      )}
+
+      {checked.size > 0 && (
+        <div className="batch-bar" role="group" aria-label="Batch actions for selected commits">
+          <span className="batch-count">{checked.size} selected</span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={checked.size < 2}
+            title={checked.size < 2 ? 'Select at least two commits' : 'Revert all selected commits'}
+            onClick={handleBatchRevert}
+          >
+            <IconRevert width={14} height={14} /> Revert
+          </button>
+          <button type="button" className="btn" onClick={handleBatchCopy}>
+            <IconCopy width={14} height={14} /> Copy SHAs
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Clear selection"
+            onClick={() => setChecked(new Set())}
+          >
+            <IconX width={14} height={14} />
+          </button>
+        </div>
       )}
 
       {canLoadMore && (

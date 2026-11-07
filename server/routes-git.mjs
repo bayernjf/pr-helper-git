@@ -1333,6 +1333,44 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  // Revert several commits in one command. Merge commits are rejected here
+  // because they need a per-commit mainline choice; revert those individually.
+  if (pathname === '/api/revert-batch') {
+    const raw = Array.isArray(body.shas) ? body.shas : [];
+    const shas = [];
+    for (const item of raw) {
+      if (typeof item !== 'string' || !/^[0-9a-f]{7,40}$/.test(item.trim())) {
+        return fail(400, 'every item must be a valid commit sha');
+      }
+      const sha = item.trim();
+      if (!shas.includes(sha)) shas.push(sha);
+    }
+    if (shas.length < 2) return fail(400, 'provide at least two shas');
+    if (shas.length > 25) return fail(400, 'too many shas (max 25)');
+    try {
+      // Reject merge commits before touching the working tree.
+      for (const sha of shas) {
+        const line = (await git(['rev-list', '--parents', '-n', '1', sha], repo)).trim().split(/\s+/);
+        if (line.length - 1 > 1) {
+          return fail(400, 'batch revert cannot include merge commits', `revert ${sha} individually`);
+        }
+      }
+      // Revert oldest first so the changes apply in a predictable order.
+      const ordered = [...shas].reverse();
+      const result = await git(['revert', '--no-edit', ...ordered], repo);
+      await appendAudit({ ok: true, action: 'revert-batch', repo, count: shas.length, shas });
+      return ok({ ok: true, reverted: shas, count: shas.length, result: result.trim() });
+    } catch (err) {
+      try {
+        await git(['revert', '--abort'], repo);
+      } catch {
+        // no revert in progress
+      }
+      await appendAudit({ ok: false, action: 'revert-batch', repo, shas });
+      return gitFail(err, 'batch git revert failed');
+    }
+  }
+
   if (pathname === '/api/ignore') {
     const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
     if (!target) return fail(400, 'invalid file path');

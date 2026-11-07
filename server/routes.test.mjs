@@ -410,6 +410,31 @@ describe('write routes', () => {
     expect(exists).toBe(false);
   });
 
+  it('reverts several commits in one batch', async () => {
+    await fsp.writeFile(path.join(repoDir, 'batch1.txt'), 'one\n', 'utf8');
+    git(['add', '.'], repoDir);
+    git(['commit', '-m', 'add batch1'], repoDir);
+    await fsp.writeFile(path.join(repoDir, 'batch2.txt'), 'two\n', 'utf8');
+    git(['add', '.'], repoDir);
+    git(['commit', '-m', 'add batch2'], repoDir);
+    const log = (await get(`/api/log?repo=${q(repoDir)}`)).json.commits;
+    const shas = [log[0].hash, log[1].hash]; // newest first
+    const r = await post('/api/revert-batch', { repo: repoDir, shas });
+    expect(r.status).toBe(200);
+    expect(r.json.count).toBe(2);
+    for (const f of ['batch1.txt', 'batch2.txt']) {
+      const exists = await fsp.access(path.join(repoDir, f)).then(() => true).catch(() => false);
+      expect(exists).toBe(false);
+    }
+  });
+
+  it('rejects invalid batch revert payloads', async () => {
+    const empty = await post('/api/revert-batch', { repo: repoDir, shas: [] });
+    expect(empty.status).toBe(400);
+    const bad = await post('/api/revert-batch', { repo: repoDir, shas: ['xyz', 'abc'] });
+    expect(bad.status).toBe(400);
+  });
+
   it('rejects hard reset without confirmation', async () => {
     const head = (await get(`/api/log?repo=${q(repoDir)}`)).json.commits[0].hash;
     const r = await post('/api/reset', { repo: repoDir, mode: 'hard', sha: head });
