@@ -43,7 +43,12 @@ repository is never pushed.
   (server-side diff splice + `git apply --cached`, `MM` partial status,
   unstage via reverse apply), per-hunk discard (reverse apply to the
   working tree, index untouched), and editor keyboard shortcuts (Cmd/Ctrl+S
-  save, Tab/Shift+Tab indent).
+  save, Tab/Shift+Tab indent), a light theme with a persisted toggle
+  (GitHub-style light token set, FOUC-free first paint), PR board filtering
+  (number/title/author/branch/label/draft across every column), in-app new
+  file creation (nested paths auto-create parent directories, then opens in
+  the editor), and repository git config management (local/effective values
+  for a whitelisted set of keys with per-type validation and unset-to-inherit).
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
@@ -171,6 +176,14 @@ repository is never pushed.
 - [x] Project-level code review: grep option-injection, per-repo panel height
   restoration, graph space-key default, unused shortcut binding, malformed URI
   status (full 117-test acceptance, five atomic commits)
+- [x] Capability-gap audit: extracted all API routes and probed for real
+  missing features (theme/filter/new-file/config), not name-only matches
+- [x] Light theme with persisted toggle; define the missing --bg-elevated
+  token (fix) discovered while theming
+- [x] PR board filter search across all three columns
+- [x] In-app new file creation with auto-created parent directories
+- [x] Repository git config management (whitelist, validation, unset)
+- [x] Twentieth iteration: full 121-test acceptance, build, docs, atomic commits
 
 ## Delivery notes
 
@@ -182,7 +195,7 @@ repository is never pushed.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the current total to 117 across 11 files, with CI running lint,
+  bringing the current total to 121 across 11 files, with CI running lint,
   test and build on every push and pull request.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
@@ -620,8 +633,23 @@ repository is never pushed.
   would be a behavior change that could discard a deliberate in-progress
   draft, so the current behavior is retained; the textarea stays visible
   before every commit, letting the user catch a mismatched message.
-- Nineteenth verification: 117 Vitest tests pass across 11 files (two new
-  route tests); tsc clean; vite build output unchanged in size
-  (react-vendor 223.09 KB / gzip 69.19 KB, app 147.52 KB / gzip 37.97 KB,
-  CSS 47.44 KB). A clean browser reload reports zero console errors; the
-  work tree is clean and no remote is configured.
+- Twentieth scope: a capability-gap audit (extract every route, keyword-probe
+  for real gaps, then read the implementation) identified four features worth
+  adding under the zero-dependency product boundary: light theme, PR board
+  filtering, in-app new file creation, and git config management. All were
+  delivered as atomic commits; a separate fix defined the never-declared
+  --bg-elevated token that eleven existing rules referenced.
+- Twentieth backend: GET/POST /api/config reads local and effective values
+  for a whitelisted set of keys and writes repository-local config only.
+  Arbitrary keys are rejected (core.sshCommand/alias/include/... can execute
+  or escape), enum/email/branch values are validated, and an empty value
+  unsets the local override (git exit 5 for an already-missing key is a
+  successful no-op). /api/save now mkdir-recursively before writing so a
+  nested new-file path works; the directory is already inside the validated
+  path and mkdir is a no-op for existing-file edits.
+- Twentieth verification: 121 Vitest tests pass across 11 files (four new
+  config route tests); tsc clean; vite build output (react-vendor 223.09 KB /
+  gzip 69.19 KB, app 153.54 KB / gzip 39.27 KB, CSS 51.98 KB / gzip 9.30 KB,
+  76 modules). A fresh browser tab reports zero console errors/warnings; the
+  throwaway test repo was restored to its empty state and the work tree is
+  clean with no remote configured.
