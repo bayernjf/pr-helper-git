@@ -263,3 +263,28 @@ export function splitFilePatch(diffText) {
 export function buildHunkPatch(header, hunk) {
   return `${[...header, ...hunk].join('\n')}\n`;
 }
+
+// Mirror git's default `strip` message cleanup so a commit template's comment
+// lines are never committed: drop lines whose first non-space character is
+// `#`, trim trailing whitespace, strip leading/trailing blank lines and
+// collapse runs of blank lines into a single one. Returns the cleaned text.
+export function cleanCommitMessage(raw) {
+  const kept = [];
+  for (const line of String(raw).replace(/\r\n/g, '\n').split('\n')) {
+    if (/^\s*#/.test(line)) continue;
+    kept.push(line.replace(/[ \t]+$/, ''));
+  }
+  const out = [];
+  let blankRun = 0;
+  for (const line of kept) {
+    if (line === '') {
+      blankRun += 1;
+      if (blankRun <= 1 && out.length) out.push('');
+    } else {
+      blankRun = 0;
+      out.push(line);
+    }
+  }
+  while (out.length && out[out.length - 1] === '') out.pop();
+  return out.join('\n');
+}

@@ -398,6 +398,18 @@ describe('write routes', () => {
     expect(after).not.toBe(before);
   });
 
+  it('strips comment lines from a commit message before committing', async () => {
+    await fsp.writeFile(path.join(repoDir, 'note.txt'), 'note\n', 'utf8');
+    await post('/api/stage', { repo: repoDir, file: 'note.txt', action: 'stage' });
+    const message = 'Real subject\n\n# template comment\nReal body\n';
+    const r = await post('/api/commit', { repo: repoDir, message });
+    expect(r.status).toBe(200);
+    const log = await get(`/api/log?repo=${q(repoDir)}`);
+    const head = log.json.commits[0];
+    expect(head.subject).toBe('Real subject');
+    expect(head.body).toBe('Real body');
+  });
+
   it('creates and deletes a branch without switching', async () => {
     const created = await post('/api/branch/create', { repo: repoDir, name: 'tmp-branch', noCheckout: true });
     expect(created.status).toBe(200);

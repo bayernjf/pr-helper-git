@@ -4,6 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {
   buildHunkPatch,
+  cleanCommitMessage,
   git,
   parseBlame,
   parseLog,
@@ -917,7 +918,8 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   }
 
   if (pathname === '/api/commit') {
-    const message = typeof body.message === 'string' ? body.message.replace(/\r\n/g, '\n').trim() : '';
+    const raw = typeof body.message === 'string' ? body.message : '';
+    const message = cleanCommitMessage(raw);
     if (!message) return fail(400, 'commit message must not be empty');
     if (message.length > 500) return fail(400, 'commit message must be at most 500 characters');
     if (message.startsWith('-') || message.includes('\0')) return fail(400, 'invalid commit message');
@@ -1154,7 +1156,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   }
 
   if (pathname === '/api/amend') {
-    const message = typeof body.message === 'string' ? body.message.replace(/\r\n/g, '\n').trim() : '';
+    const message = cleanCommitMessage(typeof body.message === 'string' ? body.message : '');
     if (!message) return fail(400, 'amend message must not be empty');
     if (message.length > 500 || message.startsWith('-') || message.includes('\0')) {
       return fail(400, 'invalid amend message');

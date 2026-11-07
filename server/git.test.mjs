@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildHunkPatch,
+  cleanCommitMessage,
   parseBlame,
   parseLog,
   parsePorcelainV2,
@@ -221,5 +222,27 @@ describe('splitFilePatch', () => {
     expect(patch.endsWith('\n\n')).toBe(false);
     expect(patch).toContain('+Y');
     expect(patch).not.toContain('+B');
+  });
+});
+
+describe('cleanCommitMessage', () => {
+  it('strips comment lines and trims surrounding blank lines', () => {
+    const out = cleanCommitMessage(
+      '\nSummary\n\n# a comment that should be removed\nBody text\n\n',
+    );
+    expect(out).toBe('Summary\n\nBody text');
+  });
+
+  it('removes indented comments and trailing whitespace, collapses blank runs', () => {
+    const out = cleanCommitMessage('Title   \n\n\n\n   # indented comment\nPara   \n');
+    expect(out).toBe('Title\n\nPara');
+  });
+
+  it('returns an empty string when only comments and blanks are present', () => {
+    expect(cleanCommitMessage('# only comment\n\n   # another\n')).toBe('');
+  });
+
+  it('keeps a hash that is not at the start of a line', () => {
+    expect(cleanCommitMessage('Add issue #42 support')).toBe('Add issue #42 support');
   });
 });
