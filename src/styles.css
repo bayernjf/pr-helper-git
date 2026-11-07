@@ -28,6 +28,12 @@
 
 * { box-sizing: border-box; }
 
+/* Accessible keyboard focus indicator; mouse clicks do not trigger it. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -408,6 +414,12 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
 }
 .graph-row:hover { background: var(--hover); }
 .graph-row.selected { background: var(--accent-soft); }
+.graph:focus { outline: none; }
+.graph-row:focus { outline: none; }
+.graph-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .graph-row.selected::before {
   content: '';
   position: absolute;

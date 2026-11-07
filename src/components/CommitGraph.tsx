@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { resetCommit, revertCommit } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
@@ -122,6 +122,43 @@ export default function CommitGraph() {
   const lanes = layout.lanes;
   const graphWidth = Math.max(70, lanes * COL_W + PAD_X * 2);
   const totalHeight = visibleCommits.length * ROW_H;
+
+  const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  // Bring a row into the visible area of the scrolling graph container.
+  function revealRow(hash: string) {
+    const el = rowRefs.current.get(hash);
+    el?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Keyboard navigation over the visible commits. Roving tabindex keeps the
+  // graph a single tab stop while arrow keys move the selection.
+  function onGraphKeyDown(event: React.KeyboardEvent) {
+    const count = visibleCommits.length;
+    if (!count) return;
+    const currentIndex = visibleCommits.findIndex((c) => c.hash === selectedHash);
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowDown') {
+      nextIndex = Math.min(count - 1, currentIndex < 0 ? 0 : currentIndex + 1);
+    } else if (event.key === 'ArrowUp') {
+      nextIndex = Math.max(0, currentIndex < 0 ? 0 : currentIndex - 1);
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = count - 1;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      if (currentIndex >= 0) selectCommit(visibleCommits[currentIndex].hash);
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const target = visibleCommits[nextIndex];
+    if (!target) return;
+    selectCommit(target.hash);
+    revealRow(target.hash);
+    rowRefs.current.get(target.hash)?.focus();
+  }
 
   const edges = useMemo(() => {
     const out: Array<{ key: string; d: string; color: string }> = [];
@@ -297,7 +334,14 @@ export default function CommitGraph() {
         </span>
       </div>
 
-      <div className="graph" style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}>
+      <div
+        className="graph"
+        role="listbox"
+        aria-label="Commit history"
+        tabIndex={0}
+        onKeyDown={onGraphKeyDown}
+        style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}
+      >
         <svg className="graph-svg" width={graphWidth} height={totalHeight}>
           {edges.map((e) => (
             <path key={e.key} d={e.d} fill="none" stroke={e.color} strokeWidth={2} />
@@ -333,6 +377,13 @@ export default function CommitGraph() {
         {layout.commits.map((commit, row) => (
           <div
             key={commit.hash}
+            ref={(el) => {
+              if (el) rowRefs.current.set(commit.hash, el);
+              else rowRefs.current.delete(commit.hash);
+            }}
+            role="option"
+            aria-selected={selectedHash === commit.hash}
+            tabIndex={-1}
             className={`graph-row${selectedHash === commit.hash ? ' selected' : ''}`}
             style={{ top: row * ROW_H, position: 'absolute', left: 0, right: 0 }}
             onClick={() => selectCommit(commit.hash)}
