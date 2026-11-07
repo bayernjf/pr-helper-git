@@ -8,6 +8,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split the React runtime from application code so the framework can
+        // be cached independently and the chunks load in parallel.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react')) {
+            return 'react-vendor';
+          }
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     host: '127.0.0.1',

@@ -16,6 +16,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
+      # Advisory only: surfaces high/critical advisories without failing the
+      # build if the registry endpoint is temporarily unavailable.
+      - run: npm audit --audit-level=high
+        continue-on-error: true
       - run: npm run lint
       - run: npm test
       - run: npm run build
