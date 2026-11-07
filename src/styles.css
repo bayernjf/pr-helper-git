@@ -320,6 +320,7 @@ button {
   width: 240px;
   flex: 0 0 auto;
   overflow-y: auto;
+  position: relative;
   background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 10px 0;
@@ -619,10 +620,44 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
   width: 320px;
   flex: 0 0 auto;
   overflow-y: auto;
+  position: relative;
   background: var(--panel);
   border-left: 1px solid var(--border);
   padding: 16px;
 }
+
+/* Draggable panel-edge separators: sidebar right edge, detail left edge. */
+.col-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  z-index: 7;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.sidebar .col-resize { right: -4px; }
+.detail .col-resize { left: -4px; }
+.col-resize::after {
+  content: '';
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.col-resize:hover::after,
+.col-resize:focus-visible::after,
+.col-resize.dragging::after {
+  background: var(--accent);
+}
+.col-resize:focus-visible { outline: none; }
 
 .detail h3 {
   margin: 0 0 14px;

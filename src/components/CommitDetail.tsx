@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCommitDiff, getCommitFiles, type CommitFile } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
+import { useResizable } from '../hooks/use-resizable';
 import { formatFullDate, shortHash } from '../lib/format';
 import type { DiffResult } from '../types';
 import DiffView from './DiffView';
@@ -21,6 +22,14 @@ export default function CommitDetail() {
   const [files, setFiles] = useState<CommitFile[]>([]);
   const [patch, setPatch] = useState<DiffResult | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
+  const { widthStyle: detailStyle, separatorProps: detailSeparator } = useResizable({
+    prefKey: 'detailWidth',
+    initial: 320,
+    min: 240,
+    max: 560,
+    edge: 'left',
+    label: 'Resize commit detail panel',
+  });
 
   useEscape(() => setPatch(null), !!patch);
 
@@ -58,14 +67,16 @@ export default function CommitDetail() {
 
   if (!commit) {
     return (
-      <aside className="detail">
+      <aside className="detail" style={detailStyle}>
+        <button type="button" className="col-resize" {...detailSeparator} />
         <div className="diff-empty">Select a commit in the graph to inspect its metadata.</div>
       </aside>
     );
   }
 
   return (
-    <aside className="detail">
+    <aside className="detail" style={detailStyle}>
+      <button type="button" className="col-resize" {...detailSeparator} />
       <h3>{commit.subject}</h3>
 
       <div className="detail-section">

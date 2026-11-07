@@ -28,6 +28,12 @@ export function getPref<T>(key: string, fallback: T): T {
   return Object.prototype.hasOwnProperty.call(store, key) ? (store[key] as T) : fallback;
 }
 
+// Whether an explicit preference has been stored, distinguishing a default
+// value from a user-chosen one that happens to equal it.
+export function hasPref(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(readStore(), key);
+}
+
 export function setPref<T>(key: string, value: T): void {
   const store = readStore();
   store[key] = value;

@@ -22,6 +22,7 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
+import { useResizable } from '../hooks/use-resizable';
 import { ContextMenu, type MenuItem } from './context-menu';
 import {
   IconBranch,
@@ -173,6 +174,14 @@ export default function RefSidebar() {
     toast,
   } = useApp();
   const confirm = useConfirm();
+  const { widthStyle: sidebarStyle, separatorProps: sidebarSeparator } = useResizable({
+    prefKey: 'sidebarWidth',
+    initial: 240,
+    min: 180,
+    max: 420,
+    edge: 'right',
+    label: 'Resize reference sidebar',
+  });
   const [showNew, setShowNew] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [rename, setRename] = useState<RenameState | null>(null);
@@ -412,7 +421,8 @@ export default function RefSidebar() {
     });
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={sidebarStyle}>
+      <button type="button" className="col-resize" {...sidebarSeparator} />
       {rebaseInProgress && (
         <div className="merge-banner rebase-banner">
           <span className="merge-banner-msg">Rebase in progress — resolve conflicts, then continue or abort</span>
