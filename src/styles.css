@@ -534,6 +534,10 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
   top: 0;
   left: 0;
   pointer-events: none;
+  /* Keep the lanes and nodes above each row's hover/selected background,
+     which otherwise paints over the graph. Text starts after graphWidth,
+     so a higher z-index here never covers the row content. */
+  z-index: 2;
 }
 
 .graph-body {
