@@ -2706,3 +2706,17 @@ pre.diff {
   border-left: 2px solid var(--border-soft);
   padding-left: 8px;
 }
+
+/* ---------- Accessibility: reduced motion ---------- */
+/* Honour the OS-level reduce-motion setting by collapsing every animation and
+   transition to a near-instant state change while keeping the same result. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
