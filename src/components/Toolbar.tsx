@@ -26,10 +26,12 @@ import {
   IconGear,
   IconGlobe,
   IconKeyboard,
+  IconMoon,
   IconSearch,
   IconServer,
   IconSplit,
   IconStash,
+  IconSun,
   IconUpload,
 } from './icons';
 
@@ -39,9 +41,11 @@ export default function Toolbar() {
     activeRepo,
     activeBrief,
     view,
+    theme,
     busy,
     selectRepo,
     setView,
+    toggleTheme,
     runAction,
   } = useApp();
   const [showAdd, setShowAdd] = useState(false);
@@ -293,6 +297,15 @@ export default function Toolbar() {
         onClick={() => setShowAudit(true)}
       >
         <IconAudit />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        onClick={toggleTheme}
+      >
+        {theme === 'dark' ? <IconMoon /> : <IconSun />}
       </button>
       <button
         type="button"

@@ -21,6 +21,7 @@ import { useToast, type ToastKind } from './components/ui';
 import { getPref, setPref } from './lib/prefs';
 
 type View = 'git' | 'pr';
+export type Theme = 'dark' | 'light';
 const ACTIVE_KEY = 'git2-active-repo';
 const PAT_KEY = 'git2-pat';
 export const LOG_PAGE_SIZE = 200;
@@ -37,6 +38,7 @@ interface AppData {
   remote: RemoteInfo | null;
   selectedHash: string | null;
   view: View;
+  theme: Theme;
   pat: string;
   busy: boolean;
   repoLoading: boolean;
@@ -52,6 +54,7 @@ interface AppData {
   selectRepo: (path: string) => void;
   selectCommit: (hash: string | null) => void;
   setView: (view: View) => void;
+  toggleTheme: () => void;
   refreshRepos: () => Promise<RepoBrief[]>;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
@@ -72,6 +75,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [remote, setRemote] = useState<RemoteInfo | null>(null);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
   const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
+  const [theme, setTheme] = useState<Theme>(() => getPref<Theme>('theme', 'dark'));
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
@@ -193,6 +197,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setPref('view', next);
   }, []);
 
+  // Reflect the theme on <html> and persist it. main.tsx sets the attribute
+  // before first render to avoid a flash of the wrong theme.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    setPref('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
   // Switch the history scope and reload the active repo immediately.
   const setLogScope = useCallback((scope: 'all' | 'current') => {
     setLogScopeState(scope);
@@ -264,6 +279,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       remote,
       selectedHash,
       view,
+      theme,
       pat,
       busy,
       repoLoading,
@@ -279,6 +295,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       selectRepo,
       selectCommit: setSelectedHash,
       setView,
+      toggleTheme,
       refreshRepos,
       refresh,
       loadMore,
@@ -286,8 +303,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    pat, busy, repoLoading, logLimit, logScope, logPath, logFilters, toast, setPat, setLogScope,
-    setLogPath, setLogFilters, selectRepo, refreshRepos, refresh, loadMore, runAction,
+    theme, pat, busy, repoLoading, logLimit, logScope, logPath, logFilters,
+    toast, setPat, setLogScope,
+    setLogPath, setLogFilters, selectRepo, refreshRepos, refresh, loadMore,
+    runAction, toggleTheme,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
