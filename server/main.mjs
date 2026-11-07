@@ -169,7 +169,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static files from dist/.
-    let rel = decodeURIComponent(pathname);
+    let rel;
+    try {
+      rel = decodeURIComponent(pathname);
+    } catch {
+      // Malformed percent-encoding (e.g. '%E0%A4') is a client error; reject
+      // it with 400 instead of letting the outer handler answer with 500.
+      res.writeHead(400, NOSNIFF);
+      return res.end('bad path');
+    }
     if (rel === '/') rel = '/index.html';
     const safe = rel.replace(/^\/+/, '');
     if (safe.includes('..') || safe.startsWith('/')) {

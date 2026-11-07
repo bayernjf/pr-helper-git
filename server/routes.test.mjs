@@ -175,6 +175,11 @@ describe('health and registry', () => {
     const r = await post('/api/repos/add', { repo: homeDir });
     expect(r.status).toBe(400);
   });
+
+  it('rejects a malformed static URI with 400', async () => {
+    const r = await get('/%E0%A4%A');
+    expect(r.status).toBe(400);
+  });
 });
 
 describe('read routes', () => {
