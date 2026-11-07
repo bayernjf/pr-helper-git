@@ -180,6 +180,11 @@ describe('health and registry', () => {
     const r = await get('/%E0%A4%A');
     expect(r.status).toBe(400);
   });
+
+  it('rejects repository removal without a target', async () => {
+    const r = await post('/api/repos/remove', {});
+    expect(r.status).toBe(400);
+  });
 });
 
 describe('read routes', () => {

@@ -282,6 +282,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
     const target = typeof body.repo === 'string' ? body.repo : null;
+    if (!target) return fail(400, 'invalid repository path');
     const repos = await removeRepo(target);
     stopWatching(target);
     await appendAudit({ action: 'repo-remove', repo: target });
