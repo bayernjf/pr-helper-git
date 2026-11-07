@@ -5,6 +5,7 @@ import {
   cleanForce,
   commitChanges,
   discardFile,
+  getCommitTemplate,
   getDiff,
   ignoreFile,
   removeFile,
@@ -285,6 +286,23 @@ export default function WorkPanel() {
       return next;
     });
   };
+
+  // Prefill the commit message from the configured `commit.template` when the
+  // repository changes and the field is still empty, so user edits are kept.
+  const messageRef = useRef(message);
+  messageRef.current = message;
+  useEffect(() => {
+    if (!activeRepo) return;
+    let cancelled = false;
+    getCommitTemplate(activeRepo)
+      .then((res) => {
+        if (!cancelled && res.configured && res.text && !messageRef.current.trim()) {
+          setMessage(res.text);
+        }
+      })
+      .catch(() => { /* template is optional; ignore failures */ });
+    return () => { cancelled = true; };
+  }, [activeRepo]);
 
   // Clear a stale selection after the file list changes.
   useEffect(() => {

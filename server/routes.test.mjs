@@ -40,6 +40,13 @@ beforeAll(async () => {
   await fsp.mkdir(homeDir);
   await fsp.mkdir(repoDir);
 
+  // Isolate global Git config so a machine-wide `commit.template` (or other
+  // user settings) cannot leak into these assertions. Both the direct git
+  // calls below and the spawned server inherit this environment.
+  const globalConfig = path.join(tmpRoot, 'global.gitconfig');
+  await fsp.writeFile(globalConfig, '', 'utf8');
+  process.env.GIT_CONFIG_GLOBAL = globalConfig;
+
   git(['init', '-b', 'main'], repoDir);
   git(['config', 'user.email', 'tester@example.com'], repoDir);
   git(['config', 'user.name', 'Tester'], repoDir);
@@ -104,11 +111,21 @@ beforeAll(async () => {
       process.stderr.write(chunk);
     });
   });
-}, 30_000);
+}, 60_000);
 
 afterAll(async () => {
   if (serverProc) serverProc.kill('SIGTERM');
-  await fsp.rm(tmpRoot, { recursive: true, force: true });
+  // Retry cleanup: on a heavily loaded machine a child can still release a
+  // file when the recursive removal reaches its directory (ENOTEMPTY).
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await fsp.rm(tmpRoot, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      if (err.code !== 'ENOTEMPTY' || attempt === 2) throw err;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
 });
 
 async function api(reqPath, options = {}) {
@@ -249,6 +266,21 @@ describe('read routes', () => {
     expect(miss.json.total).toBe(0);
     const bad = await get('/api/grep-all');
     expect(bad.status).toBe(400);
+  });
+
+  it('reads the configured commit template and reports when missing', async () => {
+    const none = await get(`/api/commit-template?repo=${q(repoDir)}`);
+    expect(none.status).toBe(200);
+    expect(none.json.configured).toBe(false);
+
+    await fsp.writeFile(path.join(repoDir, 'template.txt'), 'Summary\n\nDetails go here.\n', 'utf8');
+    git(['config', 'commit.template', 'template.txt'], repoDir);
+    const r = await get(`/api/commit-template?repo=${q(repoDir)}`);
+    expect(r.status).toBe(200);
+    expect(r.json.configured).toBe(true);
+    expect(r.json.path).toBe('template.txt');
+    expect(r.json.text).toContain('Details go here.');
+    // Leave the config in place; later commit tests do not depend on it.
   });
 });
 

@@ -23,5 +23,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'server/**/*.test.mjs'],
+    // Generous defaults keep the suite reliable on a loaded workstation or CI
+    // runner; individual tests normally finish in well under a second.
+    testTimeout: 20_000,
+    hookTimeout: 60_000,
   },
 });

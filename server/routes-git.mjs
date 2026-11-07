@@ -362,6 +362,36 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
   }
 
+  // Read the configured `commit.template` (git config) and its content so the
+  // commit form can prefill it. A missing config is a normal "not configured".
+  if (pathname === '/api/commit-template' && method === 'GET') {
+    let configuredPath;
+    try {
+      configuredPath = (await git(['config', '--get', 'commit.template'], repo)).trim();
+    } catch (err) {
+      if (err && err.code === 1) return ok({ configured: false });
+      return gitFail(err, 'git config failed');
+    }
+    if (!configuredPath) return ok({ configured: false });
+    // Relative template paths resolve inside the repository; absolute paths
+    // (a common global template in the home directory) are read directly.
+    let resolved;
+    if (path.isAbsolute(configuredPath)) {
+      resolved = path.resolve(configuredPath);
+    } else {
+      resolved = await resolveInside(repo, configuredPath);
+      if (!resolved) return fail(403, 'template path escapes repo root');
+    }
+    try {
+      const stat = await fsp.stat(resolved);
+      if (stat.size > SAVE_MAX_BYTES) return fail(400, 'commit template too large');
+      const text = await fsp.readFile(resolved, 'utf8');
+      return ok({ configured: true, path: configuredPath, text });
+    } catch (err) {
+      return fail(400, 'cannot read commit template', err.message);
+    }
+  }
+
   if (pathname === '/api/log' && method === 'GET') {
     let limit = Number(query.get('limit')) || LOG_LIMIT_DEFAULT;
     if (!Number.isInteger(limit) || limit <= 0) limit = LOG_LIMIT_DEFAULT;

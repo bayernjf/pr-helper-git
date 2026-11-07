@@ -344,6 +344,11 @@ export const discardHunk = (repo: string, file: string, hunk: number) =>
 export const commitChanges = (repo: string, message: string, allowEmpty = false) =>
   post('/api/commit', { repo, message, allowEmpty });
 
+export const getCommitTemplate = (repo: string) =>
+  request<{ configured: boolean; path?: string; text?: string }>(
+    `/api/commit-template?repo=${encodeURIComponent(repo)}`,
+  );
+
 export const discardFile = (repo: string, file: string) =>
   post('/api/discard', { repo, file, confirm: true });
 
