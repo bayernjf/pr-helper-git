@@ -13,7 +13,7 @@ function isEditable(el: EventTarget | null): boolean {
 // Global keyboard shortcuts. Plain-key shortcuts are ignored while a form
 // field is focused so they never interfere with typing.
 export function useShortcuts() {
-  const { setView, refresh, activeRepo, view } = useApp();
+  const { setView, refresh, activeRepo } = useApp();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -49,5 +49,5 @@ export function useShortcuts() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [setView, refresh, activeRepo, view]);
+  }, [setView, refresh, activeRepo]);
 }
