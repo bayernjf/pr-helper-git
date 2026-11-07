@@ -18,6 +18,7 @@ import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import { getPref, setPref, repoPref } from '../lib/prefs';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
+import NewFileModal from './NewFileModal';
 import RenameFileModal from './RenameFileModal';
 import {
   IconBan,
@@ -241,6 +242,7 @@ export default function WorkPanel() {
   const [viewer, setViewer] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
+  const [showNewFile, setShowNewFile] = useState(false);
 
   const startResize = (event: React.PointerEvent) => {
     event.preventDefault();
@@ -475,6 +477,16 @@ export default function WorkPanel() {
       </div>
       <div className="work-content">
         <div className="file-list">
+          <div className="file-list-head">
+            <button
+              type="button"
+              className="new-file-btn"
+              title="Create a new file in this repository"
+              onClick={() => setShowNewFile(true)}
+            >
+              <IconPlus width={13} height={13} /> New file
+            </button>
+          </div>
           <Group
             title="Staged changes"
             files={groups.staged}
@@ -600,6 +612,12 @@ export default function WorkPanel() {
       )}
       {renameTarget && (
         <RenameFileModal path={renameTarget} onClose={() => setRenameTarget(null)} />
+      )}
+      {showNewFile && (
+        <NewFileModal
+          onClose={() => setShowNewFile(false)}
+          onCreated={(path) => setEditTarget(path)}
+        />
       )}
     </section>
   );

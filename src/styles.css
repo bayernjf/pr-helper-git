@@ -753,6 +753,24 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
   border-right: 1px solid var(--border);
   padding: 8px 0;
 }
+.file-list-head { padding: 0 10px 8px; }
+.new-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.new-file-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--hover);
+}
 
 .file-group-label {
   display: flex;

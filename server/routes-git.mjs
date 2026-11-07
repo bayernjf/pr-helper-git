@@ -1496,6 +1496,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
         }
       }
       // Atomic replacement: write a sibling temp file, then rename over it.
+      // Ensure the parent directory exists so a new file can use a nested
+      // path (mkdir is a no-op for an existing directory, e.g. edits).
+      await fsp.mkdir(path.dirname(abs), { recursive: true });
       const tmp = `${abs}.tmp-${process.pid}`;
       await fsp.writeFile(tmp, body.content, 'utf8');
       await fsp.rename(tmp, abs);
