@@ -27,6 +27,7 @@ export interface RepoState {
   mergeInProgress: boolean;
   rebaseInProgress: boolean;
   rebaseType: 'merge' | 'apply' | null;
+  revertInProgress?: boolean;
 }
 
 export interface ParsedStatus {

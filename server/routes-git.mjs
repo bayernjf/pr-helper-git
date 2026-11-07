@@ -180,6 +180,7 @@ async function detectRepoState(absRepo) {
     mergeInProgress: false,
     rebaseInProgress: false,
     rebaseType: null,
+    revertInProgress: false,
   };
   const gitDir = path.join(absRepo, '.git');
   try {
@@ -192,6 +193,11 @@ async function detectRepoState(absRepo) {
     await fsp.access(path.join(gitDir, 'MERGE_HEAD'));
     state.mergeInProgress = true;
   } catch { /* no merge in progress */ }
+  // A conflicting revert leaves REVERT_HEAD behind until --continue/--abort.
+  try {
+    await fsp.access(path.join(gitDir, 'REVERT_HEAD'));
+    state.revertInProgress = true;
+  } catch { /* no revert in progress */ }
   try {
     await fsp.access(path.join(gitDir, 'rebase-merge'));
     state.rebaseInProgress = true;
@@ -204,6 +210,19 @@ async function detectRepoState(absRepo) {
     } catch { /* no rebase in progress */ }
   }
   return state;
+}
+
+// Paths git still reports as conflicted. Used to tell the UI whether "continue"
+// is possible and to name the files the user has to resolve.
+async function unmergedPaths(repo) {
+  try {
+    return (await git(['diff', '--name-only', '--diff-filter=U'], repo))
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 // Free-text filter values are always joined with "=" so they can never be
@@ -1497,11 +1516,21 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ ok: true, reverted: sha, mainline, result: result.trim() });
     } catch (err) {
       // A conflicting revert leaves the repository in a "reverting" state.
-      // Abort it so the caller is returned to a clean working tree.
-      try {
-        await git(['revert', '--abort'], repo);
-      } catch {
-        // No revert was in progress (e.g. the failure happened earlier).
+      // Keep that state so the user can resolve the conflicts in place and
+      // then continue (or explicitly abort), instead of losing the work.
+      const state = await detectRepoState(repo);
+      if (state.revertInProgress) {
+        const conflicts = await unmergedPaths(repo);
+        await appendAudit({ ok: false, action: 'revert', repo, sha, conflicts: conflicts.length });
+        return {
+          status: 409,
+          json: {
+            error: 'revert stopped on conflicts',
+            detail: err.stderr || err.message,
+            conflicts,
+            state,
+          },
+        };
       }
       await appendAudit({ ok: false, action: 'revert', repo, sha });
       return gitFail(err, 'git revert failed');
@@ -1538,13 +1567,54 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       await appendAudit({ ok: true, action: 'revert-batch', repo, count: shas.length, shas });
       return ok({ ok: true, reverted: shas, count: shas.length, result: result.trim() });
     } catch (err) {
-      try {
-        await git(['revert', '--abort'], repo);
-      } catch {
-        // no revert in progress
+      const state = await detectRepoState(repo);
+      if (state.revertInProgress) {
+        const conflicts = await unmergedPaths(repo);
+        await appendAudit({ ok: false, action: 'revert-batch', repo, shas, conflicts: conflicts.length });
+        return {
+          status: 409,
+          json: {
+            error: 'revert stopped on conflicts',
+            detail: err.stderr || err.message,
+            conflicts,
+            state,
+          },
+        };
       }
       await appendAudit({ ok: false, action: 'revert-batch', repo, shas });
       return gitFail(err, 'batch git revert failed');
+    }
+  }
+
+  // Finish a conflicted revert after the user resolved the files. GIT_EDITOR
+  // keeps the command non-interactive; remaining unmerged paths are rejected
+  // here with a clear message instead of a bare git failure.
+  if (pathname === '/api/revert/continue') {
+    const state = await detectRepoState(repo);
+    if (!state.revertInProgress) return fail(409, 'no revert in progress');
+    const conflicts = await unmergedPaths(repo);
+    if (conflicts.length) {
+      return fail(409, 'unresolved conflicts remain', conflicts.join(', '));
+    }
+    const env = { ...process.env, GIT_EDITOR: 'true' };
+    try {
+      const result = await git(['revert', '--continue'], repo, { env });
+      await appendAudit({ ok: true, action: 'revert-continue', repo });
+      return ok({ ok: true, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'revert-continue', repo });
+      return gitFail(err, 'git revert --continue failed');
+    }
+  }
+
+  if (pathname === '/api/revert/abort') {
+    try {
+      const result = await git(['revert', '--abort'], repo);
+      await appendAudit({ ok: true, action: 'revert-abort', repo });
+      return ok({ ok: true, result: result.trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'revert-abort', repo });
+      return gitFail(err, 'git revert --abort failed');
     }
   }
 

@@ -293,6 +293,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (successMessage) toastApi.notify(successMessage, 'success');
       return result;
     } catch (err: any) {
+      // A failed write can still change the repository (conflicted merge,
+      // revert or rebase), so reload before reporting the error; otherwise
+      // the operation banner and unmerged files would not appear.
+      try { await refresh(); } catch { /* surfaced by the original error */ }
       const message = err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'action failed';
       toastApi.error(message);
       return null;

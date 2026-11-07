@@ -16,6 +16,8 @@ let tmpRoot;
 let homeDir;
 let repoDir;
 let rebaseDir;
+let revertDir;
+let revertSha;
 let serverProc;
 let port;
 
@@ -65,8 +67,7 @@ beforeAll(async () => {
   git(['commit', '-m', 'add index'], repoDir);
 
   git(['checkout', '-b', 'feature'], repoDir);
-  await writeFile('feature.txt', 'feature work content\n');
-  git(['add', '.'], repoDir);
+  await writeFile('feature.txt', 'feature work content\n');  git(['add', '.'], repoDir);
   git(['commit', '-m', 'feature work'], repoDir);
 
   git(['checkout', 'main'], repoDir);
@@ -91,6 +92,24 @@ beforeAll(async () => {
   git(['add', '.'], rebaseDir);
   git(['commit', '-m', 'main change'], rebaseDir);
   git(['rebase', 'side'], rebaseDir, true);
+
+  // A third repository where reverting an older commit conflicts with a newer
+  // edit of the same line. Used to verify the revert stays in progress.
+  revertDir = path.join(tmpRoot, 'revert-repo');
+  await fsp.mkdir(revertDir);
+  git(['init', '-b', 'main'], revertDir);
+  git(['config', 'user.email', 'tester@example.com'], revertDir);
+  git(['config', 'user.name', 'Tester'], revertDir);
+  await fsp.writeFile(path.join(revertDir, 'conflict.txt'), 'base\n', 'utf8');
+  git(['add', '.'], revertDir);
+  git(['commit', '-m', 'base commit'], revertDir);
+  await fsp.writeFile(path.join(revertDir, 'conflict.txt'), 'second edit\n', 'utf8');
+  git(['add', '.'], revertDir);
+  git(['commit', '-m', 'second edit'], revertDir);
+  revertSha = git(['rev-parse', 'HEAD'], revertDir).trim();
+  await fsp.writeFile(path.join(revertDir, 'conflict.txt'), 'third edit\n', 'utf8');
+  git(['add', '.'], revertDir);
+  git(['commit', '-m', 'third edit'], revertDir);
 
   await new Promise((resolve, reject) => {
     serverProc = spawn(process.execPath, [serverPath, '--port=0'], {
@@ -605,6 +624,90 @@ describe('rebase operation state', () => {
     const status = await get(`/api/status?repo=${q(rebaseDir)}`);
     expect(status.json.state.rebaseInProgress).toBe(false);
     expect(status.json.status.files).toEqual([]);
+  });
+});
+
+describe('revert conflict handling', () => {
+  it('registers the revert repository', async () => {
+    const r = await post('/api/repos/add', { repo: revertDir });
+    expect(r.status).toBe(200);
+  });
+
+  it('keeps the conflicted working tree instead of aborting', async () => {
+    const r = await post('/api/revert', { repo: revertDir, sha: revertSha });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('revert stopped on conflicts');
+    expect(r.json.conflicts).toContain('conflict.txt');
+    expect(r.json.state.revertInProgress).toBe(true);
+
+    const content = await fsp.readFile(path.join(revertDir, 'conflict.txt'), 'utf8');
+    expect(content).toContain('<<<<<<<');
+    const status = await get(`/api/status?repo=${q(revertDir)}`);
+    expect(status.json.state.revertInProgress).toBe(true);
+    expect(status.json.status.files.some((f) => f.area === 'unmerged')).toBe(true);
+  });
+
+  it('aborts and restores the pre-revert state', async () => {
+    const r = await post('/api/revert/abort', { repo: revertDir });
+    expect(r.status).toBe(200);
+    const status = await get(`/api/status?repo=${q(revertDir)}`);
+    expect(status.json.state.revertInProgress).toBe(false);
+    expect(status.json.status.files).toEqual([]);
+    const content = await fsp.readFile(path.join(revertDir, 'conflict.txt'), 'utf8');
+    expect(content).toBe('third edit\n');
+  });
+
+  it('refuses to continue while conflicts remain', async () => {
+    const r = await post('/api/revert', { repo: revertDir, sha: revertSha });
+    expect(r.status).toBe(409);
+    const cont = await post('/api/revert/continue', { repo: revertDir });
+    expect(cont.status).toBe(409);
+    expect(cont.json.error).toBe('unresolved conflicts remain');
+  });
+
+  it('continues once the conflicts are resolved', async () => {
+    await fsp.writeFile(path.join(revertDir, 'conflict.txt'), 'resolved\n', 'utf8');
+    git(['add', 'conflict.txt'], revertDir);
+    const r = await post('/api/revert/continue', { repo: revertDir });
+    expect(r.status).toBe(200);
+    const status = await get(`/api/status?repo=${q(revertDir)}`);
+    expect(status.json.state.revertInProgress).toBe(false);
+    expect(status.json.status.files).toEqual([]);
+    const log = await get(`/api/log?repo=${q(revertDir)}&limit=5`);
+    expect(log.json.commits[0].subject).toMatch(/^Revert "second edit"$/);
+  });
+});
+
+describe('input validation boundaries', () => {
+  it('rejects option-like and traversal ref names', async () => {
+    const dash = await get(`/api/compare?repo=${q(repoDir)}&base=--help&head=main`);
+    expect(dash.status).toBe(400);
+    const traversal = await get(`/api/compare?repo=${q(repoDir)}&base=main..main&head=main`);
+    expect(traversal.status).toBe(400);
+    const same = await get(`/api/compare?repo=${q(repoDir)}&base=main&head=main`);
+    expect(same.status).toBe(400);
+    const branch = await post('/api/branch/create', { repo: repoDir, name: '-danger' });
+    expect(branch.status).toBe(400);
+    const tag = await post('/api/tag/create', { repo: repoDir, name: 'bad name' });
+    expect(tag.status).toBe(400);
+  });
+
+  it('rejects oversized commit and tag messages', async () => {
+    const commit = await post('/api/commit', { repo: repoDir, message: 'x'.repeat(501) });
+    expect(commit.status).toBe(400);
+    const tag = await post('/api/tag/create', { repo: repoDir, name: 'long-tag', message: 'y'.repeat(301) });
+    expect(tag.status).toBe(400);
+  });
+
+  it('rejects non-network remote urls and invalid stash indexes', async () => {
+    const fileUrl = await post('/api/remote/add', { repo: repoDir, name: 'evil', url: 'file:///etc/passwd' });
+    expect(fileUrl.status).toBe(400);
+    const localPath = await post('/api/remote/add', { repo: repoDir, name: 'evil', url: '/tmp/repo' });
+    expect(localPath.status).toBe(400);
+    const stash = await post('/api/stash/apply', { repo: repoDir, index: -1 });
+    expect(stash.status).toBe(400);
+    const huge = await post('/api/stash/apply', { repo: repoDir, index: 100 });
+    expect(huge.status).toBe(400);
   });
 });
 

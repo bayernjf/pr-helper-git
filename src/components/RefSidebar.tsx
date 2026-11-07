@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   abortMerge,
   abortRebase,
+  abortRevert,
   continueRebase,
+  continueRevert,
   checkoutRef,
   deleteBranch,
   deleteTag,
@@ -269,6 +271,9 @@ export default function RefSidebar() {
 
   const currentBranch = status?.branch;
   const rebaseInProgress = !!status?.state?.rebaseInProgress;
+  // A conflicted revert keeps REVERT_HEAD until the user continues or aborts.
+  const revertInProgress = !!status?.state?.revertInProgress;
+  const unmergedCount = status?.files.filter((f) => f.area === 'unmerged').length ?? 0;
   // Prefer the explicit operation state; fall back to unmerged-file detection
   // for responses from older servers. Unmerged files during a rebase must not
   // surface the merge banner.
@@ -437,6 +442,29 @@ export default function RefSidebar() {
               onClick={() => runAction(abortRebase(activeRepo!), 'Rebase aborted')}
             >
               Abort rebase
+            </button>
+          </div>
+        </div>
+      )}
+      {revertInProgress && (
+        <div className="merge-banner revert-banner">
+          <span className="merge-banner-msg">
+            Revert in progress{unmergedCount ? ` — ${unmergedCount} conflicting file${unmergedCount === 1 ? '' : 's'} to resolve` : ''}
+          </span>
+          <div className="banner-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => runAction(continueRevert(activeRepo!), 'Revert continued')}
+            >
+              Continue revert
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => runAction(abortRevert(activeRepo!), 'Revert aborted')}
+            >
+              Abort revert
             </button>
           </div>
         </div>

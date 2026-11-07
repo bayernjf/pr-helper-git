@@ -430,6 +430,10 @@ export const continueRebase = (repo: string) => post('/api/rebase/continue', { r
 
 export const abortRebase = (repo: string) => post('/api/rebase/abort', { repo });
 
+export const continueRevert = (repo: string) => post('/api/revert/continue', { repo });
+
+export const abortRevert = (repo: string) => post('/api/revert/abort', { repo });
+
 export const pushBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/push', { repo, name, remote });
 
