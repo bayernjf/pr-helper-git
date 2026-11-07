@@ -160,6 +160,8 @@ export default function CommitGraph() {
     } else if (event.key === 'End') {
       nextIndex = count - 1;
     } else if (event.key === 'Enter' || event.key === ' ') {
+      // Stop the space bar from scrolling the page while the graph has focus.
+      event.preventDefault();
       if (currentIndex >= 0) selectCommit(visibleCommits[currentIndex].hash);
       return;
     } else {
