@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react';
 import { discardHunk, stageHunk } from '../api';
 import { useApp } from '../app-state';
-import { parseDiffLines, pairDiffRows, type ParsedDiffLine, type SplitRow } from '../lib/diff-lines';
+import {
+  parseDiffLines,
+  pairDiffRows,
+  wordDiff,
+  wordSegmentsByRow,
+  type ParsedDiffLine,
+  type SplitRow,
+  type WordSegment,
+} from '../lib/diff-lines';
 import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
 
@@ -42,14 +50,20 @@ function Toggle({
   );
 }
 
-function UnifiedRow({ row }: { row: ParsedDiffLine }) {
+function UnifiedRow({ row, segments }: { row: ParsedDiffLine; segments?: WordSegment[] }) {
   const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : row.kind === 'hunk' ? '' : ' ';
   return (
     <div className={`diff-line ${row.kind}`}>
       <span className="diff-gutter">{row.oldNo ?? ''}</span>
       <span className="diff-gutter">{row.newNo ?? ''}</span>
       <span className="diff-sign">{sign}</span>
-      <span className="diff-content">{row.text || ' '}</span>
+      <span className="diff-content">
+        {segments
+          ? segments.map((seg, i) => (seg.changed
+            ? <span key={i} className={row.kind === 'del' ? 'word-del' : 'word-add'}>{seg.text}</span>
+            : <span key={i}>{seg.text}</span>))
+          : row.text || ' '}
+      </span>
     </div>
   );
 }
@@ -57,9 +71,11 @@ function UnifiedRow({ row }: { row: ParsedDiffLine }) {
 function SplitSide({
   row,
   side,
+  segments,
 }: {
   row: ParsedDiffLine | null;
   side: 'left' | 'right';
+  segments?: WordSegment[] | null;
 }) {
   if (!row) {
     return <div className={`diff-side empty ${side === 'right' ? 'right' : ''}`} />;
@@ -73,7 +89,13 @@ function SplitSide({
     <div className={`diff-side ${kind}${side === 'right' ? ' right' : ''}`}>
       <span className="diff-gutter">{no ?? ''}</span>
       <span className="diff-sign">{sign}</span>
-      <span className="diff-content">{row.text || ' '}</span>
+      <span className="diff-content">
+        {segments
+          ? segments.map((seg, i) => (seg.changed
+            ? <span key={i} className={side === 'left' ? 'word-del' : 'word-add'}>{seg.text}</span>
+            : <span key={i}>{seg.text}</span>))
+          : row.text || ' '}
+      </span>
     </div>
   );
 }
@@ -86,10 +108,22 @@ function SplitRowView({ row }: { row: SplitRow }) {
       </div>
     );
   }
+  // Highlight only the words that actually differ between the paired removed
+  // and added line; context rows and one-sided changes stay unhighlighted.
+  let leftSeg: WordSegment[] | null = null;
+  let rightSeg: WordSegment[] | null = null;
+  if (row.left?.kind === 'del' && row.right?.kind === 'add'
+    && row.left.text !== row.right.text) {
+    const diff = wordDiff(row.left.text, row.right.text);
+    if (diff.left.some((s) => s.changed) || diff.right.some((s) => s.changed)) {
+      leftSeg = diff.left;
+      rightSeg = diff.right;
+    }
+  }
   return (
     <div className="diff-split-row">
-      <SplitSide row={row.left} side="left" />
-      <SplitSide row={row.right} side="right" />
+      <SplitSide row={row.left} side="left" segments={leftSeg} />
+      <SplitSide row={row.right} side="right" segments={rightSeg} />
     </div>
   );
 }
@@ -108,6 +142,7 @@ export default function DiffView({
   const [pending, setPending] = useState<{ index: number; kind: string } | null>(null);
   const rows = useMemo(() => (result?.diff ? parseDiffLines(result.diff) : []), [result]);
   const splitRows = useMemo(() => pairDiffRows(rows), [rows]);
+  const unifiedSegments = useMemo(() => wordSegmentsByRow(rows), [rows]);
 
   // Hunk actions are only available in the unified view for tracked changes
   // (untracked files have no ordinary git diff and keep whole-file staging).
@@ -190,7 +225,7 @@ export default function DiffView({
                 </div>
               );
             }
-            return <UnifiedRow key={i} row={row} />;
+            return <UnifiedRow key={i} row={row} segments={unifiedSegments.get(i)} />;
           })}
         </pre>
       ) : (

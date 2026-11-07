@@ -2,8 +2,17 @@ import { useMemo, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
 import { formatRelative } from '../lib/format';
-import { parseDiffLines } from '../lib/diff-lines';
+import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
 import { useConfirm } from './ui';
+
+// A hunk is whitespace-only when every removed line has an added counterpart
+// whose text is identical once all whitespace is stripped.
+function whitespaceOnlyHunk(body: ParsedDiffLine[]): boolean {
+  const dels = body.filter((r) => r.kind === 'del').map((r) => r.text);
+  const adds = body.filter((r) => r.kind === 'add').map((r) => r.text);
+  if (!dels.length || !adds.length || dels.length !== adds.length) return false;
+  return dels.every((text, i) => text.replace(/\s+/g, '') === adds[i].replace(/\s+/g, ''));
+}
 
 export interface ReviewComment {
   id: number;
@@ -57,11 +66,46 @@ export default function PrFileReview({
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
+  const [hideWs, setHideWs] = useState(false);
 
   const rows = useMemo(
     () => (file.patch ? parseDiffLines(file.patch) : []),
     [file.patch],
   );
+
+  // Locate hunks whose body only changes whitespace, plus the end index of
+  // each such hunk, so the renderer can collapse them behind one placeholder.
+  const whitespaceHunks = useMemo(() => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < rows.length; i += 1) {
+      if (rows[i].kind !== 'hunk') continue;
+      let end = i + 1;
+      while (end < rows.length && rows[end].kind !== 'hunk' && rows[end].kind !== 'meta') end += 1;
+      if (end > i + 1 && whitespaceOnlyHunk(rows.slice(i + 1, end))) map.set(i, end);
+      i = end - 1;
+    }
+    return map;
+  }, [rows]);
+
+  const display = useMemo(() => {
+    if (!hideWs) {
+      return rows.map((row, index) => ({ kind: 'row' as const, row, index }));
+    }
+    const entries: Array<
+      | { kind: 'row'; row: ParsedDiffLine; index: number }
+      | { kind: 'hidden'; start: number; end: number }
+    > = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const end = whitespaceHunks.get(i);
+      if (end) {
+        entries.push({ kind: 'hidden', start: i, end });
+        i = end - 1;
+      } else {
+        entries.push({ kind: 'row', row: rows[i], index: i });
+      }
+    }
+    return entries;
+  }, [rows, hideWs, whitespaceHunks]);
 
   // Set of (side,line) anchors present in the rendered diff, used to detect
   // comments that no longer attach to any visible row (outdated comments).
@@ -124,8 +168,53 @@ export default function PrFileReview({
       {!file.patch ? (
         <div className="detail-value muted">No text diff available for this file.</div>
       ) : (
-        <pre className="review-diff">
-          {rows.map((row, i) => {
+        <>
+          <div className="review-file-toolbar">
+            <span className="hint">
+              {whitespaceHunks.size > 0
+                ? `${whitespaceHunks.size} whitespace-only hunk${whitespaceHunks.size === 1 ? '' : 's'}`
+                : 'No whitespace-only hunks'}
+            </span>
+            <button
+              type="button"
+              className={`btn${hideWs ? ' btn-primary' : ''}`}
+              disabled={whitespaceHunks.size === 0}
+              title="Collapse hunks whose changes are only whitespace"
+              onClick={() => setHideWs((v) => !v)}
+            >
+              {hideWs ? 'Show whitespace changes' : 'Hide whitespace changes'}
+            </button>
+          </div>
+          <pre className="review-diff">
+          {display.map((entry) => {
+            if (entry.kind === 'hidden') {
+              const hiddenRows = rows.slice(entry.start + 1, entry.end);
+              const hiddenComments = hiddenRows.flatMap((row) => commentsForRow(row));
+              return (
+                <div key={`hidden-${entry.start}`}>
+                  <div className="review-ws-hidden">
+                    Whitespace-only changes hidden ({hiddenRows.length} lines)
+                  </div>
+                  {hiddenComments.length > 0 && (
+                    <div className="review-comment-group">
+                      {hiddenComments.map((c) => (
+                        <ReviewCommentCard
+                          key={c.id}
+                          comment={c}
+                          base={base}
+                          canComment={canComment}
+                          onPosted={onPosted}
+                          onChanged={onChanged}
+                          onDeleted={onDeleted}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            const row = entry.row;
+            const i = entry.index;
             const rowComments = commentsForRow(row);
             // Hunk headers are not commentable; render them as plain rows.
             const rowAnchor: Anchor | null =
@@ -204,6 +293,7 @@ export default function PrFileReview({
             );
           })}
         </pre>
+        </>
       )}
 
       {outdated.length > 0 && (

@@ -16,23 +16,47 @@ import { IconX } from './icons';
 
 type Mode = 'content' | 'blame' | 'history' | 'edit';
 
+// Emphasise the first literal occurrence of a search term inside one line.
+// Patterns (regex) simply don't match literally and render as plain text.
+function renderLine(text: string, term?: string | null): React.ReactNode {
+  if (!term) return text || ' ';
+  const idx = text.toLowerCase().indexOf(term.toLowerCase());
+  if (idx < 0) return text || ' ';
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="search-hit">{text.slice(idx, idx + term.length)}</mark>
+      {text.slice(idx + term.length)}
+    </>
+  );
+}
+
 export default function FileViewer({
   repo,
   filePath,
   rev,
   initialMode = 'content',
+  initialLine,
+  highlight,
   onClose,
 }: {
   repo: string;
   filePath: string;
   rev?: string | null;
   initialMode?: Mode;
+  // Highlight and scroll to this 1-based line once the blob is loaded (used
+  // when a search result jumps to its match).
+  initialLine?: number | null;
+  // Literal search term to emphasise inside the content lines. Regex searches
+  // simply find no literal occurrence and render plain text.
+  highlight?: string | null;
   onClose: () => void;
 }) {
   const { toast } = useApp();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [viewRev, setViewRev] = useState<string | null>(null);
   const effectiveRev = viewRev ?? rev ?? null;
+  const targetLineRef = useRef<HTMLDivElement | null>(null);
   const [file, setFile] = useState<FileContent | null>(null);
   const [blame, setBlame] = useState<BlameResult | null>(null);
   const [blameLoading, setBlameLoading] = useState(false);
@@ -125,6 +149,16 @@ export default function FileViewer({
       .catch((err) => { if (!cancelled) toast(err.message, 'error'); });
     return () => { cancelled = true; };
   }, [repo, filePath, effectiveRev, toast]);
+
+  // Bring the requested line into view after the blob renders. A short timeout
+  // lets the line elements mount before the scroll runs.
+  useEffect(() => {
+    if (!initialLine || !file) return;
+    const timer = setTimeout(() => {
+      targetLineRef.current?.scrollIntoView({ block: 'center' });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [file, initialLine]);
 
   // When opened straight into edit mode, seed the draft from the loaded blob.
   // Seed once per file/revision: re-seeding whenever the draft is empty would
@@ -277,12 +311,20 @@ export default function FileViewer({
             </pre>
           ) : (
             <pre className="diff">
-              {contentLines.map((text, i) => (
-                <div key={i} className="file-line">
-                  <span className="diff-gutter">{i + 1}</span>
-                  <span className="file-content">{text || ' '}</span>
-                </div>
-              ))}
+              {contentLines.map((text, i) => {
+                const isTarget = initialLine === i + 1;
+                return (
+                  <div
+                    key={i}
+                    ref={isTarget ? targetLineRef : undefined}
+                    className={`file-line${isTarget ? ' target' : ''}`}
+                    data-line={i + 1}
+                  >
+                    <span className="diff-gutter">{i + 1}</span>
+                    <span className="file-content">{renderLine(text, highlight)}</span>
+                  </div>
+                );
+              })}
               {file?.truncated && <div className="diff-empty">Preview truncated at 1 MB.</div>}
             </pre>
           )}

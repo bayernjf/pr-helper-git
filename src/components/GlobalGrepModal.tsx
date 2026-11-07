@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { searchAllGrep, type GrepRepoResult } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
+import FileViewer from './FileViewer';
 import { IconSearch, IconX } from './icons';
 
 export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
@@ -10,7 +11,14 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
   const [results, setResults] = useState<GrepRepoResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [openMatch, setOpenMatch] = useState<{ repo: string; path: string; line: number } | null>(null);
   useEscape(onClose);
+
+  function openResult(repo: string, file: string, line: number) {
+    // Open the match in its own repository, whether or not it is the active
+    // one: the viewer takes an explicit repo path.
+    setOpenMatch({ repo, path: file, line });
+  }
 
   async function runSearch(event?: React.FormEvent) {
     event?.preventDefault();
@@ -34,8 +42,9 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+        <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Search across all repositories</h2>
           <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
@@ -74,7 +83,19 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
                     <div className="grep-file" key={file}>
                       <div className="grep-file-head">{file}</div>
                       {items.map((m) => (
-                        <div className="grep-line" key={`${m.path}-${m.line}`}>
+                        <div
+                          className="grep-line clickable"
+                          key={`${m.path}-${m.line}`}
+                          role="button"
+                          tabIndex={0}
+                          title="Open this file at the matching line"
+                          onClick={() => openResult(repo.repo, m.path, m.line)}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            openResult(repo.repo, m.path, m.line);
+                          }}
+                        >
                           <span className="grep-lineno">{m.line}</span>
                           <span className="grep-text">{m.text}</span>
                         </div>
@@ -92,8 +113,18 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
           </span>
           <button type="button" className="btn" onClick={onClose}>Close</button>
         </div>
+        </div>
       </div>
-    </div>
+      {openMatch && (
+        <FileViewer
+          repo={openMatch.repo}
+          filePath={openMatch.path}
+          initialLine={openMatch.line}
+          highlight={pattern.trim()}
+          onClose={() => setOpenMatch(null)}
+        />
+      )}
+    </>
   );
 }
 

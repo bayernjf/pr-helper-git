@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resetCommit, revertCommit, revertCommitsBatch } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
+import { windowRange } from '../lib/virtual-range';
 import type { Ref } from '../types';
 import { ContextMenu, type MenuItem } from './context-menu';
 import {
@@ -137,11 +138,43 @@ export default function CommitGraph() {
   const totalHeight = visibleCommits.length * ROW_H;
 
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const graphRef = useRef<HTMLDivElement | null>(null);
+  // Only the rows around the viewport are mounted; the graph keeps its full
+  // height so the scrollbar still represents the whole history.
+  const [range, setRange] = useState({ start: 0, end: 40 });
+
+  const measureRange = useCallback(() => {
+    const scroller = scrollRef.current;
+    const graph = graphRef.current;
+    if (!scroller || !graph) return;
+    // Distance from the scroll container's content top to the first graph row
+    // (the toolbar above the graph scrolls with the content).
+    const offset = graph.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    const top = Math.max(0, scroller.scrollTop - offset);
+    const next = windowRange(visibleCommits.length, top, scroller.clientHeight, ROW_H);
+    setRange((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, [visibleCommits.length]);
+
+  useEffect(() => {
+    measureRange();
+    window.addEventListener('resize', measureRange);
+    return () => window.removeEventListener('resize', measureRange);
+  }, [measureRange]);
 
   // Bring a row into the visible area of the scrolling graph container.
   function revealRow(hash: string) {
-    const el = rowRefs.current.get(hash);
-    el?.scrollIntoView({ block: 'nearest' });
+    const row = layout.rowOf.get(hash);
+    const scroller = scrollRef.current;
+    const graph = graphRef.current;
+    if (row === undefined || !scroller || !graph) return;
+    const offset = graph.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    const rowTop = offset + row * ROW_H;
+    if (rowTop < scroller.scrollTop + ROW_H || rowTop > scroller.scrollTop + scroller.clientHeight - ROW_H * 2) {
+      scroller.scrollTop = Math.max(0, rowTop - scroller.clientHeight / 2);
+    }
+    // The row mounts after this scroll; focus it on the next frame.
+    requestAnimationFrame(() => rowRefs.current.get(hash)?.focus());
   }
 
   // Keyboard navigation over the visible commits. Roving tabindex keeps the
@@ -176,7 +209,7 @@ export default function CommitGraph() {
   }
 
   const edges = useMemo(() => {
-    const out: Array<{ key: string; d: string; color: string }> = [];
+    const out: Array<{ key: string; d: string; color: string; fromRow: number; toRow: number }> = [];
     layout.commits.forEach((commit, row) => {
       const x = PAD_X + commit.lane * COL_W;
       const y = row * ROW_H + ROW_H / 2;
@@ -190,11 +223,19 @@ export default function CommitGraph() {
           key: `${commit.hash}-${parent}`,
           d: edgePath(x, y, px, py),
           color: laneColor(commit.lane),
+          fromRow: row,
+          toRow: parentRow,
         });
       }
     });
     return out;
   }, [layout]);
+
+  // Edges whose row span (child row → parent row) overlaps the mounted window.
+  const windowEdges = useMemo(
+    () => edges.filter((e) => e.fromRow <= range.end && e.toRow >= range.start),
+    [edges, range],
+  );
 
   const menuItems: MenuItem[] = [
     { id: 'copy', label: 'Copy full hash', icon: <IconCopy width={15} height={15} /> },
@@ -315,7 +356,7 @@ export default function CommitGraph() {
   }
 
   return (
-    <div className="graph-scroll">
+    <div className="graph-scroll" ref={scrollRef} onScroll={measureRange}>
       <div className="graph-toolbar">
         <div className="graph-search">
           <IconSearch width={14} height={14} />
@@ -389,6 +430,7 @@ export default function CommitGraph() {
       </div>
 
       <div
+        ref={graphRef}
         className="graph"
         role="listbox"
         aria-label="Commit history"
@@ -397,10 +439,11 @@ export default function CommitGraph() {
         style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}
       >
         <svg className="graph-svg" width={graphWidth} height={totalHeight}>
-          {edges.map((e) => (
+          {windowEdges.map((e) => (
             <path key={e.key} d={e.d} fill="none" stroke={e.color} strokeWidth={2} />
           ))}
-          {layout.commits.map((commit, row) => {
+          {layout.commits.slice(range.start, range.end).map((commit, index) => {
+            const row = range.start + index;
             const x = PAD_X + commit.lane * COL_W;
             const y = row * ROW_H + ROW_H / 2;
             const isMerge = commit.parents.length > 1;
@@ -428,7 +471,9 @@ export default function CommitGraph() {
           })}
         </svg>
 
-        {layout.commits.map((commit, row) => (
+        {layout.commits.slice(range.start, range.end).map((commit, index) => {
+          const row = range.start + index;
+          return (
           <div
             key={commit.hash}
             ref={(el) => {
@@ -464,7 +509,8 @@ export default function CommitGraph() {
               <span className="graph-time">{formatRelative(commit.date)}</span>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {visibleCommits.length === 0 && (

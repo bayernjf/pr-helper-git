@@ -21,6 +21,8 @@ export default function CommitDetail() {
   const commit = commits.find((c) => c.hash === selectedHash);
   const [files, setFiles] = useState<CommitFile[]>([]);
   const [patch, setPatch] = useState<DiffResult | null>(null);
+  const [ignoreWs, setIgnoreWs] = useState(false);
+  const patchFileRef = useRef<CommitFile | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
   const { widthStyle: detailStyle, separatorProps: detailSeparator } = useResizable({
     prefKey: 'detailWidth',
@@ -65,18 +67,25 @@ export default function CommitDetail() {
     return () => { cancelled = true; };
   }, [selectedHash, activeRepo]);
 
-  async function openPatch(file: CommitFile) {
+  async function openPatch(file: CommitFile, ws: boolean = ignoreWs) {
     if (!commit || !activeRepo) return;
+    patchFileRef.current = file;
+    setIgnoreWs(ws);
     // Ignore a stale response when the user clicks another file meanwhile.
     const seq = ++patchSeq.current;
     try {
-      const result = await getCommitDiff(activeRepo, commit.hash, file.path);
+      const result = await getCommitDiff(activeRepo, commit.hash, file.path, ws);
       if (seq === patchSeq.current) setPatch(result);
     } catch (err: any) {
       if (seq !== patchSeq.current) return;
       setPatch(null);
       toast(err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'cannot load patch', 'error');
     }
+  }
+
+  function toggleIgnoreWs() {
+    if (!patchFileRef.current) return;
+    void openPatch(patchFileRef.current, !ignoreWs);
   }
 
   if (!commit) {
@@ -180,6 +189,14 @@ export default function CommitDetail() {
           >
             <div className="modal-header">
               <h2>{shortHash(commit.hash)} — {patch.path}</h2>
+              <button
+                type="button"
+                className={`btn${ignoreWs ? ' btn-primary' : ''}`}
+                title="Hide pure whitespace changes in this patch"
+                onClick={toggleIgnoreWs}
+              >
+                Ignore whitespace
+              </button>
               <button type="button" className="icon-btn" aria-label="Close patch" title="Close patch" onClick={closePatch}>
                 <IconX />
               </button>

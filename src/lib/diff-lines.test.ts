@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pairDiffRows, parseDiffLines } from './diff-lines';
+import { pairDiffRows, parseDiffLines, wordDiff, wordSegmentsByRow } from './diff-lines';
 
 const DIFF = [
   'diff --git a/f.js b/f.js',
@@ -123,5 +123,62 @@ describe('pairDiffRows', () => {
       left: { text: 'b' },
       right: { text: 'd' },
     });
+  });
+});
+
+describe('wordDiff', () => {
+  function changedText(segments: ReturnType<typeof wordDiff>['left']) {
+    return segments.filter((s) => s.changed).map((s) => s.text).join('');
+  }
+
+  it('highlights only the changed word inside a line', () => {
+    const diff = wordDiff('const total = sum(a, b);', 'const total = sum(a, b, c);');
+    expect(changedText(diff.left)).toBe('');
+    expect(changedText(diff.right)).toBe(', c');
+    // The unchanged remainder may be split across several runs, but every
+    // segment on the old side is unchanged and reconstructs the original line.
+    expect(diff.left.every((s) => !s.changed)).toBe(true);
+    expect(diff.left.map((s) => s.text).join('')).toBe('const total = sum(a, b);');
+  });
+
+  it('marks both sides when a value is replaced', () => {
+    const diff = wordDiff('let count = 1;', 'let count = 42;');
+    expect(diff.left.some((s) => s.changed && s.text === '1')).toBe(true);
+    expect(diff.right.some((s) => s.changed && s.text === '42')).toBe(true);
+    expect(diff.left.some((s) => !s.changed && s.text.includes('let count'))).toBe(true);
+  });
+
+  it('returns no changed segments for identical lines', () => {
+    const diff = wordDiff('same text', 'same text');
+    expect(diff.left.every((s) => !s.changed)).toBe(true);
+    expect(diff.right.every((s) => !s.changed)).toBe(true);
+  });
+});
+
+describe('wordSegmentsByRow', () => {
+  const rows = parseDiffLines([
+    '@@ -1,2 +1,2 @@',
+    '-let count = 1;',
+    '+let count = 42;',
+    ' unchanged line',
+    '+only added',
+  ].join('\n'));
+
+  it('maps both sides of a replaced line to their word segments', () => {
+    const map = wordSegmentsByRow(rows);
+    const delIndex = rows.findIndex((r) => r.kind === 'del');
+    const addIndex = rows.findIndex((r) => r.kind === 'add');
+    expect(map.has(delIndex)).toBe(true);
+    expect(map.has(addIndex)).toBe(true);
+    expect(map.get(addIndex)?.some((s) => s.changed && s.text === '42')).toBe(true);
+    expect(map.get(delIndex)?.some((s) => s.changed && s.text === '1')).toBe(true);
+  });
+
+  it('leaves context and one-sided additions unhighlighted', () => {
+    const map = wordSegmentsByRow(rows);
+    const ctxIndex = rows.findIndex((r) => r.kind === 'ctx');
+    const loneAdd = rows.length - 1;
+    expect(map.has(ctxIndex)).toBe(false);
+    expect(map.has(loneAdd)).toBe(false);
   });
 });

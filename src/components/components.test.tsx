@@ -11,6 +11,7 @@ import DiffView from './DiffView';
 import ErrorBoundary from './ErrorBoundary';
 import PrFileReview from './PrFileReview';
 import RepositoriesModal from './RepositoriesModal';
+import ResolveConflictsModal from './ResolveConflictsModal';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -72,8 +73,13 @@ describe('DiffView', () => {
     expect(html).toContain('hello.txt');
     expect(html).toContain('diff-line add');
     expect(html).toContain('diff-line del');
-    expect(html).toContain('new line');
-    expect(html).toContain('old line');
+    expect(html).toContain('context line');
+    // Changed words are split into spans, so assert the parts, not the whole
+    // line: "new" and " line" render separately.
+    expect(html).toMatch(/word-(add|del)">(new|old)/);
+    // The unified view highlights the changed words of a replaced line.
+    expect(html).toContain('word-del');
+    expect(html).toContain('word-add');
   });
 
   it('renders hunk stage/unstage buttons only with a repo', () => {
@@ -155,6 +161,28 @@ describe('ErrorBoundary', () => {
     );
     expect(html).toContain('child-marker');
     expect(html).toContain('healthy subtree');
+  });
+});
+
+describe('ResolveConflictsModal', () => {
+  it('lists unmerged files with both side actions', () => {
+    const html = withApp(
+      <ResolveConflictsModal repo="/tmp/repo" onClose={() => {}} />,
+      { status: { branch: 'main', files: [{ path: 'one.txt', status: 'unmerged', area: 'unmerged' }] } },
+    );
+    expect(html).toContain('Resolve conflicts');
+    expect(html).toContain('one.txt');
+    expect(html).toContain('Use current');
+    expect(html).toContain('Use incoming');
+    expect(html).toContain('Mark resolved');
+  });
+
+  it('explains how to continue when nothing is left', () => {
+    const html = withApp(
+      <ResolveConflictsModal repo="/tmp/repo" onClose={() => {}} />,
+      { status: { branch: 'main', files: [] } },
+    );
+    expect(html).toContain('No conflicted files remain');
   });
 });
 
