@@ -46,6 +46,7 @@ import {
 } from './icons';
 import MergeModal from './MergeModal';
 import NewBranchModal from './NewBranchModal';
+import ResolveConflictsModal from './ResolveConflictsModal';
 import { useConfirm } from './ui';
 import { getPref, setPref, repoPref } from '../lib/prefs';
 import type { Ref } from '../types';
@@ -192,6 +193,7 @@ export default function RefSidebar() {
   const [tagView, setTagView] = useState<TagDetail | null>(null);
   const [upstreamPicker, setUpstreamPicker] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [resolveOpen, setResolveOpen] = useState(false);
   const [filter, setFilter] = useState('');
   const defaultGroups = { local: true, remote: true, tag: true, stash: true };
   const [openGroups, setOpenGroups] = useState(() =>
@@ -429,6 +431,15 @@ export default function RefSidebar() {
         <div className="merge-banner rebase-banner">
           <span className="merge-banner-msg">Rebase in progress — resolve conflicts, then continue or abort</span>
           <div className="banner-actions">
+            {unmergedCount > 0 && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setResolveOpen(true)}
+              >
+                Resolve conflicts ({unmergedCount})
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-primary"
@@ -452,6 +463,15 @@ export default function RefSidebar() {
             Revert in progress{unmergedCount ? ` — ${unmergedCount} conflicting file${unmergedCount === 1 ? '' : 's'} to resolve` : ''}
           </span>
           <div className="banner-actions">
+            {unmergedCount > 0 && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setResolveOpen(true)}
+              >
+                Resolve conflicts ({unmergedCount})
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-primary"
@@ -472,13 +492,24 @@ export default function RefSidebar() {
       {mergeInProgress && (
         <div className="merge-banner">
           <span className="merge-banner-msg">Merge in progress — resolve conflicts or abort</span>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => runAction(abortMerge(activeRepo!), 'Merge aborted')}
-          >
-            Abort merge
-          </button>
+          <div className="banner-actions">
+            {unmergedCount > 0 && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setResolveOpen(true)}
+              >
+                Resolve conflicts ({unmergedCount})
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => runAction(abortMerge(activeRepo!), 'Merge aborted')}
+            >
+              Abort merge
+            </button>
+          </div>
         </div>
       )}
       <div className="sidebar-filter">
@@ -723,6 +754,9 @@ export default function RefSidebar() {
             </div>
           </div>
         </div>
+      )}
+      {resolveOpen && activeRepo && (
+        <ResolveConflictsModal repo={activeRepo} onClose={() => setResolveOpen(false)} />
       )}
     </aside>
   );

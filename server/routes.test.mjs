@@ -16,6 +16,7 @@ let tmpRoot;
 let homeDir;
 let repoDir;
 let rebaseDir;
+let conflictDir;
 let revertDir;
 let revertSha;
 let serverProc;
@@ -110,6 +111,29 @@ beforeAll(async () => {
   await fsp.writeFile(path.join(revertDir, 'conflict.txt'), 'third edit\n', 'utf8');
   git(['add', '.'], revertDir);
   git(['commit', '-m', 'third edit'], revertDir);
+
+  // A fourth repository stopped in a merge conflict on two files, used by the
+  // conflict-resolution endpoint ("ours" on one, "theirs" on the other).
+  conflictDir = path.join(tmpRoot, 'conflict-repo');
+  await fsp.mkdir(conflictDir);
+  git(['init', '-b', 'main'], conflictDir);
+  git(['config', 'user.email', 'tester@example.com'], conflictDir);
+  git(['config', 'user.name', 'Tester'], conflictDir);
+  await fsp.writeFile(path.join(conflictDir, 'one.txt'), 'base one\n', 'utf8');
+  await fsp.writeFile(path.join(conflictDir, 'two.txt'), 'base two\n', 'utf8');
+  git(['add', '.'], conflictDir);
+  git(['commit', '-m', 'base'], conflictDir);
+  git(['checkout', '-b', 'side'], conflictDir);
+  await fsp.writeFile(path.join(conflictDir, 'one.txt'), 'side one\n', 'utf8');
+  await fsp.writeFile(path.join(conflictDir, 'two.txt'), 'side two\n', 'utf8');
+  git(['add', '.'], conflictDir);
+  git(['commit', '-m', 'side'], conflictDir);
+  git(['checkout', 'main'], conflictDir);
+  await fsp.writeFile(path.join(conflictDir, 'one.txt'), 'main one\n', 'utf8');
+  await fsp.writeFile(path.join(conflictDir, 'two.txt'), 'main two\n', 'utf8');
+  git(['add', '.'], conflictDir);
+  git(['commit', '-m', 'main'], conflictDir);
+  git(['merge', 'side'], conflictDir, true);
 
   await new Promise((resolve, reject) => {
     serverProc = spawn(process.execPath, [serverPath, '--port=0'], {
@@ -675,6 +699,44 @@ describe('revert conflict handling', () => {
     expect(status.json.status.files).toEqual([]);
     const log = await get(`/api/log?repo=${q(revertDir)}&limit=5`);
     expect(log.json.commits[0].subject).toMatch(/^Revert "second edit"$/);
+  });
+});
+
+describe('conflict resolution', () => {
+  it('registers the conflicted merge repository', async () => {
+    const r = await post('/api/repos/add', { repo: conflictDir });
+    expect(r.status).toBe(200);
+    const status = await get(`/api/status?repo=${q(conflictDir)}`);
+    expect(status.json.state.mergeInProgress).toBe(true);
+    expect(status.json.status.files.filter((f) => f.area === 'unmerged').map((f) => f.path))
+      .toEqual(expect.arrayContaining(['one.txt', 'two.txt']));
+  });
+
+  it('rejects a path that is not conflicted', async () => {
+    const r = await post('/api/conflict/resolve', { repo: conflictDir, path: 'missing.txt', strategy: 'ours' });
+    expect(r.status).toBe(400);
+    const badStrategy = await post('/api/conflict/resolve', { repo: conflictDir, path: 'one.txt', strategy: 'nope' });
+    expect(badStrategy.status).toBe(400);
+  });
+
+  it('takes the current side of one file and reports what is left', async () => {
+    const r = await post('/api/conflict/resolve', { repo: conflictDir, path: 'one.txt', strategy: 'ours' });
+    expect(r.status).toBe(200);
+    expect(r.json.remaining).toEqual(['two.txt']);
+    const content = await fsp.readFile(path.join(conflictDir, 'one.txt'), 'utf8');
+    expect(content).toBe('main one\n');
+  });
+
+  it('takes the incoming side of the other file', async () => {
+    const r = await post('/api/conflict/resolve', { repo: conflictDir, path: 'two.txt', strategy: 'theirs' });
+    expect(r.status).toBe(200);
+    expect(r.json.remaining).toEqual([]);
+    const content = await fsp.readFile(path.join(conflictDir, 'two.txt'), 'utf8');
+    expect(content).toBe('side two\n');
+    const status = await get(`/api/status?repo=${q(conflictDir)}`);
+    expect(status.json.status.files.some((f) => f.area === 'unmerged')).toBe(false);
+    // Clean up so later tests do not inherit a half-merged repository.
+    git(['merge', '--abort'], conflictDir);
   });
 });
 

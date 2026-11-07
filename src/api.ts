@@ -226,10 +226,10 @@ export const getStashList = (repo: string) =>
     `/api/stash-list?repo=${encodeURIComponent(repo)}`,
   );
 
-export const getCommitDiff = (repo: string, sha: string, file: string) =>
+export const getCommitDiff = (repo: string, sha: string, file: string, ignoreWs = false) =>
   request<DiffResult>(
     `/api/commit-diff?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`
-      + `&file=${encodeURIComponent(file)}`,
+      + `&file=${encodeURIComponent(file)}&ignoreWs=${ignoreWs ? '1' : '0'}`,
   );
 
 export interface FileContent {
@@ -433,6 +433,17 @@ export const abortRebase = (repo: string) => post('/api/rebase/abort', { repo })
 export const continueRevert = (repo: string) => post('/api/revert/continue', { repo });
 
 export const abortRevert = (repo: string) => post('/api/revert/abort', { repo });
+
+export const resolveConflict = (
+  repo: string,
+  path: string,
+  strategy: 'ours' | 'theirs' | 'mark',
+) => post('/api/conflict/resolve', { repo, path, strategy }) as Promise<{
+  ok: boolean;
+  path: string;
+  strategy: string;
+  remaining: string[];
+}>;
 
 export const pushBranch = (repo: string, name: string, remote = 'origin') =>
   post('/api/branch/push', { repo, name, remote });

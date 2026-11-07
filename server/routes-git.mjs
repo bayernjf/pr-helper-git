@@ -791,8 +791,14 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!/^[0-9a-f]{7,40}$/.test(shaRaw) || !file) return fail(400, 'invalid parameters');
     const resolved = await resolveInside(repo, file);
     if (!resolved) return fail(403, 'path escapes repo root');
+    const ignoreWs = query.get('ignoreWs') === '1';
     try {
-      const diff = await git(['show', '--format=', shaRaw, '--', file], repo);
+      // `-w` drops pure whitespace changes, matching the working-tree diff
+      // toggle so the same review can be done with either view.
+      const argv = ['show', '--format='];
+      if (ignoreWs) argv.push('-w');
+      argv.push(shaRaw, '--', file);
+      const diff = await git(argv, repo);
       return ok({ masked: false, path: file, diff, truncated: false });
     } catch (err) {
       return gitFail(err, 'commit diff failed');
@@ -1615,6 +1621,38 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     } catch (err) {
       await appendAudit({ ok: false, action: 'revert-abort', repo });
       return gitFail(err, 'git revert --abort failed');
+    }
+  }
+
+  // Take one side of a conflicted file and stage it. "ours" is the current
+  // branch, "theirs" the incoming side (rebase inverts these internally, so
+  // the UI labels them by side, not by branch); "mark" stages the file as-is
+  // after a manual edit.
+  if (pathname === '/api/conflict/resolve') {
+    const rel = normalizeRepoPath(body.path);
+    const strategy = body.strategy;
+    if (!rel || (strategy !== 'ours' && strategy !== 'theirs' && strategy !== 'mark')) {
+      return fail(400, 'invalid parameters');
+    }
+    const resolved = await resolveInside(repo, rel);
+    if (!resolved) return fail(403, 'path escapes repo root');
+    let unmerged = '';
+    try {
+      unmerged = await git(['diff', '--name-only', '--diff-filter=U', '--', rel], repo);
+    } catch { /* treated as not conflicted */ }
+    if (!unmerged.trim()) return fail(400, 'not a conflicted file', rel);
+    try {
+      if (strategy !== 'mark') {
+        await git(['checkout', `--${strategy}`, '--', rel], repo);
+      }
+      // -A also stages a deletion (e.g. "theirs deleted it").
+      await git(['add', '-A', '--', rel], repo);
+      const remaining = await unmergedPaths(repo);
+      await appendAudit({ ok: true, action: 'conflict-resolve', repo, path: rel, strategy });
+      return ok({ ok: true, path: rel, strategy, remaining });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'conflict-resolve', repo, path: rel, strategy });
+      return gitFail(err, 'conflict resolution failed');
     }
   }
 
