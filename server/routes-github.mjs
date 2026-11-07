@@ -103,8 +103,14 @@ function isAllowed(method, path) {
 // Parse an origin remote URL into owner/repo when hosted on GitHub.
 // ssh:// URLs are accepted because the clone dialog allows that transport.
 export function parseRemoteUrl(rawUrl) {
-  const url = String(rawUrl || '').trim();
+  let url = String(rawUrl || '').trim();
   if (!url) return null;
+  // Normalise the shapes git accepts but the patterns below would reject:
+  // a trailing slash after ".git" (copied web URLs) and an explicit SSH port
+  // ("ssh://git@github.com:22/owner/repo.git"). Both still point at the same
+  // GitHub repository, so drop the part that carries no identifying meaning.
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/^(ssh:\/\/(?:[^@/]+@)?github\.com):\d+\//, '$1/');
   let match = url.match(/^(?:git@|ssh:\/\/(?:[^@/]+@)?)github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
   if (!match) {
     match = url.match(/^https?:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
