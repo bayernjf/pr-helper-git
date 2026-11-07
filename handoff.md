@@ -219,6 +219,10 @@ repository is never pushed.
   redundant diff-effect dependency removed, untracked delete wording corrected,
   repo removal without a target rejected with 400, a single EventSource reading
   latest params from a ref, and an SVG favicon
+- [x] Multi-repository panel (RepositoriesModal): one filterable list of every
+  registered repository showing location, working-tree change counts,
+  ahead/behind and the current branch, with an active marker; a row opens that
+  repository and checkboxes enable a batch fetch across the selection
 
 ## Delivery notes
 
@@ -755,3 +759,19 @@ repository is never pushed.
   and now copies the checked-in SVG favicon (public/favicon.svg) into dist,
   eliminating the /favicon.ico 404. The dev server is stopped and ports 5173 and
   4789 are free; the product work tree is clean and still has no git remote.
+- Multi-repository panel: a requested "Open repositories" view replaced the
+  dropdown-only switching. The existing GET /api/repos already returned a full
+  per-repository brief (branch, upstream, ahead/behind, staged/unstaged/
+  untracked, last commit, error), so no server change was needed; the new
+  RepositoriesModal renders those briefs in a filterable grid. A row opens the
+  repository and closes the panel, while row checkboxes plus a select-all control
+  drive a batch fetch that runs with Promise.allSettled so one failing remote
+  cannot abort the rest, then refreshes and reports the fetched/failed counts.
+  Browser testing covered filtering, the batch fetch (two /api/fetch 200s) and
+  row switching; the server-side socket count confirms a single live SSE
+  connection (the extra dev-only EventSource is the StrictMode mount/cleanup
+  mount pair, whose first socket is closed by the effect cleanup).
+- Updated verification: 144 Vitest tests pass across 12 files (four new
+  RepositoriesModal render tests); tsc is clean; vite build transforms 78
+  modules. The dev server is stopped and ports 5173 and 4789 are free; the work
+  tree still has no git remote.

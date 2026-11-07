@@ -13,6 +13,10 @@ GitHub by the application setup.
   three-mode dialog: open an existing folder, clone a remote over a network
   transport, or initialise a brand-new repository. The list is persisted under
   `~/.pr-helper-git2`.
+- Open repositories panel: a filterable list of every registered repository
+  showing its location, working-tree change counts, ahead/behind and current
+  branch, with an active marker. Click a row to open it, or select several rows
+  to fetch them in one batch (a single failure never aborts the rest).
 - Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
   curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
   branches and tags.
