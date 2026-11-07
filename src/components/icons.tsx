@@ -152,3 +152,9 @@ export const IconSun = (p: SVGProps<SVGSVGElement>) => (
 export const IconMoon = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></Svg>
 );
+export const IconSliders = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}>
+    <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3" />
+    <path d="M14 2v4M8 10v4M16 18v4" />
+  </Svg>
+);

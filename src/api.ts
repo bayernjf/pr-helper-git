@@ -349,6 +349,25 @@ export const getCommitTemplate = (repo: string) =>
     `/api/commit-template?repo=${encodeURIComponent(repo)}`,
   );
 
+export interface ConfigEntry {
+  key: string;
+  type: 'text' | 'email' | 'branch' | 'enum';
+  options?: string[];
+  local: string | null;
+  effective: string | null;
+  inherited: boolean;
+}
+
+export const getConfig = (repo: string) =>
+  request<{ entries: ConfigEntry[] }>(`/api/config?repo=${encodeURIComponent(repo)}`);
+
+export const saveConfig = (repo: string, key: string, value: string) =>
+  post('/api/config', { repo, key, value }) as Promise<{
+    ok: boolean;
+    key: string;
+    local: string | null;
+  }>;
+
 export const discardFile = (repo: string, file: string) =>
   post('/api/discard', { repo, file, confirm: true });
 

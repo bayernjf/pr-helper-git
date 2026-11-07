@@ -736,3 +736,74 @@ describe('file save endpoint', () => {
     expect(await fsp.readFile(path.join(repoDir, scratch), 'utf8')).toBe('app change\n');
   });
 });
+
+describe('git config routes', () => {
+  it('lists whitelisted entries with local and effective values', async () => {
+    const r = await get(`/api/config?repo=${q(repoDir)}`);
+    expect(r.status).toBe(200);
+    const keys = r.json.entries.map((e) => e.key);
+    expect(keys).toContain('user.name');
+    expect(keys).toContain('core.autocrlf');
+    // Non-whitelisted keys are never exposed.
+    expect(keys).not.toContain('core.sshCommand');
+    // user.name is a repository-local value set in beforeAll.
+    const name = r.json.entries.find((e) => e.key === 'user.name');
+    expect(name.local).toBe('Tester');
+    expect(name.effective).toBe('Tester');
+    expect(name.inherited).toBe(false);
+    // Enum entries expose their allowed options.
+    const autocrlf = r.json.entries.find((e) => e.key === 'core.autocrlf');
+    expect(autocrlf.options).toContain('input');
+    // An unset key is null locally and inherited.
+    const rebase = r.json.entries.find((e) => e.key === 'pull.rebase');
+    expect(rebase.local).toBeNull();
+    expect(rebase.inherited).toBe(true);
+  });
+
+  it('writes a whitelisted enum and a text value to local config', async () => {
+    const en = await post('/api/config', { repo: repoDir, key: 'pull.rebase', value: 'true' });
+    expect(en.status).toBe(200);
+    expect(en.json.local).toBe('true');
+    expect(git(['config', '--local', '--get', 'pull.rebase'], repoDir).trim()).toBe('true');
+
+    const tx = await post('/api/config', { repo: repoDir, key: 'init.defaultBranch', value: 'trunk' });
+    expect(tx.status).toBe(200);
+    expect(git(['config', '--local', '--get', 'init.defaultBranch'], repoDir).trim()).toBe('trunk');
+
+    // Reloading reflects the new local overrides (no longer inherited).
+    const list = await get(`/api/config?repo=${q(repoDir)}`);
+    const rebase = list.json.entries.find((e) => e.key === 'pull.rebase');
+    expect(rebase.inherited).toBe(false);
+    expect(rebase.effective).toBe('true');
+  });
+
+  it('rejects non-whitelisted keys, bad enum values and invalid emails', async () => {
+    const badKey = await post('/api/config', { repo: repoDir, key: 'core.sshCommand', value: 'x' });
+    expect(badKey.status).toBe(400);
+    const badEnum = await post('/api/config', { repo: repoDir, key: 'core.autocrlf', value: 'weird' });
+    expect(badEnum.status).toBe(400);
+    const badEmail = await post('/api/config', { repo: repoDir, key: 'user.email', value: 'nope' });
+    expect(badEmail.status).toBe(400);
+    // The rejected email must not overwrite the configured local value.
+    expect(git(['config', '--local', '--get', 'user.email'], repoDir).trim()).toBe('tester@example.com');
+  });
+
+  it('unsets local overrides and is idempotent for a missing key', async () => {
+    const rmRebase = await post('/api/config', { repo: repoDir, key: 'pull.rebase', value: '  ' });
+    expect(rmRebase.status).toBe(200);
+    expect(rmRebase.json.local).toBeNull();
+    const rmBranch = await post('/api/config', { repo: repoDir, key: 'init.defaultBranch', value: '' });
+    expect(rmBranch.status).toBe(200);
+    // Unsetting an already-missing key is a successful no-op (git exit 5).
+    const again = await post('/api/config', { repo: repoDir, key: 'merge.conflictstyle', value: '' });
+    expect(again.status).toBe(200);
+
+    // The overrides are gone and inheritance is restored.
+    const list = await get(`/api/config?repo=${q(repoDir)}`);
+    const rebase = list.json.entries.find((e) => e.key === 'pull.rebase');
+    expect(rebase.local).toBeNull();
+    expect(rebase.inherited).toBe(true);
+    const branch = list.json.entries.find((e) => e.key === 'init.defaultBranch');
+    expect(branch.local).toBeNull();
+  });
+});

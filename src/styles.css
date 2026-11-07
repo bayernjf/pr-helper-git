@@ -1095,6 +1095,56 @@ pre.diff {
 .form-row { display: flex; gap: 10px; }
 .form-row .form-group { flex: 1; }
 
+/* ---------- Repository config editor ---------- */
+.config-hint { margin-bottom: 14px; font-size: 11.5px; line-height: 1.5; }
+.config-status { padding: 10px 0; font-size: 12.5px; color: var(--muted); }
+.config-error { color: var(--danger); }
+.config-list { display: flex; flex-direction: column; gap: 10px; }
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.config-key {
+  flex: 0 0 190px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.config-badge {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.config-control { flex: 1 1 auto; min-width: 0; }
+.config-control input,
+.config-control select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+}
+.config-control input:focus,
+.config-control select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .checkbox-row {
   display: flex;
   align-items: center;

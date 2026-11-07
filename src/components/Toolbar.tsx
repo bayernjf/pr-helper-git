@@ -9,6 +9,7 @@ import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
 import CompareModal from './CompareModal';
+import ConfigModal from './ConfigModal';
 import GrepModal from './GrepModal';
 import GlobalGrepModal from './GlobalGrepModal';
 import ReflogModal from './ReflogModal';
@@ -29,6 +30,7 @@ import {
   IconMoon,
   IconSearch,
   IconServer,
+  IconSliders,
   IconSplit,
   IconStash,
   IconSun,
@@ -51,6 +53,7 @@ export default function Toolbar() {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRemotes, setShowRemotes] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
   const [showStash, setShowStash] = useState(false);
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -293,6 +296,16 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Repository settings (git config)"
+        aria-label="Repository settings"
+        disabled={!activeRepo}
+        onClick={() => setShowConfig(true)}
+      >
+        <IconSliders />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="View audit log"
         onClick={() => setShowAudit(true)}
       >
@@ -329,6 +342,7 @@ export default function Toolbar() {
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
+      {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
       {showStash && <StashModal onClose={() => setShowStash(false)} />}
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}

@@ -37,6 +37,22 @@ const LOG_LIMIT_DEFAULT = 200;
 const LOG_LIMIT_MAX = 1000;
 const FILE_MAX_BYTES = 1_000_000;
 
+// Whitelist of git config keys that may be viewed or edited from the GUI.
+// Arbitrary keys are rejected because some (core.sshCommand, alias.*,
+// include.*, core.fsmonitor, core.gitProxy, ...) can execute commands or
+// escape the repository. All writes target the repository-local config.
+const CONFIG_SPECS = [
+  { key: 'user.name', type: 'text' },
+  { key: 'user.email', type: 'email' },
+  { key: 'init.defaultBranch', type: 'branch' },
+  { key: 'core.autocrlf', type: 'enum', options: ['true', 'false', 'input'] },
+  { key: 'pull.rebase', type: 'enum', options: ['true', 'false', 'merges'] },
+  { key: 'push.default', type: 'enum', options: ['nothing', 'matching', 'upstream', 'simple', 'current'] },
+  { key: 'merge.conflictstyle', type: 'enum', options: ['merge', 'diff3', 'zdiff3'] },
+];
+const CONFIG_SPEC_BY_KEY = new Map(CONFIG_SPECS.map((spec) => [spec.key, spec]));
+const CONFIG_VALUE_MAX = 256;
+
 // Accept a commit SHA or an ordinary ref/branch/tag name (option-like and
 // traversal values are rejected). Used to read a blob at a specific ref.
 function validateRefSpec(raw) {
@@ -65,6 +81,20 @@ function parseGrepLines(raw) {
       text: line.slice(second + 1),
     };
   });
+}
+
+// Parse `git config --list` output ("key=value") into a map. Later entries
+// override earlier ones, and git lists system then global then local, so the
+// final value is the effective one.
+function parseConfigList(raw) {
+  const out = {};
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    out[line.slice(0, eq)] = line.slice(eq + 1);
+  }
+  return out;
 }
 
 // Resolve a user-supplied parent directory and confirm it exists.
@@ -392,6 +422,74 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       return ok({ configured: true, path: configuredPath, text });
     } catch (err) {
       return fail(400, 'cannot read commit template', err.message);
+    }
+  }
+
+  // View the whitelisted git config keys, reporting both the repository-local
+  // value and the effective value (which may be inherited from global/system).
+  if (pathname === '/api/config' && method === 'GET') {
+    let localRaw;
+    let effectiveRaw;
+    try {
+      localRaw = await git(['config', '--local', '--list'], repo);
+    } catch (err) {
+      return gitFail(err, 'git config failed');
+    }
+    try {
+      effectiveRaw = await git(['config', '--list'], repo);
+    } catch (err) {
+      return gitFail(err, 'git config failed');
+    }
+    const localMap = parseConfigList(localRaw);
+    const effectiveMap = parseConfigList(effectiveRaw);
+    const entries = CONFIG_SPECS.map((spec) => ({
+      key: spec.key,
+      type: spec.type,
+      ...(spec.options ? { options: spec.options } : {}),
+      local: localMap[spec.key] ?? null,
+      effective: effectiveMap[spec.key] ?? null,
+      inherited: !(spec.key in localMap),
+    }));
+    return ok({ entries });
+  }
+
+  // Update a single whitelisted key in the repository-local config. An empty
+  // value unsets the local override so the inherited value takes effect again.
+  if (pathname === '/api/config' && method === 'POST') {
+    const key = typeof body.key === 'string' ? body.key : '';
+    const spec = CONFIG_SPEC_BY_KEY.get(key);
+    if (!spec) return fail(400, 'config key is not allowed');
+    if (typeof body.value !== 'string') return fail(400, 'config value must be a string');
+    const value = body.value.trim();
+    if (value === '') {
+      try {
+        await git(['config', '--local', '--unset', key], repo);
+      } catch (err) {
+        // git exits 5 when the key is not set; that is already the target.
+        if (!err || err.code !== 5) return gitFail(err, 'git config unset failed');
+      }
+      await appendAudit({ ok: true, action: 'config', repo, key, unset: true });
+      return ok({ ok: true, key, local: null });
+    }
+    if (value.includes('\0') || value.includes('\n') || value.length > CONFIG_VALUE_MAX) {
+      return fail(400, 'invalid config value');
+    }
+    if (spec.type === 'enum' && !spec.options.includes(value)) {
+      return fail(400, 'invalid config value');
+    }
+    if (spec.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      return fail(400, 'invalid email address');
+    }
+    if (spec.type === 'branch' && !validateRefName(value)) {
+      return fail(400, 'invalid branch name');
+    }
+    try {
+      await git(['config', '--local', key, value], repo);
+      await appendAudit({ ok: true, action: 'config', repo, key });
+      return ok({ ok: true, key, local: value });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'config', repo, key });
+      return gitFail(err, 'git config failed');
     }
   }
 
