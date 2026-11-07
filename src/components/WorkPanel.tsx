@@ -359,11 +359,12 @@ export default function WorkPanel() {
     const ok = await confirm(
       `Delete ${file.path}?`,
       file.area === 'untracked'
-        ? 'git rm -f removes the file and stages its deletion.'
+        ? 'This untracked file is deleted from disk directly. It is not tracked by Git, so no deletion is staged.'
         : 'git rm removes the file and stages the deletion; commit to finalize.',
     );
     if (!ok) return;
-    // Untracked files are not in HEAD yet, so git rm needs the force flag.
+    // The server deletes untracked files directly (unlink); tracked files go
+    // through `git rm`, which needs force when the working tree has changes.
     const force = file.area === 'untracked';
     await runAction(removeFile(activeRepo!, file.path, force), `Deleted ${file.path}`);
   }
