@@ -2,7 +2,7 @@
 // dragging and keyboard arrows, clamps to a min/max range and persists the
 // result through the preference store. `edge` states which side of the panel
 // the separator sits on, fixing the drag/arrow direction.
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { getPref, hasPref, setPref } from '../lib/prefs';
 
 interface ResizableOptions {
@@ -26,6 +26,11 @@ export function useResizable({ prefKey, initial, min, max, edge, label }: Resiza
   // handle on the left edge (drag left to widen).
   const sign = edge === 'right' ? 1 : -1;
 
+  // Mirror the latest width so imperative event handlers can read and persist
+  // it without running side effects inside a setState updater.
+  const widthRef = useRef(width);
+  widthRef.current = width;
+
   const clamp = useCallback((value: number) => Math.min(max, Math.max(min, value)), [min, max]);
 
   const onPointerDown = useCallback((event: React.PointerEvent) => {
@@ -41,10 +46,7 @@ export function useResizable({ prefKey, initial, min, max, edge, label }: Resiza
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       element.classList.remove('dragging');
-      setWidth((current) => {
-        setPref(prefKey, current);
-        return current;
-      });
+      setPref(prefKey, widthRef.current);
       setCustom(true);
     };
     window.addEventListener('pointermove', move);
@@ -58,11 +60,9 @@ export function useResizable({ prefKey, initial, min, max, edge, label }: Resiza
     else if (event.key === 'ArrowLeft') delta = -sign * step;
     if (!delta) return;
     event.preventDefault();
-    setWidth((current) => {
-      const next = clamp(current + delta);
-      setPref(prefKey, next);
-      return next;
-    });
+    const next = clamp(widthRef.current + delta);
+    setWidth(next);
+    setPref(prefKey, next);
     setCustom(true);
   }, [clamp, prefKey, sign]);
 

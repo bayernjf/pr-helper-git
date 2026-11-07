@@ -217,11 +217,9 @@ export default function RefSidebar() {
   }, [activeRepo]);
 
   function togglePin(branch: string) {
-    setPinned((prev) => {
-      const next = prev.includes(branch) ? prev.filter((b) => b !== branch) : [...prev, branch];
-      if (activeRepo) setPref(repoPref(activeRepo, 'pinnedBranches'), next);
-      return next;
-    });
+    const next = pinned.includes(branch) ? pinned.filter((b) => b !== branch) : [...pinned, branch];
+    setPinned(next);
+    if (activeRepo) setPref(repoPref(activeRepo, 'pinnedBranches'), next);
   }
 
   function changeSort(next: BranchSort) {
@@ -413,12 +411,11 @@ export default function RefSidebar() {
     }
   };
 
-  const toggle = (key: keyof typeof openGroups) =>
-    setOpenGroups((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      if (activeRepo) setPref(repoPref(activeRepo, 'refGroups'), next);
-      return next;
-    });
+  const toggle = (key: keyof typeof openGroups) => {
+    const next = { ...openGroups, [key]: !openGroups[key] };
+    setOpenGroups(next);
+    if (activeRepo) setPref(repoPref(activeRepo, 'refGroups'), next);
+  };
 
   return (
     <aside className="sidebar" style={sidebarStyle}>

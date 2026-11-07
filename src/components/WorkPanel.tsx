@@ -248,21 +248,17 @@ export default function WorkPanel() {
     event.preventDefault();
     const startY = event.clientY;
     const startH = panelHeight;
+    let latest = startH;
     const move = (ev: PointerEvent) => {
       // Dragging the handle upward grows the working panel.
-      const next = Math.min(640, Math.max(140, startH + (startY - ev.clientY)));
-      setPanelHeight(next);
+      latest = Math.min(640, Math.max(140, startH + (startY - ev.clientY)));
+      setPanelHeight(latest);
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       // Persist only when the drag finishes, not on every pointer move.
-      if (activeRepo) {
-        setPanelHeight((current) => {
-          setPref(repoPref(activeRepo, 'panelHeight'), current);
-          return current;
-        });
-      }
+      if (activeRepo) setPref(repoPref(activeRepo, 'panelHeight'), latest);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -345,7 +341,7 @@ export default function WorkPanel() {
     return () => {
       cancelled = true;
     };
-  }, [selection, activeRepo, status, ignoreWs, context]);
+  }, [selection, activeRepo, ignoreWs, context]);
 
   async function handleDiscard(file: StatusFile) {
     const ok = await confirm(
