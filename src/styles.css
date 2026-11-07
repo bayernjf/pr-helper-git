@@ -2,6 +2,8 @@
   --bg: #121217;
   --panel: #1a1a21;
   --panel-2: #20202a;
+  /* Elevated surface for inputs, selects and code blocks sitting on a panel. */
+  --bg-elevated: #20202a;
   --hover: #282833;
   --active: #2f2f3c;
   --border: #2c2c37;
@@ -58,6 +60,7 @@
   --bg: #f6f8fa;
   --panel: #ffffff;
   --panel-2: #f0f3f6;
+  --bg-elevated: #f0f3f6;
   --hover: #eef1f4;
   --active: #e6eaf0;
   --border: #d8dee4;
