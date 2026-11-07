@@ -202,6 +202,23 @@ repository is never pushed.
   process supervision, desktop-build bundler, shutdown hardening, E2E verified
 - [x] UI/UX P0 pass: resizable sidebar/detail columns with persistence and
   ARIA separators, app icon and window frame memory, prefers-reduced-motion
+- [x] Hover fix: lift the commit graph SVG above row hover/selected backgrounds
+  so lanes and nodes stay visible (pointer-events and text unaffected)
+- [x] Path integrity: core.quotePath=false for literal UTF-8 paths, porcelain
+  type-2 rename parsing from the first path field, numstat rename resolution
+- [x] Server hardening: bounded file reads, grep -z NUL-triple parsing, 120s
+  fetch/pull/push timeout, proxied upstream errors, GraphQL timeouts, symlink
+  repo roots, expanded sensitive patterns, CSP/cookie/asset-path fixes
+- [x] Web async-race guards: stacked Escape handling, sequence tokens on repo
+  loads/file lists/patch previews, one-time draft seeding, split-view header
+  dedupe, paginated PR board and detail beyond the 30-item window
+- [x] Desktop Node discovery across Homebrew/MacPorts/volta/asdf/nvm with a
+  server-crash alert; GitHub remote recognition for SSH ports and trailing slash
+- [x] Follow-up race guards on audit/compare/grep/PR-detail modals and shortcuts
+- [x] Code-quality pass: pure state updaters (no side effects in updaters),
+  redundant diff-effect dependency removed, untracked delete wording corrected,
+  repo removal without a target rejected with 400, a single EventSource reading
+  latest params from a ref, and an SVG favicon
 
 ## Delivery notes
 
@@ -706,3 +723,35 @@ repository is never pushed.
   centered) and open/quit still leaves no lingering shell or node process. All
   121 Vitest tests pass across 11 files, tsc is clean, vite build succeeds, and
   the rebuilt bundle is ~1.2 MB with the icon in Contents/Resources.
+- Post-P0 hardening phase (eleven atomic commits) opened with a reported hover
+  defect: the graph SVG and absolutely positioned rows shared an auto z-index,
+  so an opaque row hover/selected background painted over the left lanes and
+  nodes; the SVG now sits above the rows while remaining pointer-events-none.
+  A sequence of correctness fixes followed: literal UTF-8 paths and reliable
+  rename parsing (quotePath, porcelain type-2, numstat resolution), bounded file
+  reads and grep -z parsing, longer network timeouts, symlink-aware repo roots,
+  expanded sensitive-file masking, stacked Escape and sequence-token race guards
+  across the modals, paginated PR collections, desktop Node discovery across
+  version managers, and SSH-port/trailing-slash remote recognition.
+- A fresh file-by-file bug audit then read every server module, all 35 client
+  components and the pure helper libraries. Eight candidates were verified
+  against the real source and ranked by severity. The single P1 (a slow
+  repository load overwriting a newly selected repo) and the no-newline diff
+  parsing had already been closed by the sequence-token work; the remaining
+  real items were fixed in four atomic commits: side effects removed from
+  setState updaters (a StrictMode double-invocation hazard), a redundant status
+  dependency that re-fetched the diff on every background refresh, an untracked
+  delete confirmation that wrongly claimed a staged deletion (the server unlinks
+  untracked files directly), and repo removal now returns 400 instead of writing
+  a repo:null audit entry. The EventSource was also reduced to one connection
+  that reads the latest reload parameters from a ref, removing the event-loss
+  window from reconnecting on every log-option change.
+- The only theoretical item deliberately left unchanged is SSE write back
+  pressure: there is a single loopback client sending tiny frames, and the
+  existing try/catch removes a faulting client, so asynchronous drain logic
+  would add complexity without practical benefit.
+- Current verification: 140 Vitest tests pass across 12 files (the new 400
+  rejection adds one route test); tsc is clean; vite build transforms 77 modules
+  and now copies the checked-in SVG favicon (public/favicon.svg) into dist,
+  eliminating the /favicon.ico 404. The dev server is stopped and ports 5173 and
+  4789 are free; the product work tree is clean and still has no git remote.
