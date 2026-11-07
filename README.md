@@ -243,6 +243,35 @@ Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
 be removed again on request.
 
+## Desktop app (macOS)
+
+A native macOS desktop build is available without bundling any third-party
+runtime. It uses the system `WKWebView` (no embedded Chromium) and a
+`swiftc`-compiled native shell, and it reuses the Node.js already installed on
+the machine.
+
+```bash
+npm run desktop   # builds dist/PR Helper Git2.app
+```
+
+Double-click the app (or run `open "dist/PR Helper Git2.app"`). The shell:
+
+- resolves Node.js at the common install locations (Homebrew under
+  `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
+  process inherits a minimal `PATH`;
+- spawns the bundled server on an ephemeral port with `GIT2_DESKTOP=1` and
+  reads the machine-readable `GIT2_READY {"port","token"}` line;
+- points the `WKWebView` at the one-time token URL, which sets the HttpOnly
+  cookie, and keeps a persistent website data store so localStorage
+  preferences survive restarts;
+- terminates the server when the window closes. On shutdown the server closes
+  all keep-alive and SSE sockets immediately, and the shell force-kills the
+  process after a bounded wait if it does not exit.
+
+The resulting bundle is well under 1 MB. An unsigned, locally built app may
+need a one-time Gatekeeper approval under **System Settings → Privacy &
+Security**.
+
 ## Security model
 
 - The server binds to `127.0.0.1` only. In production it generates a random
@@ -271,6 +300,7 @@ be removed again on request.
 | --- | --- |
 | Client | React 19 + TypeScript, Vite build, plain CSS |
 | Server | Node.js built-in `http`, zero runtime dependencies |
+| Desktop | Swift `WKWebView` shell (`desktop/main.swift`), bundled by `scripts/desktop-build.mjs` |
 | Git | `execFile('git', argv)` with parsers for porcelain v2, log, refs and blame |
 | GitHub | REST allowlist proxy plus GraphQL merge/ready endpoints |
 
@@ -289,6 +319,8 @@ src/
   components/        UI components, inline SVG icons, context menu, modals
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
 scripts/dev.mjs      parallel Vite + API launcher
+scripts/desktop-build.mjs  Vite build + Swift compile into a macOS .app bundle
+desktop/main.swift   native WKWebView window and Node process supervision
 ```
 
 ## Checks
@@ -297,6 +329,7 @@ scripts/dev.mjs      parallel Vite + API launcher
 npm test           # Vitest unit + route-level HTTP tests
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
+npm run desktop    # native macOS .app bundle into dist/
 ```
 
 The same three steps run in CI on every push and pull request via the

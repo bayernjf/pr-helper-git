@@ -49,6 +49,12 @@ repository is never pushed.
   file creation (nested paths auto-create parent directories, then opens in
   the editor), and repository git config management (local/effective values
   for a whitelisted set of keys with per-type validation and unset-to-inherit).
+- Desktop (macOS, zero third-party runtime): a `swiftc`-compiled `WKWebView`
+  shell (`desktop/main.swift`) bundled by `scripts/desktop-build.mjs` via
+  `npm run desktop` into `dist/PR Helper Git2.app` (under 1 MB). It locates the
+  system Node.js at well-known paths, spawns the server on an ephemeral port,
+  parses the `GIT2_READY` machine-readable line, loads the one-time token URL
+  and terminates the server on window close.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
@@ -184,6 +190,8 @@ repository is never pushed.
 - [x] In-app new file creation with auto-created parent directories
 - [x] Repository git config management (whitelist, validation, unset)
 - [x] Twentieth iteration: full 121-test acceptance, build, docs, atomic commits
+- [x] Native macOS desktop shell: GIT2_READY readiness line, Swift WKWebView
+  process supervision, desktop-build bundler, shutdown hardening, E2E verified
 
 ## Delivery notes
 
@@ -653,3 +661,20 @@ repository is never pushed.
   76 modules). A fresh browser tab reports zero console errors/warnings; the
   throwaway test repo was restored to its empty state and the work tree is
   clean with no remote configured.
+- Desktop decision: the product is already a local loopback server plus a web
+  UI, so a desktop version only needs a native window, double-click launch and
+  process supervision. Electron (~150 MB runtime) and Tauri (Rust toolchain)
+  were rejected to preserve the zero-runtime-dependency design; the chosen
+  shell uses system WKWebView and swiftc and reuses the installed Node.js,
+  yielding a bundle under 1 MB.
+- Desktop backend: in GIT2_DESKTOP mode the server prints a machine-readable
+  GIT2_READY line with the ephemeral port and token. Shutdown now calls
+  server.closeAllConnections() (keep-alive/SSE sockets) and a new
+  stopAllWatching() closes every watcher, with a forced-exit safety net; the
+  old signal handlers waited for long-lived clients and could stall.
+- Desktop shell: the Swift AppDelegate resolves Node at well-known paths
+  (GUI PATH omits Homebrew), spawns the bundled server, parses GIT2_READY on a
+  serial queue, loads the token URL in a persistent WKWebView, and on
+  termination waits up to 3 seconds before SIGKILL. E2E via open/quit confirms
+  the shell and node start, establish five connections, and both exit with no
+  lingering process; 121 tests and tsc stay green.
