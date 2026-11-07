@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { discardHunk, stageHunk } from '../api';
 import { useApp } from '../app-state';
-import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
+import { parseDiffLines, pairDiffRows, type ParsedDiffLine, type SplitRow } from '../lib/diff-lines';
 import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
 
@@ -54,26 +54,42 @@ function UnifiedRow({ row }: { row: ParsedDiffLine }) {
   );
 }
 
-function SplitRow({ row }: { row: ParsedDiffLine }) {
-  const leftNo = row.kind === 'add' ? null : row.oldNo;
-  const rightNo = row.kind === 'del' ? null : row.newNo;
-  const leftText = row.kind === 'add' ? '' : row.text;
-  const rightText = row.kind === 'del' ? '' : row.text;
-  const leftKind = row.kind === 'add' ? 'ctx' : row.kind;
-  const rightKind = row.kind === 'del' ? 'ctx' : row.kind;
+function SplitSide({
+  row,
+  side,
+}: {
+  row: ParsedDiffLine | null;
+  side: 'left' | 'right';
+}) {
+  if (!row) {
+    return <div className={`diff-side empty ${side === 'right' ? 'right' : ''}`} />;
+  }
+  const no = side === 'left' ? row.oldNo : row.newNo;
+  const kind = side === 'left'
+    ? row.kind === 'add' ? 'ctx' : row.kind
+    : row.kind === 'del' ? 'ctx' : row.kind;
+  const sign = side === 'left' ? (row.kind === 'del' ? '-' : ' ') : (row.kind === 'add' ? '+' : ' ');
+  return (
+    <div className={`diff-side ${kind}${side === 'right' ? ' right' : ''}`}>
+      <span className="diff-gutter">{no ?? ''}</span>
+      <span className="diff-sign">{sign}</span>
+      <span className="diff-content">{row.text || ' '}</span>
+    </div>
+  );
+}
 
+function SplitRowView({ row }: { row: SplitRow }) {
+  if (row.kind === 'header') {
+    return (
+      <div className={`diff-line ${row.row.kind}`}>
+        <span className="diff-content">{row.row.text}</span>
+      </div>
+    );
+  }
   return (
     <div className="diff-split-row">
-      <div className={`diff-side ${leftKind}`}>
-        <span className="diff-gutter">{leftNo ?? ''}</span>
-        <span className="diff-sign">{row.kind === 'del' ? '-' : ' '}</span>
-        <span className="diff-content">{leftText || ' '}</span>
-      </div>
-      <div className={`diff-side right ${rightKind}`}>
-        <span className="diff-gutter">{rightNo ?? ''}</span>
-        <span className="diff-sign">{row.kind === 'add' ? '+' : ' '}</span>
-        <span className="diff-content">{rightText || ' '}</span>
-      </div>
+      <SplitSide row={row.left} side="left" />
+      <SplitSide row={row.right} side="right" />
     </div>
   );
 }
@@ -91,6 +107,7 @@ export default function DiffView({
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
   const [pending, setPending] = useState<{ index: number; kind: string } | null>(null);
   const rows = useMemo(() => (result?.diff ? parseDiffLines(result.diff) : []), [result]);
+  const splitRows = useMemo(() => pairDiffRows(rows), [rows]);
 
   // Hunk actions are only available in the unified view for tracked changes
   // (untracked files have no ordinary git diff and keep whole-file staging).
@@ -178,16 +195,8 @@ export default function DiffView({
         </pre>
       ) : (
         <pre className="diff">
-          {rows.map((row, i) => (
-            row.kind === 'meta' || row.kind === 'hunk'
-              // File headers and hunk markers belong to both sides; rendering
-              // them through SplitRow would duplicate them in both columns.
-              ? (
-                <div key={i} className={`diff-line ${row.kind}`}>
-                  <span className="diff-content">{row.text}</span>
-                </div>
-              )
-              : <SplitRow key={i} row={row} />
+          {splitRows.map((row, i) => (
+            <SplitRowView key={i} row={row} />
           ))}
         </pre>
       )}

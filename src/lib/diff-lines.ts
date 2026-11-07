@@ -7,6 +7,48 @@ export interface ParsedDiffLine {
   newNo: number | null;
 }
 
+// A row of the side-by-side view: headers span both columns, while a pair
+// carries the old-side and new-side line for one visual row. Either side may
+// be null when a change has no counterpart (pure insertion or deletion).
+export type SplitRow =
+  | { kind: 'header'; row: ParsedDiffLine }
+  | { kind: 'pair'; left: ParsedDiffLine | null; right: ParsedDiffLine | null };
+
+// Pair removed and added lines inside each contiguous change block, so a split
+// view shows the old and new version of a line on the same row instead of
+// laying deletions out above insertions. Context lines pair with themselves;
+// file/hunk headers stay full-width.
+export function pairDiffRows(rows: ParsedDiffLine[]): SplitRow[] {
+  const out: SplitRow[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    const row = rows[i];
+    if (row.kind === 'meta' || row.kind === 'hunk') {
+      out.push({ kind: 'header', row });
+      i += 1;
+      continue;
+    }
+    if (row.kind === 'ctx') {
+      out.push({ kind: 'pair', left: row, right: row });
+      i += 1;
+      continue;
+    }
+    // Collect the whole change block first: deletions and insertions that
+    // belong together are adjacent in unified output.
+    const dels: ParsedDiffLine[] = [];
+    const adds: ParsedDiffLine[] = [];
+    while (i < rows.length && (rows[i].kind === 'del' || rows[i].kind === 'add')) {
+      (rows[i].kind === 'del' ? dels : adds).push(rows[i]);
+      i += 1;
+    }
+    const count = Math.max(dels.length, adds.length);
+    for (let k = 0; k < count; k += 1) {
+      out.push({ kind: 'pair', left: dels[k] ?? null, right: adds[k] ?? null });
+    }
+  }
+  return out;
+}
+
 // Parse a unified diff into rows with old/new line numbers derived from the
 // hunk headers (`@@ -a,b +c,d @@`).
 export function parseDiffLines(diff: string): ParsedDiffLine[] {

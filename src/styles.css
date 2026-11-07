@@ -1023,6 +1023,7 @@ pre.diff {
 .diff-split-row .diff-side.add { background: var(--diff-add-bg); }
 .diff-split-row .diff-side.del { background: var(--diff-del-bg); }
 .diff-split-row .diff-side.hunk { background: var(--diff-hunk-bg); color: var(--accent); }
+.diff-split-row .diff-side.empty { background: var(--panel); }
 .diff-split-row .diff-side .diff-gutter { width: 38px; }
 
 /* ---------- Commit form ---------- */
@@ -2410,6 +2411,10 @@ pre.diff {
 }
 .banner-actions .btn { padding: 4px 10px; font-size: 12px; }
 .rebase-banner {
+  background: rgba(210, 153, 34, 0.09);
+  border-color: rgba(210, 153, 34, 0.45);
+}
+.revert-banner {
   background: rgba(210, 153, 34, 0.09);
   border-color: rgba(210, 153, 34, 0.45);
 }

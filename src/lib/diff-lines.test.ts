@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDiffLines } from './diff-lines';
+import { pairDiffRows, parseDiffLines } from './diff-lines';
 
 const DIFF = [
   'diff --git a/f.js b/f.js',
@@ -70,5 +70,58 @@ describe('parseDiffLines', () => {
     expect(rows.filter((r) => r.kind === 'meta')).toHaveLength(3);
     expect(rows[4]).toMatchObject({ kind: 'del', text: '-- old separator', oldNo: 1 });
     expect(rows[5]).toMatchObject({ kind: 'add', text: '++ new separator', newNo: 1 });
+  });
+});
+
+describe('pairDiffRows', () => {
+  it('keeps headers full-width and pairs context lines with themselves', () => {
+    const split = pairDiffRows(parseDiffLines(DIFF));
+    expect(split[0].kind).toBe('header');
+    expect(split.every((r) => r.kind === 'header' || r.kind === 'pair')).toBe(true);
+    const ctxPair = split.find(
+      (r) => r.kind === 'pair' && r.left?.kind === 'ctx' && r.right?.kind === 'ctx',
+    );
+    expect(ctxPair).toBeTruthy();
+  });
+
+  it('aligns a removal with its replacement on one row', () => {
+    const split = pairDiffRows(parseDiffLines(DIFF));
+    const replaced = split.find(
+      (r) => r.kind === 'pair' && r.left?.text === 'old line' && r.right?.text === 'new line',
+    );
+    expect(replaced).toBeTruthy();
+  });
+
+  it('renders an insertion without a counterpart on an empty left side', () => {
+    const split = pairDiffRows(parseDiffLines(DIFF));
+    // "old line" is replaced by "new line", leaving "added line" unpaired.
+    const inserted = split.find(
+      (r) => r.kind === 'pair' && r.right?.text === 'added line',
+    );
+    expect(inserted && inserted.kind === 'pair' ? inserted.left : undefined).toBeNull();
+  });
+
+  it('pairs deletions and insertions by position inside one block', () => {
+    const split = pairDiffRows(parseDiffLines([
+      '@@ -1,2 +1,2 @@',
+      '-a',
+      '-b',
+      '+c',
+      '+d',
+    ].join('\n')));
+    // The hunk header is a full-width row; the block yields two pairs.
+    expect(split[0].kind).toBe('header');
+    const pairs = split.filter((r) => r.kind === 'pair');
+    expect(pairs).toHaveLength(2);
+    expect(pairs[0]).toMatchObject({
+      kind: 'pair',
+      left: { text: 'a' },
+      right: { text: 'c' },
+    });
+    expect(pairs[1]).toMatchObject({
+      kind: 'pair',
+      left: { text: 'b' },
+      right: { text: 'd' },
+    });
   });
 });
