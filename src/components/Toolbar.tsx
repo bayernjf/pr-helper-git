@@ -14,6 +14,7 @@ import GrepModal from './GrepModal';
 import GlobalGrepModal from './GlobalGrepModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
+import RepositoriesModal from './RepositoriesModal';
 import SettingsModal from './SettingsModal';
 import ShortcutsHelp from './ShortcutsHelp';
 import StashModal from './StashModal';
@@ -27,6 +28,7 @@ import {
   IconGear,
   IconGlobe,
   IconKeyboard,
+  IconList,
   IconMoon,
   IconSearch,
   IconServer,
@@ -51,6 +53,7 @@ export default function Toolbar() {
     runAction,
   } = useApp();
   const [showAdd, setShowAdd] = useState(false);
+  const [showRepositories, setShowRepositories] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRemotes, setShowRemotes] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -67,6 +70,7 @@ export default function Toolbar() {
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
     const openAdd = () => setShowAdd(true);
+    const openRepositories = () => setShowRepositories(true);
     const openSettings = () => setShowSettings(true);
     const openRemotes = () => setShowRemotes(true);
     const openReflog = () => setShowReflog(true);
@@ -76,6 +80,7 @@ export default function Toolbar() {
     const openAudit = () => setShowAudit(true);
     const openShortcuts = () => setShowShortcuts(true);
     window.addEventListener('git2:add-repo', openAdd);
+    window.addEventListener('git2:repositories', openRepositories);
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
     window.addEventListener('git2:reflog', openReflog);
@@ -86,6 +91,7 @@ export default function Toolbar() {
     window.addEventListener('git2:shortcuts', openShortcuts);
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
+      window.removeEventListener('git2:repositories', openRepositories);
       window.removeEventListener('git2:settings', openSettings);
       window.removeEventListener('git2:remotes', openRemotes);
       window.removeEventListener('git2:reflog', openReflog);
@@ -157,6 +163,15 @@ export default function Toolbar() {
         ))}
         <option value="__add__">+ Add repository…</option>
       </select>
+      <button
+        type="button"
+        className="icon-btn"
+        title="Open repositories panel"
+        aria-label="Open repositories panel"
+        onClick={() => setShowRepositories(true)}
+      >
+        <IconList />
+      </button>
 
       <span className="branch-pill" title={activeRepo || ''}>
         <span className="dot" />
@@ -340,6 +355,7 @@ export default function Toolbar() {
       </button>
 
       {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
+      {showRepositories && <RepositoriesModal onClose={() => setShowRepositories(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}

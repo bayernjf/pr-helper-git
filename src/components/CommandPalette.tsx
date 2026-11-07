@@ -21,6 +21,7 @@ import {
   IconDownload,
   IconFolder,
   IconGear,
+  IconList,
   IconPullRequest,
   IconRefresh,
   IconSearch,
@@ -170,6 +171,13 @@ export default function CommandPalette() {
     }
 
     list.push(
+      {
+        id: 'repositories-panel',
+        label: 'Open repositories panel',
+        search: 'repositories panel list open all multi',
+        icon: <IconList width={15} height={15} />,
+        run: () => window.dispatchEvent(new CustomEvent('git2:repositories')),
+      },
       {
         id: 'add-repo',
         label: 'Add, clone or initialise a repository',

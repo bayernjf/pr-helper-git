@@ -5,10 +5,12 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AppContext } from '../app-state';
+import type { RepoBrief } from '../types';
 import AuditModal from './AuditModal';
 import DiffView from './DiffView';
 import ErrorBoundary from './ErrorBoundary';
 import PrFileReview from './PrFileReview';
+import RepositoriesModal from './RepositoriesModal';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -182,5 +184,82 @@ describe('Toolbar', () => {
     expect(html).toContain('main');
     // renderToString places comment nodes between the arrow and the number.
     expect(html).toMatch(/↑<!-- -->2/);
+  });
+});
+
+describe('RepositoriesModal', () => {
+  const SAMPLE_REPOS: RepoBrief[] = [
+    {
+      path: '/Users/me/code/alpha',
+      name: 'alpha',
+      branch: 'main',
+      upstream: 'origin/main',
+      ahead: 1,
+      behind: 2,
+      staged: 1,
+      unstaged: 2,
+      untracked: 1,
+      lastCommit: { at: '2026-11-01T00:00:00Z', subject: 'hello' },
+      error: null,
+    },
+    {
+      path: '/Users/me/code/beta',
+      name: 'beta',
+      branch: null,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      staged: 0,
+      unstaged: 0,
+      untracked: 0,
+      lastCommit: null,
+      error: null,
+    },
+    {
+      path: '/Users/me/code/gamma',
+      name: 'gamma',
+      branch: 'dev',
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      staged: 0,
+      unstaged: 0,
+      untracked: 0,
+      lastCommit: null,
+      error: 'boom',
+    },
+  ];
+
+  const renderWith = (overrides: Record<string, unknown> = {}) =>
+    withApp(<RepositoriesModal onClose={() => {}} />, { refresh: async () => {}, ...overrides });
+
+  it('shows the empty state when no repositories are registered', () => {
+    const html = renderWith();
+    expect(html).toContain('Open repositories');
+    expect(html).toContain('No repositories yet');
+  });
+
+  it('renders each repository with location, branch and active marker', () => {
+    const html = renderWith({ repos: SAMPLE_REPOS, activeRepo: '/Users/me/code/alpha' });
+    expect(html).toContain('alpha');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+    expect(html).toContain('/Users/me/code');
+    expect(html).toContain('main');
+    expect(html).toContain('dev');
+    expect(html).toContain('active');
+  });
+
+  it('reports detached HEAD, dirty counts and ahead/behind', () => {
+    const html = renderWith({ repos: SAMPLE_REPOS });
+    expect(html).toContain('detached');
+    expect(html).toContain('c-staged');
+    expect(html).toMatch(/↑<!-- -->1/);
+    expect(html).toMatch(/↓<!-- -->2/);
+  });
+
+  it('flags an unavailable repository', () => {
+    const html = renderWith({ repos: SAMPLE_REPOS });
+    expect(html).toContain('unavailable');
   });
 });
