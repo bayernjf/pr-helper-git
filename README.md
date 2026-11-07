@@ -19,7 +19,9 @@ GitHub by the application setup.
   to fetch them in one batch (a single failure never aborts the rest).
 - Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
   curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
-  branches and tags.
+  branches and tags. Only rows around the viewport are mounted (with a small
+  overscan), so a 1,000-commit history stays responsive while the scrollbar
+  still spans the whole list.
 - Filter the graph by message, author or hash with a live result count, and
   load history in pages beyond the first 200 commits (up to 1,000).
 - Server-side history filters in a dedicated dialog: author pattern, message
@@ -45,7 +47,8 @@ GitHub by the application setup.
 - Working-tree panel rendered as a collapsible folder tree with staged,
   unstaged and untracked groups; stage/unstage single files or everything,
   discard tracked changes, add an untracked path straight to `.gitignore`,
-  and review syntax-colored diffs in unified or side-by-side split view.
+  and review syntax-colored diffs in unified or side-by-side split view, with
+  the changed words of a replaced line highlighted in both modes.
 - Commit with a message or amend the last commit, plus fetch, pull, push
   (upstream tracking supported), and stash create/apply/pop/drop.
 - Open a file content viewer from the working tree or any commit: line-numbered
@@ -92,13 +95,18 @@ GitHub by the application setup.
 - Abort a conflicted merge (`git merge --abort`) from an automatic banner that
   appears while a merge is in progress, and force-create a tag (`-f`) to
   overwrite an existing name from the create-tag dialog.
+- Resolve conflicts from a panel opened in the merge, rebase or revert banner:
+  every unmerged path lists View, Use current (`checkout --ours`), Use incoming
+  (`checkout --theirs`) and Mark resolved (`git add -A`), with the remaining
+  count updated after each choice. No three-way editor is provided.
 - Delete a tag directly on the shared remote (`push --delete`) behind a
   confirmation, while the local tag is left untouched.
 - Revert a merge commit from the graph: a dialog asks which parent is the
   mainline (`-m 1..N`), since reverting a merge needs that explicit choice.
 - Search the whole repository contents with `git grep` from a dedicated modal:
-  results are grouped by file with line numbers, and an optional path narrows
-  the scope, including a clear empty state.
+  results are grouped by file with line numbers, an optional path narrows the
+  scope, and clicking a match opens the file viewer scrolled to that line with
+  the matched term highlighted.
 - Rename or move any file through `git mv` (history is preserved and the
   change is staged), or delete a file from its row: tracked files use
   `git rm` while fully untracked files are removed directly, each behind a
