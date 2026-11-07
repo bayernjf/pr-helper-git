@@ -65,27 +65,34 @@ const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? {
 // Minimal GitHub GraphQL caller used for the draft -> ready conversion, which
 // the REST endpoint silently ignores.
 async function githubGraphql(pat, query, variables) {
-  const response = await fetch(`${GITHUB_API}/graphql`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${pat}`,
-      'content-type': 'application/json',
-      'user-agent': 'pr-helper-git2',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const payload = await response.json();
-  if (payload.errors) {
-    const error = new Error(payload.errors.map((e) => e.message).join('; '));
-    error.status = response.status;
-    throw error;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GITHUB_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${GITHUB_API}/graphql`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        'content-type': 'application/json',
+        'user-agent': 'pr-helper-git2',
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.errors) {
+      const error = new Error(payload.errors.map((e) => e.message).join('; '));
+      error.status = response.status;
+      throw error;
+    }
+    if (!response.ok) {
+      const error = new Error(`GraphQL request failed (${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    return payload.data;
+  } finally {
+    clearTimeout(timer);
   }
-  if (!response.ok) {
-    const error = new Error(`GraphQL request failed (${response.status})`);
-    error.status = response.status;
-    throw error;
-  }
-  return payload.data;
 }
 
 function isAllowed(method, path) {
@@ -94,10 +101,11 @@ function isAllowed(method, path) {
 }
 
 // Parse an origin remote URL into owner/repo when hosted on GitHub.
+// ssh:// URLs are accepted because the clone dialog allows that transport.
 export function parseRemoteUrl(rawUrl) {
   const url = String(rawUrl || '').trim();
   if (!url) return null;
-  let match = url.match(/^git@github\.com:([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
+  let match = url.match(/^(?:git@|ssh:\/\/(?:[^@/]+@)?)github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
   if (!match) {
     match = url.match(/^https?:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
   }
@@ -108,6 +116,10 @@ export function parseRemoteUrl(rawUrl) {
 export async function handleGithubRoute({ method, pathname, query, body, headers }) {
   if (pathname === '/api/remote' && method === 'GET') {
     const repo = typeof query.get('repo') === 'string' ? query.get('repo') : '';
+    // Only registered repositories may be inspected, matching every other
+    // repo-scoped route (arbitrary paths must not become a git oracle).
+    const registered = await listRepos();
+    if (!registered.includes(repo)) return fail(403, 'unknown or unregistered repo');
     try {
       const url = (await git(['remote', 'get-url', 'origin'], repo)).trim();
       return ok({ remote: parseRemoteUrl(url) });
@@ -263,5 +275,13 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
     path: ghPath,
     upstreamStatus: upstream.status,
   });
-  return { status: upstream.status, json: { status: upstream.status, data } };
+  // Surface GitHub's own message ("Validation Failed", "Not Found") so error
+  // toasts are actionable instead of a bare "HTTP 422".
+  const upstreamError = upstream.ok
+    ? null
+    : (typeof data?.message === 'string' && data.message) || `GitHub request failed (${upstream.status})`;
+  return {
+    status: upstream.status,
+    json: { status: upstream.status, data, ...(upstreamError ? { error: upstreamError } : {}) },
+  };
 }

@@ -21,6 +21,10 @@ import { listRepos } from './store.mjs';
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIST_DIR = path.join(REPO_ROOT, 'dist');
 const MAX_BODY_BYTES = 256 * 1024;
+// File saves carry up to 1 MB of text, and JSON string escaping can double
+// that, so the save endpoint gets a larger cap than ordinary API calls.
+const SAVE_BODY_BYTES = 2.5 * 1024 * 1024;
+const BODY_LIMIT_BY_PATH = new Map([['/api/save', SAVE_BODY_BYTES]]);
 
 const args = process.argv.slice(2);
 const portArg = args.find((a) => a.startsWith('--port='));
@@ -54,7 +58,7 @@ const NOSNIFF = { 'x-content-type-options': 'nosniff' };
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https://avatars.githubusercontent.com",
   "font-src 'self' data:",
   "connect-src 'self'",
@@ -73,12 +77,12 @@ function sendJson(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
-async function readJsonBody(req) {
+async function readJsonBody(req, limit = MAX_BODY_BYTES) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > limit) {
       // Signal the caller to emit a 413 before the socket is torn down;
       // destroying here would make the client see a bare ECONNRESET.
       return { tooLarge: true };
@@ -104,7 +108,10 @@ const server = http.createServer(async (req, res) => {
       if (!tokenOk(given)) return sendJson(res, 401, { error: 'invalid token' });
       res.writeHead(302, {
         location: '/',
-        'set-cookie': `git2_token=${given}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,
+        // The token is regenerated on every launch, so a stale cookie is never
+        // accepted; a lifetime beyond a day only avoids forcing a relaunch in
+        // long-running sessions (the desktop shell can stay open for days).
+        'set-cookie': `git2_token=${given}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`,
       });
       return res.end();
     }
@@ -140,7 +147,9 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const body = req.method === 'POST' ? await readJsonBody(req) : { value: {} };
+      const body = req.method === 'POST'
+        ? await readJsonBody(req, BODY_LIMIT_BY_PATH.get(pathname) || MAX_BODY_BYTES)
+        : { value: {} };
       if (body.tooLarge) {
         // Flush the 413 response first, then close the still-writing request
         // so the client receives a meaningful status instead of a reset.
@@ -192,7 +201,11 @@ const server = http.createServer(async (req, res) => {
       return res.end('forbidden');
     }
     const real = await fsp.realpath(abs);
-    if (!real.startsWith(DIST_DIR + path.sep)) {
+    // Compare against the canonical dist path: the project itself may live
+    // under a symlinked directory (for example a symlinked home or /tmp on
+    // macOS), in which case realpath() no longer matches DIST_DIR.
+    const realDist = await fsp.realpath(DIST_DIR).catch(() => DIST_DIR);
+    if (!real.startsWith(realDist + path.sep)) {
       res.writeHead(403, NOSNIFF);
       return res.end('forbidden');
     }

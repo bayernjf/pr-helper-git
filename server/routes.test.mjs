@@ -192,6 +192,18 @@ describe('read routes', () => {
     expect(r.json.state.rebaseInProgress).toBe(false);
   });
 
+  it('reports non-ASCII paths verbatim', async () => {
+    const name = '中文 名.txt';
+    await writeFile(name, 'x\n');
+    const status = await get(`/api/status?repo=${q(repoDir)}`);
+    const entry = status.json.status.files.find((f) => f.path === name);
+    expect(entry).toMatchObject({ status: 'untracked', area: 'untracked' });
+    const file = await get(`/api/file?repo=${q(repoDir)}&file=${q(name)}`);
+    expect(file.status).toBe(200);
+    expect(file.json.content).toBe('x\n');
+    await fsp.rm(path.join(repoDir, name));
+  });
+
   it('lists the full commit history', async () => {
     const r = await get(`/api/log?repo=${q(repoDir)}`);
     expect(r.status).toBe(200);
@@ -276,6 +288,16 @@ describe('read routes', () => {
     expect(repoResult.matches[0].path).toBe('dash.txt');
   });
 
+  it('keeps file names containing a colon intact in grep results', async () => {
+    const name = 'colon:name.txt';
+    await writeFile(name, 'colon needle\n');
+    git(['add', name], repoDir);
+    git(['commit', '-m', 'add colon name file'], repoDir);
+    const r = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('colon needle')}`);
+    expect(r.status).toBe(200);
+    expect(r.json.matches[0]).toMatchObject({ path: name, line: 1, text: 'colon needle' });
+  });
+
   it('searches across every registered repository with grep-all', async () => {
     const hit = await get(`/api/grep-all?pattern=${q('bravo')}`);
     expect(hit.status).toBe(200);
@@ -308,8 +330,25 @@ describe('read routes', () => {
 });
 
 describe('write routes', () => {
-  it('stages and unstages a single file', async () => {
-    const staged = await post('/api/stage', { repo: repoDir, file: 'a.txt', action: 'stage' });
+  it('unstages everything in a repository with no commits yet', async () => {
+    const fresh = path.join(tmpRoot, 'fresh-repo');
+    await fsp.mkdir(fresh);
+    git(['init', '-b', 'main'], fresh);
+    git(['config', 'user.email', 'fresh@example.com'], fresh);
+    git(['config', 'user.name', 'Fresh'], fresh);
+    await fsp.writeFile(path.join(fresh, 'first.txt'), 'one\n', 'utf8');
+    git(['add', '.'], fresh);
+    expect((await post('/api/repos/add', { repo: fresh })).status).toBe(200);
+
+    const unstage = await post('/api/stage-all', { repo: fresh, action: 'unstage' });
+    expect(unstage.status).toBe(200);
+    const status = await get(`/api/status?repo=${q(fresh)}`);
+    expect(status.json.status.files).toEqual([
+      { path: 'first.txt', status: 'untracked', area: 'untracked' },
+    ]);
+  });
+
+  it('stages and unstages a single file', async () => {    const staged = await post('/api/stage', { repo: repoDir, file: 'a.txt', action: 'stage' });
     expect(staged.status).toBe(200);
     let status = await get(`/api/status?repo=${q(repoDir)}`);
     expect(status.json.status.files.some((f) => f.path === 'a.txt' && f.area === 'staged')).toBe(true);
@@ -438,6 +477,25 @@ describe('write routes', () => {
     expect(created.status).toBe(200);
     expect(created.json.switched).toBe(false);
     const deleted = await post('/api/branch/delete', { repo: repoDir, name: 'tmp-branch' });
+    expect(deleted.status).toBe(200);
+  });
+
+  it('creates a branch from an explicit start ref', async () => {
+    // The default path also switches to the new branch, which is the case that
+    // broke when the argv contained a "--" separator before the start ref.
+    const created = await post('/api/branch/create', {
+      repo: repoDir,
+      name: 'tmp-from-tag',
+      from: 'v1',
+    });
+    expect(created.status).toBe(200);
+    expect(created.json.switched).toBe(true);
+    const refs = (await get(`/api/refs?repo=${q(repoDir)}`)).json.refs;
+    const branch = refs.find((r) => r.name === 'refs/heads/tmp-from-tag');
+    const tag = refs.find((r) => r.name === 'refs/tags/v1');
+    expect(branch.hash).toBe(tag.hash);
+    expect((await post('/api/checkout', { repo: repoDir, ref: 'main' })).status).toBe(200);
+    const deleted = await post('/api/branch/delete', { repo: repoDir, name: 'tmp-from-tag' });
     expect(deleted.status).toBe(200);
   });
 
@@ -693,12 +751,13 @@ describe('file save endpoint', () => {
     const base = { repo: repoDir, file: scratch };
     expect((await post('/api/save', { ...base, content: 123 })).status).toBe(400);
     expect((await post('/api/save', { ...base, content: 'bad\0byte' })).status).toBe(400);
-    // The global 256 KB body cap binds before the route's 1 MB content check,
-    // so an oversized payload is rejected with 413 rather than a reset.
+    // The save route accepts up to 1 MB of text, so a 1 MB + 1 byte body must
+    // reach the handler and be rejected there (400), not by the generic body
+    // cap (413).
     expect((await post('/api/save', {
       ...base,
       content: 'x'.repeat(1024 * 1024 + 1),
-    })).status).toBe(413);
+    })).status).toBe(400);
     expect((await post('/api/save', {
       repo: repoDir,
       file: '.env',
@@ -709,6 +768,19 @@ describe('file save endpoint', () => {
       file: 'src',
       content: 'x',
     })).status).toBe(400);
+  });
+
+  it('saves a file larger than a typical API body limit', async () => {
+    const big = `${'0123456789abcdef'.repeat(20_000)}\n`; // ~320 KB
+    const r = await post('/api/save', {
+      repo: repoDir,
+      file: scratch,
+      content: big,
+      expectedMtime: (await get(`/api/file?repo=${q(repoDir)}&file=${q(scratch)}`)).json.mtimeMs,
+    });
+    expect(r.status).toBe(200);
+    expect(r.json.bytes).toBe(Buffer.byteLength(big, 'utf8'));
+    expect(await fsp.readFile(path.join(repoDir, scratch), 'utf8')).toBe(big);
   });
 
   it('rejects a stale save with 409 and accepts the fresh mtime', async () => {

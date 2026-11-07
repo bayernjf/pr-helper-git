@@ -1,11 +1,48 @@
 import { describe, expect, it } from 'vitest';
+import fsp from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {
   isSensitivePath,
   normalizeRepoPath,
+  resolveInside,
   validateCloneUrl,
   validateFolderName,
   validateRefName,
 } from './security.mjs';
+
+async function withTempDir(run) {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'git2-sec-'));
+  try {
+    return await run(dir);
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+}
+
+describe('resolveInside', () => {
+  it('resolves files when the repository root itself is a symlink', async () => {
+    await withTempDir(async (dir) => {
+      const real = path.join(dir, 'real-repo');
+      const link = path.join(dir, 'linked-repo');
+      await fsp.mkdir(real);
+      await fsp.symlink(real, link, 'dir');
+      const resolved = await resolveInside(link, 'src/app.ts');
+      expect(resolved).toBe(path.join(await fsp.realpath(real), 'src', 'app.ts'));
+    });
+  });
+
+  it('rejects paths that escape through an internal symlink', async () => {
+    await withTempDir(async (dir) => {
+      const repo = path.join(dir, 'repo');
+      const outside = path.join(dir, 'outside');
+      await fsp.mkdir(repo);
+      await fsp.mkdir(outside);
+      await fsp.symlink(outside, path.join(repo, 'escape'), 'dir');
+      expect(await resolveInside(repo, 'escape/secret.txt')).toBeNull();
+    });
+  });
+});
 
 describe('normalizeRepoPath', () => {
   it('accepts safe relative paths', () => {
@@ -26,6 +63,9 @@ describe('isSensitivePath', () => {
     expect(isSensitivePath('.env')).toBe(true);
     expect(isSensitivePath('config/.env.production')).toBe(true);
     expect(isSensitivePath('id_rsa')).toBe(true);
+    expect(isSensitivePath('id_ed25519')).toBe(true);
+    expect(isSensitivePath('keys/id_ecdsa')).toBe(true);
+    expect(isSensitivePath('.git-credentials')).toBe(true);
     expect(isSensitivePath('certs/server.pem')).toBe(true);
     expect(isSensitivePath('bundle.p12')).toBe(true);
   });

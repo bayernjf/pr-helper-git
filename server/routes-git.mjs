@@ -6,6 +6,7 @@ import {
   buildHunkPatch,
   cleanCommitMessage,
   git,
+  numstatTarget,
   parseBlame,
   parseLog,
   parsePorcelainV2,
@@ -36,6 +37,9 @@ const SAVE_MAX_BYTES = 1024 * 1024; // matches the 1 MB file viewer cap
 const LOG_LIMIT_DEFAULT = 200;
 const LOG_LIMIT_MAX = 1000;
 const FILE_MAX_BYTES = 1_000_000;
+// Network operations routinely take longer than a local git command; a 20s
+// cap would kill a slow fetch/pull/push mid-flight.
+const NETWORK_TIMEOUT_MS = 120_000;
 
 // Whitelist of git config keys that may be viewed or edited from the GUI.
 // Arbitrary keys are rejected because some (core.sshCommand, alias.*,
@@ -71,16 +75,22 @@ function gitFail(err, fallback) {
 }
 
 // Parse `git grep -n` output lines ("path:line:text") into structured matches.
+// Parse NUL-separated `git grep -n -z` output into path/line/text triples.
+// The NUL separators keep file names that contain ':' (legal on macOS and
+// Linux) intact; the previous "path:line:text" split truncated them.
 function parseGrepLines(raw) {
-  return raw.split('\n').filter(Boolean).map((line) => {
-    const first = line.indexOf(':');
-    const second = line.indexOf(':', first + 1);
-    return {
-      path: line.slice(0, first),
-      line: Number(line.slice(first + 1, second)),
-      text: line.slice(second + 1),
-    };
-  });
+  const parts = raw.split('\0');
+  const out = [];
+  for (let i = 0; i + 2 < parts.length; i += 3) {
+    if (!parts[i]) continue;
+    out.push({
+      path: parts[i],
+      line: Number(parts[i + 1]),
+      // With -z the record keeps the line's trailing newline before the NUL.
+      text: parts[i + 2].replace(/\r?\n$/, ''),
+    });
+  }
+  return out;
 }
 
 // Parse `git config --list` output ("key=value") into a map. Later entries
@@ -265,7 +275,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     const repos = await addRepo(target);
     await appendAudit({ action: 'repo-add', repo: target });
     ensureWatching(target);
-    return ok({ repos });
+    // Return the resolved path so the client can select exactly this repo even
+    // when the typed path had a trailing slash or a relative segment.
+    return ok({ repos, path: target });
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
@@ -347,7 +359,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       try {
         // -e declares the pattern explicitly so a value starting with "-" is
         // not misread as a git option.
-        const raw = await git(['grep', '-I', '-n', '--untracked', '-e', pattern], repo);
+        const raw = await git(['grep', '-I', '-n', '-z', '--untracked', '-e', pattern], repo);
         matches = parseGrepLines(raw);
       } catch (err) {
         // git grep exits 1 when nothing matches; other errors are isolated.
@@ -630,8 +642,21 @@ export async function handleGitRoute({ method, pathname, query, body }) {
         const stat = await fsp.stat(resolved);
         if (!stat.isFile()) return fail(400, 'not a file');
         mtimeMs = stat.mtimeMs;
-        if (stat.size > FILE_MAX_BYTES) truncated = true;
-        content = await fsp.readFile(resolved, 'utf8');
+        if (stat.size > FILE_MAX_BYTES) {
+          // Read only the cap instead of pulling a multi-hundred-MB file into
+          // memory just to show a truncated preview.
+          truncated = true;
+          const handle = await fsp.open(resolved, 'r');
+          try {
+            const buffer = Buffer.alloc(FILE_MAX_BYTES);
+            const { bytesRead } = await handle.read(buffer, 0, FILE_MAX_BYTES, 0);
+            content = buffer.subarray(0, bytesRead).toString('utf8');
+          } finally {
+            await handle.close();
+          }
+        } else {
+          content = await fsp.readFile(resolved, 'utf8');
+        }
       }
     } catch (err) {
       return gitFail(err, ref ? 'git show failed' : 'file read failed');
@@ -712,7 +737,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       for (const line of numstat.split('\n')) {
         if (!line) continue;
         const parts = line.split('\t');
-        const target = parts[parts.length - 1];
+        const target = numstatTarget(parts[parts.length - 1]);
         stats.set(target, {
           additions: Number(parts[0]) || 0,
           deletions: Number(parts[1]) || 0,
@@ -857,7 +882,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       for (const line of numstat.split('\n')) {
         if (!line) continue;
         const parts = line.split('\t');
-        const target = parts[parts.length - 1];
+        const target = numstatTarget(parts[parts.length - 1]);
         stats.set(target, {
           additions: Number(parts[0]) || 0,
           deletions: Number(parts[1]) || 0,
@@ -902,7 +927,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       // searches files not yet added so the result matches the working tree.
       // -e declares the pattern explicitly so a value starting with "-" is
       // not misread as a git option.
-      const argv = ['grep', '-I', '-n', '--untracked', '-e', pattern];
+      const argv = ['grep', '-I', '-n', '-z', '--untracked', '-e', pattern];
       if (grepPath) argv.push('--', grepPath);
       const raw = await git(argv, repo);
       const matches = parseGrepLines(raw);
@@ -1009,7 +1034,19 @@ export async function handleGitRoute({ method, pathname, query, body }) {
 
   if (pathname === '/api/stage-all') {
     const action = body.action === 'unstage' ? 'unstage' : 'stage';
-    const argv = action === 'stage' ? ['add', '--all'] : ['restore', '--staged', '.'];
+    let argv;
+    if (action === 'stage') {
+      argv = ['add', '--all'];
+    } else {
+      // `git restore --staged .` needs a HEAD commit; in a freshly initialised
+      // repository it fails with "could not resolve 'HEAD'". Drop the index
+      // entries directly instead so unstage-all also works before the first
+      // commit.
+      const hasHead = await git(['rev-parse', '--verify', '--quiet', 'HEAD'], repo)
+        .then(() => true)
+        .catch(() => false);
+      argv = hasHead ? ['restore', '--staged', '.'] : ['rm', '--cached', '-r', '--', '.'];
+    }
     try {
       await git(argv, repo);
     } catch (err) {
@@ -1117,7 +1154,10 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (body.from) {
       const from = validateRefName(body.from);
       if (!from) return fail(400, 'invalid start ref');
-      argv.push('--', from);
+      // No "--" here: `git checkout -b x -- ref` parses ref as a pathspec
+      // and fails with "<ref> is not a commit". validateRefName already
+      // prevents option-like values.
+      argv.push(from);
     }
     try {
       await git(argv, repo);
@@ -1216,7 +1256,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
     if (body.confirm !== true) return fail(400, 'remote tag deletion requires confirmation');
     try {
-      const result = await git(['push', remoteName, '--delete', name], repo);
+      const result = await git(['push', remoteName, '--delete', name], repo, { timeout: NETWORK_TIMEOUT_MS });
       await appendAudit({ ok: true, action: 'tag-delete-remote', repo, tag: name, remote: remoteName });
       return ok({ ok: true, tag: name, remote: remoteName, result: result.trim() });
     } catch (err) {
@@ -1233,7 +1273,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       : 'origin';
     if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
     try {
-      await git(['push', '-u', remoteName, name], repo);
+      await git(['push', '-u', remoteName, name], repo, { timeout: NETWORK_TIMEOUT_MS });
     } catch (err) {
       return gitFail(err, 'branch push failed');
     }
@@ -1249,7 +1289,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       : 'origin';
     if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
     try {
-      await git(['push', remoteName, '--delete', name], repo);
+      await git(['push', remoteName, '--delete', name], repo, { timeout: NETWORK_TIMEOUT_MS });
     } catch (err) {
       return gitFail(err, 'remote branch deletion failed');
     }
@@ -1489,9 +1529,11 @@ export async function handleGitRoute({ method, pathname, query, body }) {
           return fail(400, 'batch revert cannot include merge commits', `revert ${sha} individually`);
         }
       }
-      // Revert oldest first so the changes apply in a predictable order.
-      const ordered = [...shas].reverse();
-      const result = await git(['revert', '--no-edit', ...ordered], repo);
+      // Revert newest first: `git revert` applies the commits sequentially, so
+      // undoing the newest change before the older ones avoids the conflicts
+      // that occur when an older commit is reverted while its dependants still
+      // exist. The caller (the graph) sends commits in history order.
+      const result = await git(['revert', '--no-edit', ...shas], repo);
       await appendAudit({ ok: true, action: 'revert-batch', repo, count: shas.length, shas });
       return ok({ ok: true, reverted: shas, count: shas.length, result: result.trim() });
     } catch (err) {
@@ -1508,7 +1550,10 @@ export async function handleGitRoute({ method, pathname, query, body }) {
   if (pathname === '/api/ignore') {
     const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
     if (!target) return fail(400, 'invalid file path');
-    const ignorePath = path.join(repo, '.gitignore');
+    // Resolve through symlinks so a .gitignore that links outside the repo
+    // cannot be rewritten (and cannot escape the repository root).
+    const ignorePath = await resolveInside(repo, '.gitignore');
+    if (!ignorePath) return fail(403, 'path escapes repo root');
     try {
       let current = '';
       try {
@@ -1536,7 +1581,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!from || !to) return fail(400, 'invalid source or destination path');
     if (from === to) return fail(400, 'destination equals source');
     try {
-      await git(['mv', from, to], repo);
+      // "--" terminates options so a repository file whose name starts with
+      // "-" is treated as a path, never as a git flag.
+      await git(['mv', '--', from, to], repo);
       await appendAudit({ ok: true, action: 'mv', repo, from, to });
       return ok({ ok: true, from, to });
     } catch (err) {
@@ -1554,7 +1601,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       // directly after resolving it inside the repository root.
       const tracked = (await git(['ls-files', '--', target], repo)).trim();
       if (tracked) {
-        await git(['rm', ...(force ? ['-f'] : []), target], repo);
+        await git(['rm', ...(force ? ['-f'] : []), '--', target], repo);
         await appendAudit({ ok: true, action: 'rm', repo, file: target, force, method: 'git' });
         return ok({ ok: true, file: target, force, method: 'git' });
       }
@@ -1644,7 +1691,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (!name) return fail(400, 'invalid tag name');
     if (!/^[A-Za-z0-9._-]{1,64}$/.test(remoteName)) return fail(400, 'invalid remote name');
     try {
-      const result = await git(['push', remoteName, name], repo);
+      const result = await git(['push', remoteName, name], repo, { timeout: NETWORK_TIMEOUT_MS });
       await appendAudit({ ok: true, action: 'tag-push', repo, tag: name, remote: remoteName });
       return ok({ ok: true, pushed: name, remote: remoteName, result: result.trim() });
     } catch ( err) {
@@ -1660,7 +1707,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     try {
       const argv = remote ? ['fetch', '--', remote] : ['fetch', '--all'];
       if (prune) argv.splice(1, 0, '--prune');
-      await git(argv, repo);
+      await git(argv, repo, { timeout: NETWORK_TIMEOUT_MS });
     } catch (err) {
       return gitFail(err, 'git fetch failed');
     }
@@ -1672,7 +1719,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     const rebase = body.rebase === true;
     try {
       const argv = rebase ? ['pull', '--rebase'] : ['pull', '--no-edit'];
-      const result = await git(argv, repo);
+      const result = await git(argv, repo, { timeout: NETWORK_TIMEOUT_MS });
       await appendAudit({ ok: true, action: 'pull', repo, rebase });
       return ok({ ok: true, rebase, result: result.trim() });
     } catch (err) {
@@ -1697,7 +1744,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
       }
       if (forceMode === 'force') argv.push('--force');
       else if (forceMode === 'force-with-lease') argv.push('--force-with-lease');
-      const result = await git(argv, repo);
+      const result = await git(argv, repo, { timeout: NETWORK_TIMEOUT_MS });
       await appendAudit({ ok: true, action: 'push', repo, force: forceMode || 'none' });
       return ok({ ok: true, force: forceMode || 'none', result: result.trim() });
     } catch (err) {

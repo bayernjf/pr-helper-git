@@ -4,8 +4,8 @@ import crypto from 'node:crypto';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 
-const SENSITIVE_EXACT = new Set(['.env']);
-const SENSITIVE_PREFIXES = ['.env.', 'id_rsa'];
+const SENSITIVE_EXACT = new Set(['.env', '.netrc', '.git-credentials', '.npmrc']);
+const SENSITIVE_PREFIXES = ['.env.', 'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519'];
 const SENSITIVE_SUFFIXES = ['.key', '.pem', '.p12', '.pfx'];
 
 export function isSensitivePath(p) {
@@ -42,12 +42,20 @@ export async function resolveInside(root, rel) {
   if (!norm) return null;
   const abs = path.resolve(root, norm);
   if (abs !== root && !abs.startsWith(root + path.sep)) return null;
+  // A registered repository path may itself be a symlink (e.g. /tmp on macOS
+  // resolves to /private/tmp). Compare against the real root as well, so
+  // legitimate files are not rejected just because the roots differ.
+  const rootReal = await fsp.realpath(root).catch(() => null);
+  const insideRoot = (p) =>
+    p === root
+    || p.startsWith(root + path.sep)
+    || (!!rootReal && (p === rootReal || p.startsWith(rootReal + path.sep)));
   let current = abs;
   const missing = [];
   for (;;) {
     try {
       const real = await fsp.realpath(current);
-      if (real !== root && !real.startsWith(root + path.sep)) return null;
+      if (!insideRoot(real)) return null;
       return path.join(real, ...missing.reverse());
     } catch (err) {
       if (err.code !== 'ENOENT') return null;
