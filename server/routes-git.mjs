@@ -315,7 +315,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     for (const repo of registered) {
       let matches;
       try {
-        const raw = await git(['grep', '-I', '-n', '--untracked', pattern], repo);
+        // -e declares the pattern explicitly so a value starting with "-" is
+        // not misread as a git option.
+        const raw = await git(['grep', '-I', '-n', '--untracked', '-e', pattern], repo);
         matches = parseGrepLines(raw);
       } catch (err) {
         // git grep exits 1 when nothing matches; other errors are isolated.
@@ -800,7 +802,9 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     try {
       // -I skips binary files, -n prints line numbers, --untracked also
       // searches files not yet added so the result matches the working tree.
-      const argv = ['grep', '-I', '-n', '--untracked', pattern];
+      // -e declares the pattern explicitly so a value starting with "-" is
+      // not misread as a git option.
+      const argv = ['grep', '-I', '-n', '--untracked', '-e', pattern];
       if (grepPath) argv.push('--', grepPath);
       const raw = await git(argv, repo);
       const matches = parseGrepLines(raw);

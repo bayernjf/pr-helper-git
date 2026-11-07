@@ -253,6 +253,24 @@ describe('read routes', () => {
     expect(miss.json.total).toBe(0);
   });
 
+  it('accepts a grep pattern starting with a dash', async () => {
+    await writeFile('dash.txt', '--dash-flag value\nplain line\n');
+    git(['add', 'dash.txt'], repoDir);
+    git(['commit', '-m', 'add dash test file'], repoDir);
+
+    // Without -e the leading "--dash-flag" would be parsed as a git option.
+    const r = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('--dash-flag')}`);
+    expect(r.status).toBe(200);
+    expect(r.json.total).toBe(1);
+    expect(r.json.matches[0].path).toBe('dash.txt');
+
+    const all = await get(`/api/grep-all?pattern=${q('--dash-flag')}`);
+    expect(all.status).toBe(200);
+    const repoResult = all.json.results.find((x) => x.repo === repoDir);
+    expect(repoResult).toBeTruthy();
+    expect(repoResult.matches[0].path).toBe('dash.txt');
+  });
+
   it('searches across every registered repository with grep-all', async () => {
     const hit = await get(`/api/grep-all?pattern=${q('bravo')}`);
     expect(hit.status).toBe(200);
