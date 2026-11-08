@@ -844,3 +844,13 @@ new features target the browser UI and are not adapted to the native shell.
 - Fixed `parseGrepLines`: `git grep -n -z` records are `path\0line\0text\n`, so splitting on NUL
   in triples misaligned every match after the first. Now parsed record-by-record.
 - Tests: 196 (15 files). Remaining parity backlog: `../pr-helper-git/PARITY.md`.
+
+### 2026-11-08 repository panel round
+
+- `src/lib/repo-sort.ts`: `activityLevel` / `relativeAge` / `sortRepos` /
+  `summarizeRepos`, with 9 unit tests. Kept pure so the panel rules are testable
+  without a DOM.
+- RepositoriesModal: pin (localStorage `pr-helper-git2-pinned`), activity bar,
+  aggregate header, "With changes" filter, manual refresh and a 30s auto refresh
+  that only re-reads `git status` (never fetches or pulls).
+- Tests: 205 (16 files).

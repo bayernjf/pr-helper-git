@@ -20,6 +20,12 @@ remote is configured and commits stay on the local `main` branch.
   to fetch them in one batch, or pull them with `--ff-only` so a diverged or
   dirty repository fails cleanly instead of merging off-screen (a single
   failure never aborts the rest; the per-repository outcome is listed inline).
+  Repositories can be pinned (kept first in the list, persisted locally), each
+  row carries an activity bar coloured by the age of its last commit, and a
+  header line aggregates changed files, unpushed and behind commits across every
+  repository. A "With changes" filter narrows the list to repositories that need
+  attention, and the status snapshot refreshes every 30 seconds while the panel
+  stays open (status only — it never fetches or pulls).
 - Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
   curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
   branches and tags. Only rows around the viewport are mounted (with a small

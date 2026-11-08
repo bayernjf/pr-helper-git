@@ -1,12 +1,35 @@
 // Multi-repository panel: every registered repository in one filterable list,
 // showing its location, working-tree changes, ahead/behind and current branch.
 // A row opens that repository; checkboxes enable batch fetch and batch pull.
+// Pinned repositories sort first, freshness drives the activity bar, and the
+// header aggregates work in progress across every repository.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchRepo, pullReposBatch } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import type { RepoBrief } from '../types';
-import { IconBranch, IconSearch, IconX } from './icons';
+import { activityLevel, relativeAge, sortRepos, summarizeRepos } from '../lib/repo-sort';
+import { IconBranch, IconPin, IconRefresh, IconSearch, IconX } from './icons';
+
+const PIN_KEY = 'pr-helper-git2-pinned';
+
+function loadPinned(): string[] {
+  try {
+    const raw = localStorage.getItem(PIN_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((p) => typeof p === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePinned(paths: string[]): void {
+  try {
+    localStorage.setItem(PIN_KEY, JSON.stringify(paths));
+  } catch {
+    /* private mode: pinning is a nicety, not a requirement */
+  }
+}
 
 function parentDir(p: string) {
   const idx = p.lastIndexOf('/');
@@ -25,6 +48,10 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
   const [pullReport, setPullReport] = useState<{ okCount: number; failures: string[] } | null>(null);
+  const [pinned, setPinned] = useState<string[]>(() => loadPinned());
+  const [dirtyOnly, setDirtyOnly] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   useEscape(onClose);
 
@@ -33,13 +60,54 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Status is a snapshot; refresh it while the panel stays open so a list left
+  // on screen does not go stale. This only re-runs `git status`, it never fetches
+  // or pulls, so it cannot change a repository behind the user's back.
+  useEffect(() => {
+    if (!autoRefresh) return;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      if (!alive) return;
+      refresh().catch(() => { /* refresh errors are surfaced separately */ });
+    }, 30000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [autoRefresh, refresh]);
+
+  const aggregate = useMemo(() => summarizeRepos(repos), [repos]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return repos;
-    return repos.filter(
-      (r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
-    );
-  }, [repos, query]);
+    let list = repos;
+    if (q) {
+      list = list.filter((r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));
+    }
+    if (dirtyOnly) {
+      list = list.filter((r) => r.staged + r.unstaged + r.untracked > 0 || r.ahead > 0 || r.behind > 0);
+    }
+    return sortRepos(list, pinned);
+  }, [repos, query, dirtyOnly, pinned]);
+
+  function togglePin(path: string) {
+    setPinned((prev) => {
+      const next = prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path];
+      savePinned(next);
+      return next;
+    });
+  }
+
+  async function manualRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch {
+      /* refresh errors are surfaced separately */
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const allFilteredChecked = filtered.length > 0
     && filtered.every((r) => selected.has(r.path));
@@ -147,6 +215,25 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           )}
         </div>
 
+        <div className="repo-panel-agg">
+          <span>{aggregate.repos} repositories</span>
+          <span className={aggregate.changedFiles > 0 ? 'agg-dirty' : ''}>{aggregate.changedFiles} changed files</span>
+          {aggregate.behind > 0 && <span className="agg-behind">{aggregate.behind} behind</span>}
+          {aggregate.ahead > 0 && <span className="agg-ahead">{aggregate.ahead} unpushed</span>}
+          {aggregate.unavailable > 0 && <span className="agg-err">{aggregate.unavailable} unavailable</span>}
+          <span className="spacer" />
+          <button
+            type="button"
+            className="icon-btn"
+            title="Refresh status"
+            aria-label="Refresh status"
+            disabled={refreshing}
+            onClick={manualRefresh}
+          >
+            <IconRefresh width={13} height={13} />
+          </button>
+        </div>
+
         <div className="repo-panel-head" aria-hidden="true">
           <input
             type="checkbox"
@@ -165,18 +252,29 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           {repos.length === 0 ? (
             <div className="list-empty">No repositories yet. Add one to get started.</div>
           ) : filtered.length === 0 ? (
-            <div className="list-empty">No repositories match “{query}”.</div>
+            <div className="list-empty">
+              {dirtyOnly && !query
+                ? 'Nothing to sync — every repository is clean and in sync.'
+                : `No repositories match “${query || 'the current filter'}”.`}
+            </div>
           ) : (
             filtered.map((r: RepoBrief) => {
               const isActive = r.path === activeRepo;
               const isChecked = selected.has(r.path);
+              const isPinned = pinned.includes(r.path);
               const dirty = r.staged + r.unstaged + r.untracked;
+              const level = activityLevel(r.lastCommit?.at);
               return (
                 <div
                   key={r.path}
                   className={`repo-panel-row${isActive ? ' is-active' : ''}${isChecked ? ' is-checked' : ''}`}
                   onClick={() => openRepo(r.path)}
                 >
+                  <span
+                    className={`repo-panel-activity lv-${level}`}
+                    title={r.lastCommit?.at ? `Last commit ${relativeAge(r.lastCommit.at)}${r.lastCommit.subject ? ` — ${r.lastCommit.subject}` : ''}` : 'No commits yet'}
+                    aria-hidden="true"
+                  />
                   <input
                     type="checkbox"
                     checked={isChecked}
@@ -185,8 +283,22 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                     aria-label={`Select ${r.name}`}
                   />
                   <span className="repo-panel-name">
+                    <button
+                      type="button"
+                      className={`repo-pin${isPinned ? ' is-pinned' : ''}`}
+                      title={isPinned ? 'Unpin repository' : 'Pin repository'}
+                      aria-label={isPinned ? `Unpin ${r.name}` : `Pin ${r.name}`}
+                      aria-pressed={isPinned}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePin(r.path);
+                      }}
+                    >
+                      <IconPin width={13} height={13} />
+                    </button>
                     {r.name}
                     {isActive && <span className="repo-panel-active">active</span>}
+                    {r.lastCommit?.at && <span className="repo-panel-age">{relativeAge(r.lastCommit.at)}</span>}
                   </span>
                   <span className="repo-panel-location" title={r.path}>
                     {parentDir(r.path)}
@@ -251,6 +363,14 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
 
         <div className="modal-footer repo-panel-footer">
           <button type="button" className="btn" onClick={addRepository}>Add repository…</button>
+          <label className="repo-panel-toggle">
+            <input type="checkbox" checked={dirtyOnly} onChange={(e) => setDirtyOnly(e.target.checked)} />
+            With changes
+          </label>
+          <label className="repo-panel-toggle" title="Re-read git status every 30s while this panel is open; never fetches or pulls">
+            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            Auto refresh
+          </label>
           <span className="spacer" />
           {selected.size > 0 && (
             <>
