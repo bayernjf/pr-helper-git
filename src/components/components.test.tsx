@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { AppContext } from '../app-state';
 import type { RepoBrief } from '../types';
 import AuditModal from './AuditModal';
+import CommitGraph from './CommitGraph';
 import DiffView from './DiffView';
 import ErrorBoundary from './ErrorBoundary';
 import PrFileReview from './PrFileReview';
@@ -289,5 +290,50 @@ describe('RepositoriesModal', () => {
   it('flags an unavailable repository', () => {
     const html = renderWith({ repos: SAMPLE_REPOS });
     expect(html).toContain('unavailable');
+  });
+});
+
+describe('CommitGraph accessibility', () => {
+  const commits = [
+    { hash: 'aaaa1111', parents: [], authorName: 'A', authorEmail: 'a@x', date: '2026-11-01T00:00:00Z', subject: 'first', body: '' },
+    { hash: 'bbbb2222', parents: ['aaaa1111'], authorName: 'B', authorEmail: 'b@x', date: '2026-11-02T00:00:00Z', subject: 'second', body: '' },
+  ];
+
+  function graphHtml(selectedHash: string | null): string {
+    return withApp(<CommitGraph />, {
+      commits,
+      selectedHash,
+      selectCommit: () => {},
+      currentRepo: '/tmp/repo',
+      toast: () => {},
+      loadMore: () => {},
+      logLimit: 50,
+      logScope: 'current',
+      setLogScope: () => {},
+      logPath: '',
+      setLogPath: () => {},
+      logFilters: {},
+      repoLoading: false,
+      status: null,
+      refs: [],
+      runAction: async () => null,
+    });
+  }
+
+  it('declares a listbox and marks each commit row as an option', () => {
+    const html = graphHtml(null);
+    expect(html).toContain('role="listbox"');
+    expect(html).toContain('aria-label="Commit history"');
+    expect(html).toContain('role="option"');
+    expect(html).toContain('id="commit-row-aaaa1111"');
+    expect(html).toContain('id="commit-row-bbbb2222"');
+    expect(html).toContain('aria-selected="false"');
+    expect(html).not.toContain('aria-activedescendant');
+  });
+
+  it('points aria-activedescendant at the selected row', () => {
+    const html = graphHtml('bbbb2222');
+    expect(html).toContain('aria-activedescendant="commit-row-bbbb2222"');
+    expect(html).toContain('aria-selected="true"');
   });
 });
