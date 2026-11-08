@@ -64,6 +64,8 @@ export interface Ref {
   upstream: string | null;
   ahead: number;
   behind: number;
+  // True when the configured upstream ref no longer exists on the remote.
+  gone?: boolean;
 }
 
 export interface DiffResult {

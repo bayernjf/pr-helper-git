@@ -555,8 +555,9 @@ export default function RefSidebar() {
               {pinned.includes(r.shortName) && (
                 <span className="pin-badge" title="Pinned"><IconPin width={12} height={12} /></span>
               )}
-              {(r.ahead > 0 || r.behind > 0) && (
+              {(r.ahead > 0 || r.behind > 0 || r.gone) && (
                 <span className="track-badge">
+                  {r.gone && <span className="track-gone" title="Upstream branch no longer exists">gone</span>}
                   {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
                   {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
                 </span>

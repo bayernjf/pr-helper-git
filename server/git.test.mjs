@@ -76,6 +76,19 @@ describe('parseRefs', () => {
       upstream: null,
     });
   });
+
+  it('parses ahead/behind counters from the upstream track column', () => {
+    const out = ['abc\tcommit\trefs/heads/main\trefs/remotes/origin/main\tmain\t[ahead 2, behind 1]'].join('\n');
+    const refs = parseRefs(out);
+    expect(refs[0]).toMatchObject({ upstream: 'refs/remotes/origin/main', ahead: 2, behind: 1 });
+    expect(refs[0].gone).toBeUndefined();
+  });
+
+  it('marks a branch whose upstream ref is gone', () => {
+    const out = ['abc\tcommit\trefs/heads/main\trefs/remotes/origin/main\tmain\t[gone]'].join('\n');
+    const refs = parseRefs(out);
+    expect(refs[0]).toMatchObject({ ahead: 0, behind: 0, gone: true });
+  });
 });
 
 describe('parseLog', () => {

@@ -10,6 +10,9 @@ export function git(args, cwd, options = {}) {
   // follow-up API calls address files by path, so `git` must report the real
   // name.
   const argv = ['-c', 'core.quotePath=false', ...args];
+  // Force a C locale: `%(upstream:track)` and error messages are translated,
+  // and the parser below matches the English keywords ("ahead"/"behind").
+  const env = { ...process.env, LC_ALL: 'C', ...(options.env || {}) };
   return new Promise((resolve, reject) => {
     const child = execFile(
       'git',
@@ -18,7 +21,7 @@ export function git(args, cwd, options = {}) {
         cwd,
         timeout: options.timeout || GIT_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER,
-        ...(options.env ? { env: options.env } : {}),
+        env,
       },
       (err, stdout, stderr) => {
         if (err) {
@@ -135,7 +138,10 @@ export function parseRefs(output) {
     const [hash, refType, name, upstream, shortName, track] = line.split('\t');
     let ahead = 0;
     let behind = 0;
-    if (track) {
+    // `%(upstream:track)` reports "[gone]" when the upstream ref disappeared
+    // (remote branch deleted); the branch still has an upstream configured.
+    const gone = !!track && /\[gone\]/.test(track);
+    if (track && !gone) {
       const a = track.match(/ahead (\d+)/);
       const b = track.match(/behind (\d+)/);
       if (a) ahead = Number(a[1]);
@@ -149,6 +155,7 @@ export function parseRefs(output) {
       upstream: upstream || null,
       ahead,
       behind,
+      ...(gone ? { gone: true } : {}),
     });
   }
   return refs;
