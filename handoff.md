@@ -274,10 +274,13 @@ new features target the browser UI and are not adapted to the native shell.
 ## Delivery notes
 
 - Current state (2026-11-08): 181 Vitest tests across 13 files are green,
-  `npm run lint` and `npm run build` pass, and the working tree is clean.
+  `npm run lint` and `npm run build` pass, and the working tree is clean after
+  `d359a2c` (team identities) and `cfb40a0` (documentation).
   Everything below is local: `git remote -v` is empty, so the commits have
-  never been pushed anywhere. Desktop packaging is frozen per the web-only
-  decision; `dist/PR Helper Git2.app` predates the latest web features.
+  never been pushed anywhere. This project is intentionally local-only for
+  now; do not add a remote or push unless the user explicitly asks. Desktop
+  packaging is frozen per the web-only decision; `dist/PR Helper Git2.app`
+  predates the latest web features.
 - Initial delivery: 16 atomic conventional commits on `main`; no git remote is
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
@@ -286,8 +289,10 @@ new features target the browser UI and are not adapted to the native shell.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the total to 174 across 13 files at the web-only handoff, with CI
-  running lint, test and build on every push and pull request.
+  bringing the total to 181 across 13 files after the M1 team-identity work.
+  The GitHub Actions workflow exists but does not run in practice because this
+  repository has no remote; the local `npm test` / `npm run lint` /
+  `npm run build` loop is the source of truth.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean

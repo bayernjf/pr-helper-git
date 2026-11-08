@@ -3,7 +3,8 @@
 A local, loopback-only Git workbench that combines the core experience of a
 graphical Git client (GitKraken-like) with a lightweight pull-request control
 tower (pr-helper-like). No cloud service is required and nothing is pushed to
-GitHub by the application setup.
+GitHub by the application setup. This repository itself is local-only: no
+remote is configured and commits stay on the local `main` branch.
 
 ## Features
 
@@ -389,8 +390,10 @@ npm run build      # production build into dist/
 `npm run desktop` still exists but is frozen with desktop development; it is not
 part of the regular check loop.
 
-The same three steps run in CI on every push and pull request via the
-GitHub Actions workflow in `.github/workflows/ci.yml`.
+The same three steps are configured in the GitHub Actions workflow in
+`.github/workflows/ci.yml`. This repository intentionally has no remote, so the
+workflow does not run in practice; the local commands above are the source of
+truth until a remote is explicitly requested.
 
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
