@@ -1429,7 +1429,13 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     const allowEmpty = body.allowEmpty === true;
     try {
       const staged = await git(['diff', '--cached', '--name-only'], repo);
-      if (!staged.trim() && !allowEmpty) return fail(409, 'nothing staged to commit');
+      // A merge resolved to "ours" leaves an index identical to HEAD; the commit
+      // still has to go through to record MERGE_HEAD, so only block staged-less
+      // commits outside a merge.
+      if (!staged.trim() && !allowEmpty) {
+        const state = await detectRepoState(repo);
+        if (!state.mergeInProgress) return fail(409, 'nothing staged to commit');
+      }
       const commitArgs = ['commit'];
       if (allowEmpty) commitArgs.push('--allow-empty');
       commitArgs.push('-F', '-');
@@ -1796,6 +1802,17 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
       await appendAudit({ ok: true, action: 'merge', repo, ref, strategy });
       return ok({ ok: true, ref, strategy, result: result.trim() });
     } catch (err) {
+      // A conflicted merge keeps MERGE_HEAD behind; report 409 with the list so
+      // the UI can show the conflict banner instead of a generic 400.
+      const state = await detectRepoState(repo);
+      if (state.mergeInProgress) {
+        const conflicts = await unmergedPaths(repo);
+        await appendAudit({ ok: false, action: 'merge', repo, ref, strategy, conflicts: conflicts.length });
+        return {
+          status: 409,
+          json: { error: 'merge stopped on conflicts', detail: err.stderr || err.message, conflicts, state },
+        };
+      }
       await appendAudit({ ok: false, action: 'merge', repo, ref, strategy });
       return gitFail(err, 'git merge failed (resolve conflicts before continuing)');
     }
