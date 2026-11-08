@@ -882,3 +882,28 @@ new features target the browser UI and are not adapted to the native shell.
 - Tests: 222 (18 files) — 6 pure/integration cases in `search-commits.test.mjs`
   (the integration one proves `--all` reaches an unmerged branch) plus 1 HTTP
   case in `routes.test.mjs`.
+
+### 2026-11-08 interactive rebase
+
+- `server/rebase-todo.mjs` keeps the planning logic pure: `validateRebasePlan`
+  accepts only a full permutation of the range (a missing hash is reported as
+  `plan omits <hash>`, never silently dropped), `applyTodoPlan` rewrites the
+  todo file matched by one-way hash prefixes and preserves the comment block,
+  `resolveRewordMessage` applies reword messages and refuses to touch a
+  `# This is a combination of N commits` squash file.
+- Two shims drive git: `rebase-sequence.mjs` (`GIT_SEQUENCE_EDITOR`, reads
+  `GIT2_REBASE_PLAN`, exits 1 on a bad plan so git aborts) and `rebase-msg.mjs`
+  (`GIT_EDITOR`, reads `GIT2_REWORD_STATE`, never exits non-zero). `GIT_DIR` is
+  not exported to the editor, so the reword queue lives in our own state file.
+- Routes: `GET /api/rebase/plan` (commits + dirty/merges/upstream/pushed) and
+  `POST /api/rebase/interactive`; dirty tree, merge commits and an in-progress
+  multi-step operation are 409, an invalid plan is 400, a conflict returns
+  `200 { conflicted: true }` and leaves the rebase banner in charge.
+- UI: `RebaseModal` with per-row action select, up/down reordering,
+  reword inputs and the three guardrails; entry point is the commit context
+  menu (a root commit means `--root`).
+- Note for the next route added to `routes-git.mjs`: every GET handler must sit
+  above `if (method !== 'POST') return null;` (~line 1249), otherwise it 404s.
+- Tests: 237 (19 files) — 12 pure cases in `rebase-todo.test.mjs` plus 3 HTTP
+  cases that really rewrite history, prove an omitted commit is rejected and a
+  dirty tree is refused.

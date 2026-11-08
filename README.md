@@ -125,6 +125,14 @@ remote is configured and commits stay on the local `main` branch.
   and stored server-side in `~/.pr-helper-git2/config.json`; the key is never
   returned to the browser (the API only reports `hasKey`), and a test button
   verifies the endpoint before you rely on it.
+- Interactive rebase from any commit in the graph context menu: the dialog
+  lists every commit newer than the picked one and lets you reorder them,
+  reword, squash, fix up, edit or drop each. The server re-reads the range and
+  rejects a plan that is not a full permutation of it, so a commit can never
+  disappear because it was left out; a dirty working tree or a range containing
+  merge commits is refused outright, and a range that is already pushed warns
+  about the force-push. A conflict stops the rebase and hands over to the
+  existing continue/abort banner.
 - Search the whole repository contents with `git grep` from a dedicated modal:
   results are grouped by file with line numbers, an optional path narrows the
   scope, a file glob (e.g. `*.ts`) narrows it by name, `Ignore case` maps to
