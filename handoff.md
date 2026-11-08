@@ -833,3 +833,14 @@ new features target the browser UI and are not adapted to the native shell.
   RepositoriesModal render tests); tsc is clean; vite build transforms 78
   modules. The dev server is stopped and ports 5173 and 4789 are free; the work
   tree still has no git remote.
+
+## 2026-11-08 cross-repo parity round
+
+- Ported AI generation from pr-helper-git: `server/ai.mjs`, `/api/ai/config|test|commit-message|pr-description`,
+  Settings AI section, "Generate with AI" in the commit form and the new-PR dialog.
+  The key lives in `~/.pr-helper-git2/config.json` and is never returned (only `hasKey`).
+- Added `/api/cherry-pick` (409 + conflicted paths, state preserved) and `/api/undo-commit`
+  (soft reset), both in the commit-graph context menu.
+- Fixed `parseGrepLines`: `git grep -n -z` records are `path\0line\0text\n`, so splitting on NUL
+  in triples misaligned every match after the first. Now parsed record-by-record.
+- Tests: 196 (15 files). Remaining parity backlog: `../pr-helper-git/PARITY.md`.
