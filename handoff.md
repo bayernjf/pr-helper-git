@@ -4,6 +4,10 @@ A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
 tower (pr-helper-like core). Runs entirely on loopback; this project's own
 repository is never pushed.
 
+**Current target: web only.** Since 2026-11 desktop development is paused:
+new features target the browser UI and are not adapted to the native shell.
+`desktop/main.swift` and `npm run desktop` are kept as-is but frozen.
+
 ## Scope
 
 - GitKraken-like: repo registry, commit graph, refs (branches/tags/stash),
@@ -14,7 +18,8 @@ repository is never pushed.
   commit graph search, paginated history (load more), right-click context
   menu, keyboard shortcuts, resizable work panel, responsive layout,
   error boundary, loading states, SSE live refresh, safe revert (new commit,
-  merge commits rejected, auto-abort on conflict), add-to-.gitignore,
+  merge commits rejected, conflicts preserved with continue/abort instead of an
+  automatic abort), add-to-.gitignore,
   push tag, history scope (all vs current branch), Cmd+K command palette,
   blob file viewer (working tree or any ref, binary detection, size cap),
   git blame (per-line author/commit, porcelain parser), git clean (dry-run
@@ -53,16 +58,17 @@ repository is never pushed.
   min/max clamps, persisted widths, ARIA separator role), and
   prefers-reduced-motion support (animations and transitions collapse to a
   near-instant state change).
-- Desktop (macOS, zero third-party runtime): a `swiftc`-compiled `WKWebView`
-  shell (`desktop/main.swift`) bundled by `scripts/desktop-build.mjs` via
-  `npm run desktop` into `dist/PR Helper Git2.app` (~1.2 MB). It locates the
-  system Node.js at well-known paths, spawns the server on an ephemeral port,
-  parses the `GIT2_READY` machine-readable line, loads the one-time token URL
-  and terminates the server on window close. The bundle ships a generated
+- Desktop (macOS, zero third-party runtime) — **frozen, not developed**: a
+  `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
+  `scripts/desktop-build.mjs` via `npm run desktop` into
+  `dist/PR Helper Git2.app` (~1.2 MB). It locates the system Node.js at
+  well-known paths, spawns the server on an ephemeral port, parses the
+  `GIT2_READY` machine-readable line, loads the one-time token URL and
+  terminates the server on window close. The bundle ships a generated
   `AppIcon.icns` (rendered by `desktop/make-icon.swift`, then scaled and
   packaged with the system sips/iconutil tools) referenced through
   `CFBundleIconFile`, and the window remembers its frame across launches via
-  `setFrameAutosaveName`.
+  `setFrameAutosaveName`. The checked-in `.app` predates later web features.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,
@@ -76,7 +82,9 @@ repository is never pushed.
   HTML entry, no-store for HTML, immutable long caching for hashed assets.
 - Explicitly out of scope: interactive rebase, cherry-pick, submodules,
   worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
-  gates, AI generation, in-app conflict resolution.
+  gates, AI generation, and a three-way merge editor. Conflict handling stops
+  at the per-file panel (Use current / Use incoming / Mark resolved), which
+  deliberately does not edit conflict markers in place.
 
 ## TODO
 
@@ -100,7 +108,7 @@ repository is never pushed.
 - [x] Client: three-mode Open/Clone/Init add dialog
 - [x] Client: commit graph search, load more and reset menu
 - [x] UX: shortcuts, resizable work panel, PR labels, responsive layout
-- [x] Server: revert route (merge guard, auto-abort), ignore, push tag, log scope
+- [x] Server: revert route (merge guard; conflicts preserved with continue/abort), ignore, push tag, log scope
 - [x] Client: revert menu and history scope toggle
 - [x] Client: gitignore action and push tag menu
 - [x] Client: PR requested reviewers view and request
@@ -223,9 +231,39 @@ repository is never pushed.
   registered repository showing location, working-tree change counts,
   ahead/behind and the current branch, with an active marker; a row opens that
   repository and checkboxes enable a batch fetch across the selection
+- [x] Conflicted multi-step operations keep their state: `detectRepoState()`
+  reads `REVERT_HEAD`, revert stops on conflicts with 409 + conflict list,
+  `/api/revert/continue` (GIT_EDITOR=true) and `/api/revert/abort` are
+  separate actions, and the UI banner offers both
+- [x] Minimal conflict resolution: `POST /api/conflict/resolve` accepts
+  `ours` / `theirs` / `mark` per unmerged file (refuses non-conflicted paths),
+  stages with `git add -A` so deletions count, and returns the remaining
+  conflicts; ResolveConflictsModal is reachable from every merge/rebase/revert
+  banner
+- [x] Split-view pairing and word-level diff: `pairDiffRows()` zips deletions
+  with additions inside a hunk, `wordSegmentsByRow()` highlights changed words
+  in the unified view, and multi-line changed blocks no longer scatter
+- [x] Grep results jump to the file at the hit line and highlight the literal
+  search term; regex mode falls back to plain text when no literal match exists
+- [x] Commit graph windowing: `windowRange()` mounts only the visible rows
+  (8-row overscan), the SVG keeps its full height, `revealRow()` scrolls first
+  and focuses on the next frame
+- [x] Multi-repository batch pull: `POST /api/repos/pull` pulls registered
+  repositories with `--ff-only` sequentially, reports per-repository outcome
+  inline, and refuses an empty or unregistered selection
+- [x] Ref parsing hardened: `git()` forces `LC_ALL=C` so `%(upstream:track)`
+  stays parseable regardless of the machine locale, and `[gone]` upstreams
+  surface as a red `gone` badge instead of looking in sync
+- [x] Web-only decision: desktop development paused, checks limited to
+  `npm test`, `npm run lint`, `npm run build`
 
 ## Delivery notes
 
+- Current state (2026-11-08): 174 Vitest tests across 13 files are green,
+  `npm run lint` and `npm run build` pass, and the working tree is clean.
+  Everything below is local: `git remote -v` is empty, so the commits have
+  never been pushed anywhere. Desktop packaging is frozen per the web-only
+  decision; `dist/PR Helper Git2.app` predates the latest web features.
 - Initial delivery: 16 atomic conventional commits on `main`; no git remote is
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
@@ -234,8 +272,8 @@ repository is never pushed.
   git parsers, file tree, diff lines, review summaries, clone/folder
   validation, command palette fuzzy filter, blame porcelain parsing, reflog
   and tag-object parsing); later iterations added route-level HTTP tests,
-  bringing the current total to 121 across 11 files, with CI running lint,
-  test and build on every push and pull request.
+  bringing the total to 174 across 13 files at the web-only handoff, with CI
+  running lint, test and build on every push and pull request.
 - Fourth iteration E2E in the browser: FileViewer shows working-tree and
   committed files with line numbers, binary detection and a 1 MB cap; the
   blame tab renders per-line author/short-sha/content (200 lines); clean
@@ -317,8 +355,9 @@ repository is never pushed.
 - Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
   filter narrows results, arrow/enter/escape work and a command switches views;
   history scope returns 213 (all) vs 209 (current) commits; revert rejects a
-  merge with 400, reverts HEAD cleanly into a new commit, and auto-aborts a
-  conflicting revert leaving a clean tree; gitignore adds once (duplicate is a
+  merge with 400, reverts HEAD cleanly into a new commit, and left a conflicting
+  revert untouched (this iteration asserted the then-current auto-abort; the
+  route later switched to 409 + continue/abort); gitignore adds once (duplicate is a
   no-op) and ignores the file; push tag rejects bad names and a missing remote
   without any external push. All temporary changes were reset/removed.
 - Tooling finding: `scripts/dev.mjs` spawns the API server without `--watch`,
