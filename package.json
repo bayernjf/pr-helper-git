@@ -13,7 +13,8 @@
     "build": "vite build",
     "desktop": "node scripts/desktop-build.mjs",
     "test": "vitest run",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "e2e": "bash e2e/run.sh"
   },
   "dependencies": {
     "react": "^19.2.8",

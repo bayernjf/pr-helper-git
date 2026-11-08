@@ -939,3 +939,16 @@ new features target the browser UI and are not adapted to the native shell.
   source scan asserting every `t("…")` key used in `src/**` exists in `ZH`.
 - Known limits: server/API error text and raw Git output stay English; user data (branch names,
   commit subjects, file paths) is never translated because only exact dictionary keys are substituted.
+
+### 2026-11-08 HTTP E2E smoke suite
+
+- New `e2e/run.sh` (+ `npm run e2e`): boots `server/main.mjs --port=18774` with
+  `GIT2_DEV=1` (fixed `dev-token`) and `PR_HELPER_HOME` in a throwaway dir, then
+  drives the real HTTP API with curl. 60 checks covering auth/traversal,
+  repo registration, status/log/refs/file reads, stage → commit → undo,
+  branch/tag/stash, grep, compare, rebase plan, cherry-pick, merge, GitHub
+  proxy guards (missing PAT 401 / allowlist 403) and audit.
+- Quirks encoded in the suite: GET routes take `?repo=`, writes take `body.repo`;
+  `GET /api/file` expects `file=` (not `path=`); `POST /api/merge` expects
+  `ref=`; `stash-list` returns `entries`; `rebase/plan` rejects `HEAD~2`
+  (`~` is outside the ref charset) so the suite passes a resolved SHA.

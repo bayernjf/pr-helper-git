@@ -431,13 +431,22 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (181 tests, 13 files)
+npm test           # Vitest unit + route-level HTTP tests (245 tests, 21 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
+npm run e2e        # E2E: real loopback server + curl assertions (60 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not
 part of the regular check loop.
+
+`npm run e2e` starts the server on port 18774 with `GIT2_DEV=1` (token
+`dev-token`) and `PR_HELPER_HOME` pointed at a throwaway directory, so it never
+reads or writes `~/.pr-helper-git2`. It builds the fixture repositories itself
+and covers auth, repository registration, status/log/refs reads, stage → commit
+→ undo, branch/tag/stash, grep, compare, rebase plan, cherry-pick, merge,
+GitHub proxy guards and the audit trail. Flat 1:1 with `e2e/run.sh` in
+`pr-helper-git`.
 
 The same three steps are configured in the GitHub Actions workflow in
 `.github/workflows/ci.yml`. This repository intentionally has no remote, so the
