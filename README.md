@@ -242,9 +242,11 @@ GitHub by the application setup.
 
 ### Deliberately out of scope
 
-Interactive rebase, cherry-pick, submodules, worktrees, GPG signing, conflict
-resolution UI, GitHub App OAuth, webhooks, a database, web push, deployment
-gates and AI generation.
+Interactive rebase, cherry-pick, submodules, worktrees, GPG signing, a
+three-way merge editor, GitHub App OAuth, webhooks, a database, web push,
+deployment gates and AI generation. Conflicts are handled per file from the
+in-app panel (Use current / Use incoming / Mark resolved), not by editing
+conflict markers in place.
 
 ## Quick start
 
@@ -266,7 +268,11 @@ Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
 be removed again on request.
 
-## Desktop app (macOS)
+## Desktop app (macOS, frozen)
+
+> Desktop development is paused. New features target the browser UI and are not
+> adapted to the native shell; the checked-in bundle predates them. Use
+> `npm run dev` / `npm start` for current behaviour.
 
 A native macOS desktop build is available without bundling any third-party
 runtime. It uses the system `WKWebView` (no embedded Chromium) and a
@@ -355,27 +361,30 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests
+npm test           # Vitest unit + route-level HTTP tests (174 tests, 13 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run desktop    # native macOS .app bundle into dist/
 ```
+
+`npm run desktop` still exists but is frozen with desktop development; it is not
+part of the regular check loop.
 
 The same three steps run in CI on every push and pull request via the
 GitHub Actions workflow in `.github/workflows/ci.yml`.
 
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
-routes, validation failures, rebase-state detection, the SSE handshake,
-audit rotation, server-side audit filtering, mtime-based stale-save
-rejection (including the 413 body cap), cross-repository `grep-all`,
-batch revert and the configured commit template. The isolated audit path is
-always built from the server's home directory so tests can never touch the
-real audit log, and an isolated `GIT_CONFIG_GLOBAL` keeps machine-wide
+routes, validation failures, rebase/revert-state detection, conflicted revert
+continue/abort, per-file conflict resolution, batch repository pull from a
+local origin, the SSE handshake, audit rotation, server-side audit filtering,
+mtime-based stale-save rejection (including the 413 body cap), cross-repository
+`grep-all`, batch revert and the configured commit template. The isolated audit
+path is always built from the server's home directory so tests can never touch
+the real audit log, and an isolated `GIT_CONFIG_GLOBAL` keeps machine-wide
 settings such as a global `commit.template` out of the assertions.
 Component tests render key React components with `react-dom/server`
 (`renderToString`) against a mock app context, covering empty states,
-masked/binary handling and the toolbar and audit modal.
+masked/binary handling, the conflict panel and the toolbar and audit modal.
 
 All checks are run with zero third-party runtime dependencies; the test and
 build tooling is the only dev dependency set.
