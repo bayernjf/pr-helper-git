@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <span className="toast-icon">
               {t.kind === 'success' ? <IconCheck /> : <IconAlert />}
             </span>
-            <span className="toast-msg">{t.message}</span>
+            <span className="toast-msg">{translateText(t.message)}</span>
             <button type="button" className="toast-close" aria-label={translateText("Dismiss notification")} title={translateText("Dismiss")} onClick={() => dismiss(t.id)}>
               <IconX width={13} height={13} />
             </button>

@@ -19,6 +19,7 @@ import type {
 } from './types';
 import { useToast, type ToastKind } from './components/ui';
 import { getPref, setPref } from './lib/prefs';
+import { t as translateText } from './i18n';
 
 type View = 'git' | 'pr';
 export type Theme = 'dark' | 'light';
@@ -297,7 +298,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       // revert or rebase), so reload before reporting the error; otherwise
       // the operation banner and unmerged files would not appear.
       try { await refresh(); } catch { /* surfaced by the original error */ }
-      const message = err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'action failed';
+      const message = err?.detail
+        ? `${translateText(err?.message || 'action failed')}: ${err.detail}`
+        : translateText(err?.message || 'action failed');
       toastApi.error(message);
       return null;
     } finally {
