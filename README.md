@@ -267,7 +267,11 @@ remote is configured and commits stay on the local `main` branch.
   alongside per-PR mergeability and check-run summaries.
 - Create a pull request from any local branch, optionally as a draft, with a
   prefilled commit summary.
-- Convert a draft to ready for review, inspect commits, files and check runs,
+- Merge gating: the PR panel merges check runs *and* classic commit statuses
+  (Jenkins-style CI), warns before merging when any gate failed, and reads the
+  base branch's protection settings (404 = unprotected) to call out missing
+  protection and required status checks.
+- Convert a draft to ready for review, inspect commits, files and check runs,",
   view and request reviewers, then merge using squash, merge commit or rebase;
   close and reopen are also supported.
 - Read and write issue comments inside the pull-request detail, with a composer

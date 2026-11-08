@@ -907,3 +907,19 @@ new features target the browser UI and are not adapted to the native shell.
 - Tests: 237 (19 files) — 12 pure cases in `rebase-todo.test.mjs` plus 3 HTTP
   cases that really rewrite history, prove an omitted commit is rejected and a
   dirty tree is refused.
+
+### 2026-11-08 CI gates + branch protection warnings
+
+- `server/github-allowlist.mjs` now owns the PAT proxy allowlist (moved out of
+  `routes-github.mjs` so it can be unit-tested without loading the HTTP layer).
+  Two endpoints were added: `commits/:sha/status` (classic statuses, which a
+  Jenkins-only repo reports instead of check runs) and
+  `branches/:branch/protection` (404 = unprotected).
+- `PrDetailModal` fetches both alongside the existing detail calls and merges
+  statuses into the check list (`pending` has no conclusion, anything but
+  `success` counts as failed). A failing gate adds a confirm dialog before the
+  ordinary merge confirmation; the CI summary above the merge options shows the
+  failing count, the unprotected-branch warning, or the required-check count.
+- Tests: 240 (20 files) — `github-allowlist.test.mjs` 3 cases pin the new
+  endpoints and prove `PUT`/`DELETE` protection and `/actions/runs` stay
+  rejected, plus traversal paths.
