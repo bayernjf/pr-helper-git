@@ -1013,3 +1013,13 @@ three levels: 6 unit cases for the math, 4 jsdom interaction cases that render
 the real component and press keys against `selectCommit`, and 2 SSR cases that
 assert the listbox/option/`aria-activedescendant` markup. `jsdom` is now a dev
 dependency here too.
+
+### 2026-11-09 Commit signature verification
+
+`GET /api/signature?repo=..&sha=..` runs `git log -1 --format=%G?%x00%GS%x00%GK`
+and returns `{sha, status, signer, key, verified}`. `%G?` letters are mapped to
+copy in the detail panel (G verified, B bad, U unknown, N unsigned, E cannot
+check, X/Y expired, R revoked). The letter comes from git alone — no key
+material is needed — so repositories with no signing key still get a truthful
+"Not signed" instead of an error. Two route tests pin the unsigned path and the
+400 on a malformed sha.
