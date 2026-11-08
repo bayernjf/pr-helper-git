@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { discardHunk, stageHunk } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { discardHunk, stageHunk, stageLines } from '../api';
 import { useApp } from '../app-state';
 import {
   parseDiffLines,
@@ -50,10 +50,26 @@ function Toggle({
   );
 }
 
-function UnifiedRow({ row, segments }: { row: ParsedDiffLine; segments?: WordSegment[] }) {
+function UnifiedRow({
+  row,
+  segments,
+  selectable = false,
+  selected = false,
+  onToggle,
+}: {
+  row: ParsedDiffLine;
+  segments?: WordSegment[];
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
+}) {
   const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : row.kind === 'hunk' ? '' : ' ';
   return (
-    <div className={`diff-line ${row.kind}`}>
+    <div
+      className={`diff-line ${row.kind}${selectable ? ' selectable' : ''}${selected ? ' is-selected' : ''}`}
+      onClick={selectable ? onToggle : undefined}
+      title={selectable ? 'Select this line for line-level staging' : undefined}
+    >
       <span className="diff-gutter">{row.oldNo ?? ''}</span>
       <span className="diff-gutter">{row.newNo ?? ''}</span>
       <span className="diff-sign">{sign}</span>
@@ -140,8 +156,17 @@ export default function DiffView({
   const { runAction } = useApp();
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
   const [pending, setPending] = useState<{ index: number; kind: string } | null>(null);
+  // hunk index -> selected body line indexes (0 is the first line after @@).
+  const [selection, setSelection] = useState<Record<number, number[]>>({});
   const rows = useMemo(() => (result?.diff ? parseDiffLines(result.diff) : []), [result]);
   const splitRows = useMemo(() => pairDiffRows(rows), [rows]);
+
+  // A different file or a refreshed diff invalidates the hunk indexes, so drop
+  // the line selection instead of mis-targeting the next write.
+  const diffKey = result?.path ? `${result.path}:${result.diff}` : '';
+  useEffect(() => {
+    setSelection({});
+  }, [diffKey]);
   const unifiedSegments = useMemo(() => wordSegmentsByRow(rows), [rows]);
 
   // Hunk actions are only available in the unified view for tracked changes
@@ -161,6 +186,39 @@ export default function DiffView({
     setPending(null);
   }
 
+  function toggleLine(hunkIndex: number, bodyIndex: number) {
+    setSelection((prev) => {
+      const current = prev[hunkIndex] ?? [];
+      const next = current.includes(bodyIndex)
+        ? current.filter((n) => n !== bodyIndex)
+        : [...current, bodyIndex];
+      const copy = { ...prev };
+      if (next.length) copy[hunkIndex] = next;
+      else delete copy[hunkIndex];
+      return copy;
+    });
+  }
+
+  async function applyLines(hunkIndex: number) {
+    if (!repo || !result || pending !== null) return;
+    const lines = selection[hunkIndex] ?? [];
+    if (!lines.length) return;
+    const action = staged ? 'unstage' : 'stage';
+    setPending({ index: hunkIndex, kind: 'lines' });
+    // runAction refreshes status and all data after the write, so the diff
+    // pane reloads to reflect the new index/working-tree split.
+    await runAction(
+      stageLines(repo, result.path, hunkIndex, lines, action),
+      `${action === 'unstage' ? 'Unstaged' : 'Staged'} ${lines.length} line${lines.length === 1 ? '' : 's'}`,
+    );
+    setPending(null);
+    setSelection((prev) => {
+      const copy = { ...prev };
+      delete copy[hunkIndex];
+      return copy;
+    });
+  }
+
   async function discardSelectedHunk(hunkIndex: number) {
     if (!repo || !result || pending !== null) return;
     setPending({ index: hunkIndex, kind: 'discard' });
@@ -176,8 +234,10 @@ export default function DiffView({
     return <EmptyHint>No diff available for this file.</EmptyHint>;
   }
 
-  // Assign sequential hunk indices while walking the parsed rows.
+  // Assign sequential hunk indices while walking the parsed rows, and number
+  // the body lines inside each hunk (0 is the first line after the @@ header).
   let hunkCounter = -1;
+  let bodyIndex = 0;
 
   return (
     <div className="diff-pane">
@@ -190,7 +250,9 @@ export default function DiffView({
           {rows.map((row, i) => {
             if (row.kind === 'hunk') {
               hunkCounter += 1;
+              bodyIndex = 0;
               const hunkIndex = hunkCounter;
+              const selectedCount = selection[hunkIndex]?.length ?? 0;
               return (
                 <div className="diff-line hunk" key={i}>
                   <span className="hunk-header-text">{row.text}</span>
@@ -207,6 +269,34 @@ export default function DiffView({
                           ? '…'
                           : staged ? 'Unstage hunk' : 'Stage hunk'}
                       </button>
+                      {selectedCount > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            className="hunk-btn hunk-btn-primary"
+                            disabled={pending !== null}
+                            title={`${staged ? 'Unstage' : 'Stage'} only the selected lines`}
+                            onClick={() => applyLines(hunkIndex)}
+                          >
+                            {pending?.index === hunkIndex && pending.kind === 'lines'
+                              ? '…'
+                              : `${staged ? 'Unstage' : 'Stage'} ${selectedCount} line${selectedCount === 1 ? '' : 's'}`}
+                          </button>
+                          <button
+                            type="button"
+                            className="hunk-btn"
+                            disabled={pending !== null}
+                            title="Clear the line selection"
+                            onClick={() => setSelection((prev) => {
+                              const copy = { ...prev };
+                              delete copy[hunkIndex];
+                              return copy;
+                            })}
+                          >
+                            Clear
+                          </button>
+                        </>
+                      )}
                       {!staged && (
                         <button
                           type="button"
@@ -225,7 +315,19 @@ export default function DiffView({
                 </div>
               );
             }
-            return <UnifiedRow key={i} row={row} segments={unifiedSegments.get(i)} />;
+            const index = bodyIndex;
+            bodyIndex += 1;
+            const changed = row.kind === 'add' || row.kind === 'del';
+            return (
+              <UnifiedRow
+                key={i}
+                row={row}
+                segments={unifiedSegments.get(i)}
+                selectable={hunkActionsEnabled && changed}
+                selected={(selection[hunkCounter] ?? []).includes(index)}
+                onToggle={() => toggleLine(hunkCounter, index)}
+              />
+            );
           })}
         </pre>
       ) : (

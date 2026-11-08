@@ -15,6 +15,7 @@ import {
   parseTagObject,
   splitFilePatch,
 } from './git.mjs';
+import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
 import {
   isSensitivePath,
   normalizeRepoPath,
@@ -1236,6 +1237,48 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     }
     await appendAudit({ ok: true, action: `${action}-hunk`, repo, file: rel, hunk: hunkIndex });
     return ok({ ok: true, action, file: rel, hunk: hunkIndex, hunkCount: hunks.length });
+  }
+
+  // Stage (or unstage) selected +/- lines inside one hunk. The client sends
+  // body line indexes (the same numbering a unified diff shows), and the patch
+  // is rebuilt from the authoritative diff regenerated here.
+  if (pathname === '/api/stage-lines') {
+    const action = body.action === 'unstage' ? 'unstage' : body.action === 'stage' ? 'stage' : null;
+    if (!action) return fail(400, 'action must be "stage" or "unstage"');
+    const rel = normalizeRepoPath(body.file);
+    if (!rel) return fail(400, 'invalid file path');
+    const resolved = await resolveInside(repo, rel);
+    if (!resolved) return fail(403, 'path escapes repo root');
+    const hunkIndex = Number(body.hunk);
+    if (!Number.isInteger(hunkIndex) || hunkIndex < 0) return fail(400, 'invalid hunk index');
+    if (!Array.isArray(body.lines) || body.lines.length === 0) return fail(400, 'no lines selected');
+    if (body.lines.length > MAX_SELECTED_LINES) return fail(400, 'too many lines selected');
+    const selected = [...new Set(body.lines.map(Number))];
+    if (selected.some((n) => !Number.isInteger(n) || n < 0)) return fail(400, 'invalid line index');
+
+    let diffText;
+    try {
+      diffText = await git(action === 'stage' ? ['diff', '--', rel] : ['diff', '--cached', '--', rel], repo);
+    } catch (err) {
+      return gitFail(err, 'git diff failed');
+    }
+    const { header, hunks } = splitFilePatch(diffText);
+    if (!hunks.length) return fail(400, 'no diff hunks available');
+    if (hunkIndex >= hunks.length) return fail(400, 'hunk index out of range');
+    const parsed = parseHunk(hunks[hunkIndex]);
+    if (!parsed) return fail(400, 'cannot parse the hunk header');
+    if (selected.some((n) => n >= parsed.lines.length)) return fail(400, 'line index out of range');
+    const patch = buildLineSelectionPatch(header, hunks[hunkIndex], selected, action);
+    if (!patch) return fail(400, 'select at least one changed line');
+    const applyArgs = ['apply', '--cached', ...(action === 'unstage' ? ['-R'] : []), '-'];
+    try {
+      await git(applyArgs, repo, { input: patch });
+    } catch (err) {
+      await appendAudit({ ok: false, action: `${action}-lines`, repo, file: rel, hunk: hunkIndex, count: selected.length });
+      return gitFail(err, `git apply ${action} failed`);
+    }
+    await appendAudit({ ok: true, action: `${action}-lines`, repo, file: rel, hunk: hunkIndex, count: selected.length });
+    return ok({ ok: true, action, file: rel, hunk: hunkIndex, count: selected.length, hunkCount: hunks.length });
   }
 
   if (pathname === '/api/discard-hunk') {

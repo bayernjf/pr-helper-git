@@ -3053,3 +3053,9 @@ pre.diff {
   white-space: nowrap;
 }
 .repo-panel-toggle input { width: 13px; height: 13px; accent-color: var(--accent); }
+
+/* ---------- line-level staging ---------- */
+.diff-line.selectable { cursor: pointer; }
+.diff-line.selectable:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
+.diff-line.is-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.hunk-btn-primary { color: var(--accent); font-weight: 600; }

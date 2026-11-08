@@ -198,6 +198,12 @@ remote is configured and commits stay on the local `main` branch.
   reverse-applies the chosen hunk to the working tree only (`git apply
   -R`), leaving the index untouched so a single hunk can be reverted
   without restoring the whole file.
+- Line-level staging: clicking a `+`/`-` line marks it, and the hunk header
+  then offers Stage N lines (or Unstage N lines in the staged view). The
+  server rebuilds a patch from just those lines, recomputing the `@@` counts,
+  and keeps unselected changes that the index already holds as context — so
+  selecting a subset of an interleaved hunk still applies cleanly instead of
+  failing with "patch does not apply".
 - Keyboard-driven commit graph with accessibility semantics: the graph is
   a single tab stop (`listbox`), rows are `option`s with a roving
   `tabIndex`, and Arrow Up/Down move the selection, Home/End jump to the

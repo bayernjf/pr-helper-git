@@ -854,3 +854,18 @@ new features target the browser UI and are not adapted to the native shell.
   aggregate header, "With changes" filter, manual refresh and a 30s auto refresh
   that only re-reads `git status` (never fetches or pulls).
 - Tests: 205 (16 files).
+
+### 2026-11-08 line-level staging
+
+- `server/patch-lines.mjs`: `parseHunk` + `buildLineSelectionPatch(header,
+  hunk, selected, action)`. The rebuild keeps context, converts unselected
+  changes that the target side already holds into context (removals when
+  staging, additions when unstaging) and drops the rest — a naive rebuild fails
+  with "patch does not apply" whenever selected and unselected changes share a
+  hunk.
+- `POST /api/stage-lines` with `{ repo, file, hunk, lines[], action }`; validates
+  indexes against the parsed hunk, caps the selection, audits both outcomes.
+- DiffView: click a changed line to mark it, hunk header shows Stage/Unstage N
+  lines + Clear; selection resets when the diff reloads.
+- Tests: 215 (17 files), including two integration cases that stage/unstage a
+  single line with real `git apply`.

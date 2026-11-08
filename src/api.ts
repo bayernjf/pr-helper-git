@@ -405,6 +405,16 @@ export const stageHunk = (
   action: 'stage' | 'unstage',
 ) => post('/api/stage-hunk', { repo, file, hunk, action });
 
+// Line-level staging: `lines` are body line indexes inside the hunk (0 is the
+// first line after the @@ header), matching the server's hunk parser.
+export const stageLines = (
+  repo: string,
+  file: string,
+  hunk: number,
+  lines: number[],
+  action: 'stage' | 'unstage',
+) => post('/api/stage-lines', { repo, file, hunk, lines, action });
+
 export const discardHunk = (repo: string, file: string, hunk: number) =>
   post('/api/discard-hunk', { repo, file, hunk, confirm: true });
 
