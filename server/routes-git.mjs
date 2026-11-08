@@ -91,21 +91,20 @@ function gitFail(err, fallback) {
   return fail(400, fallback, err.stderr || err.message);
 }
 
-// Parse `git grep -n` output lines ("path:line:text") into structured matches.
-// Parse NUL-separated `git grep -n -z` output into path/line/text triples.
-// The NUL separators keep file names that contain ':' (legal on macOS and
-// Linux) intact; the previous "path:line:text" split truncated them.
-function parseGrepLines(raw) {
-  const parts = raw.split('\0');
+// Parse NUL-separated `git grep -n -z` output into path/line/text records.
+// Git emits `path\0line\0text\n` per match, so the next record's path follows
+// the text directly — splitting on NUL alone would misalign every record after
+// the first. The regex stops at the line's newline, keeps a path containing
+// ':' intact, and tolerates an empty matched line.
+export function parseGrepLines(raw) {
   const out = [];
-  for (let i = 0; i + 2 < parts.length; i += 3) {
-    if (!parts[i]) continue;
-    out.push({
-      path: parts[i],
-      line: Number(parts[i + 1]),
-      // With -z the record keeps the line's trailing newline before the NUL.
-      text: parts[i + 2].replace(/\r?\n$/, ''),
-    });
+  const record = /([^\0]*)\0(\d+)\0([^\r\n]*)\r?\n?/g;
+  let m;
+  while ((m = record.exec(String(raw || ''))) !== null) {
+    const [, file, lineText, text] = m;
+    const line = Number(lineText);
+    if (!file || !Number.isInteger(line) || line < 1) continue;
+    out.push({ path: file, line, text });
   }
   return out;
 }
