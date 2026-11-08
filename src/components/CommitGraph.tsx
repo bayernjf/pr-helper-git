@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cherryPick, resetCommit, revertCommit, revertCommitsBatch, undoLastCommit } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
+import { isGraphNavKey, nextCommitIndex, pageSizeForViewport } from '../lib/graph-nav';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
 import { windowRange } from '../lib/virtual-range';
@@ -181,34 +182,35 @@ export default function CommitGraph() {
   }
 
   // Keyboard navigation over the visible commits. Roving tabindex keeps the
-  // graph a single tab stop while arrow keys move the selection.
+  // graph a single tab stop while arrow/page keys move the selection.
   function onGraphKeyDown(event: React.KeyboardEvent) {
     const count = visibleCommits.length;
     if (!count) return;
     const currentIndex = visibleCommits.findIndex((c) => c.hash === selectedHash);
-    let nextIndex = currentIndex;
-    if (event.key === 'ArrowDown') {
-      nextIndex = Math.min(count - 1, currentIndex < 0 ? 0 : currentIndex + 1);
-    } else if (event.key === 'ArrowUp') {
-      nextIndex = Math.max(0, currentIndex < 0 ? 0 : currentIndex - 1);
-    } else if (event.key === 'Home') {
-      nextIndex = 0;
-    } else if (event.key === 'End') {
-      nextIndex = count - 1;
-    } else if (event.key === 'Enter' && event.shiftKey) {
+
+    if (event.key === 'Enter' && event.shiftKey) {
       // Shift+Enter jumps from the graph to the whole-history search.
       event.preventDefault();
       window.dispatchEvent(new CustomEvent('git2:search-commits'));
       return;
-    } else if (event.key === 'Enter' || event.key === ' ') {
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
       // Stop the space bar from scrolling the page while the graph has focus.
       event.preventDefault();
       if (currentIndex >= 0) selectCommit(visibleCommits[currentIndex].hash);
       return;
-    } else {
+    }
+    if (!isGraphNavKey(event.key)) return;
+
+    event.preventDefault();
+    const pageSize = pageSizeForViewport(scrollRef.current?.clientHeight ?? 0, ROW_H);
+    const nextIndex = nextCommitIndex(event.key, currentIndex, count, pageSize);
+    if (nextIndex === null) {
+      // Escape: clear the selection and keep focus on the list itself.
+      selectCommit(null);
+      graphRef.current?.focus();
       return;
     }
-    event.preventDefault();
     const target = visibleCommits[nextIndex];
     if (!target) return;
     selectCommit(target.hash);
@@ -472,6 +474,7 @@ export default function CommitGraph() {
         className="graph"
         role="listbox"
         aria-label={t("Commit history")}
+        aria-activedescendant={selectedHash ? `commit-row-${selectedHash}` : undefined}
         tabIndex={0}
         onKeyDown={onGraphKeyDown}
         style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}
@@ -519,6 +522,7 @@ export default function CommitGraph() {
               else rowRefs.current.delete(commit.hash);
             }}
             role="option"
+            id={`commit-row-${commit.hash}`}
             aria-selected={selectedHash === commit.hash}
             tabIndex={-1}
             className={`graph-row${selectedHash === commit.hash ? ' selected' : ''}`}
