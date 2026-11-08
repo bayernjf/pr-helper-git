@@ -434,7 +434,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 npm test           # Vitest unit + route-level HTTP tests (245 tests, 21 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (60 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (101 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not
@@ -444,8 +444,10 @@ part of the regular check loop.
 `dev-token`) and `PR_HELPER_HOME` pointed at a throwaway directory, so it never
 reads or writes `~/.pr-helper-git2`. It builds the fixture repositories itself
 and covers auth, repository registration, status/log/refs reads, stage → commit
-→ undo, branch/tag/stash, grep, compare, rebase plan, cherry-pick, merge,
-GitHub proxy guards and the audit trail. Flat 1:1 with `e2e/run.sh` in
+→ undo, hunk/line-precise staging, branch/tag/stash, grep, compare, reverts,
+merge conflicts (resolve → commit, abort), interactive rebase (drop, conflict →
+abort), push/pull against a bare remote, GitHub proxy guards and the audit
+trail. Flat 1:1 with `e2e/run.sh` in
 `pr-helper-git`.
 
 The same three steps are configured in the GitHub Actions workflow in

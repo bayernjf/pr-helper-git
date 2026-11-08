@@ -952,3 +952,18 @@ new features target the browser UI and are not adapted to the native shell.
   `GET /api/file` expects `file=` (not `path=`); `POST /api/merge` expects
   `ref=`; `stash-list` returns `entries`; `rebase/plan` rejects `HEAD~2`
   (`~` is outside the ref charset) so the suite passes a resolved SHA.
+
+### 2026-11-08 E2E deepened to 101 checks
+
+- Added conflict and history-rewriting coverage: merge conflict → resolve
+  (`ours`) → commit, merge conflict → abort, interactive rebase `drop`,
+  rebase conflict → abort, single and batch reverts, hunk / line-precise
+  staging (`stage-hunk`, `stage-lines`), push/pull against a bare remote and
+  force-push confirmation guard.
+- Harness fix: `contains()` used `echo … | grep -q`, and `grep -q` exiting on
+  the first match sent SIGPIPE to the writer, which `set -o pipefail` reported
+  as a failure — a flaky red. It now greps a here-string.
+- Product fixes found by the suite: a conflicted merge now returns 409 with the
+  conflict list (it used to be a generic 400), and `POST /api/commit` is
+  allowed to finish a merge whose resolution left the index identical to HEAD
+  (`ours`), instead of failing with "nothing staged to commit".

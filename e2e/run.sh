@@ -36,7 +36,9 @@ check() {
 contains() {
   local name="$1" needle="$2" haystack="$3"
   TOTAL=$((TOTAL+1))
-  if echo "$haystack" | grep -q "$needle"; then
+  # here-string, not a pipe: grep -q exits on the first match and the SIGPIPE
+  # on the writer would make `set -o pipefail` report a false failure.
+  if grep -q "$needle" <<< "$haystack"; then
     PASS=$((PASS+1)); echo "  ✓ $name"
   else
     FAIL=$((FAIL+1)); echo "  ✗ $name (expected to contain '$needle')"
@@ -93,6 +95,55 @@ echo "needle alpha" > note.txt
 git add . && git commit -qm "repo b initial"
 cd - >/dev/null
 
+for R in C D E F; do mkdir -p "$DEMO/e2e-repo-$(echo $R | tr 'CDEF' 'cdef')"; done
+REPO_C="$DEMO/e2e-repo-c"
+REPO_D="$DEMO/e2e-repo-d"
+REPO_E="$DEMO/e2e-repo-e"
+REPO_F="$DEMO/e2e-repo-f"
+
+# C: three commits on separate files plus a 12-line file for hunk/line staging.
+cd "$REPO_C"
+git init -q -b main
+git config user.email "e2e@test.com"; git config user.name "E2E"
+echo "one" > c1.txt; git add . && git commit -qm "c1"
+echo "two" > c2.txt; git add . && git commit -qm "c2"
+echo "three" > c3.txt; git add . && git commit -qm "c3"
+seq 1 12 | sed 's/^/line /' > hunks.txt
+git add . && git commit -qm "c4 hunks"
+cd - >/dev/null
+
+# D: merge conflict fixture — two branches editing the same line.
+cd "$REPO_D"
+git init -q -b main
+git config user.email "e2e@test.com"; git config user.name "E2E"
+echo "base" > shared.txt; git add . && git commit -qm "d base"
+git checkout -q -b m-a; echo "A" > shared.txt; git commit -qam "d A"
+git checkout -q -b m-b main; echo "B" > shared.txt; git commit -qam "d B"
+git checkout -q m-a
+git checkout -q -b m-c main; echo "C" > shared.txt; git commit -qam "d C"
+git checkout -q -b m-d main; echo "D" > shared.txt; git commit -qam "d D"
+git checkout -q m-c
+cd - >/dev/null
+
+# E: rebase conflict — branch edits the same line that main changed.
+cd "$REPO_E"
+git init -q -b main
+git config user.email "e2e@test.com"; git config user.name "E2E"
+echo "base" > shared.txt; git add . && git commit -qm "e base"
+git checkout -q -b rbx; echo "rbx" > shared.txt; git commit -qam "e rbx"
+git checkout -q main; echo "main" > shared.txt; git commit -qam "e main"
+git checkout -q rbx
+cd - >/dev/null
+
+# F: clean interactive rebase fixture — three commits on separate files.
+cd "$REPO_F"
+git init -q -b main
+git config user.email "e2e@test.com"; git config user.name "E2E"
+echo "f1" > f1.txt; git add . && git commit -qm "f1 first"
+echo "f2" > f2.txt; git add . && git commit -qm "f2 second"
+echo "f3" > f3.txt; git add . && git commit -qm "f3 third"
+cd - >/dev/null
+
 # ---------------------------------------------------------------------------
 # Server
 # ---------------------------------------------------------------------------
@@ -139,7 +190,7 @@ STATUS=$(getq status --data-urlencode "repo=$REPO_A")
 check "status branch is main" "main" "$(echo "$STATUS" | json 'd["status"]["branch"]')"
 check "status is clean" "0" "$(echo "$STATUS" | json 'len(d["status"]["files"])')"
 
-LOG=$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "count=5")
+LOG=$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=5")
 contains "log has newest commit" "commit 3" "$LOG"
 check "log has 3 commits" "3" "$(echo "$LOG" | json 'len(d["commits"])')"
 
@@ -163,7 +214,7 @@ check "commit with nothing staged is 409" "409" "$(post commit "$(printf '{"repo
 check "undo HEAD keeps staged" "200" "$(post undo-commit "$(printf '{"repo":"%s"}' "$REPO_A")")"
 UNDO_STATUS=$(getq status --data-urlencode "repo=$REPO_A")
 contains "undo left staged file" "file1.txt" "$UNDO_STATUS"
-contains "undo removed commit from history" "commit 3" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "count=1")"
+contains "undo removed commit from history" "commit 3" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")"
 check "stage-all" "200" "$(post stage-all "$(printf '{"repo":"%s"}' "$REPO_A")")"
 check "re-commit" "200" "$(post commit "$(printf '{"repo":"%s","message":"e2e: staged change"}' "$REPO_A")")"
 
@@ -220,7 +271,95 @@ git -C "$REPO_A" checkout -q main
 echo "main diverges" > "$REPO_A/main-diverge.txt"
 git -C "$REPO_A" add -A && git -C "$REPO_A" commit -qm "e2e: main diverges"
 check "merge branch" "200" "$(post merge "$(printf '{"repo":"%s","ref":"e2e-merge"}' "$REPO_A")")"
-contains "merge commit present" "Merge" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "count=1")"
+MERGE_LOG=$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1" --data-urlencode "scope=current")
+check "merge commit present" "1" "$(printf '%s' "$MERGE_LOG" | grep -c "Merge branch")"
+
+echo ""
+echo "=== E2E: Repos C-F registration ==="
+for R in "$REPO_C" "$REPO_D" "$REPO_E" "$REPO_F"; do
+  check "register $(basename "$R")" "200" "$(post repos/add "$(printf '{"repo":"%s"}' "$R")")"
+done
+
+echo ""
+echo "=== E2E: Hunk and line staging ==="
+# Two edited regions in a 12-line file → two hunks.
+sed -i '' 's/^line 2$/LINE TWO/' "$REPO_C/hunks.txt"
+sed -i '' 's/^line 10$/LINE TEN/' "$REPO_C/hunks.txt"
+check "stage-hunk 0" "200" "$(post stage-hunk "$(printf '{"repo":"%s","file":"hunks.txt","hunk":0,"action":"stage"}' "$REPO_C")")"
+contains "stage-hunk marks file staged" "hunks.txt" "$(getq status --data-urlencode "repo=$REPO_C")"
+check "stage-hunk out of range is 400" "400" "$(post stage-hunk "$(printf '{"repo":"%s","file":"hunks.txt","hunk":99,"action":"stage"}' "$REPO_C")")"
+check "unstage-hunk 0" "200" "$(post stage-hunk "$(printf '{"repo":"%s","file":"hunks.txt","hunk":0,"action":"unstage"}' "$REPO_C")")"
+check "stage-lines 1,2" "200" "$(post stage-lines "$(printf '{"repo":"%s","file":"hunks.txt","hunk":0,"lines":[1,2],"action":"stage"}' "$REPO_C")")"
+check "stage-lines is audited as lines" "200" "$(curl -s -o /dev/null -w '%{http_code}' -G "$BASE/api/audit?token=$TOKEN" --data-urlencode "limit=20")"
+check "stage-lines without lines is 400" "400" "$(post stage-lines "$(printf '{"repo":"%s","file":"hunks.txt","hunk":0,"lines":[],"action":"stage"}' "$REPO_C")")"
+check "stage-lines bad hunk is 400" "400" "$(post stage-lines "$(printf '{"repo":"%s","file":"hunks.txt","hunk":99,"lines":[1],"action":"stage"}' "$REPO_C")")"
+git -C "$REPO_C" restore --staged --worktree hunks.txt
+
+echo ""
+echo "=== E2E: Revert ==="
+C2_SHA=$(git -C "$REPO_C" rev-parse HEAD~2)
+C3_SHA=$(git -C "$REPO_C" rev-parse HEAD~1)
+C4_SHA=$(git -C "$REPO_C" rev-parse HEAD)
+check "revert-batch two commits" "200" "$(post revert-batch "$(printf '{"repo":"%s","shas":["%s","%s"]}' "$REPO_C" "$C4_SHA" "$C3_SHA")")"
+check "revert single commit" "200" "$(post revert "$(printf '{"repo":"%s","sha":"%s"}' "$REPO_C" "$C2_SHA")")"
+check "revert-batch with one sha is 400" "400" "$(post revert-batch "$(printf '{"repo":"%s","shas":["%s"]}' "$REPO_C" "$C2_SHA")")"
+check "revert with invalid sha is 400" "400" "$(post revert "$(printf '{"repo":"%s","sha":"zzz"}' "$REPO_C")")"
+
+echo ""
+echo "=== E2E: Merge conflict → resolve → commit ==="
+check "conflicting merge is 409" "409" "$(post merge "$(printf '{"repo":"%s","ref":"m-b"}' "$REPO_D")")"
+MERGE_STATE=$(getq status --data-urlencode "repo=$REPO_D")
+check "status reports merge in progress" "True" "$(echo "$MERGE_STATE" | json 'd["state"]["mergeInProgress"]')"
+check "resolve conflicted file with ours" "200" "$(post conflict/resolve "$(printf '{"repo":"%s","path":"shared.txt","strategy":"ours"}' "$REPO_D")")"
+RESOLVED=$(getq status --data-urlencode "repo=$REPO_D")
+check "merge still pending until commit" "True" "$(echo "$RESOLVED" | json 'd["state"]["mergeInProgress"]')"
+check "finalize merge with a commit" "200" "$(post commit "$(printf '{"repo":"%s","message":"merge m-b"}' "$REPO_D")")"
+check "merge commit recorded" "2" "$(getq log --data-urlencode "repo=$REPO_D" --data-urlencode "limit=2" --data-urlencode "scope=current" | json 'len(d["commits"])')"
+contains "merge commit has two parents" "merge m-b" "$(getq log --data-urlencode "repo=$REPO_D" --data-urlencode "limit=1")"
+
+check "second conflicting merge is 409" "409" "$(post merge "$(printf '{"repo":"%s","ref":"m-d"}' "$REPO_D")")"
+check "merge abort restores clean state" "200" "$(post merge/abort "$(printf '{"repo":"%s"}' "$REPO_D")")"
+ABORTED=$(getq status --data-urlencode "repo=$REPO_D")
+check "abort cleared merge state" "False" "$(echo "$ABORTED" | json 'd["state"]["mergeInProgress"]')"
+check "resolve without conflict is 400" "400" "$(post conflict/resolve "$(printf '{"repo":"%s","path":"shared.txt","strategy":"ours"}' "$REPO_D")")"
+
+echo ""
+echo "=== E2E: Interactive rebase ==="
+F_BASE=$(git -C "$REPO_F" rev-parse HEAD~2)
+F_TOP=$(git -C "$REPO_F" rev-parse HEAD)
+F_MID=$(git -C "$REPO_F" rev-parse HEAD~1)
+check "interactive rebase drops the newest commit" "200" "$(post rebase/interactive "$(printf '{"repo":"%s","base":"%s","commands":[{"hash":"%s","action":"pick"},{"hash":"%s","action":"drop"}]}' "$REPO_F" "$F_BASE" "$F_MID" "$F_TOP")")"
+check "history shrank to two commits" "2" "$(getq log --data-urlencode "repo=$REPO_F" | json 'len(d["commits"])')"
+contains "dropped commit is gone" "f1 first" "$(getq log --data-urlencode "repo=$REPO_F")"
+check "plan with an unknown commit is 400" "400" "$(post rebase/interactive "$(printf '{"repo":"%s","base":"%s","commands":[{"hash":"%s","action":"pick"}]}' "$REPO_F" "$F_BASE" "$F_TOP")")"
+
+# Conflicting rebase: current branch replayed onto a base that changed the same line.
+E_MAIN=$(git -C "$REPO_E" rev-parse main)
+E_RBX=$(git -C "$REPO_E" rev-parse rbx)
+REBASE_BODY=$(curl -s -X POST -H 'Content-Type: application/json' \
+  -d "$(printf '{"repo":"%s","base":"%s","commands":[{"hash":"%s","action":"pick"}]}' "$REPO_E" "$E_MAIN" "$E_RBX")" \
+  "$BASE/api/rebase/interactive?token=$TOKEN")
+contains "conflicting rebase reports conflict" '"conflicted":true' "$REBASE_BODY"
+REBASE_STATE=$(getq status --data-urlencode "repo=$REPO_E")
+check "status reports rebase in progress" "True" "$(echo "$REBASE_STATE" | json 'd["state"]["rebaseInProgress"]')"
+check "rebase abort restores branch" "200" "$(post rebase/abort "$(printf '{"repo":"%s"}' "$REPO_E")")"
+REBASE_ABORTED=$(getq status --data-urlencode "repo=$REPO_E")
+check "abort cleared rebase state" "False" "$(echo "$REBASE_ABORTED" | json 'd["state"]["rebaseInProgress"]')"
+
+echo ""
+echo "=== E2E: Push / Pull against a bare remote ==="
+check "push" "200" "$(post push "$(printf '{"repo":"%s"}' "$REPO_A")")"
+check "bare remote matches local HEAD" "yes" "$( [ "$(git --git-dir="$DEMO/e2e-remote.git" rev-parse main)" = "$(git -C "$REPO_A" rev-parse main)" ] && echo yes || echo no )"
+check "force push without confirmation is 400" "400" "$(post push "$(printf '{"repo":"%s","force":"force"}' "$REPO_A")")"
+
+git clone -q "$DEMO/e2e-remote.git" "$DEMO/e2e-clone"
+cd "$DEMO/e2e-clone"
+git config user.email "e2e@test.com"; git config user.name "E2E"
+echo "from clone" > clone.txt
+git add . && git commit -qm "e2e: from clone" && git push -q origin main
+cd - >/dev/null
+check "pull brings the clone commit" "200" "$(post pull "$(printf '{"repo":"%s"}' "$REPO_A")")"
+contains "log shows pulled commit" "from clone" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")"
 
 echo ""
 echo "=== E2E: GitHub proxy guards ==="
@@ -243,7 +382,8 @@ check "audit rejects bad limit" "400" "$(getcode audit --data-urlencode "limit=a
 echo ""
 echo "=== E2E: Deregister ==="
 check "remove repo B" "200" "$(post repos/remove "$(printf '{"repo":"%s"}' "$REPO_B")")"
-check "repo list has 1 entry" "1" "$(getq repos | json 'len(d["repos"])')"
+check "repo list has five entries after removing B" "5" "$(getq repos | json 'len(d["repos"])')"
+check "removed repo is gone" "False" "$(getq repos | json 'any("e2e-repo-b" in r for r in d["repos"])')"
 
 echo ""
 echo "=== E2E Results: $PASS passed, $FAIL failed, $TOTAL total ==="
