@@ -978,6 +978,10 @@ detail counters, relative timestamps). All of those are now routed through
 `t()`/`tp()` and translated; `formatRelative` and `relativeAge` emit Chinese
 units instead of `3m ago`.
 
-Known gaps: audit action names and git output (branch names, commit subjects,
-`err.message`) stay as git/GitHub reports them, and toast messages raised by
-`runAction` are still English.
+Toasts raised by `runAction` and the error messages the API returns are now
+translated too (`src/components/ui.tsx` renders through the dictionary and
+`runAction` translates `err.message` before appending the raw git detail), so a
+Chinese user sees Chinese outcomes and Chinese failure headlines.
+
+Known gaps: audit action names and raw git/GitHub output (branch names, commit
+subjects, git stderr detail) stay exactly as git reports them.
