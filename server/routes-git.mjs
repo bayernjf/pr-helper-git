@@ -308,6 +308,31 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     return ok({ repos });
   }
 
+  if (pathname === '/api/repos/pull' && method === 'POST') {
+    // Batch pull for the multi-repository panel. Only registered repositories
+    // are accepted, and --ff-only is used so a diverged branch fails cleanly
+    // instead of opening a merge in a repository the user is not looking at.
+    const requested = Array.isArray(body.repos)
+      ? [...new Set(body.repos.filter((p) => typeof p === 'string'))]
+      : [];
+    const registered = await listRepos();
+    const targets = requested.filter((p) => registered.includes(p)).slice(0, 50);
+    if (!targets.length) return fail(400, 'no registered repositories selected');
+    const results = [];
+    for (const target of targets) {
+      try {
+        const out = await git(['pull', '--ff-only'], target, { timeout: NETWORK_TIMEOUT_MS });
+        await appendAudit({ ok: true, action: 'repos-pull', repo: target });
+        results.push({ repo: target, ok: true, result: out.trim().slice(0, 300) });
+      } catch (err) {
+        await appendAudit({ ok: false, action: 'repos-pull', repo: target });
+        results.push({ repo: target, ok: false, error: String(err.stderr || err.message || '').slice(0, 300) });
+      }
+    }
+    const failCount = results.filter((r) => !r.ok).length;
+    return ok({ results, okCount: results.length - failCount, failCount });
+  }
+
   if (pathname === '/api/repos/clone' && method === 'POST') {
     const url = validateCloneUrl(body.url) ? body.url.trim() : null;
     const name = validateFolderName(body.name);

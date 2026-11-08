@@ -740,6 +740,35 @@ describe('conflict resolution', () => {
   });
 });
 
+describe('batch repository pull', () => {
+  it('rejects an empty or unregistered selection', async () => {
+    const empty = await post('/api/repos/pull', { repos: [] });
+    expect(empty.status).toBe(400);
+    const unknown = await post('/api/repos/pull', { repos: [homeDir] });
+    expect(unknown.status).toBe(400);
+  });
+
+  it('fast-forwards a registered clone from its origin', async () => {
+    const origin = path.join(tmpRoot, 'pull-origin.git');
+    const clone = path.join(tmpRoot, 'pull-clone');
+    git(['init', '--bare', origin], tmpRoot);
+    git(['init', '-b', 'main', clone], tmpRoot);
+    git(['config', 'user.email', 'tester@example.com'], clone);
+    git(['config', 'user.name', 'Tester'], clone);
+    await fsp.writeFile(path.join(clone, 'a.txt'), 'one\n', 'utf8');
+    git(['add', '.'], clone);
+    git(['commit', '-m', 'first'], clone);
+    git(['remote', 'add', 'origin', origin], clone);
+    git(['push', '-u', 'origin', 'main'], clone);
+    expect((await post('/api/repos/add', { repo: clone })).status).toBe(200);
+
+    const r = await post('/api/repos/pull', { repos: [clone] });
+    expect(r.status).toBe(200);
+    expect(r.json.okCount).toBe(1);
+    expect(r.json.failCount).toBe(0);
+  });
+});
+
 describe('input validation boundaries', () => {
   it('rejects option-like and traversal ref names', async () => {
     const dash = await get(`/api/compare?repo=${q(repoDir)}&base=--help&head=main`);

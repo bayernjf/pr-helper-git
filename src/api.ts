@@ -389,6 +389,15 @@ export const fetchRepo = (repo: string, prune = false) => post('/api/fetch', { r
 export const pullRepo = (repo: string, rebase = false) =>
   post('/api/pull', { repo, rebase });
 
+export interface BatchPullResult {
+  results: Array<{ repo: string; ok: boolean; result?: string; error?: string }>;
+  okCount: number;
+  failCount: number;
+}
+
+export const pullReposBatch = (repos: string[]) =>
+  post('/api/repos/pull', { repos }) as Promise<BatchPullResult>;
+
 export type ForcePushMode = 'force' | 'force-with-lease';
 
 export const pushRepo = (

@@ -16,7 +16,9 @@ GitHub by the application setup.
 - Open repositories panel: a filterable list of every registered repository
   showing its location, working-tree change counts, ahead/behind and current
   branch, with an active marker. Click a row to open it, or select several rows
-  to fetch them in one batch (a single failure never aborts the rest).
+  to fetch them in one batch, or pull them with `--ff-only` so a diverged or
+  dirty repository fails cleanly instead of merging off-screen (a single
+  failure never aborts the rest; the per-repository outcome is listed inline).
 - Scrollable commit graph rendered as SVG: colored branch lanes, smooth merge
   curves, distinct merge nodes, and color-coded badges for HEAD, local/remote
   branches and tags. Only rows around the viewport are mounted (with a small
@@ -56,9 +58,10 @@ GitHub by the application setup.
   cap, a one-click git blame tab that attributes every line to its author and
   originating commit, and a file-history tab that follows the path across
   commits and can jump straight to any past revision.
-- See branch divergence at a glance with ahead/behind badges, inspect a stash's
-  patch before applying it, and copy a full commit hash with one click. Every
-  dialog also closes on Escape.
+- See branch divergence at a glance with ahead/behind badges (plus a red
+  `gone` marker when the upstream ref was deleted on the remote), inspect a
+  stash's patch before applying it, and copy a full commit hash with one click.
+  Every dialog also closes on Escape.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
   touched.

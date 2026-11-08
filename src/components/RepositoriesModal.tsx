@@ -1,8 +1,8 @@
 // Multi-repository panel: every registered repository in one filterable list,
 // showing its location, working-tree changes, ahead/behind and current branch.
-// A row opens that repository; checkboxes enable a batch fetch.
+// A row opens that repository; checkboxes enable batch fetch and batch pull.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchRepo } from '../api';
+import { fetchRepo, pullReposBatch } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import type { RepoBrief } from '../types';
@@ -24,6 +24,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
+  const [pullReport, setPullReport] = useState<{ okCount: number; failures: string[] } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   useEscape(onClose);
 
@@ -85,6 +86,32 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
     setSelected(new Set());
     if (failed === 0) toast(`Fetched ${fetched} repositories`, 'success');
     else toast(`Fetched ${fetched}, ${failed} failed`, 'error');
+  }
+
+  // Fast-forward-only batch pull: a diverged or dirty repository fails instead
+  // of silently creating a merge commit off-screen.
+  async function batchPull() {
+    const paths = [...selected];
+    if (paths.length === 0) return;
+    setBatchBusy(true);
+    setPullReport(null);
+    try {
+      const res = await pullReposBatch(paths);
+      try {
+        await refresh();
+      } catch { /* refresh errors are surfaced separately */ }
+      const failures = res.results
+        .filter((r) => !r.ok)
+        .map((r) => `${parentDir(r.repo)}: ${r.error || 'pull failed'}`);
+      setPullReport({ okCount: res.okCount, failures });
+      if (res.failCount === 0) toast(`Pulled ${res.okCount} repositories`, 'success');
+      else toast(`Pulled ${res.okCount}, ${res.failCount} failed`, 'error');
+    } catch (err: any) {
+      toast(err?.message || 'batch pull failed', 'error');
+    } finally {
+      setBatchBusy(false);
+      setSelected(new Set());
+    }
   }
 
   return (
@@ -207,6 +234,21 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           )}
         </div>
 
+        {pullReport && (
+          <div className="repo-panel-report">
+            <span className="repo-panel-report-head">
+              Pulled {pullReport.okCount} of {pullReport.okCount + pullReport.failures.length}
+              {pullReport.failures.length > 0 ? ` — ${pullReport.failures.length} failed` : ''}
+            </span>
+            {pullReport.failures.slice(0, 4).map((line) => (
+              <span key={line} className="repo-panel-report-line">{line}</span>
+            ))}
+            {pullReport.failures.length > 4 && (
+              <span className="repo-panel-report-line">+{pullReport.failures.length - 4} more</span>
+            )}
+          </div>
+        )}
+
         <div className="modal-footer repo-panel-footer">
           <button type="button" className="btn" onClick={addRepository}>Add repository…</button>
           <span className="spacer" />
@@ -223,11 +265,20 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn"
                 onClick={batchFetch}
                 disabled={batchBusy}
               >
-                {batchBusy ? 'Fetching…' : `Fetch ${selected.size} repositories`}
+                {batchBusy ? 'Working…' : `Fetch ${selected.size}`}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={batchPull}
+                disabled={batchBusy}
+                title="git pull --ff-only in each selected repository; diverged or dirty repositories fail without merging"
+              >
+                {batchBusy ? 'Working…' : `Pull ${selected.size} (ff-only)`}
               </button>
             </>
           )}
