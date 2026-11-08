@@ -262,10 +262,18 @@ new features target the browser UI and are not adapted to the native shell.
   branches are refused with 409
 - [x] Web-only decision: desktop development paused, checks limited to
   `npm test`, `npm run lint`, `npm run build`
+- [x] M1 team-ready local instance: the startup token is the owner (admin);
+  `server/actor.mjs` carries the request identity through AsyncLocalStorage so
+  every audit entry records `user` and `role`; `server/identity.mjs` issues
+  per-member tokens (SHA-256 at rest, plaintext shown once), lists and revokes
+  them; the Team panel shows the signed-in identity, member management and
+  one-time tokens; `GET/POST /api/team/config` exports and imports the
+  repository registry plus member names without any secret; `DELETE` request
+  bodies are now parsed so revocation works
 
 ## Delivery notes
 
-- Current state (2026-11-08): 176 Vitest tests across 13 files are green,
+- Current state (2026-11-08): 181 Vitest tests across 13 files are green,
   `npm run lint` and `npm run build` pass, and the working tree is clean.
   Everything below is local: `git remote -v` is empty, so the commits have
   never been pushed anywhere. Desktop packaging is frozen per the web-only

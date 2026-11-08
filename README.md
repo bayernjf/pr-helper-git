@@ -151,6 +151,15 @@ GitHub by the application setup.
   atomically, keeping the newest entries that fit a 1 MB / 10,000-entry
   budget; corrupt lines are dropped and the rewritten file always stays
   below the trigger so ordinary appends never re-rotate.
+- Team use on one local instance (M1): the startup token belongs to the
+  instance owner (`admin`). The Team panel creates additional members with
+  their own one-time token, lists and revokes them, and exports/imports the
+  team configuration (repository registry plus member names — no tokens, no
+  PATs). Every audit entry carries the acting member's `user` and `role`, so
+  a shared machine shows who staged, committed, pushed or changed settings.
+  Member tokens are stored only as SHA-256 hashes; the plaintext is shown once.
+  This is the "one copy per person" milestone: it does not yet provide a
+  multi-writer queue for several people driving one working tree.
 - In-app file editor: working-tree text files open in an edit mode with a
   monospace textarea; saves are validated server-side (sensitive files,
   NUL bytes and a 1 MB cap are rejected) and written atomically via a
@@ -314,6 +323,10 @@ Security**.
 
 - The server binds to `127.0.0.1` only. In production it generates a random
   per-process token that is exchanged for an HttpOnly, SameSite=Strict cookie.
+  That token is the owner (admin) identity. Member tokens are random 192-bit
+  values stored only as SHA-256 hashes in `config.json`; they are accepted
+  through the same `?token=` bootstrap URL and can be revoked from the Team
+  panel without restarting the server.
 - Git is invoked with `execFile` and fixed argv arrays — user input is never
   passed to a shell. Repo-relative paths are normalized and checked with
   `realpath` so symlinks cannot escape the repository root.
@@ -345,6 +358,8 @@ Security**.
 ```
 server/
   main.mjs           HTTP entry, token/cookie auth, static hosting, SSE
+  actor.mjs          AsyncLocalStorage request identity for audit attribution
+  identity.mjs       owner/member tokens, hashed member store, team config
   security.mjs       path validation, ref validation, token checks
   git.mjs            git runner and pure output parsers
   store.mjs          registry persistence and audit log
@@ -366,7 +381,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (176 tests, 13 files)
+npm test           # Vitest unit + route-level HTTP tests (181 tests, 13 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
 ```
@@ -382,7 +397,8 @@ Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git
 routes, validation failures, rebase/revert-state detection, conflicted revert
 continue/abort, per-file conflict resolution, batch repository pull from a
 local origin, the SSE handshake, audit rotation, server-side audit filtering,
-mtime-based stale-save rejection (including the 413 body cap), cross-repository
+team identity (owner/member tokens, revocation, audit attribution, team config
+export/import), mtime-based stale-save rejection (including the 413 body cap), cross-repository
 `grep-all`, batch revert and the configured commit template. The isolated audit
 path is always built from the server's home directory so tests can never touch
 the real audit log, and an isolated `GIT_CONFIG_GLOBAL` keeps machine-wide
