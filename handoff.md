@@ -967,3 +967,17 @@ new features target the browser UI and are not adapted to the native shell.
   conflict list (it used to be a generic 400), and `POST /api/commit` is
   allowed to finish a merge whose resolution left the index identical to HEAD
   (`ours`), instead of failing with "nothing staged to commit".
+
+### 2026-11-08 Chinese walkthrough and translation sweep
+
+Ran the bilingual build in a browser against a throwaway repository and read
+every panel in Chinese. The dictionary covered rendered keys, but plenty of
+copy was still a raw literal (toolbar actions, work-panel controls, graph
+filters, modal labels, shortcut help, command palette, team/repo panels, PR
+detail counters, relative timestamps). All of those are now routed through
+`t()`/`tp()` and translated; `formatRelative` and `relativeAge` emit Chinese
+units instead of `3m ago`.
+
+Known gaps: audit action names and git output (branch names, commit subjects,
+`err.message`) stay as git/GitHub reports them, and toast messages raised by
+`runAction` are still English.
