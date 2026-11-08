@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 // Minimal conflict helper: list the unmerged paths, let the user take one side
 // (`git checkout --ours/--theirs` + `git add`) or mark a manually edited file
@@ -37,8 +38,8 @@ export default function ResolveConflictsModal({
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
         <div className="modal" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>Resolve conflicts</h2>
-            <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}>
+            <h2>{t("Resolve conflicts")}</h2>
+            <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
               <IconX />
             </button>
           </div>
@@ -77,7 +78,7 @@ export default function ResolveConflictsModal({
                       type="button"
                       className="btn btn-primary"
                       disabled={pending === file.path}
-                      title="Stage the file after editing it by hand (git add)"
+                      title={t("Stage the file after editing it by hand (git add)")}
                       onClick={() => take(file.path, 'mark')}
                     >
                       Mark resolved
@@ -93,7 +94,7 @@ export default function ResolveConflictsModal({
                 ? `${conflicts.length} file${conflicts.length === 1 ? '' : 's'} still conflicted`
                 : ''}
             </span>
-            <button type="button" className="btn" onClick={onClose}>Close</button>
+            <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
           </div>
         </div>
       </div>

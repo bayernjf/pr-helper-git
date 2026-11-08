@@ -7,6 +7,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconAlert, IconX } from './icons';
+import { t } from '../i18n';
 
 type Action = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
 
@@ -110,7 +111,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
       return;
     }
     if ((res as { conflicted?: boolean }).conflicted) {
-      toast('Rebase stopped on a conflict — resolve it in the work panel', 'error');
+      toast(t("Rebase stopped on a conflict — resolve it in the work panel"), 'error');
     } else {
       toast(`Rebased ${rows.filter((row) => row.action !== 'drop').length} commit(s)`, 'success');
     }
@@ -121,10 +122,10 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide rebase-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Interactive rebase</h2>
+          <h2>{t("Interactive rebase")}</h2>
           <span className="chip chip-muted mono">{base === 'root' ? 'whole branch' : shortHash(base)}</span>
           <span style={{ flex: 1 }} />
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
             <IconX />
           </button>
         </div>
@@ -133,7 +134,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
           <div className="rebase-banner">
             <IconAlert width={14} height={14} />
             {plan?.dirty ? (
-              <span>Commit or stash your changes first — the working tree is not clean.</span>
+              <span>{t("Commit or stash your changes first — the working tree is not clean.")}</span>
             ) : (
               <span>The range contains merge commits ({merges.join(', ')}); flattening them would lose history.</span>
             )}
@@ -150,18 +151,18 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
         {!loading && badFirst && (
           <div className="rebase-banner">
             <IconAlert width={14} height={14} />
-            <span>The first commit cannot be squashed or fixed up.</span>
+            <span>{t("The first commit cannot be squashed or fixed up.")}</span>
           </div>
         )}
 
         <div className="modal-body no-pad">
           {loading ? (
-            <div className="list-empty">Loading commits…</div>
+            <div className="list-empty">{t("Loading commits…")}</div>
           ) : rows.length === 0 ? (
-            <div className="list-empty">Nothing to rebase above this commit.</div>
+            <div className="list-empty">{t("Nothing to rebase above this commit.")}</div>
           ) : (
             <div className="rebase-list">
-              <div className="rebase-hint">Applied top to bottom — the top row is the oldest commit.</div>
+              <div className="rebase-hint">{t("Applied top to bottom — the top row is the oldest commit.")}</div>
               {rows.map((row, index) => (
                 <div className={`rebase-row${row.action === 'drop' ? ' is-dropped' : ''}`} key={row.hash}>
                   <select
@@ -216,10 +217,10 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
 
         <div className="modal-footer">
           <span className="repo-panel-count">
-            {rows.filter((row) => row.action !== 'drop').length} of {rows.length} commits kept
+            {t(`${rows.filter((row) => row.action !== 'drop').length} of ${rows.length} commits`)} kept
           </span>
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
           <button
             type="button"
             className="btn btn-primary"

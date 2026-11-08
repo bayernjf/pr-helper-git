@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import { IconSearch, IconX } from './icons';
+import { t } from '../i18n';
 
 export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
   const { toast } = useApp();
@@ -48,27 +49,27 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
         <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Search across all repositories</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Search across all repositories")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <form className="grep-form" onSubmit={runSearch}>
           <div className="grep-input">
             <IconSearch width={14} height={14} />
             <input
               autoFocus
-              placeholder="Search text or regex in every registered repo…"
+              placeholder={t("Search text or regex in every registered repo…")}
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
             />
           </div>
           <div className="grep-input">
             <input
-              placeholder="File glob (optional), e.g. *.ts"
+              placeholder={t("File glob (optional), e.g. *.ts")}
               value={glob}
               onChange={(e) => setGlob(e.target.value)}
             />
           </div>
-          <label className="grep-case" title="Ignore case (git grep -i)">
+          <label className="grep-case" title={t("Ignore case (git grep -i)")}>
             <input
               type="checkbox"
               checked={ignoreCase}
@@ -82,11 +83,11 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
         </form>
         <div className="modal-body no-pad grep-body">
           {loading ? (
-            <div className="list-empty">Searching all repositories…</div>
+            <div className="list-empty">{t("Searching all repositories…")}</div>
           ) : !searched ? (
-            <div className="list-empty">Enter a term to search tracked and untracked files across every repo.</div>
+            <div className="list-empty">{t("Enter a term to search tracked and untracked files across every repo.")}</div>
           ) : total === 0 ? (
-            <div className="list-empty">No matches in any repository.</div>
+            <div className="list-empty">{t("No matches in any repository.")}</div>
           ) : (
             <div className="grep-results">
               {results.map((repo) => (
@@ -105,7 +106,7 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
                           key={`${m.path}-${m.line}`}
                           role="button"
                           tabIndex={0}
-                          title="Open this file at the matching line"
+                          title={t("Open this file at the matching line")}
                           onClick={() => openResult(repo.repo, m.path, m.line)}
                           onKeyDown={(e) => {
                             if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -126,9 +127,9 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="modal-footer">
           <span className="grep-count">
-            {searched ? `${total} matches across ${results.length} repos` : ''}
+            {searched ? t(`${total} matches across ${results.length} repos`) : ''}
           </span>
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
         </div>
       </div>

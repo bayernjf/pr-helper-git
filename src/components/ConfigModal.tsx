@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { getConfig, saveConfig, type ConfigEntry } from '../api';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   onClose: () => void;
@@ -76,8 +77,8 @@ export default function ConfigModal({ onClose }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal" style={{ width: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Repository settings</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}>
+          <h2>{t("Repository settings")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
             <IconX />
           </button>
         </div>
@@ -86,7 +87,7 @@ export default function ConfigModal({ onClose }: Props) {
             Changes write to this repository&apos;s local config. Leave a field blank to remove the
             local override and inherit the global/system value.
           </div>
-          {loading && <div className="config-status">Loading…</div>}
+          {loading && <div className="config-status">{t("Loading…")}</div>}
           {error && <div className="config-status config-error">{error}</div>}
           {!loading && (
             <div className="config-list">
@@ -129,7 +130,7 @@ export default function ConfigModal({ onClose }: Props) {
           )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
           <button
             type="button"
             className="btn btn-primary"

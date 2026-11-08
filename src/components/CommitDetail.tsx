@@ -8,6 +8,7 @@ import type { DiffResult } from '../types';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
 import { IconCopy, IconEye, IconFile, IconX } from './icons';
+import { t } from '../i18n';
 
 function statusColor(status: string): string {
   if (status.startsWith('A')) return 'var(--green)';
@@ -46,9 +47,9 @@ export default function CommitDetail() {
     if (!commit) return;
     try {
       await navigator.clipboard.writeText(commit.hash);
-      toast('Commit hash copied', 'success');
+      toast(t("Commit hash copied"), 'success');
     } catch {
-      toast('Unable to copy to clipboard', 'error');
+      toast(t("Unable to copy to clipboard"), 'error');
     }
   }
 
@@ -92,7 +93,7 @@ export default function CommitDetail() {
     return (
       <aside className="detail" style={detailStyle}>
         <button type="button" className="col-resize" {...detailSeparator} />
-        <div className="diff-empty">Select a commit in the graph to inspect its metadata.</div>
+        <div className="diff-empty">{t("Select a commit in the graph to inspect its metadata.")}</div>
       </aside>
     );
   }
@@ -103,17 +104,17 @@ export default function CommitDetail() {
       <h3>{commit.subject}</h3>
 
       <div className="detail-section">
-        <span className="detail-label">Commit</span>
+        <span className="detail-label">{t("Commit")}</span>
         <div className="detail-value hash-row">
           <span className="hash-text">{commit.hash}</span>
-          <button type="button" className="icon-btn" title="Copy full hash" onClick={copyHash}>
+          <button type="button" className="icon-btn" title={t("Copy full hash")} onClick={copyHash}>
             <IconCopy width={14} height={14} />
           </button>
         </div>
       </div>
 
       <div className="detail-section">
-        <span className="detail-label">Author</span>
+        <span className="detail-label">{t("Author")}</span>
         <div className="detail-value muted">
           <span className="author-line">
             <span className="detail-avatar">{commit.authorName.slice(0, 1).toUpperCase()}</span>
@@ -123,13 +124,13 @@ export default function CommitDetail() {
       </div>
 
       <div className="detail-section">
-        <span className="detail-label">Date</span>
+        <span className="detail-label">{t("Date")}</span>
         <div className="detail-value muted">{formatFullDate(commit.date)}</div>
       </div>
 
       {commit.parents.length > 0 && (
         <div className="detail-section">
-          <span className="detail-label">Parents</span>
+          <span className="detail-label">{t("Parents")}</span>
           {commit.parents.map((p) => (
             <button key={p} type="button" className="parent-link" onClick={() => selectCommit(p)}>
               {shortHash(p)}
@@ -140,7 +141,7 @@ export default function CommitDetail() {
 
       {commit.body && (
         <div className="detail-section">
-          <span className="detail-label">Message body</span>
+          <span className="detail-label">{t("Message body")}</span>
           <div className="detail-body">{commit.body}</div>
         </div>
       )}
@@ -155,14 +156,14 @@ export default function CommitDetail() {
               className="pr-detail-item"
               style={{ width: '100%', textAlign: 'left' }}
               onClick={() => openPatch(f)}
-              title="View patch"
+              title={t("View patch")}
             >
               <span style={{ color: statusColor(f.status), width: 16 }}>{f.status.slice(0, 1)}</span>
               <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.path}</span>
               <span
                 role="button"
-                title="View file at this commit"
+                title={t("View file at this commit")}
                 style={{ display: 'inline-flex', padding: '0 4px', cursor: 'pointer' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -192,12 +193,12 @@ export default function CommitDetail() {
               <button
                 type="button"
                 className={`btn${ignoreWs ? ' btn-primary' : ''}`}
-                title="Hide pure whitespace changes in this patch"
+                title={t("Hide pure whitespace changes in this patch")}
                 onClick={toggleIgnoreWs}
               >
                 Ignore whitespace
               </button>
-              <button type="button" className="icon-btn" aria-label="Close patch" title="Close patch" onClick={closePatch}>
+              <button type="button" className="icon-btn" aria-label={t("Close patch")} title={t("Close patch")} onClick={closePatch}>
                 <IconX />
               </button>
             </div>

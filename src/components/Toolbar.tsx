@@ -22,6 +22,7 @@ import StashModal from './StashModal';
 import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 import {
   IconAudit,
   IconChevronDown,
@@ -165,17 +166,17 @@ export default function Toolbar() {
           }
         }}
       >
-        {repos.length === 0 && <option value="">No repository</option>}
+        {repos.length === 0 && <option value="">{t("No repository")}</option>}
         {repos.map((r) => (
           <option key={r.path} value={r.path}>{r.name}</option>
         ))}
-        <option value="__add__">+ Add repository…</option>
+        <option value="__add__">{t("+ Add repository…")}</option>
       </select>
       <button
         type="button"
         className="icon-btn"
-        title="Open repositories panel"
-        aria-label="Open repositories panel"
+        title={t("Open repositories panel")}
+        aria-label={t("Open repositories panel")}
         onClick={() => setShowRepositories(true)}
       >
         <IconList />
@@ -218,7 +219,7 @@ export default function Toolbar() {
           type="button"
           className="btn btn-caret"
           disabled={!activeRepo || busy}
-          title="Pull options"
+          title={t("Pull options")}
           onClick={(e) => openMenu(e, 'pull')}
         >
           <IconChevronDown width={12} height={12} />
@@ -239,7 +240,7 @@ export default function Toolbar() {
           type="button"
           className="btn btn-caret"
           disabled={!activeRepo || busy}
-          title="Push options"
+          title={t("Push options")}
           onClick={(e) => openMenu(e, 'push')}
         >
           <IconChevronDown width={12} height={12} />
@@ -249,7 +250,7 @@ export default function Toolbar() {
         type="button"
         className="btn"
         disabled={!activeRepo || busy}
-        title="Stash working changes"
+        title={t("Stash working changes")}
         onClick={() => setShowStash(true)}
       >
         <IconStash width={14} height={14} />
@@ -284,7 +285,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Search commits in all branches"
+        title={t("Search commits in all branches")}
         onClick={() => setShowCommitSearch(true)}
       >
         <IconClock />
@@ -292,7 +293,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Search across all repositories"
+        title={t("Search across all repositories")}
         onClick={() => setShowGlobalGrep(true)}
       >
         <IconGlobe />
@@ -300,7 +301,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Compare two references"
+        title={t("Compare two references")}
         disabled={!activeRepo}
         onClick={() => setShowCompare(true)}
       >
@@ -309,7 +310,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="View reference log (reflog)"
+        title={t("View reference log (reflog)")}
         disabled={!activeRepo}
         onClick={() => setShowReflog(true)}
       >
@@ -318,7 +319,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Manage remotes"
+        title={t("Manage remotes")}
         disabled={!activeRepo}
         onClick={() => setShowRemotes(true)}
       >
@@ -327,8 +328,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Repository settings (git config)"
-        aria-label="Repository settings"
+        title={t("Repository settings (git config)")}
+        aria-label={t("Repository settings")}
         disabled={!activeRepo}
         onClick={() => setShowConfig(true)}
       >
@@ -337,7 +338,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="View audit log"
+        title={t("View audit log")}
         onClick={() => setShowAudit(true)}
       >
         <IconAudit />
@@ -345,8 +346,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Team members and configuration"
-        aria-label="Team"
+        title={t("Team members and configuration")}
+        aria-label={t("Team")}
         onClick={() => setShowTeam(true)}
       >
         <IconUser />
@@ -363,8 +364,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="GitHub settings"
-        aria-label="GitHub settings"
+        title={t("GitHub settings")}
+        aria-label={t("GitHub settings")}
         onClick={() => setShowSettings(true)}
       >
         <IconGear />
@@ -372,8 +373,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Keyboard shortcuts (press ?)"
-        aria-label="Keyboard shortcuts"
+        title={t("Keyboard shortcuts (press ?)")}
+        aria-label={t("Keyboard shortcuts")}
         onClick={() => setShowShortcuts(true)}
       >
         <IconKeyboard />

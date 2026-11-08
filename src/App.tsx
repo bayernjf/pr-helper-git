@@ -9,13 +9,14 @@ import PrBoard from './components/PrBoard';
 import RefSidebar from './components/RefSidebar';
 import Toolbar from './components/Toolbar';
 import WorkPanel from './components/WorkPanel';
+import { t, useLocale } from './i18n';
 
 function EmptyState() {
   return (
     <div className="empty-state">
       <div className="empty-icon"><IconFolder width={28} height={28} /></div>
-      <h3>No repository selected</h3>
-      <p>Use the repository selector in the toolbar to register, clone or initialise a repository.</p>
+      <h3>{t("No repository selected")}</h3>
+      <p>{t("Use the repository selector in the toolbar to register, clone or initialise a repository.")}</p>
     </div>
   );
 }
@@ -24,13 +25,15 @@ function LoadingPanel() {
   return (
     <div className="loading-panel">
       <span className="spinner" />
-      <span>Loading repository…</span>
+      <span>{t("Loading repository…")}</span>
     </div>
   );
 }
 
 export default function App() {
   const { activeRepo, view, repoLoading, status, commits } = useApp();
+  // Re-render the whole tree when the language changes.
+  useLocale();
   useShortcuts();
   useFocusTrap();
   const firstLoad = repoLoading && !status && commits.length === 0;

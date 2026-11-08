@@ -5,6 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 type OutcomeFilter = 'all' | 'ok' | 'fail';
 
@@ -72,12 +73,12 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Audit log</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Audit log")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body no-pad">
           {loading ? (
-            <div className="list-empty">Loading audit trail…</div>
+            <div className="list-empty">{t("Loading audit trail…")}</div>
           ) : (
             <div className="audit-list">
               {/* Filters stay visible even when nothing matches, otherwise a
@@ -86,14 +87,14 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                 <input
                   type="text"
                   value={textFilter}
-                  placeholder="Filter by action or summary…"
+                  placeholder={t("Filter by action or summary…")}
                   spellCheck={false}
                   onChange={(e) => setTextFilter(e.target.value)}
                 />
                 <select value={outcome} onChange={(e) => setOutcome(e.target.value as OutcomeFilter)}>
-                  <option value="all">All outcomes</option>
-                  <option value="ok">Success only</option>
-                  <option value="fail">Failures only</option>
+                  <option value="all">{t("All outcomes")}</option>
+                  <option value="ok">{t("Success only")}</option>
+                  <option value="fail">{t("Failures only")}</option>
                 </select>
               </div>
               {total === 0 ? (
@@ -133,7 +134,7 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
       </div>
     </div>

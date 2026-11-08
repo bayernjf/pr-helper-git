@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import { IconSearch, IconX } from './icons';
+import { t } from '../i18n';
 
 export default function GrepModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, toast } = useApp();
@@ -61,34 +62,34 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
         <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Search repository contents</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Search repository contents")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <form className="grep-form" onSubmit={runSearch}>
           <div className="grep-input">
             <IconSearch width={14} height={14} />
             <input
               autoFocus
-              placeholder="Search text or regex…"
+              placeholder={t("Search text or regex…")}
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
             />
           </div>
           <div className="grep-input">
             <input
-              placeholder="Path filter (optional), e.g. src/"
+              placeholder={t("Path filter (optional), e.g. src/")}
               value={path}
               onChange={(e) => setPath(e.target.value)}
             />
           </div>
           <div className="grep-input">
             <input
-              placeholder="File glob (optional), e.g. *.ts"
+              placeholder={t("File glob (optional), e.g. *.ts")}
               value={glob}
               onChange={(e) => setGlob(e.target.value)}
             />
           </div>
-          <label className="grep-case" title="Ignore case (git grep -i)">
+          <label className="grep-case" title={t("Ignore case (git grep -i)")}>
             <input
               type="checkbox"
               checked={ignoreCase}
@@ -102,11 +103,11 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
         </form>
         <div className="modal-body no-pad grep-body">
           {loading ? (
-            <div className="list-empty">Searching…</div>
+            <div className="list-empty">{t("Searching…")}</div>
           ) : !searched ? (
-            <div className="list-empty">Enter a term to search tracked and untracked files.</div>
+            <div className="list-empty">{t("Enter a term to search tracked and untracked files.")}</div>
           ) : matches.length === 0 ? (
-            <div className="list-empty">No matches.</div>
+            <div className="list-empty">{t("No matches.")}</div>
           ) : (
             <div className="grep-results">
               {grouped.map(([file, items]) => (
@@ -118,7 +119,7 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
                       key={`${m.path}-${m.line}`}
                       role="button"
                       tabIndex={0}
-                      title="Open this file at the matching line"
+                      title={t("Open this file at the matching line")}
                       onClick={() => openResult(m.path, m.line)}
                       onKeyDown={(e) => {
                         if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -136,8 +137,8 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="modal-footer">
-          <span className="grep-count">{searched ? `${matches.length} matches` : ''}</span>
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <span className="grep-count">{searched ? t(`${matches.length} matches`) : ''}</span>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
         </div>
       </div>

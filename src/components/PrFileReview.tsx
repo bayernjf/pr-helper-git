@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { formatRelative } from '../lib/format';
 import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 
 // A hunk is whitespace-only when every removed line has an added counterpart
 // whose text is identical once all whitespace is stripped.
@@ -138,7 +139,7 @@ export default function PrFileReview({
     if (!anchor) return;
     const body = draft.trim();
     if (!body) {
-      toast('Comment body cannot be empty', 'error');
+      toast(t("Comment body cannot be empty"), 'error');
       return;
     }
     setPosting(true);
@@ -151,7 +152,7 @@ export default function PrFileReview({
       );
       onPosted(res.data);
       resetComposer();
-      toast('Review comment added', 'success');
+      toast(t("Review comment added"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
@@ -166,7 +167,7 @@ export default function PrFileReview({
   return (
     <div className="review-file">
       {!file.patch ? (
-        <div className="detail-value muted">No text diff available for this file.</div>
+        <div className="detail-value muted">{t("No text diff available for this file.")}</div>
       ) : (
         <>
           <div className="review-file-toolbar">
@@ -179,7 +180,7 @@ export default function PrFileReview({
               type="button"
               className={`btn${hideWs ? ' btn-primary' : ''}`}
               disabled={whitespaceHunks.size === 0}
-              title="Collapse hunks whose changes are only whitespace"
+              title={t("Collapse hunks whose changes are only whitespace")}
               onClick={() => setHideWs((v) => !v)}
             >
               {hideWs ? 'Show whitespace changes' : 'Hide whitespace changes'}
@@ -231,7 +232,7 @@ export default function PrFileReview({
                       <button
                         type="button"
                         className="review-add-btn"
-                        title="Add a comment on this line"
+                        title={t("Add a comment on this line")}
                         onClick={() => {
                           setAnchor(rowAnchor);
                           setDraft('');
@@ -269,7 +270,7 @@ export default function PrFileReview({
                       value={draft}
                       autoFocus
                       rows={2}
-                      aria-label="Review comment"
+                      aria-label={t("Review comment")}
                       onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => {
                         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -279,7 +280,7 @@ export default function PrFileReview({
                       }}
                     />
                     <div className="review-composer-actions">
-                      <span className="hint">Cmd/Ctrl+Enter to submit</span>
+                      <span className="hint">{t("Cmd/Ctrl+Enter to submit")}</span>
                       <button type="button" className="btn" onClick={resetComposer} disabled={posting}>
                         Cancel
                       </button>
@@ -298,7 +299,7 @@ export default function PrFileReview({
 
       {outdated.length > 0 && (
         <div className="review-outdated">
-          <div className="detail-label">Outdated comments</div>
+          <div className="detail-label">{t("Outdated comments")}</div>
           {outdated.map((c) => (
             <ReviewCommentCard
               key={c.id}
@@ -360,7 +361,7 @@ function ReviewCommentCard({
   async function submit() {
     const body = draft.trim();
     if (!body) {
-      toast('Comment body cannot be empty', 'error');
+      toast(t("Comment body cannot be empty"), 'error');
       return;
     }
     setBusy(true);
@@ -374,7 +375,7 @@ function ReviewCommentCard({
           { body, in_reply_to: comment.id },
         );
         onPosted(res.data);
-        toast('Reply added', 'success');
+        toast(t("Reply added"), 'success');
       } else {
         const res = await githubProxy<ReviewComment>(
           pat,
@@ -383,7 +384,7 @@ function ReviewCommentCard({
           { body },
         );
         onChanged(res.data);
-        toast('Review comment updated', 'success');
+        toast(t("Review comment updated"), 'success');
       }
       setMode('view');
       setDraft('');
@@ -404,7 +405,7 @@ function ReviewCommentCard({
     try {
       await githubProxy(pat, singleCommentPath, 'DELETE');
       onDeleted(comment.id);
-      toast('Review comment deleted', 'success');
+      toast(t("Review comment deleted"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
@@ -428,7 +429,7 @@ function ReviewCommentCard({
               value={draft}
               autoFocus
               rows={2}
-              aria-label="Edit review comment"
+              aria-label={t("Edit review comment")}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -438,8 +439,8 @@ function ReviewCommentCard({
               }}
             />
             <div className="review-composer-actions">
-              <span className="hint">Cmd/Ctrl+Enter to save</span>
-              <button type="button" className="btn" onClick={cancel} disabled={busy}>Cancel</button>
+              <span className="hint">{t("Cmd/Ctrl+Enter to save")}</span>
+              <button type="button" className="btn" onClick={cancel} disabled={busy}>{t("Cancel")}</button>
               <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
                 {busy ? 'Saving…' : 'Save'}
               </button>
@@ -451,9 +452,9 @@ function ReviewCommentCard({
 
         {mode === 'view' && canComment && (
           <div className="review-card-actions">
-            <button type="button" className="comment-tool-btn" onClick={openReply} disabled={busy}>Reply</button>
-            <button type="button" className="comment-tool-btn" onClick={openEdit} disabled={busy}>Edit</button>
-            <button type="button" className="comment-tool-btn danger" onClick={remove} disabled={busy}>Delete</button>
+            <button type="button" className="comment-tool-btn" onClick={openReply} disabled={busy}>{t("Reply")}</button>
+            <button type="button" className="comment-tool-btn" onClick={openEdit} disabled={busy}>{t("Edit")}</button>
+            <button type="button" className="comment-tool-btn danger" onClick={remove} disabled={busy}>{t("Delete")}</button>
           </div>
         )}
 
@@ -463,7 +464,7 @@ function ReviewCommentCard({
               value={draft}
               autoFocus
               rows={2}
-              aria-label="Reply to review comment"
+              aria-label={t("Reply to review comment")}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -473,8 +474,8 @@ function ReviewCommentCard({
               }}
             />
             <div className="review-composer-actions">
-              <span className="hint">Cmd/Ctrl+Enter to reply</span>
-              <button type="button" className="btn" onClick={cancel} disabled={busy}>Cancel</button>
+              <span className="hint">{t("Cmd/Ctrl+Enter to reply")}</span>
+              <button type="button" className="btn" onClick={cancel} disabled={busy}>{t("Cancel")}</button>
               <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
                 {busy ? 'Posting…' : 'Reply'}
               </button>

@@ -13,6 +13,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 type Mode = 'content' | 'blame' | 'history' | 'edit';
 
@@ -89,14 +90,14 @@ export default function FileViewer({
       // mtime is the optimistic-concurrency token; null only for a working
       // tree blob that could not be stat'd (ref views never reach edit mode).
       await saveFile(repo, filePath, draft, file?.mtimeMs ?? null);
-      toast('File saved', 'success');
+      toast(t("File saved"), 'success');
       setMode('content');
       setDraft('');
       // Reload the blob so line numbers and the watcher-driven view stay in sync.
       setFile(await getFile(repo, filePath));
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        toast('File changed on disk — reload the latest version before saving', 'error');
+        toast(t("File changed on disk — reload the latest version before saving"), 'error');
         // Refresh the underlying blob so the user can compare against the
         // new content; the draft is kept so their edits are not destroyed.
         setFile(await getFile(repo, filePath));
@@ -216,7 +217,7 @@ export default function FileViewer({
       >
         <div className="modal-header">
           <h2>{effectiveRev ? `${shortHash(effectiveRev)} — ` : ''}{filePath}</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="diff-pane" style={{ flex: 1, minHeight: 0 }}>
           <div className="diff-toolbar">
@@ -235,7 +236,7 @@ export default function FileViewer({
                 <button
                   type="button"
                   className={mode === 'edit' ? 'active' : ''}
-                  title="Edit working-tree file"
+                  title={t("Edit working-tree file")}
                   onClick={startEdit}
                 >
                   Edit
@@ -245,11 +246,11 @@ export default function FileViewer({
           </div>
 
           {!file && mode !== 'history' ? (
-            <div className="diff-empty">Loading…</div>
+            <div className="diff-empty">{t("Loading…")}</div>
           ) : file?.masked && mode !== 'history' ? (
             <div className="diff-empty">{filePath} is sensitive — its contents are masked.</div>
           ) : file?.binary && mode !== 'history' ? (
-            <div className="diff-empty">Binary file — preview not available.</div>
+            <div className="diff-empty">{t("Binary file — preview not available.")}</div>
           ) : mode === 'edit' ? (
             <div className="file-editor">
               <textarea
@@ -260,7 +261,7 @@ export default function FileViewer({
                 onKeyDown={handleEditorKeyDown}
               />
               <div className="file-editor-actions">
-                <span className="editor-hint">Tab to indent · Cmd/Ctrl+S to save</span>
+                <span className="editor-hint">{t("Tab to indent · Cmd/Ctrl+S to save")}</span>
                 <button type="button" className="btn" onClick={cancelEdit} disabled={saving}>
                   Cancel
                 </button>
@@ -278,9 +279,9 @@ export default function FileViewer({
           ) : mode === 'history' ? (
             <div className="file-history">
               {historyLoading || !history ? (
-                <div className="diff-empty">Loading history…</div>
+                <div className="diff-empty">{t("Loading history…")}</div>
               ) : history.length === 0 ? (
-                <div className="diff-empty">No history found for this file.</div>
+                <div className="diff-empty">{t("No history found for this file.")}</div>
               ) : (
                 history.map((c) => (
                   <button key={c.hash} type="button" className="history-item" onClick={() => pickHistory(c)}>
@@ -295,7 +296,7 @@ export default function FileViewer({
           ) : mode === 'blame' ? (
             <pre className="diff">
               {blameLoading || !blame ? (
-                <div className="diff-empty">Loading blame…</div>
+                <div className="diff-empty">{t("Loading blame…")}</div>
               ) : (
                 blame.lines.map((b) => (
                   <div key={b.line} className="blame-line">
@@ -325,7 +326,7 @@ export default function FileViewer({
                   </div>
                 );
               })}
-              {file?.truncated && <div className="diff-empty">Preview truncated at 1 MB.</div>}
+              {file?.truncated && <div className="diff-empty">{t("Preview truncated at 1 MB.")}</div>}
             </pre>
           )}
         </div>

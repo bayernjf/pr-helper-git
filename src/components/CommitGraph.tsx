@@ -21,6 +21,7 @@ import RevertMergeModal from './RevertMergeModal';
 import TagModal from './TagModal';
 import LogFilterModal from './LogFilterModal';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 
 const ROW_H = 34;
 const COL_W = 20;
@@ -65,7 +66,7 @@ function RefBadges({ hash }: { hash: string }) {
 
   return (
     <span className="ref-badges">
-      {headRef?.hash === hash && <span className="ref-badge head">HEAD</span>}
+      {headRef?.hash === hash && <span className="ref-badge head">{t("HEAD")}</span>}
       {ordered.map((ref) => (
         <span key={ref.name} className={`ref-badge ${classify(ref)}`}>
           {ref.shortName}
@@ -282,8 +283,8 @@ export default function CommitGraph() {
     if (!menu) return;
     if (id === 'copy') {
       navigator.clipboard?.writeText(menu.hash).then(
-        () => toast('Hash copied to clipboard', 'success'),
-        () => toast('Copy failed', 'error'),
+        () => toast(t("Hash copied to clipboard"), 'success'),
+        () => toast(t("Copy failed"), 'error'),
       );
     } else if (id === 'reset-soft') {
       setMenu(null);
@@ -350,11 +351,11 @@ export default function CommitGraph() {
       return target && target.parents.length > 1;
     });
     if (hasMerge) {
-      toast('Merge commits cannot be batch reverted; revert them individually', 'error');
+      toast(t("Merge commits cannot be batch reverted; revert them individually"), 'error');
       return;
     }
     const yes = await confirm(
-      `Revert ${checked.size} commits?`,
+      t(`Revert ${checked.size} commits?`),
       'git revert creates one new commit per selected change; history is not rewritten.',
     );
     if (!yes) return;
@@ -367,7 +368,7 @@ export default function CommitGraph() {
       .map((c) => c.hash);
     const result = await runAction(
       revertCommitsBatch(currentRepo, ordered),
-      `Reverted ${checked.size} commits`,
+      t(`Reverted ${checked.size} commits`),
     );
     if (result !== null) setChecked(new Set());
   }
@@ -376,7 +377,7 @@ export default function CommitGraph() {
     const shas = [...checked].join('\n');
     navigator.clipboard?.writeText(shas).then(
       () => toast(`${checked.size} SHAs copied to clipboard`, 'success'),
-      () => toast('Copy failed', 'error'),
+      () => toast(t("Copy failed"), 'error'),
     );
   }
 
@@ -385,8 +386,8 @@ export default function CommitGraph() {
       <div className="graph-scroll">
         <div className="empty-state">
           <div className="empty-icon"><IconCommit width={28} height={28} /></div>
-          <h3>No commits yet</h3>
-          <p>Stage files below and create the first commit to see the graph.</p>
+          <h3>{t("No commits yet")}</h3>
+          <p>{t("Stage files below and create the first commit to see the graph.")}</p>
         </div>
       </div>
     );
@@ -399,11 +400,11 @@ export default function CommitGraph() {
           <IconSearch width={14} height={14} />
           <input
             value={search}
-            placeholder="Filter commits by message, author or hash…"
+            placeholder={t("Filter commits by message, author or hash…")}
             onChange={(e) => setSearch(e.target.value)}
           />
           {search && (
-            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label="Clear commit filter" title="Clear filter" onClick={() => setSearch('')}>
+            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label={t("Clear commit filter")} title={t("Clear filter")} onClick={() => setSearch('')}>
               <IconX width={12} height={12} />
             </button>
           )}
@@ -414,8 +415,8 @@ export default function CommitGraph() {
         <div className="graph-path-filter">
           <input
             value={pathDraft}
-            placeholder="Filter by path…"
-            title="Show only commits touching this path (git log -- path); Enter to apply"
+            placeholder={t("Filter by path…")}
+            title={t("Show only commits touching this path (git log -- path); Enter to apply")}
             onChange={(e) => setPathDraft(e.target.value)}
             onBlur={() => setLogPath(pathDraft.trim())}
             onKeyDown={(e) => {
@@ -427,8 +428,8 @@ export default function CommitGraph() {
               type="button"
               className="icon-btn"
               style={{ width: 22, height: 22 }}
-              aria-label="Clear path filter"
-              title="Clear path filter"
+              aria-label={t("Clear path filter")}
+              title={t("Clear path filter")}
               onClick={() => {
                 setPathDraft('');
                 setLogPath('');
@@ -441,17 +442,17 @@ export default function CommitGraph() {
         <button
           type="button"
           className={`graph-filter-btn${filterCount ? ' active' : ''}`}
-          title="Filter history by author, message or date"
+          title={t("Filter history by author, message or date")}
           onClick={() => setFilterModal(true)}
         >
           Filters{filterCount ? ` (${filterCount})` : ''}
         </button>
-        <span className="scope-toggle" role="group" aria-label="History scope">
+        <span className="scope-toggle" role="group" aria-label={t("History scope")}>
           <button
             type="button"
             className={logScope === 'all' ? 'active' : ''}
             onClick={() => setLogScope('all')}
-            title="Show history across every branch"
+            title={t("Show history across every branch")}
           >
             All branches
           </button>
@@ -459,7 +460,7 @@ export default function CommitGraph() {
             type="button"
             className={logScope === 'current' ? 'active' : ''}
             onClick={() => setLogScope('current')}
-            title="Follow only the current branch history"
+            title={t("Follow only the current branch history")}
           >
             Current branch
           </button>
@@ -470,7 +471,7 @@ export default function CommitGraph() {
         ref={graphRef}
         className="graph"
         role="listbox"
-        aria-label="Commit history"
+        aria-label={t("Commit history")}
         tabIndex={0}
         onKeyDown={onGraphKeyDown}
         style={{ width: graphWidth, minWidth: '100%', height: totalHeight }}
@@ -533,7 +534,7 @@ export default function CommitGraph() {
               <input
                 type="checkbox"
                 className="graph-check"
-                title="Select for batch actions"
+                title={t("Select for batch actions")}
                 checked={checked.has(commit.hash)}
                 aria-label={`Select commit ${shortHash(commit.hash)} for batch actions`}
                 onClick={(e) => e.stopPropagation()}
@@ -555,8 +556,8 @@ export default function CommitGraph() {
       )}
 
       {checked.size > 0 && (
-        <div className="batch-bar" role="group" aria-label="Batch actions for selected commits">
-          <span className="batch-count">{checked.size} selected</span>
+        <div className="batch-bar" role="group" aria-label={t("Batch actions for selected commits")}>
+          <span className="batch-count">{t(`${checked.size} selected`)}</span>
           <button
             type="button"
             className="btn btn-primary"
@@ -572,7 +573,7 @@ export default function CommitGraph() {
           <button
             type="button"
             className="icon-btn"
-            title="Clear selection"
+            title={t("Clear selection")}
             onClick={() => setChecked(new Set())}
           >
             <IconX width={14} height={14} />

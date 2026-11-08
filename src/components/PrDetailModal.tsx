@@ -14,6 +14,7 @@ import {
 } from './icons';
 import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 
@@ -162,7 +163,7 @@ export default function PrDetailModal({
         setReviewComments(dataOf(settled[6], [] as ReviewComment[]));
       })
       .catch(() => {
-        if (!cancelled) toast('Failed to load PR details', 'error');
+        if (!cancelled) toast(t("Failed to load PR details"), 'error');
       });
     return () => {
       cancelled = true;
@@ -186,7 +187,7 @@ export default function PrDetailModal({
     setWorking(true);
     try {
       await mergePull(activeRepo!, pr.number, method, pat);
-      toast('Pull request merged', 'success');
+      toast(t("Pull request merged"), 'success');
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -219,7 +220,7 @@ export default function PrDetailModal({
     setWorking(true);
     try {
       await markReadyForReview(activeRepo!, pr.number, pat);
-      toast('Pull request is now ready for review', 'success');
+      toast(t("Pull request is now ready for review"), 'success');
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -231,7 +232,7 @@ export default function PrDetailModal({
   async function addReviewer() {
     const username = reviewerInput.trim().replace(/^@/, '');
     if (!username || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(username)) {
-      toast('Enter a valid GitHub username', 'error');
+      toast(t("Enter a valid GitHub username"), 'error');
       return;
     }
     if (reviewers.some((r) => r.login.toLowerCase() === username.toLowerCase())) {
@@ -247,7 +248,7 @@ export default function PrDetailModal({
       );
       setReviewers((prev) => [...prev, { login: username, avatar_url: '' }]);
       setReviewerInput('');
-      toast('Reviewer requested', 'success');
+      toast(t("Reviewer requested"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     }
@@ -266,7 +267,7 @@ export default function PrDetailModal({
       );
       setComments((prev) => [...prev, res.data]);
       setCommentBody('');
-      toast('Comment added', 'success');
+      toast(t("Comment added"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
@@ -287,7 +288,7 @@ export default function PrDetailModal({
   async function submitEditComment(c: PrComment) {
     const body = editBody.trim();
     if (!body) {
-      toast('Comment body cannot be empty', 'error');
+      toast(t("Comment body cannot be empty"), 'error');
       return;
     }
     setEditWorking(true);
@@ -301,7 +302,7 @@ export default function PrDetailModal({
       setComments((prev) => prev.map((item) => (item.id === c.id ? res.data : item)));
       setEditingId(null);
       setEditBody('');
-      toast('Comment updated', 'success');
+      toast(t("Comment updated"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
@@ -323,7 +324,7 @@ export default function PrDetailModal({
         'DELETE',
       );
       setComments((prev) => prev.filter((item) => item.id !== c.id));
-      toast('Comment deleted', 'success');
+      toast(t("Comment deleted"), 'success');
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
@@ -348,7 +349,7 @@ export default function PrDetailModal({
       );
       pr.body = res.data.body;
       setEditingDescription(false);
-      toast('Description updated', 'success');
+      toast(t("Description updated"), 'success');
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -362,7 +363,7 @@ export default function PrDetailModal({
     const body = reviewBody.trim();
     // GitHub requires a summary when requesting changes.
     if (event === 'REQUEST_CHANGES' && !body) {
-      toast('A review comment is required to request changes', 'error');
+      toast(t("A review comment is required to request changes"), 'error');
       return;
     }
     setSubmittingReview(true);
@@ -375,7 +376,7 @@ export default function PrDetailModal({
       );
       setReviews((prev) => [...prev, res.data]);
       setReviewBody('');
-      toast('Review submitted', 'success');
+      toast(t("Review submitted"), 'success');
       onChanged();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -411,7 +412,7 @@ export default function PrDetailModal({
       >
         <div className="modal-header">
           <h2>#{pr.number} {pr.title}</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
 
         <div className="modal-body">
@@ -440,7 +441,7 @@ export default function PrDetailModal({
                   value={descriptionDraft}
                   autoFocus
                   rows={4}
-                  aria-label="Pull request description"
+                  aria-label={t("Pull request description")}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
                 />
                 <div className="review-composer-actions">
@@ -465,7 +466,7 @@ export default function PrDetailModal({
             ) : pr.body ? (
               <div className="pr-description">{pr.body}</div>
             ) : (
-              <div className="detail-value muted">No description provided.</div>
+              <div className="detail-value muted">{t("No description provided.")}</div>
             )}
           </div>
 
@@ -535,7 +536,7 @@ export default function PrDetailModal({
           <div className="detail-section">
             <span className="detail-label">Reviewers ({reviewers.length})</span>
             {reviewers.length === 0 ? (
-              <div className="detail-value muted">No reviewers requested yet.</div>
+              <div className="detail-value muted">{t("No reviewers requested yet.")}</div>
             ) : (
               <div className="reviewer-list">
                 {reviewers.map((r) => (
@@ -552,8 +553,8 @@ export default function PrDetailModal({
               <div className="reviewer-add">
                 <input
                   value={reviewerInput}
-                  placeholder="GitHub username…"
-                  aria-label="GitHub username"
+                  placeholder={t("GitHub username…")}
+                  aria-label={t("GitHub username")}
                   onChange={(e) => setReviewerInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -570,7 +571,7 @@ export default function PrDetailModal({
           <div className="detail-section">
             <span className="detail-label">Reviews ({reviews.length})</span>
             {reviews.length === 0 ? (
-              <div className="detail-value muted">No reviews submitted yet.</div>
+              <div className="detail-value muted">{t("No reviews submitted yet.")}</div>
             ) : (
               <div className="review-list">
                 {reviews.map((rv) => (
@@ -595,9 +596,9 @@ export default function PrDetailModal({
               <div className="review-compose">
                 <textarea
                   value={reviewBody}
-                  placeholder="Review summary…"
+                  placeholder={t("Review summary…")}
                   rows={2}
-                  aria-label="Review summary"
+                  aria-label={t("Review summary")}
                   onChange={(e) => setReviewBody(e.target.value)}
                 />
                 <div className="review-compose-actions">
@@ -635,7 +636,7 @@ export default function PrDetailModal({
               Checks{failedChecks > 0 ? ` · ${failedChecks} failing` : ''}
             </span>
             {checks.length === 0 ? (
-              <div className="detail-value muted">No check runs reported.</div>
+              <div className="detail-value muted">{t("No check runs reported.")}</div>
             ) : (
               <div className="pr-detail-list">
                 {checks.map((c) => (
@@ -657,7 +658,7 @@ export default function PrDetailModal({
           <div className="detail-section">
             <span className="detail-label">Comments ({comments.length})</span>
             {comments.length === 0 ? (
-              <div className="detail-value muted">No comments yet.</div>
+              <div className="detail-value muted">{t("No comments yet.")}</div>
             ) : (
               <div className="comment-list">
                 {comments.map((c) => (
@@ -674,7 +675,7 @@ export default function PrDetailModal({
                             <button
                               type="button"
                               className="comment-tool-btn"
-                              title="Edit comment"
+                              title={t("Edit comment")}
                               onClick={() => startEditComment(c)}
                               disabled={editWorking}
                             >
@@ -683,7 +684,7 @@ export default function PrDetailModal({
                             <button
                               type="button"
                               className="comment-tool-btn danger"
-                              title="Delete comment"
+                              title={t("Delete comment")}
                               onClick={() => deleteComment(c)}
                               disabled={editWorking}
                             >
@@ -698,7 +699,7 @@ export default function PrDetailModal({
                             value={editBody}
                             autoFocus
                             onChange={(e) => setEditBody(e.target.value)}
-                            aria-label="Edit comment body"
+                            aria-label={t("Edit comment body")}
                           />
                           <div className="comment-edit-actions">
                             <button
@@ -730,9 +731,9 @@ export default function PrDetailModal({
             <div className="comment-compose">
               <textarea
                 value={commentBody}
-                placeholder="Write a comment…"
+                placeholder={t("Write a comment…")}
                 rows={2}
-                aria-label="Comment body"
+                aria-label={t("Comment body")}
                 onChange={(e) => setCommentBody(e.target.value)}
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -742,7 +743,7 @@ export default function PrDetailModal({
                 }}
               />
               <div className="comment-compose-side">
-                <span className="hint">Cmd/Ctrl+Enter to post</span>
+                <span className="hint">{t("Cmd/Ctrl+Enter to post")}</span>
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -757,7 +758,7 @@ export default function PrDetailModal({
 
           {pr.state === 'open' && (
             <div className="detail-section">
-              <span className="detail-label">Merge method</span>
+              <span className="detail-label">{t("Merge method")}</span>
               {(!pr.merged && !pr.merged_at) && (failedChecks > 0 || protection?.protected === false || (protection?.protected === true && protection.requiredChecks > 0)) && (
                 <div className="ci-gate">
                   {failedChecks > 0 && (

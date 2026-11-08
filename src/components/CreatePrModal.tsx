@@ -5,6 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import type { Ref } from '../types';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   headRefs: Ref[];
@@ -65,7 +66,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
         'POST',
         { title: title.trim(), head, base, body, draft },
       );
-      toast('Pull request created', 'success');
+      toast(t("Pull request created"), 'success');
       onCreated();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -77,36 +78,36 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>New pull request</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("New pull request")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="pr-base">Base</label>
+              <label htmlFor="pr-base">{t("Base")}</label>
               <select id="pr-base" value={base} onChange={(e) => setBase(e.target.value)}>
                 {branches.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label htmlFor="pr-head">Compare</label>
+              <label htmlFor="pr-head">{t("Compare")}</label>
               <select id="pr-head" value={head} onChange={(e) => setHead(e.target.value)}>
                 {branches.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
           </div>
           <div className="form-group">
-            <label htmlFor="pr-title">Title</label>
+            <label htmlFor="pr-title">{t("Title")}</label>
             <input
               id="pr-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short imperative summary"
+              placeholder={t("Short imperative summary")}
             />
           </div>
           <div className="form-group">
             <div className="label-row">
-              <label htmlFor="pr-body">Description</label>
+              <label htmlFor="pr-body">{t("Description")}</label>
               <button
                 type="button"
                 className="btn btn-small"
@@ -129,7 +130,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
           </label>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button
             type="submit"
             className="btn btn-primary"

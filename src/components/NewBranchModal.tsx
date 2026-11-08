@@ -3,6 +3,7 @@ import { createBranch } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   repo: string;
@@ -36,12 +37,12 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Create a branch</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Create a branch")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label htmlFor="branch-name">Branch name</label>
+            <label htmlFor="branch-name">{t("Branch name")}</label>
             <input
               id="branch-name"
               autoFocus
@@ -51,12 +52,12 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="branch-from">Start from</label>
+            <label htmlFor="branch-from">{t("Start from")}</label>
             {fromRef ? (
               <input value={fromRef} readOnly />
             ) : (
               <select id="branch-from" value={from} onChange={(e) => setFrom(e.target.value)}>
-                <option value="">Current HEAD</option>
+                <option value="">{t("Current HEAD")}</option>
                 {branchRefs.map((r) => (
                   <option key={r.name} value={r.shortName}>{r.shortName}</option>
                 ))}
@@ -73,7 +74,7 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
           </label>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
             Create branch
           </button>

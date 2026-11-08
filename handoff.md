@@ -923,3 +923,19 @@ new features target the browser UI and are not adapted to the native shell.
 - Tests: 240 (20 files) — `github-allowlist.test.mjs` 3 cases pin the new
   endpoints and prove `PUT`/`DELETE` protection and `/actions/runs` stay
   rejected, plus traversal paths.
+
+### 2026-11-08 Bilingual UI (i18n)
+
+- New `src/i18n.ts`: `ZH` dictionary keyed by the English source string (~300 entries), `t()`,
+  `tp()` for `{placeholder}` text, count rules (`"12 commits"` → `"12 次提交"`), `getLocale/setLocale`
+  persisted through `lib/prefs` (`locale`), plus `useLocale()` built on `useSyncExternalStore`.
+- `App.tsx` calls `useLocale()` so switching re-renders the whole tree; the language selector lives
+  at the top of `SettingsModal`.
+- Component copy was converted mechanically: JSX text nodes / `title` / `placeholder` / `aria-label`
+  / `alt` props and `toast('…')` / `setStatus('…')` literals now go through `t("…")`. Counted strings
+  that are assembled at runtime (commits, repositories, matches, lines, selected) use `t(\`…\`)`
+  backed by the count rules.
+- `src/i18n.test.ts` (5 tests): en/zh switching, unknown-key fallback, count rules, `tp`, and a
+  source scan asserting every `t("…")` key used in `src/**` exists in `ZH`.
+- Known limits: server/API error text and raw Git output stay English; user data (branch names,
+  commit subjects, file paths) is never translated because only exact dictionary keys are substituted.

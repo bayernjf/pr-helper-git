@@ -3,6 +3,7 @@ import { mergeRef, type MergeStrategy } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconMerge, IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   sourceRef: string;
@@ -64,10 +65,10 @@ export default function MergeModal({ sourceRef, currentBranch, onClose }: Props)
             <IconMerge width={17} height={17} style={{ verticalAlign: -3, marginRight: 6 }} />
             Merge {sourceRef} into {currentBranch}
           </h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
-          <div className="merge-options" role="radiogroup" aria-label="Merge strategy">
+          <div className="merge-options" role="radiogroup" aria-label={t("Merge strategy")}>
             {OPTIONS.map((option) => (
               <label
                 key={option.value}
@@ -89,7 +90,7 @@ export default function MergeModal({ sourceRef, currentBranch, onClose }: Props)
           </div>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>
             {busy ? 'Merging…' : 'Merge branches'}
           </button>

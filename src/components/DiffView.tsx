@@ -12,6 +12,7 @@ import {
 } from '../lib/diff-lines';
 import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
+import { t } from '../i18n';
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
@@ -33,7 +34,7 @@ function Toggle({
       <button
         type="button"
         className={mode === 'unified' ? 'active' : ''}
-        title="Unified view"
+        title={t("Unified view")}
         onClick={() => setMode('unified')}
       >
         <IconUnified width={14} height={14} />
@@ -41,7 +42,7 @@ function Toggle({
       <button
         type="button"
         className={mode === 'split' ? 'active' : ''}
-        title="Split view"
+        title={t("Split view")}
         onClick={() => setMode('split')}
       >
         <IconSplit width={14} height={14} />
@@ -226,12 +227,12 @@ export default function DiffView({
     setPending(null);
   }
 
-  if (!result) return <EmptyHint>Select a file to review its changes.</EmptyHint>;
+  if (!result) return <EmptyHint>{t("Select a file to review its changes.")}</EmptyHint>;
   if (result.masked) {
     return <EmptyHint>{result.path} is sensitive — its contents are masked.</EmptyHint>;
   }
   if (!result.diff) {
-    return <EmptyHint>No diff available for this file.</EmptyHint>;
+    return <EmptyHint>{t("No diff available for this file.")}</EmptyHint>;
   }
 
   // Assign sequential hunk indices while walking the parsed rows, and number
@@ -286,7 +287,7 @@ export default function DiffView({
                             type="button"
                             className="hunk-btn"
                             disabled={pending !== null}
-                            title="Clear the line selection"
+                            title={t("Clear the line selection")}
                             onClick={() => setSelection((prev) => {
                               const copy = { ...prev };
                               delete copy[hunkIndex];
@@ -302,7 +303,7 @@ export default function DiffView({
                           type="button"
                           className="hunk-btn hunk-btn-danger"
                           disabled={pending !== null}
-                          title="Discard this hunk (restore the working tree)"
+                          title={t("Discard this hunk (restore the working tree)")}
                           onClick={() => discardSelectedHunk(hunkIndex)}
                         >
                           {pending?.index === hunkIndex && pending.kind === 'discard'
@@ -337,7 +338,7 @@ export default function DiffView({
           ))}
         </pre>
       )}
-      {result.truncated && <div className="diff-empty">Diff truncated at 2000 lines.</div>}
+      {result.truncated && <div className="diff-empty">{t("Diff truncated at 2000 lines.")}</div>}
     </div>
   );
 }

@@ -8,6 +8,9 @@ remote is configured and commits stay on the local `main` branch.
 
 ## Features
 
+- **Bilingual UI (English / 中文)** — switch language in Settings. UI copy stays English in the
+  components and is translated at render time by `src/i18n.ts` (dictionary + counted-string rules).
+
 ### Git client (GitKraken-like core)
 
 - Register and switch between local repositories, or add a new one through a

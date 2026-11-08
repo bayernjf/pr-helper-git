@@ -37,6 +37,7 @@ import {
   IconX,
 } from './icons';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 
 interface Selection {
   path: string;
@@ -123,7 +124,7 @@ function TreeRow({
       <span className="file-actions">
         <button
           type="button"
-          title="View file content"
+          title={t("View file content")}
           onClick={(e) => {
             e.stopPropagation();
             onView();
@@ -134,7 +135,7 @@ function TreeRow({
         {onEditContent && (
           <button
             type="button"
-            title="Edit file content"
+            title={t("Edit file content")}
             onClick={(e) => {
               e.stopPropagation();
               onEditContent();
@@ -158,7 +159,7 @@ function TreeRow({
         {onDelete && (
           <button
             type="button"
-            title="Delete file (git rm)"
+            title={t("Delete file (git rm)")}
             className="action-danger"
             onClick={(e) => {
               e.stopPropagation();
@@ -171,7 +172,7 @@ function TreeRow({
         {onIgnore && (
           <button
             type="button"
-            title="Add to .gitignore"
+            title={t("Add to .gitignore")}
             onClick={(e) => {
               e.stopPropagation();
               onIgnore();
@@ -183,7 +184,7 @@ function TreeRow({
         {onDiscard && (
           <button
             type="button"
-            title="Discard changes"
+            title={t("Discard changes")}
             onClick={(e) => {
               e.stopPropagation();
               onDiscard();
@@ -390,7 +391,7 @@ export default function WorkPanel() {
     try {
       const preview = await cleanDryRun(activeRepo!);
       if (preview.paths.length === 0) {
-        toast('Nothing to clean', 'info');
+        toast(t("Nothing to clean"), 'info');
         return;
       }
       const proceed = await confirm(
@@ -482,7 +483,7 @@ export default function WorkPanel() {
     <section className="work-panel" style={{ height: panelHeight }}>
       <div
         className="panel-resize-handle"
-        title="Drag to resize"
+        title={t("Drag to resize")}
         onPointerDown={startResize}
         role="separator"
         aria-orientation="horizontal"
@@ -495,14 +496,14 @@ export default function WorkPanel() {
             <button
               type="button"
               className="new-file-btn"
-              title="Create a new file in this repository"
+              title={t("Create a new file in this repository")}
               onClick={() => setShowNewFile(true)}
             >
               <IconPlus width={13} height={13} /> New file
             </button>
           </div>
           <Group
-            title="Staged changes"
+            title={t("Staged changes")}
             files={groups.staged}
             allLabel="Unstage all"
             onAll={() => runAction(stageAll(activeRepo!, 'unstage'), 'Unstaged all')}
@@ -510,7 +511,7 @@ export default function WorkPanel() {
             {renderTree(trees.staged, 'staged', false)}
           </Group>
           <Group
-            title="Unstaged changes"
+            title={t("Unstaged changes")}
             files={groups.unstaged}
             allLabel="Stage all"
             onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
@@ -518,14 +519,14 @@ export default function WorkPanel() {
             {renderTree(trees.unstaged, 'unstaged', true)}
           </Group>
           <Group
-            title="Untracked files"
+            title={t("Untracked files")}
             files={groups.untracked}
             allLabel="Stage all"
             onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
             extra={
               <button
                 type="button"
-                title="Clean untracked files"
+                title={t("Clean untracked files")}
                 onClick={handleClean}
               >
                 <IconBroom width={13} height={13} /> Clean
@@ -540,7 +541,7 @@ export default function WorkPanel() {
           <button
             type="button"
             className={`ws-toggle${ignoreWs ? ' active' : ''}`}
-            title="Ignore whitespace changes (-w)"
+            title={t("Ignore whitespace changes (-w)")}
             onClick={() => setIgnoreWs((v) => !v)}
           >
             Ignore whitespace
@@ -549,7 +550,7 @@ export default function WorkPanel() {
             Context
             <select
               value={context === undefined ? '' : context}
-              title="Diff context lines (--unified)"
+              title={t("Diff context lines (--unified)")}
               onChange={(e) => setContext(e.target.value === '' ? undefined : Number(e.target.value))}
             >
               <option value="">Default (3)</option>
@@ -569,7 +570,7 @@ export default function WorkPanel() {
 
       <div className="commit-form">
         <textarea
-          placeholder="Summary of the staged changes…"
+          placeholder={t("Summary of the staged changes…")}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
@@ -577,7 +578,7 @@ export default function WorkPanel() {
           <button
             type="button"
             className="amend-toggle"
-            title="Draft a commit message from the staged diff with AI"
+            title={t("Draft a commit message from the staged diff with AI")}
             disabled={generating || groups.staged.length === 0}
             onClick={handleGenerate}
           >

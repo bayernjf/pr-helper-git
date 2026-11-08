@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import type { LogFilters } from '../types';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   onClose: () => void;
@@ -39,31 +40,31 @@ export default function LogFilterModal({ onClose }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()} onSubmit={apply}>
         <div className="modal-header">
-          <h2>Filter commit history</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Filter commit history")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label htmlFor="log-filter-author">Author</label>
+            <label htmlFor="log-filter-author">{t("Author")}</label>
             <input
               id="log-filter-author"
               value={draft.author}
-              placeholder="Name or email pattern (--author)"
+              placeholder={t("Name or email pattern (--author)")}
               onChange={(e) => update('author', e.target.value)}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="log-filter-message">Message</label>
+            <label htmlFor="log-filter-message">{t("Message")}</label>
             <input
               id="log-filter-message"
               value={draft.message}
-              placeholder="Commit message pattern (--grep)"
+              placeholder={t("Commit message pattern (--grep)")}
               onChange={(e) => update('message', e.target.value)}
             />
           </div>
           <div className="form-group form-row-2">
             <div>
-              <label htmlFor="log-filter-since">Since</label>
+              <label htmlFor="log-filter-since">{t("Since")}</label>
               <input
                 id="log-filter-since"
                 type="date"
@@ -72,7 +73,7 @@ export default function LogFilterModal({ onClose }: Props) {
               />
             </div>
             <div>
-              <label htmlFor="log-filter-until">Until</label>
+              <label htmlFor="log-filter-until">{t("Until")}</label>
               <input
                 id="log-filter-until"
                 type="date"
@@ -81,13 +82,13 @@ export default function LogFilterModal({ onClose }: Props) {
               />
             </div>
           </div>
-          <div className="hint">Filters run on the server, so commits outside the loaded page are included.</div>
+          <div className="hint">{t("Filters run on the server, so commits outside the loaded page are included.")}</div>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={clear} disabled={activeCount === 0}>
             Clear filters
           </button>
-          <button type="submit" className="btn btn-primary">Apply</button>
+          <button type="submit" className="btn btn-primary">{t("Apply")}</button>
         </div>
       </form>
     </div>

@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 export default function ReflogModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, toast } = useApp();
@@ -26,14 +27,14 @@ export default function ReflogModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Reference log</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Reference log")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body no-pad">
           {loading ? (
-            <div className="list-empty">Loading reflog…</div>
+            <div className="list-empty">{t("Loading reflog…")}</div>
           ) : entries.length === 0 ? (
-            <div className="list-empty">No reflog entries.</div>
+            <div className="list-empty">{t("No reflog entries.")}</div>
           ) : (
             <div className="reflog-list">
               {entries.map((entry) => (
@@ -48,7 +49,7 @@ export default function ReflogModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
       </div>
     </div>

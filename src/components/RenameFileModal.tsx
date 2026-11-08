@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { moveFile } from '../api';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   path: string;
@@ -29,22 +30,22 @@ export default function RenameFileModal({ path: currentPath, onClose }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Rename or move</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Rename or move")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label>New path</label>
+            <label>{t("New path")}</label>
             <input
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
-            <div className="hint">git mv keeps the history and stages the rename.</div>
+            <div className="hint">{t("git mv keeps the history and stages the rename.")}</div>
           </div>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!value.trim() || value === currentPath}>
             Rename
           </button>

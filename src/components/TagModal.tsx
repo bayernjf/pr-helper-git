@@ -3,6 +3,7 @@ import { createTag } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   repo: string;
@@ -33,12 +34,12 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Create a tag</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Create a tag")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label htmlFor="tag-name">Tag name</label>
+            <label htmlFor="tag-name">{t("Tag name")}</label>
             <input
               id="tag-name"
               autoFocus
@@ -66,11 +67,11 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
           </label>
           {annotated && (
             <div className="form-group">
-              <label htmlFor="tag-message">Message</label>
+              <label htmlFor="tag-message">{t("Message")}</label>
               <textarea
                 id="tag-message"
                 rows={3}
-                placeholder="Release notes"
+                placeholder={t("Release notes")}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
@@ -78,7 +79,7 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
           )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
             Create tag
           </button>

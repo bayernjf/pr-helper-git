@@ -9,6 +9,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
 import { IconSearch, IconX } from './icons';
+import { t } from '../i18n';
 
 type Mode = 'message' | 'author' | 'path';
 
@@ -65,8 +66,8 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Search commits in all branches</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Search commits in all branches")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <form className="grep-form" onSubmit={runSearch}>
           <div className="grep-input">
@@ -76,14 +77,14 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={PLACEHOLDERS[mode]}
-              aria-label="Commit search query"
+              aria-label={t("Commit search query")}
             />
           </div>
           <button
             type="button"
             className={`btn btn-small commit-search-prefix${mode === 'author' ? ' is-on' : ''}`}
             onClick={() => applyPrefix('author:')}
-            title="Filter by author"
+            title={t("Filter by author")}
           >
             author:
           </button>
@@ -91,7 +92,7 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
             type="button"
             className={`btn btn-small commit-search-prefix${mode === 'path' ? ' is-on' : ''}`}
             onClick={() => applyPrefix('path:')}
-            title="Restrict to commits touching a path"
+            title={t("Restrict to commits touching a path")}
           >
             path:
           </button>
@@ -101,7 +102,7 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
         </form>
         <div className="modal-body no-pad">
           {loading ? (
-            <div className="list-empty">Searching every reachable ref…</div>
+            <div className="list-empty">{t("Searching every reachable ref…")}</div>
           ) : !searched ? (
             <div className="list-empty">
               Message search is case-insensitive and covers every branch, not just the visible page.
@@ -118,7 +119,7 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
                   key={commit.hash}
                   role="button"
                   tabIndex={0}
-                  title="Show this commit"
+                  title={t("Show this commit")}
                   onClick={() => openCommit(commit.hash)}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -140,7 +141,7 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
             <span className="repo-panel-count">{commits.length} result{commits.length === 1 ? '' : 's'}</span>
           )}
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
       </div>
     </div>

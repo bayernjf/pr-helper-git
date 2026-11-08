@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { ReactNode } from 'react';
 import { useEscape } from '../hooks/use-escape';
 import { IconAlert, IconCheck, IconX } from './icons';
+import { t as translateText } from '../i18n';
 
 export type ToastKind = 'info' | 'error' | 'success';
 
@@ -52,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {t.kind === 'success' ? <IconCheck /> : <IconAlert />}
             </span>
             <span className="toast-msg">{t.message}</span>
-            <button type="button" className="toast-close" aria-label="Dismiss notification" title="Dismiss" onClick={() => dismiss(t.id)}>
+            <button type="button" className="toast-close" aria-label={translateText("Dismiss notification")} title={translateText("Dismiss")} onClick={() => dismiss(t.id)}>
               <IconX width={13} height={13} />
             </button>
           </div>
@@ -106,7 +107,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="modal-footer">
-              <button type="button" className="btn" onClick={() => close(false)}>Cancel</button>
+              <button type="button" className="btn" onClick={() => close(false)}>{translateText("Cancel")}</button>
               <button type="button" className="btn btn-danger" onClick={() => close(true)}>
                 Confirm
               </button>

@@ -3,6 +3,7 @@ import { stashCreate } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 export default function StashModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, runAction } = useApp();
@@ -24,8 +25,8 @@ export default function StashModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Stash changes</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Stash changes")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
@@ -33,7 +34,7 @@ export default function StashModal({ onClose }: { onClose: () => void }) {
             <input
               autoFocus
               type="text"
-              placeholder="WIP on current branch"
+              placeholder={t("WIP on current branch")}
               value={message}
               maxLength={200}
               onChange={(e) => setMessage(e.target.value)}
@@ -49,8 +50,8 @@ export default function StashModal({ onClose }: { onClose: () => void }) {
           </label>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Stash</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
+          <button type="submit" className="btn btn-primary">{t("Stash")}</button>
         </div>
       </form>
     </div>

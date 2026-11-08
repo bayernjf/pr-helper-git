@@ -1,5 +1,6 @@
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface ShortcutRow {
   keys: string[];
@@ -59,11 +60,11 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   useEscape(onClose);
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={onClose}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={t("Keyboard shortcuts")} onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Keyboard shortcuts</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Keyboard shortcuts")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body shortcuts-body">
           {GROUPS.map((group) => (
@@ -83,7 +84,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
       </div>
     </div>

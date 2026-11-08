@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { addRepo, cloneRepo, initRepo } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
+import { t } from '../i18n';
 import {
   IconDownload,
   IconFolder,
@@ -106,8 +107,8 @@ export default function AddRepoModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" style={{ width: 540 }} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Add a repository</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Add a repository")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
 
         <div className="modal-body">
@@ -127,35 +128,35 @@ export default function AddRepoModal({ onClose }: { onClose: () => void }) {
 
           {mode === 'open' && (
             <div className="form-group">
-              <label>Repository path</label>
+              <label>{t("Repository path")}</label>
               <input
                 autoFocus
                 placeholder="/Users/you/000mycodes/some-repo"
                 value={localPath}
                 onChange={(e) => setLocalPath(e.target.value)}
               />
-              <div className="hint">Absolute path of a folder that already contains a .git directory.</div>
+              <div className="hint">{t("Absolute path of a folder that already contains a .git directory.")}</div>
             </div>
           )}
 
           {mode === 'clone' && (
             <>
               <div className="form-group">
-                <label>Remote URL</label>
+                <label>{t("Remote URL")}</label>
                 <input
                   autoFocus
                   placeholder="https://github.com/you/repo.git or git@github.com:you/repo.git"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                 />
-                <div className="hint">Only network transports (https, ssh, git) are accepted.</div>
+                <div className="hint">{t("Only network transports (https, ssh, git) are accepted.")}</div>
               </div>
               <div className="form-group">
-                <label>Parent directory</label>
+                <label>{t("Parent directory")}</label>
                 <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>New folder name</label>
+                <label>{t("New folder name")}</label>
                 <input
                   placeholder={suggestName(url) || 'repository name'}
                   value={name}
@@ -168,25 +169,25 @@ export default function AddRepoModal({ onClose }: { onClose: () => void }) {
           {mode === 'init' && (
             <>
               <div className="form-group">
-                <label>Parent directory</label>
+                <label>{t("Parent directory")}</label>
                 <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>New folder name</label>
+                <label>{t("New folder name")}</label>
                 <input
                   autoFocus
                   placeholder="brand-new-project"
                   value={initName}
                   onChange={(e) => setInitName(e.target.value)}
                 />
-                <div className="hint">The folder is created if needed, then git init runs inside it.</div>
+                <div className="hint">{t("The folder is created if needed, then git init runs inside it.")}</div>
               </div>
             </>
           )}
         </div>
 
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={saving || !canSubmit}>
             {saving ? 'Working…' : mode === 'clone' ? 'Clone repository' : 'Add repository'}
           </button>

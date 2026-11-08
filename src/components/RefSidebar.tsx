@@ -50,6 +50,7 @@ import ResolveConflictsModal from './ResolveConflictsModal';
 import { useConfirm } from './ui';
 import { getPref, setPref, repoPref } from '../lib/prefs';
 import type { Ref } from '../types';
+import { t } from '../i18n';
 
 type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
 
@@ -115,7 +116,7 @@ function Row({
         type="button"
         className="row-more"
         aria-label={`Actions for ${name}`}
-        title="More actions"
+        title={t("More actions")}
         onClick={(e) => {
           e.stopPropagation();
           onMenu(e);
@@ -149,15 +150,15 @@ function RenameModal({
           if (value.trim()) onSubmit(value.trim());
         }}
       >
-        <div className="modal-header"><h2>Rename branch</h2></div>
+        <div className="modal-header"><h2>{t("Rename branch")}</h2></div>
         <div className="modal-body">
           <div className="form-group">
-            <label>New name</label>
+            <label>{t("New name")}</label>
             <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
           </div>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+          <button type="button" className="btn" onClick={onCancel}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!value.trim() || value === current}>
             Rename
           </button>
@@ -429,7 +430,7 @@ export default function RefSidebar() {
       <button type="button" className="col-resize" {...sidebarSeparator} />
       {rebaseInProgress && (
         <div className="merge-banner rebase-banner">
-          <span className="merge-banner-msg">Rebase in progress — resolve conflicts, then continue or abort</span>
+          <span className="merge-banner-msg">{t("Rebase in progress — resolve conflicts, then continue or abort")}</span>
           <div className="banner-actions">
             {unmergedCount > 0 && (
               <button
@@ -491,7 +492,7 @@ export default function RefSidebar() {
       )}
       {mergeInProgress && (
         <div className="merge-banner">
-          <span className="merge-banner-msg">Merge in progress — resolve conflicts or abort</span>
+          <span className="merge-banner-msg">{t("Merge in progress — resolve conflicts or abort")}</span>
           <div className="banner-actions">
             {unmergedCount > 0 && (
               <button
@@ -516,7 +517,7 @@ export default function RefSidebar() {
         <IconSearch width={13} height={13} />
         <input
           type="text"
-          placeholder="Filter refs…"
+          placeholder={t("Filter refs…")}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
@@ -530,15 +531,15 @@ export default function RefSidebar() {
           <>
             <select
               className="branch-sort"
-              title="Sort local branches"
+              title={t("Sort local branches")}
               value={branchSort}
               onChange={(e) => changeSort(e.target.value as BranchSort)}
             >
-              <option value="default">Default</option>
-              <option value="name">Name</option>
-              <option value="recent">Recent</option>
+              <option value="default">{t("Default")}</option>
+              <option value="name">{t("Name")}</option>
+              <option value="recent">{t("Recent")}</option>
             </select>
-            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title="New branch" onClick={() => setShowNew(true)}>
+            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title={t("New branch")} onClick={() => setShowNew(true)}>
               <IconPlus width={15} height={15} />
             </button>
           </>
@@ -553,11 +554,11 @@ export default function RefSidebar() {
           badge={
             <>
               {pinned.includes(r.shortName) && (
-                <span className="pin-badge" title="Pinned"><IconPin width={12} height={12} /></span>
+                <span className="pin-badge" title={t("Pinned")}><IconPin width={12} height={12} /></span>
               )}
               {(r.ahead > 0 || r.behind > 0 || r.gone) && (
                 <span className="track-badge">
-                  {r.gone && <span className="track-gone" title="Upstream branch no longer exists">gone</span>}
+                  {r.gone && <span className="track-gone" title={t("Upstream branch no longer exists")}>gone</span>}
                   {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
                   {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
                 </span>
@@ -662,7 +663,7 @@ export default function RefSidebar() {
           >
             <div className="modal-header">
               <h2>stash@{stashView.index} — {stashView.subject}</h2>
-              <button type="button" className="icon-btn" aria-label="Close stash" title="Close" onClick={() => setStashView(null)}>
+              <button type="button" className="icon-btn" aria-label={t("Close stash")} title={t("Close")} onClick={() => setStashView(null)}>
                 <IconX />
               </button>
             </div>
@@ -690,25 +691,25 @@ export default function RefSidebar() {
           <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{tagView.tag}</h2>
-              <button type="button" className="icon-btn" aria-label="Close tag" title="Close" onClick={() => setTagView(null)}>
+              <button type="button" className="icon-btn" aria-label={t("Close tag")} title={t("Close")} onClick={() => setTagView(null)}>
                 <IconX />
               </button>
             </div>
             <div className="modal-body">
               <div className="tag-detail-grid">
-                <span className="detail-label">Tagger</span>
+                <span className="detail-label">{t("Tagger")}</span>
                 <span className="detail-value">{tagView.tagger}</span>
-                <span className="detail-label">Email</span>
+                <span className="detail-label">{t("Email")}</span>
                 <span className="detail-value muted">{tagView.taggerEmail}</span>
-                <span className="detail-label">Date</span>
+                <span className="detail-label">{t("Date")}</span>
                 <span className="detail-value muted">
                   {new Date(tagView.time * 1000).toLocaleString()}
                 </span>
-                <span className="detail-label">Target</span>
+                <span className="detail-label">{t("Target")}</span>
                 <span className="detail-value mono-small">{tagView.object}</span>
               </div>
               <div className="tag-message">
-                <div className="detail-label" style={{ marginBottom: 6 }}>Message</div>
+                <div className="detail-label" style={{ marginBottom: 6 }}>{t("Message")}</div>
                 <div className="tag-subject">{tagView.subject}</div>
                 {tagView.body && <div className="tag-body muted">{tagView.body}</div>}
               </div>
@@ -727,13 +728,13 @@ export default function RefSidebar() {
           <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Set upstream for {upstreamPicker}</h2>
-              <button type="button" className="icon-btn" aria-label="Close upstream picker" title="Close" onClick={() => setUpstreamPicker(null)}>
+              <button type="button" className="icon-btn" aria-label={t("Close upstream picker")} title={t("Close")} onClick={() => setUpstreamPicker(null)}>
                 <IconX />
               </button>
             </div>
             <div className="modal-body">
               {groups.remote.length === 0 ? (
-                <div className="list-empty">No remote tracking branches available.</div>
+                <div className="list-empty">{t("No remote tracking branches available.")}</div>
               ) : (
                 <div className="pr-detail-list">
                   {groups.remote.map((r) => (

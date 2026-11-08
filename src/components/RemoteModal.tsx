@@ -11,6 +11,7 @@ import { useEscape } from '../hooks/use-escape';
 import type { RemoteEntry } from '../types';
 import { IconCheck, IconEdit, IconTrash, IconX } from './icons';
 import { useConfirm } from './ui';
+import { t } from '../i18n';
 
 export default function RemoteModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, toast } = useApp();
@@ -40,7 +41,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
       await addRemote(activeRepo!, rName, rUrl);
       setName('');
       setUrl('');
-      toast('Remote added', 'success');
+      toast(t("Remote added"), 'success');
       reload();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -58,7 +59,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     setWorking(true);
     try {
       await removeRemote(activeRepo!, entry.name);
-      toast('Remote removed', 'success');
+      toast(t("Remote removed"), 'success');
       reload();
     } catch (err: any) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
@@ -74,7 +75,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     setWorking(true);
     try {
       await setRemoteUrl(activeRepo, editing.name, value);
-      toast('Remote URL updated', 'success');
+      toast(t("Remote URL updated"), 'success');
       setEditing(null);
       reload();
     } catch (err: any) {
@@ -88,13 +89,13 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     if (!renaming || !activeRepo) return;
     const value = renaming.value.trim();
     if (!value || !/^[A-Za-z0-9._-]{1,64}$/.test(value)) {
-      toast('Invalid remote name', 'error');
+      toast(t("Invalid remote name"), 'error');
       return;
     }
     setWorking(true);
     try {
       await renameRemote(activeRepo, renaming.oldName, value);
-      toast('Remote renamed', 'success');
+      toast(t("Remote renamed"), 'success');
       setRenaming(null);
       reload();
     } catch (err: any) {
@@ -108,12 +109,12 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal" style={{ width: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Remotes</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Remotes")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           {remotes.length === 0 ? (
-            <div className="detail-value muted">No remotes configured.</div>
+            <div className="detail-value muted">{t("No remotes configured.")}</div>
           ) : (
             <div className="pr-detail-list" style={{ marginBottom: 16 }}>
               {remotes.map((r) => (
@@ -124,7 +125,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                       style={{ maxWidth: 120 }}
                       autoFocus
                       value={renaming.value}
-                      aria-label="Remote name"
+                      aria-label={t("Remote name")}
                       onChange={(e) => setRenaming({ oldName: r.name, value: e.target.value })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') saveRename();
@@ -143,7 +144,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Save name"
+                      title={t("Save name")}
                       disabled={working}
                       onClick={saveRename}
                     >
@@ -153,7 +154,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Rename remote"
+                      title={t("Rename remote")}
                       disabled={working}
                       onClick={() => setRenaming({ oldName: r.name, value: r.name })}
                     >
@@ -165,7 +166,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                       className="remote-edit-input"
                       autoFocus
                       value={editing.value}
-                      aria-label="Remote URL"
+                      aria-label={t("Remote URL")}
                       onChange={(e) => setEditing({ name: r.name, value: e.target.value })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') saveEdit();
@@ -187,7 +188,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Save URL"
+                      title={t("Save URL")}
                       disabled={working || !editing.value.trim()}
                       onClick={saveEdit}
                     >
@@ -197,7 +198,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Edit URL"
+                      title={t("Edit URL")}
                       disabled={working}
                       onClick={() => setEditing({ name: r.name, value: r.fetch || r.push || '' })}
                     >
@@ -207,7 +208,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Remove remote"
+                    title={t("Remove remote")}
                     disabled={working}
                     onClick={() => handleRemove(r)}
                   >
@@ -219,18 +220,18 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
           )}
 
           <form onSubmit={handleAdd}>
-            <div className="detail-label" style={{ marginBottom: 8 }}>Add a remote</div>
+            <div className="detail-label" style={{ marginBottom: 8 }}>{t("Add a remote")}</div>
             <div className="remote-add-form">
               <input
                 value={name}
                 placeholder="origin"
-                aria-label="Remote name"
+                aria-label={t("Remote name")}
                 onChange={(e) => setName(e.target.value)}
               />
               <input
                 value={url}
                 placeholder="https://github.com/owner/repo.git"
-                aria-label="Remote URL"
+                aria-label={t("Remote URL")}
                 onChange={(e) => setUrl(e.target.value)}
               />
               <button

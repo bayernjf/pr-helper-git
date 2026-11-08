@@ -14,6 +14,7 @@ import {
 } from './icons';
 import CreatePrModal from './CreatePrModal';
 import PrDetailModal from './PrDetailModal';
+import { t } from '../i18n';
 
 type Column = 'open' | 'merged' | 'closed';
 
@@ -31,10 +32,10 @@ function MergePill({ pr }: { pr: PullRequest }) {
 }
 
 function ReviewPill({ state }: { state: ReviewState }) {
-  if (state === 'APPROVED') return <span className="review-pill approved">Approved</span>;
-  if (state === 'CHANGES_REQUESTED') return <span className="review-pill changes">Changes requested</span>;
-  if (state === 'COMMENTED') return <span className="review-pill commented">Review comments</span>;
-  return <span className="review-pill none">No review</span>;
+  if (state === 'APPROVED') return <span className="review-pill approved">{t("Approved")}</span>;
+  if (state === 'CHANGES_REQUESTED') return <span className="review-pill changes">{t("Changes requested")}</span>;
+  if (state === 'COMMENTED') return <span className="review-pill commented">{t("Review comments")}</span>;
+  return <span className="review-pill none">{t("No review")}</span>;
 }
 
 function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
@@ -209,7 +210,7 @@ export default function PrBoard() {
     return (
       <div className="empty-state">
         <div className="empty-icon"><IconInbox width={28} height={28} /></div>
-        <h3>No GitHub remote</h3>
+        <h3>{t("No GitHub remote")}</h3>
         <p>Pull-request features need an origin remote hosted on github.com for {activeRepo}.</p>
       </div>
     );
@@ -219,8 +220,8 @@ export default function PrBoard() {
     return (
       <div className="empty-state">
         <div className="empty-icon"><IconPullRequest width={28} height={28} /></div>
-        <h3>No GitHub token configured</h3>
-        <p>Open settings and add a personal access token to manage pull requests.</p>
+        <h3>{t("No GitHub token configured")}</h3>
+        <p>{t("Open settings and add a personal access token to manage pull requests.")}</p>
       </div>
     );
   }
@@ -238,16 +239,16 @@ export default function PrBoard() {
           <input
             type="text"
             value={query}
-            placeholder="Filter by number, title, author, branch…"
-            aria-label="Filter pull requests"
+            placeholder={t("Filter by number, title, author, branch…")}
+            aria-label={t("Filter pull requests")}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
             <button
               type="button"
               className="icon-btn"
-              aria-label="Clear filter"
-              title="Clear filter"
+              aria-label={t("Clear filter")}
+              title={t("Clear filter")}
               onClick={() => setQuery('')}
             >
               <IconX width={12} height={12} />

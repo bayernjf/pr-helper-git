@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { revertCommit } from '../api';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   hash: string;
@@ -29,12 +30,12 @@ export default function RevertMergeModal({ hash, parentCount, onClose }: Props) 
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>Revert merge commit</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Revert merge commit")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label>Mainline parent</label>
+            <label>{t("Mainline parent")}</label>
             <p className="hint" style={{ marginTop: 0 }}>
               Reverting a merge needs a mainline (-m). Parent 1 is the branch checked out
               when the merge happened; changes introduced by the other parents are undone.
@@ -50,8 +51,8 @@ export default function RevertMergeModal({ hash, parentCount, onClose }: Props) 
           </div>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Revert</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
+          <button type="submit" className="btn btn-primary">{t("Revert")}</button>
         </div>
       </form>
     </div>

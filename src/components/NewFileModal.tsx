@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { saveFile } from '../api';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   onClose: () => void;
@@ -31,12 +32,12 @@ export default function NewFileModal({ onClose, onCreated }: Props) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
-          <h2>New file</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("New file")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label>File path</label>
+            <label>{t("File path")}</label>
             <input
               autoFocus
               value={value}
@@ -44,12 +45,12 @@ export default function NewFileModal({ onClose, onCreated }: Props) {
               onChange={(e) => setValue(e.target.value)}
             />
             <div className="hint">
-              Created relative to the repository root; the editor opens so you can add content.
+              {t("Created relative to the repository root; the editor opens so you can add content.")}
             </div>
           </div>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
             Create
           </button>

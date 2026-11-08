@@ -10,6 +10,7 @@ import { useEscape } from '../hooks/use-escape';
 import type { RepoBrief } from '../types';
 import { activityLevel, relativeAge, sortRepos, summarizeRepos } from '../lib/repo-sort';
 import { IconBranch, IconPin, IconRefresh, IconSearch, IconX } from './icons';
+import { t } from '../i18n';
 
 const PIN_KEY = 'pr-helper-git2-pinned';
 
@@ -152,7 +153,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
     } catch { /* refresh errors are surfaced separately */ }
     setBatchBusy(false);
     setSelected(new Set());
-    if (failed === 0) toast(`Fetched ${fetched} repositories`, 'success');
+    if (failed === 0) toast(t(`Fetched ${fetched} repositories`), 'success');
     else toast(`Fetched ${fetched}, ${failed} failed`, 'error');
   }
 
@@ -172,7 +173,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
         .filter((r) => !r.ok)
         .map((r) => `${parentDir(r.repo)}: ${r.error || 'pull failed'}`);
       setPullReport({ okCount: res.okCount, failures });
-      if (res.failCount === 0) toast(`Pulled ${res.okCount} repositories`, 'success');
+      if (res.failCount === 0) toast(t(`Pulled ${res.okCount} repositories`), 'success');
       else toast(`Pulled ${res.okCount}, ${res.failCount} failed`, 'error');
     } catch (err: any) {
       toast(err?.message || 'batch pull failed', 'error');
@@ -186,8 +187,8 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide repo-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Open repositories</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}>
+          <h2>{t("Open repositories")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
             <IconX />
           </button>
         </div>
@@ -198,16 +199,16 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
             ref={searchRef}
             type="text"
             value={query}
-            placeholder="Filter repositories by name or path…"
-            aria-label="Filter repositories"
+            placeholder={t("Filter repositories by name or path…")}
+            aria-label={t("Filter repositories")}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
             <button
               type="button"
               className="icon-btn"
-              aria-label="Clear filter"
-              title="Clear filter"
+              aria-label={t("Clear filter")}
+              title={t("Clear filter")}
               onClick={() => setQuery('')}
             >
               <IconX width={13} height={13} />
@@ -216,8 +217,8 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
         </div>
 
         <div className="repo-panel-agg">
-          <span>{aggregate.repos} repositories</span>
-          <span className={aggregate.changedFiles > 0 ? 'agg-dirty' : ''}>{aggregate.changedFiles} changed files</span>
+          <span>{t(`${aggregate.repos} repositories`)}</span>
+          <span className={aggregate.changedFiles > 0 ? 'agg-dirty' : ''}>{t(`${aggregate.changedFiles} changed files`)}</span>
           {aggregate.behind > 0 && <span className="agg-behind">{aggregate.behind} behind</span>}
           {aggregate.ahead > 0 && <span className="agg-ahead">{aggregate.ahead} unpushed</span>}
           {aggregate.unavailable > 0 && <span className="agg-err">{aggregate.unavailable} unavailable</span>}
@@ -225,8 +226,8 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           <button
             type="button"
             className="icon-btn"
-            title="Refresh status"
-            aria-label="Refresh status"
+            title={t("Refresh status")}
+            aria-label={t("Refresh status")}
             disabled={refreshing}
             onClick={manualRefresh}
           >
@@ -239,18 +240,18 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
             type="checkbox"
             checked={allFilteredChecked}
             onChange={toggleAll}
-            aria-label="Select all repositories"
+            aria-label={t("Select all repositories")}
             disabled={filtered.length === 0}
           />
-          <span>Repository</span>
-          <span>Location</span>
-          <span className="repo-panel-col-status">Status</span>
-          <span className="repo-panel-col-branch">Branch</span>
+          <span>{t("Repository")}</span>
+          <span>{t("Location")}</span>
+          <span className="repo-panel-col-status">{t("Status")}</span>
+          <span className="repo-panel-col-branch">{t("Branch")}</span>
         </div>
 
         <div className="repo-panel-list">
           {repos.length === 0 ? (
-            <div className="list-empty">No repositories yet. Add one to get started.</div>
+            <div className="list-empty">{t("No repositories yet. Add one to get started.")}</div>
           ) : filtered.length === 0 ? (
             <div className="list-empty">
               {dirtyOnly && !query
@@ -362,7 +363,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
         )}
 
         <div className="modal-footer repo-panel-footer">
-          <button type="button" className="btn" onClick={addRepository}>Add repository…</button>
+          <button type="button" className="btn" onClick={addRepository}>{t("Add repository…")}</button>
           <label className="repo-panel-toggle">
             <input type="checkbox" checked={dirtyOnly} onChange={(e) => setDirtyOnly(e.target.checked)} />
             With changes
@@ -374,7 +375,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           <span className="spacer" />
           {selected.size > 0 && (
             <>
-              <span className="repo-panel-count">{selected.size} selected</span>
+              <span className="repo-panel-count">{t(`${selected.size} selected`)}</span>
               <button
                 type="button"
                 className="btn"
@@ -402,7 +403,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
               </button>
             </>
           )}
-          <button type="button" className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>
         </div>
       </div>
     </div>

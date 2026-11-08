@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
+import { t } from '../i18n';
 
 type Tab = 'commits' | 'files';
 
@@ -55,19 +56,19 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Compare references</h2>
-          <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={onClose}><IconX /></button>
+          <h2>{t("Compare references")}</h2>
+          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="compare-picker">
           <div className="compare-field">
-            <label>Base</label>
+            <label>{t("Base")}</label>
             <select value={base} onChange={(e) => setBase(e.target.value)}>
               {options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <span className="compare-arrow">→</span>
           <div className="compare-field">
-            <label>Head</label>
+            <label>{t("Head")}</label>
             <select value={head} onChange={(e) => setHead(e.target.value)}>
               {options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -84,7 +85,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
 
         <div className="modal-body">
           {error && <div className="list-empty">{error}</div>}
-          {loading && <div className="list-empty">Comparing…</div>}
+          {loading && <div className="list-empty">{t("Comparing…")}</div>}
           {!loading && !error && result && (
             <>
               <div className="compare-summary">
@@ -113,7 +114,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
                   <>
                     <div className="detail-label">In "{head}" but not "{base}"</div>
                     {result.ahead.length === 0
-                      ? <div className="list-empty">No commits.</div>
+                      ? <div className="list-empty">{t("No commits.")}</div>
                       : result.ahead.map((c) => (
                         <div key={c.hash} className="compare-commit">
                           <span className="reflog-hash">{shortHash(c.hash)}</span>
@@ -125,7 +126,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
                       In "{base}" but not "{head}"
                     </div>
                     {result.behind.length === 0
-                      ? <div className="list-empty">No commits.</div>
+                      ? <div className="list-empty">{t("No commits.")}</div>
                       : result.behind.map((c) => (
                         <div key={c.hash} className="compare-commit">
                           <span className="reflog-hash">{shortHash(c.hash)}</span>

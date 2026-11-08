@@ -13,6 +13,7 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import { matchesCommand } from '../lib/fuzzy';
+import { t } from '../i18n';
 import {
   IconAudit,
   IconBranch,
@@ -264,7 +265,7 @@ export default function CommandPalette() {
         className="cmdk"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("Command palette")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="cmdk-input-wrap">
@@ -272,7 +273,7 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             value={query}
-            placeholder="Type a command or search a repository…"
+            placeholder={t("Type a command or search a repository…")}
             onChange={(e) => {
               setQuery(e.target.value);
               setActiveIndex(0);
