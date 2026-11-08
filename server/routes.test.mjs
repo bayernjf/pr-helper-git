@@ -17,6 +17,7 @@ let homeDir;
 let repoDir;
 let rebaseDir;
 let conflictDir;
+let mergeDir;
 let revertDir;
 let revertSha;
 let serverProc;
@@ -134,6 +135,26 @@ beforeAll(async () => {
   git(['add', '.'], conflictDir);
   git(['commit', '-m', 'main'], conflictDir);
   git(['merge', 'side'], conflictDir, true);
+
+  // A repository whose two branches edit the same line, used to pin the merge
+  // conflict contract: 409 + conflict list, then a commit that records MERGE_HEAD
+  // even when "ours" leaves the index identical to HEAD.
+  mergeDir = path.join(tmpRoot, 'merge-repo');
+  await fsp.mkdir(mergeDir);
+  git(['init', '-b', 'main'], mergeDir);
+  git(['config', 'user.email', 'tester@example.com'], mergeDir);
+  git(['config', 'user.name', 'Tester'], mergeDir);
+  await fsp.writeFile(path.join(mergeDir, 'shared.txt'), 'base\n', 'utf8');
+  git(['add', '.'], mergeDir);
+  git(['commit', '-m', 'merge base'], mergeDir);
+  git(['checkout', '-b', 'side'], mergeDir);
+  await fsp.writeFile(path.join(mergeDir, 'shared.txt'), 'side\n', 'utf8');
+  git(['add', '.'], mergeDir);
+  git(['commit', '-m', 'merge side'], mergeDir);
+  git(['checkout', 'main'], mergeDir);
+  await fsp.writeFile(path.join(mergeDir, 'shared.txt'), 'main\n', 'utf8');
+  git(['add', '.'], mergeDir);
+  git(['commit', '-m', 'merge main'], mergeDir);
 
   await new Promise((resolve, reject) => {
     serverProc = spawn(process.execPath, [serverPath, '--port=0'], {
@@ -857,6 +878,45 @@ describe('conflict resolution', () => {
     expect(status.json.status.files.some((f) => f.area === 'unmerged')).toBe(false);
     // Clean up so later tests do not inherit a half-merged repository.
     git(['merge', '--abort'], conflictDir);
+  });
+});
+
+describe('merge conflict contract', () => {
+  it('registers the merge repository', async () => {
+    const r = await post('/api/repos/add', { repo: mergeDir });
+    expect(r.status).toBe(200);
+  });
+
+  it('reports a conflicted merge as 409 with the conflict list', async () => {
+    const r = await post('/api/merge', { repo: mergeDir, ref: 'side' });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('merge stopped on conflicts');
+    expect(r.json.conflicts).toContain('shared.txt');
+    expect(r.json.state.mergeInProgress).toBe(true);
+    const status = await get(`/api/status?repo=${q(mergeDir)}`);
+    expect(status.json.state.mergeInProgress).toBe(true);
+  });
+
+  it('commits a merge resolved to ours and records both parents', async () => {
+    const resolved = await post('/api/conflict/resolve', {
+      repo: mergeDir, path: 'shared.txt', strategy: 'ours',
+    });
+    expect(resolved.status).toBe(200);
+    expect(resolved.json.remaining).toEqual([]);
+    // The index now matches HEAD, yet the merge still has to be committed.
+    const commit = await post('/api/commit', { repo: mergeDir, message: 'merge side' });
+    expect(commit.status).toBe(200);
+    const parents = git(['rev-list', '--parents', '-n', '1', 'HEAD'], mergeDir).trim().split(/\s+/);
+    expect(parents).toHaveLength(3);
+    const status = await get(`/api/status?repo=${q(mergeDir)}`);
+    expect(status.json.state.mergeInProgress).toBe(false);
+    expect(status.json.status.files).toEqual([]);
+  });
+
+  it('still rejects an empty commit outside a merge', async () => {
+    const r = await post('/api/commit', { repo: mergeDir, message: 'nothing here' });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('nothing staged to commit');
   });
 });
 
