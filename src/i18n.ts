@@ -222,6 +222,16 @@ export const ZH: Record<string, string> = {
   'invalid path': '路径无效',
   'missing GitHub token': '缺少 GitHub Token',
   'endpoint not in allowlist': '接口不在允许列表',
+  'Signature': '签名',
+  'Verified': '已验证',
+  'Bad signature': '签名无效',
+  'Unknown validity': '签名有效性未知',
+  'Not signed': '未签名',
+  'Cannot be checked': '无法校验',
+  'Expired signature': '签名已过期',
+  'Expired key': '密钥已过期',
+  'Revoked key': '密钥已吊销',
+  'Unknown signature status': '未知签名状态',
   // ----- shell / toolbar -----
   'No repository selected': '未选择仓库',
   'Use the repository selector in the toolbar to register, clone or initialise a repository.':

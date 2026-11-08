@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getCommitDiff, getCommitFiles, type CommitFile } from '../api';
+import { getCommitDiff, getCommitFiles, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
@@ -9,6 +9,22 @@ import DiffView from './DiffView';
 import FileViewer from './FileViewer';
 import { IconCopy, IconEye, IconFile, IconX } from './icons';
 import { t, tp } from '../i18n';
+
+/** Human label for git's `%G?` signature status letter. */
+function signatureLabel(signature: CommitSignature): string {
+  const byStatus: Record<string, string> = {
+    G: t("Verified"),
+    B: t("Bad signature"),
+    U: t("Unknown validity"),
+    N: t("Not signed"),
+    E: t("Cannot be checked"),
+    X: t("Expired signature"),
+    Y: t("Expired key"),
+    R: t("Revoked key"),
+  };
+  const label = byStatus[signature.status] ?? t("Unknown signature status");
+  return signature.signer ? `${label} · ${signature.signer}` : label;
+}
 
 function statusColor(status: string): string {
   if (status.startsWith('A')) return 'var(--green)';
@@ -21,6 +37,7 @@ export default function CommitDetail() {
   const { commits, selectedHash, selectCommit, activeRepo, toast } = useApp();
   const commit = commits.find((c) => c.hash === selectedHash);
   const [files, setFiles] = useState<CommitFile[]>([]);
+  const [signature, setSignature] = useState<CommitSignature | null>(null);
   const [patch, setPatch] = useState<DiffResult | null>(null);
   const [ignoreWs, setIgnoreWs] = useState(false);
   const patchFileRef = useRef<CommitFile | null>(null);
@@ -65,6 +82,18 @@ export default function CommitDetail() {
     getCommitFiles(activeRepo, selectedHash)
       .then((res) => { if (!cancelled) setFiles(res.files); })
       .catch(() => { if (!cancelled) setFiles([]); });
+    return () => { cancelled = true; };
+  }, [selectedHash, activeRepo]);
+
+  // Signature check for the selected commit. `%G?` needs no key material, so
+  // unsigned repositories still render "Not signed" instead of failing.
+  useEffect(() => {
+    let cancelled = false;
+    setSignature(null);
+    if (!selectedHash || !activeRepo) return;
+    getCommitSignature(activeRepo, selectedHash)
+      .then((res) => { if (!cancelled) setSignature(res); })
+      .catch(() => { if (!cancelled) setSignature(null); });
     return () => { cancelled = true; };
   }, [selectedHash, activeRepo]);
 
@@ -127,6 +156,15 @@ export default function CommitDetail() {
         <span className="detail-label">{t("Date")}</span>
         <div className="detail-value muted">{formatFullDate(commit.date)}</div>
       </div>
+
+      {signature && (
+        <div className="detail-section">
+          <span className="detail-label">{t("Signature")}</span>
+          <div className={`detail-value signature-${signature.status === 'G' ? 'good' : signature.status === 'N' ? 'none' : 'bad'}`}>
+            {signatureLabel(signature)}
+          </div>
+        </div>
+      )}
 
       {commit.parents.length > 0 && (
         <div className="detail-section">

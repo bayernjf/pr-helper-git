@@ -300,6 +300,20 @@ export interface CommitFile {
   deletions: number;
 }
 
+export interface CommitSignature {
+  sha: string;
+  /** %G? letter: G good, B bad, U unknown, N none, E cannot check, X/Y expired, R revoked. */
+  status: string;
+  signer: string;
+  key: string;
+  verified: boolean;
+}
+
+export const getCommitSignature = (repo: string, sha: string) =>
+  request<CommitSignature>(
+    `/api/signature?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,
+  );
+
 export const getCommitFiles = (repo: string, sha: string) =>
   request<{ files: CommitFile[] }>(
     `/api/commit-files?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,

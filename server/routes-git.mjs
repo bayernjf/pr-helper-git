@@ -1023,6 +1023,27 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     }
   }
 
+  // Signature check for one commit. `%G?` is one letter per commit:
+  // G good, B bad, U unknown validity, N no signature, E cannot be checked,
+  // X expired, Y expired key, R revoked key.
+  if (pathname === '/api/signature' && method === 'GET') {
+    const sha = typeof query.get('sha') === 'string' ? query.get('sha').trim() : '';
+    if (!/^[0-9a-f]{7,40}$/.test(sha)) return fail(400, 'invalid commit sha');
+    try {
+      const raw = await git(['log', '-1', '--format=%G?%x00%GS%x00%GK', sha], repo);
+      const [status = '', signer = '', key = ''] = raw.replace(/\n$/, '').split('\u0000');
+      return ok({
+        sha,
+        status: status.trim() || 'N',
+        signer: signer.trim(),
+        key: key.trim(),
+        verified: status.trim() === 'G',
+      });
+    } catch (err) {
+      return gitFail(err, 'git signature check failed');
+    }
+  }
+
   if (pathname === '/api/commit-files' && method === 'GET') {
     const sha = typeof query.get('sha') === 'string' ? query.get('sha').trim() : '';
     if (!/^[0-9a-f]{7,40}$/.test(sha)) return fail(400, 'invalid commit sha');
