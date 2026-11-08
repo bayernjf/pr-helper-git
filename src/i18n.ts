@@ -567,6 +567,47 @@ const COUNT_RULES: [RegExp, string][] = [
  * Translate a source string. English returns the source untouched; Chinese
  * looks the string up and falls back to English when it is not in the table.
  */
+/**
+ * Audit action identifiers come from the server (`repo-add`, `stash-create`,
+ * …), so they are not English sentences the ZH dictionary could key on. This
+ * table gives a Chinese label per action while the English UI keeps the raw
+ * identifier — the same string the audit log and its filter use.
+ */
+const AUDIT_ACTION_ZH: Record<string, string> = {
+  'repo-add': '添加仓库', 'repo-remove': '移除仓库', 'repo-clone': '克隆仓库',
+  'repo-init': '初始化仓库', 'repos-pull': '批量拉取',
+  'user-create': '添加成员', 'user-remove': '移除成员', 'team-config-import': '导入团队配置',
+  'ai-config': 'AI 设置', 'ai-test': 'AI 连通测试', 'ai-commit-message': 'AI 生成提交信息',
+  'ai-pr-description': 'AI 生成 PR 描述',
+  config: '修改配置', save: '保存文件',
+  stage: '暂存', unstage: '取消暂存', 'stage-hunk': '暂存片段', 'unstage-hunk': '取消暂存片段',
+  commit: '提交', amend: '修补提交', 'commit-undo': '撤销提交',
+  checkout: '切换', 'branch-create': '新建分支', 'branch-delete': '删除分支',
+  'branch-rename': '重命名分支', 'branch-push': '推送分支', 'branch-set-upstream': '设置上游',
+  'branch-delete-remote': '删除远程分支',
+  'tag-create': '新建标签', 'tag-delete': '删除标签', 'tag-delete-remote': '删除远程标签',
+  'tag-push': '推送标签',
+  'stash-create': '创建储藏', 'stash-apply': '应用储藏', 'stash-drop': '删除储藏',
+  fetch: '获取', pull: '拉取', push: '推送',
+  merge: '合并', 'merge-abort': '中止合并',
+  rebase: '变基', 'rebase-continue': '继续变基', 'rebase-abort': '中止变基',
+  'rebase-interactive': '交互式变基',
+  revert: '回退', 'revert-continue': '继续回退', 'revert-abort': '中止回退',
+  'revert-batch': '批量回退', 'cherry-pick': '拣选提交', reset: '重置',
+  discard: '丢弃改动', 'discard-hunk': '丢弃片段', clean: '清理未跟踪文件',
+  'conflict-resolve': '解决冲突', ignore: '更新忽略规则',
+  mv: '移动文件', rm: '删除文件',
+  'remote-add': '新增远程', 'remote-remove': '删除远程',
+  'remote-rename': '重命名远程', 'remote-set-url': '修改远程地址',
+  'pr-checkout': '检出 PR',
+};
+
+/** Localized label for one audit action; unknown actions pass through. */
+export function auditAction(action: string): string {
+  if (getLocale() !== 'zh') return action;
+  return AUDIT_ACTION_ZH[action] ?? action;
+}
+
 export function t(source: string): string {
   if (locale === 'en') return source;
   const exact = ZH[source];

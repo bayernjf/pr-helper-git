@@ -5,7 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
 import { IconX } from './icons';
-import { t, tp } from '../i18n';
+import { auditAction, t, tp } from '../i18n';
 
 type OutcomeFilter = 'all' | 'ok' | 'fail';
 
@@ -117,7 +117,7 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                           {entry.ok === false ? '!' : '✓'}
                         </span>
                         <span className="audit-time">{formatFullDate(entry.at)}</span>
-                        <span className="audit-action">{entry.action || t('unknown')}</span>
+                        <span className="audit-action">{entry.action ? auditAction(entry.action) : t('unknown')}</span>
                         <span className="audit-summary">{summarize(entry)}</span>
                         {extra && (
                           <details className="audit-raw">

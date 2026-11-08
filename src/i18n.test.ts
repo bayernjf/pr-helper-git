@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ZH, getLocale, setLocale, t, tp } from './i18n';
+import { ZH, auditAction, getLocale, setLocale, t, tp } from './i18n';
 
 beforeEach(() => {
   setLocale('en');
@@ -54,5 +54,14 @@ describe('i18n', () => {
       .filter((key) => /[A-Za-z]/.test(key))
       .filter((key) => !(key in ZH));
     expect(missing).toEqual([]);
+  });
+
+  it('labels audit actions in Chinese and passes them through in English', () => {
+    setLocale('zh');
+    expect(auditAction('repo-add')).toBe('添加仓库');
+    expect(auditAction('stash-create')).toBe('创建储藏');
+    expect(auditAction('unknown-action')).toBe('unknown-action');
+    setLocale('en');
+    expect(auditAction('repo-add')).toBe('repo-add');
   });
 });
