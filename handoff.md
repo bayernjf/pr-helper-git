@@ -254,12 +254,18 @@ new features target the browser UI and are not adapted to the native shell.
 - [x] Ref parsing hardened: `git()` forces `LC_ALL=C` so `%(upstream:track)`
   stays parseable regardless of the machine locale, and `[gone]` upstreams
   surface as a red `gone` badge instead of looking in sync
+- [x] Grep filters: `Ignore case` maps to `git grep -i` and a file glob
+  (`:(glob)` pathspec) narrows results in both the per-repository and the
+  cross-repository modal; invalid globs are rejected with 400
+- [x] PR head checkout: `POST /api/pr/checkout` fetches `pull/<n>/head` into
+  FETCH_HEAD and creates a local `pr-<n>` branch without switching; existing
+  branches are refused with 409
 - [x] Web-only decision: desktop development paused, checks limited to
   `npm test`, `npm run lint`, `npm run build`
 
 ## Delivery notes
 
-- Current state (2026-11-08): 174 Vitest tests across 13 files are green,
+- Current state (2026-11-08): 176 Vitest tests across 13 files are green,
   `npm run lint` and `npm run build` pass, and the working tree is clean.
   Everything below is local: `git remote -v` is empty, so the commits have
   never been pushed anywhere. Desktop packaging is frozen per the web-only

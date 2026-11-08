@@ -108,8 +108,9 @@ GitHub by the application setup.
   mainline (`-m 1..N`), since reverting a merge needs that explicit choice.
 - Search the whole repository contents with `git grep` from a dedicated modal:
   results are grouped by file with line numbers, an optional path narrows the
-  scope, and clicking a match opens the file viewer scrolled to that line with
-  the matched term highlighted.
+  scope, a file glob (e.g. `*.ts`) narrows it by name, `Ignore case` maps to
+  `git grep -i`, and clicking a match opens the file viewer scrolled to that
+  line with the matched term highlighted.
 - Rename or move any file through `git mv` (history is preserved and the
   change is staged), or delete a file from its row: tracked files use
   `git rm` while fully untracked files are removed directly, each behind a
@@ -189,7 +190,11 @@ GitHub by the application setup.
   near-instant change instead of disabling the underlying state updates.
 - Cross-repository search from a global `git grep` modal that runs the
   pattern across every registered repository (per-repo errors are
-  isolated), grouping matches by repository and file with a 500-result cap.
+  isolated), grouping matches by repository and file with a 500-result cap;
+  the same case-insensitive and glob filters are available here.
+- Fetch a pull request head locally: **Fetch PR branch** in the PR detail footer
+  runs `git fetch origin pull/<n>/head` and creates a local `pr-<n>` branch at
+  it without touching the working tree or current branch.
 - Multi-select commits in the graph with checkboxes to revert several
   commits in one oldest-first batch (merge commits are rejected and the
   batch aborts on conflict), or copy the selected SHAs, from a floating
@@ -361,7 +366,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (174 tests, 13 files)
+npm test           # Vitest unit + route-level HTTP tests (176 tests, 13 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
 ```
