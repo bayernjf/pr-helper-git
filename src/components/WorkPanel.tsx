@@ -5,6 +5,7 @@ import {
   cleanForce,
   commitChanges,
   discardFile,
+  generateCommitMessage,
   getCommitTemplate,
   getDiff,
   ignoreFile,
@@ -243,6 +244,22 @@ export default function WorkPanel() {
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [showNewFile, setShowNewFile] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  // Draft a commit message from the staged diff. The key lives server-side;
+  // the browser only receives the finished text.
+  async function handleGenerate() {
+    if (!activeRepo) return;
+    setGenerating(true);
+    try {
+      const res = await generateCommitMessage(activeRepo);
+      setMessage(res.message);
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const startResize = (event: React.PointerEvent) => {
     event.preventDefault();
@@ -557,6 +574,15 @@ export default function WorkPanel() {
           onChange={(e) => setMessage(e.target.value)}
         />
         <div className="form-side">
+          <button
+            type="button"
+            className="amend-toggle"
+            title="Draft a commit message from the staged diff with AI"
+            disabled={generating || groups.staged.length === 0}
+            onClick={handleGenerate}
+          >
+            {generating ? 'Generating…' : 'Generate with AI'}
+          </button>
           {commits.length > 0 && (
             <button
               type="button"

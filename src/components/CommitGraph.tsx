@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { resetCommit, revertCommit, revertCommitsBatch } from '../api';
+import { cherryPick, resetCommit, revertCommit, revertCommitsBatch, undoLastCommit } from '../api';
 import { useApp, LOG_MAX } from '../app-state';
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
@@ -245,6 +245,10 @@ export default function CommitGraph() {
     { id: 'reset-hard', label: 'Reset branch (hard)', danger: true },
     { separator: true },
     { id: 'revert', label: 'Revert commit (new commit)', icon: <IconRevert width={15} height={15} /> },
+    { id: 'cherry-pick', label: 'Cherry-pick onto current branch' },
+    ...(menu && commits[0] && menu.hash === commits[0].hash
+      ? [{ id: 'undo', label: 'Undo last commit (keep changes staged)' }]
+      : []),
     { separator: true },
     { id: 'branch', label: 'Create branch here', icon: <IconBranch width={15} height={15} /> },
     { id: 'tag', label: 'Create tag here', icon: <IconTag width={15} height={15} /> },
@@ -295,6 +299,23 @@ export default function CommitGraph() {
         'git revert creates a new commit that undoes the change; history is not rewritten.',
       );
       if (yes) await runAction(revertCommit(currentRepo!, hash), 'Commit reverted');
+      return;
+    } else if (id === 'cherry-pick') {
+      const hash = menu.hash;
+      setMenu(null);
+      const yes = await confirm(
+        'Cherry-pick this commit onto the current branch?',
+        'git cherry-pick applies the change as a new commit here; a conflict leaves the repository in the cherry-picking state.',
+      );
+      if (yes) await runAction(cherryPick(currentRepo!, hash), 'Commit cherry-picked');
+      return;
+    } else if (id === 'undo') {
+      setMenu(null);
+      const yes = await confirm(
+        'Undo the last commit?',
+        'git reset --soft HEAD~1 removes the commit but keeps every change staged, ready to recommit.',
+      );
+      if (yes) await runAction(undoLastCommit(currentRepo!), 'Last commit undone (changes staged)');
       return;
     } else if (id === 'branch') {
       setBranchFrom(menu.hash);

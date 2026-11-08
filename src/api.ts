@@ -561,6 +561,44 @@ export const renameRemote = (repo: string, oldName: string, newName: string) =>
 export const setBranchUpstream = (repo: string, upstream: string, branch?: string) =>
   post('/api/branch/set-upstream', { repo, upstream, branch });
 
+// ---------- AI generation ----------
+
+export interface AiConfig {
+  configured: boolean;
+  baseUrl: string;
+  model: string;
+  hasKey: boolean;
+}
+
+export const getAiConfig = () => request<AiConfig>('/api/ai/config');
+
+export const saveAiConfig = (cfg: {
+  baseUrl?: string;
+  model?: string;
+  apiKey?: string;
+  clearKey?: boolean;
+}) => post('/api/ai/config', cfg) as Promise<AiConfig>;
+
+export const testAi = () =>
+  post('/api/ai/test', {}) as Promise<{ ok: boolean; reply: string }>;
+
+export const generateCommitMessage = (repo: string) =>
+  post('/api/ai/commit-message', { repo }) as Promise<{ message: string }>;
+
+export const generatePrDescription = (repo: string, source: string, target: string) =>
+  post('/api/ai/pr-description', { repo, source, target }) as Promise<{
+    title: string;
+    body: string;
+  }>;
+
+// ---------- history rewriting ----------
+
+export const cherryPick = (repo: string, sha: string) =>
+  post('/api/cherry-pick', { repo, sha }) as Promise<{ ok: boolean; picked: string }>;
+
+export const undoLastCommit = (repo: string) =>
+  post('/api/undo-commit', { repo }) as Promise<{ ok: boolean }>;
+
 // ---------- GitHub proxy ----------
 
 export const mergePull = (

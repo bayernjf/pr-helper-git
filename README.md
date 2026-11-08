@@ -107,6 +107,18 @@ remote is configured and commits stay on the local `main` branch.
   confirmation, while the local tag is left untouched.
 - Revert a merge commit from the graph: a dialog asks which parent is the
   mainline (`-m 1..N`), since reverting a merge needs that explicit choice.
+- Cherry-pick any commit from the graph context menu onto the current branch;
+  a conflict is reported with the conflicted paths and leaves the repository in
+  the cherry-picking state instead of silently aborting. Undo the newest commit
+  on the current branch with a soft reset (`git reset --soft HEAD~1`, the
+  changes stay staged).
+- AI generation through any OpenAI-compatible `chat/completions` endpoint: a
+  **Generate with AI** button drafts a Conventional-Commits message from the
+  staged diff, and the new-PR dialog drafts a title plus Markdown description
+  from `target..source`. The base URL, model and key are configured in Settings
+  and stored server-side in `~/.pr-helper-git2/config.json`; the key is never
+  returned to the browser (the API only reports `hasKey`), and a test button
+  verifies the endpoint before you rely on it.
 - Search the whole repository contents with `git grep` from a dedicated modal:
   results are grouped by file with line numbers, an optional path narrows the
   scope, a file glob (e.g. `*.ts`) narrows it by name, `Ignore case` maps to
@@ -257,11 +269,10 @@ remote is configured and commits stay on the local `main` branch.
 
 ### Deliberately out of scope
 
-Interactive rebase, cherry-pick, submodules, worktrees, GPG signing, a
-three-way merge editor, GitHub App OAuth, webhooks, a database, web push,
-deployment gates and AI generation. Conflicts are handled per file from the
-in-app panel (Use current / Use incoming / Mark resolved), not by editing
-conflict markers in place.
+Interactive rebase, submodules, worktrees, GPG signing, a three-way merge
+editor, GitHub App OAuth, webhooks, a database, web push and deployment gates.
+Conflicts are handled per file from the in-app panel (Use current / Use
+incoming / Mark resolved), not by editing conflict markers in place.
 
 ## Quick start
 
@@ -338,6 +349,10 @@ Security**.
   header and is never persisted. All write actions are appended to an audit log
   under `~/.pr-helper-git2/audit.log`, which is size-bounded by automatic
   rotation.
+- The AI key lives in `~/.pr-helper-git2/config.json` on the server and is
+  never echoed back: the config endpoint returns only `hasKey`, so a compromised
+  browser session cannot read the credential. Only the base URL is validated as
+  an http(s) URL before a request is made to it.
 - Request bodies are capped at 256 KB; an oversized request receives a 413
   response with `Connection: close` before its socket is torn down, so the
   client never sees a bare connection reset. Keep-alive timeouts are tuned
@@ -360,6 +375,7 @@ Security**.
 server/
   main.mjs           HTTP entry, token/cookie auth, static hosting, SSE
   actor.mjs          AsyncLocalStorage request identity for audit attribution
+  ai.mjs             AI config, prompt builders and OpenAI-compatible completion
   identity.mjs       owner/member tokens, hashed member store, team config
   security.mjs       path validation, ref validation, token checks
   git.mjs            git runner and pure output parsers

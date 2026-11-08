@@ -2982,3 +2982,16 @@ pre.diff {
 }
 .team-replace { display: inline-flex; align-items: center; gap: 6px; }
 .team-file { display: none; }
+
+/* ---------- settings: AI section ---------- */
+.settings-section {
+  margin: 18px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+}
+.field-note { font-size: 11px; color: var(--faint); }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.label-row label { margin: 0; }
+.btn-small { padding: 3px 8px; font-size: 11px; }

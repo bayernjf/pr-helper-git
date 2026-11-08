@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { githubProxy } from '../api';
+import { githubProxy, generatePrDescription } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
@@ -13,8 +13,25 @@ interface Props {
 }
 
 export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
-  const { pat, remote, status, commits, toast } = useApp();
+  const { pat, remote, status, commits, toast, activeRepo } = useApp();
   useEscape(onClose);
+
+  const [generating, setGenerating] = useState(false);
+
+  // Ask the local server to draft a title + description from target..source.
+  async function handleGenerate() {
+    if (!activeRepo || !head || !base || head === base) return;
+    setGenerating(true);
+    try {
+      const res = await generatePrDescription(activeRepo, head, base);
+      if (!title.trim() && res.title) setTitle(res.title);
+      if (res.body) setBody(res.body);
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const branches = useMemo(
     () => headRefs.filter((r) => r.name.startsWith('refs/heads/')).map((r) => r.shortName),
@@ -88,7 +105,17 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="pr-body">Description</label>
+            <div className="label-row">
+              <label htmlFor="pr-body">Description</label>
+              <button
+                type="button"
+                className="btn btn-small"
+                disabled={generating || !head || !base || head === base}
+                onClick={handleGenerate}
+              >
+                {generating ? 'Generating…' : 'Generate with AI'}
+              </button>
+            </div>
             <textarea
               id="pr-body"
               rows={7}

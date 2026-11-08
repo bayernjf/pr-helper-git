@@ -33,6 +33,20 @@ import {
   saveConfig,
 } from './store.mjs';
 import { createUser, listUsers, removeUser } from './identity.mjs';
+import {
+  branchCommitSubjects,
+  buildCommitMessagePrompt,
+  buildPrDescriptionPrompt,
+  complete,
+  isAiConfigured,
+  loadAiConfig,
+  normalizeAiConfig,
+  parsePrGeneration,
+  publicAiConfig,
+  saveAiConfig,
+  stagedDiff,
+  validateAiConfig,
+} from './ai.mjs';
 import { ensureWatching, stopWatching } from './watcher.mjs';
 
 const DIFF_LINE_LIMIT = 2000;
@@ -521,6 +535,36 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     return fail(405, 'method not allowed');
   }
 
+  // ---------- AI settings (instance-wide, no repo required) ----------
+
+  if (pathname === '/api/ai/config') {
+    if (method === 'GET') return ok(publicAiConfig(await loadAiConfig()));
+    if (method === 'POST') {
+      const current = await loadAiConfig();
+      const next = normalizeAiConfig(body, current);
+      const error = validateAiConfig(next);
+      if (error) return fail(400, error);
+      await saveAiConfig(next);
+      await appendAudit({ ok: true, action: 'ai-config', configured: isAiConfigured(next) });
+      return ok(publicAiConfig(next));
+    }
+    return fail(405, 'method not allowed');
+  }
+
+  if (pathname === '/api/ai/test') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const ai = await loadAiConfig();
+    if (!isAiConfigured(ai)) return fail(400, 'AI is not configured');
+    try {
+      const reply = await complete('Reply with the single word OK.', { temperature: 0 });
+      await appendAudit({ ok: true, action: 'ai-test' });
+      return ok({ ok: true, reply: reply.slice(0, 200) });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'ai-test' });
+      return fail(502, 'AI test failed', err.message);
+    }
+  }
+
   // GitHub-specific endpoints are handled by routes-github.mjs and do not
   // carry a repo field the same way; let them fall through before the
   // generic registered-repo guard below.
@@ -529,6 +573,57 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   // All remaining routes operate on a registered repo.
   const repo = await findRegistered(method === 'GET' ? query.get('repo') : body.repo);
   if (!repo) return fail(403, 'unknown or unregistered repo');
+
+  // ---------- AI generation ----------
+
+  if (pathname === '/api/ai/commit-message') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const ai = await loadAiConfig();
+    if (!isAiConfigured(ai)) return fail(400, 'AI is not configured');
+    let diff;
+    try {
+      diff = await stagedDiff(repo);
+    } catch (err) {
+      return gitFail(err, 'git diff --cached failed');
+    }
+    if (!diff.trim()) return fail(400, 'no staged changes to describe');
+    try {
+      const message = await complete(buildCommitMessagePrompt(diff));
+      await appendAudit({ ok: true, action: 'ai-commit-message', repo, chars: diff.length });
+      return ok({ message: message.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim() });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'ai-commit-message', repo });
+      return fail(502, 'AI generation failed', err.message);
+    }
+  }
+
+  if (pathname === '/api/ai/pr-description') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const ai = await loadAiConfig();
+    if (!isAiConfigured(ai)) return fail(400, 'AI is not configured');
+    const source = typeof body.source === 'string' ? body.source.trim() : '';
+    const target = typeof body.target === 'string' ? body.target.trim() : '';
+    if (!validateRefName(source) || !validateRefName(target)) {
+      return fail(400, 'invalid source or target branch');
+    }
+    if (source === target) return fail(400, 'source and target must differ');
+    let subjects;
+    try {
+      subjects = await branchCommitSubjects(repo, source, target);
+    } catch (err) {
+      return gitFail(err, 'git log failed');
+    }
+    if (!subjects.length) return fail(400, `no commits between ${target} and ${source}`);
+    try {
+      const text = await complete(buildPrDescriptionPrompt(source, target, subjects));
+      const parsed = parsePrGeneration(text);
+      await appendAudit({ ok: true, action: 'ai-pr-description', repo, source, target });
+      return ok(parsed);
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'ai-pr-description', repo, source, target });
+      return fail(502, 'AI generation failed', err.message);
+    }
+  }
 
   // ---------- reads ----------
 
@@ -1636,6 +1731,51 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     }
     await appendAudit({ ok: true, action: 'reset', repo, mode, sha });
     return ok({ ok: true, mode, sha });
+  }
+
+  // Apply one commit from anywhere in the graph onto the current branch.
+  if (pathname === '/api/cherry-pick') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const sha = typeof body.sha === 'string' && /^[0-9a-f]{7,40}$/.test(body.sha.trim())
+      ? body.sha.trim()
+      : null;
+    if (!sha) return fail(400, 'invalid commit sha');
+    try {
+      const result = await git(['cherry-pick', sha], repo);
+      await appendAudit({ ok: true, action: 'cherry-pick', repo, sha });
+      return ok({ ok: true, picked: sha, result: result.trim() });
+    } catch (err) {
+      // A conflict keeps CHERRY_PICK_HEAD behind so the repository stays in the
+      // cherry-picking state; report the conflict count instead of a bare error.
+      let conflicts = [];
+      try {
+        conflicts = (await git(['diff', '--name-only', '--diff-filter=U'], repo))
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+      } catch { /* ignore */ }
+      await appendAudit({ ok: false, action: 'cherry-pick', repo, sha, conflicts: conflicts.length });
+      if (conflicts.length) {
+        return {
+          status: 409,
+          json: { error: 'cherry-pick stopped on conflicts', detail: err.stderr || err.message, conflicts },
+        };
+      }
+      return gitFail(err, 'git cherry-pick failed');
+    }
+  }
+
+  // Undo the newest commit on the current branch, keeping its changes staged.
+  if (pathname === '/api/undo-commit') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    try {
+      await git(['reset', '--soft', 'HEAD~1'], repo);
+      await appendAudit({ ok: true, action: 'commit-undo', repo });
+      return ok({ ok: true });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'commit-undo', repo });
+      return gitFail(err, 'git reset --soft HEAD~1 failed (no parent commit?)');
+    }
   }
 
   if (pathname === '/api/revert') {
