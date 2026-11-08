@@ -9,6 +9,8 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
   const { activeRepo, toast } = useApp();
   const [pattern, setPattern] = useState('');
   const [path, setPath] = useState('');
+  const [glob, setGlob] = useState('');
+  const [ignoreCase, setIgnoreCase] = useState(false);
   const [matches, setMatches] = useState<GrepMatch[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,10 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
     const seq = ++seqRef.current;
     setLoading(true);
     try {
-      const res = await searchGrep(activeRepo, term, path.trim() || undefined);
+      const res = await searchGrep(activeRepo, term, path.trim() || undefined, {
+        ignoreCase,
+        glob: glob.trim() || undefined,
+      });
       // A second search may have been started while this one was in flight.
       if (seq !== seqRef.current) return;
       setMatches(res.matches);
@@ -76,6 +81,21 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPath(e.target.value)}
             />
           </div>
+          <div className="grep-input">
+            <input
+              placeholder="File glob (optional), e.g. *.ts"
+              value={glob}
+              onChange={(e) => setGlob(e.target.value)}
+            />
+          </div>
+          <label className="grep-case" title="Ignore case (git grep -i)">
+            <input
+              type="checkbox"
+              checked={ignoreCase}
+              onChange={(e) => setIgnoreCase(e.target.checked)}
+            />
+            Ignore case
+          </label>
           <button type="submit" className="btn btn-primary" disabled={!pattern.trim() || loading}>
             Search
           </button>

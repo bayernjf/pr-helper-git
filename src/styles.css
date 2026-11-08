@@ -2042,6 +2042,14 @@ pre.diff {
   padding: 14px 18px 12px;
   border-bottom: 1px solid var(--border-soft);
 }
+.grep-case {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .grep-input {
   display: flex;
   align-items: center;

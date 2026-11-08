@@ -8,6 +8,8 @@ import { IconSearch, IconX } from './icons';
 export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
   const { toast } = useApp();
   const [pattern, setPattern] = useState('');
+  const [glob, setGlob] = useState('');
+  const [ignoreCase, setIgnoreCase] = useState(false);
   const [results, setResults] = useState<GrepRepoResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
     if (!term) return;
     setLoading(true);
     try {
-      const res = await searchAllGrep(term);
+      const res = await searchAllGrep(term, { ignoreCase, glob: glob.trim() || undefined });
       setResults(res.results);
       setSearched(true);
     } catch (err: any) {
@@ -59,6 +61,21 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPattern(e.target.value)}
             />
           </div>
+          <div className="grep-input">
+            <input
+              placeholder="File glob (optional), e.g. *.ts"
+              value={glob}
+              onChange={(e) => setGlob(e.target.value)}
+            />
+          </div>
+          <label className="grep-case" title="Ignore case (git grep -i)">
+            <input
+              type="checkbox"
+              checked={ignoreCase}
+              onChange={(e) => setIgnoreCase(e.target.checked)}
+            />
+            Ignore case
+          </label>
           <button type="submit" className="btn btn-primary" disabled={!pattern.trim() || loading}>
             Search all
           </button>

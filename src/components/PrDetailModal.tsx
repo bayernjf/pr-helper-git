@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { githubProxy, markReadyForReview, mergePull } from '../api';
+import { checkoutPrHead, githubProxy, markReadyForReview, mergePull } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { formatFullDate, formatRelative, shortHash } from '../lib/format';
@@ -57,7 +57,7 @@ export default function PrDetailModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { pat, remote, activeRepo, toast } = useApp();
+  const { pat, remote, activeRepo, toast, refresh } = useApp();
   const confirm = useConfirm();
   useEscape(onClose);
   const [checks, setChecks] = useState<CheckRun[]>([]);
@@ -75,6 +75,7 @@ export default function PrDetailModal({
   const [submittingReview, setSubmittingReview] = useState(false);
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [working, setWorking] = useState(false);
+  const [prBranchBusy, setPrBranchBusy] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editBody, setEditBody] = useState('');
   const [editWorking, setEditWorking] = useState(false);
@@ -147,6 +148,22 @@ export default function PrDetailModal({
       // Reset even on success: the modal stays open and the footer buttons
       // would otherwise remain disabled after the action completed.
       setWorking(false);
+    }
+  }
+
+  // Create a local branch that points at the PR head, leaving the working tree
+  // and current branch untouched.
+  async function fetchPrBranch() {
+    if (!activeRepo) return;
+    setPrBranchBusy(true);
+    try {
+      const res = await checkoutPrHead(activeRepo, pr.number);
+      toast(`Created branch ${res.branch} at ${shortHash(res.sha)}`, 'success');
+      await refresh();
+    } catch (err: any) {
+      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } finally {
+      setPrBranchBusy(false);
     }
   }
 
@@ -716,6 +733,17 @@ export default function PrDetailModal({
         </div>
 
         <div className="modal-footer">
+          <button
+            type="button"
+            className="btn"
+            disabled={!activeRepo || prBranchBusy}
+            onClick={fetchPrBranch}
+            title={activeRepo
+              ? `Create local branch pr-${pr.number} from the pull request head without switching`
+              : 'Open a repository to fetch the pull request head'}
+          >
+            {prBranchBusy ? 'Fetching…' : 'Fetch PR branch'}
+          </button>
           <a className="btn" href={pr.html_url} target="_blank" rel="noreferrer">
             <IconExternal width={14} height={14} />
             Open on GitHub

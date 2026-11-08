@@ -361,6 +361,24 @@ describe('read routes', () => {
     expect(bad.status).toBe(400);
   });
 
+  it('supports case-insensitive and glob-filtered grep', async () => {
+    const strict = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('BRAVO')}`);
+    expect(strict.status).toBe(200);
+    expect(strict.json.total).toBe(0);
+    const loose = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('BRAVO')}&ignoreCase=1`);
+    expect(loose.status).toBe(200);
+    expect(loose.json.matches[0]).toMatchObject({ path: 'b.txt' });
+    const globMiss = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('bravo')}&glob=${q('*.md')}`);
+    expect(globMiss.json.total).toBe(0);
+    const globHit = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('bravo')}&glob=${q('*.txt')}`);
+    expect(globHit.json.matches[0]).toMatchObject({ path: 'b.txt' });
+    const badGlob = await get(`/api/grep?repo=${q(repoDir)}&pattern=${q('bravo')}&glob=${q('--help')}`);
+    expect(badGlob.status).toBe(400);
+    const allGlob = await get(`/api/grep-all?pattern=${q('bravo')}&glob=${q('*.md')}`);
+    expect(allGlob.status).toBe(200);
+    expect(allGlob.json.total).toBe(0);
+  });
+
   it('reads the configured commit template and reports when missing', async () => {
     const none = await get(`/api/commit-template?repo=${q(repoDir)}`);
     expect(none.status).toBe(200);
@@ -766,6 +784,36 @@ describe('batch repository pull', () => {
     expect(r.status).toBe(200);
     expect(r.json.okCount).toBe(1);
     expect(r.json.failCount).toBe(0);
+  });
+});
+
+describe('pull request checkout', () => {
+  it('creates a local branch from the pull request head without switching', async () => {
+    const origin = path.join(tmpRoot, 'pr-origin.git');
+    const clone = path.join(tmpRoot, 'pr-clone');
+    git(['init', '--bare', origin], tmpRoot);
+    git(['init', '-b', 'main', clone], tmpRoot);
+    git(['config', 'user.email', 'tester@example.com'], clone);
+    git(['config', 'user.name', 'Tester'], clone);
+    await fsp.writeFile(path.join(clone, 'a.txt'), 'one\n', 'utf8');
+    git(['add', '.'], clone);
+    git(['commit', '-m', 'first'], clone);
+    git(['remote', 'add', 'origin', origin], clone);
+    git(['push', '-u', 'origin', 'main'], clone);
+    git(['push', 'origin', 'main:refs/pull/9/head'], clone);
+    expect((await post('/api/repos/add', { repo: clone })).status).toBe(200);
+
+    const r = await post('/api/pr/checkout', { repo: clone, number: 9 });
+    expect(r.status).toBe(200);
+    expect(r.json).toMatchObject({ ok: true, branch: 'pr-9' });
+    expect(r.json.sha).toMatch(/\w{7,}/);
+    const list = git(['branch', '--list', 'pr-9'], clone).trim();
+    expect(list).toContain('pr-9');
+
+    const again = await post('/api/pr/checkout', { repo: clone, number: 9 });
+    expect(again.status).toBe(409);
+    const bad = await post('/api/pr/checkout', { repo: clone, number: 0 });
+    expect(bad.status).toBe(400);
   });
 });
 

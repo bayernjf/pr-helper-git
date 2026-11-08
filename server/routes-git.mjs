@@ -93,6 +93,27 @@ function parseGrepLines(raw) {
   return out;
 }
 
+// Build a `git grep` argv from the optional case-insensitive flag and file
+// glob. The pattern is passed with -e so a value starting with "-" is not read
+// as an option; pathspecs follow "--" for the same reason.
+function grepArgv(pattern, { ignoreCase = false, paths = [] } = {}) {
+  const argv = ['grep', '-I', '-n', '-z', '--untracked'];
+  if (ignoreCase) argv.push('-i');
+  argv.push('-e', pattern, '--');
+  for (const p of paths) argv.push(p);
+  return argv;
+}
+
+// A glob filter is a single git pathspec: reject separators that would let one
+// value inject extra pathspecs, and treat a leading "-" as invalid.
+function normalizeGrepGlob(value) {
+  if (typeof value !== 'string') return null;
+  const glob = value.trim();
+  if (!glob || glob.length > 200) return null;
+  if (/[\0\r\n]/.test(glob) || glob.startsWith('-')) return null;
+  return `:(glob)${glob}`;
+}
+
 // Parse `git config --list` output ("key=value") into a map. Later entries
 // override earlier ones, and git lists system then global then local, so the
 // final value is the effective one.
@@ -394,6 +415,10 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     const pattern = typeof query.get('pattern') === 'string' ? query.get('pattern') : '';
     if (!pattern) return fail(400, 'missing search pattern');
     if (pattern.includes('\0')) return fail(400, 'invalid pattern');
+    const ignoreCase = query.get('ignoreCase') === '1';
+    const globParam = query.get('glob');
+    const glob = globParam ? normalizeGrepGlob(globParam) : null;
+    if (globParam && !glob) return fail(400, 'invalid glob filter');
     const GLOBAL_MATCH_CAP = 500;
     const registered = await listRepos();
     const results = [];
@@ -402,9 +427,7 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     for (const repo of registered) {
       let matches;
       try {
-        // -e declares the pattern explicitly so a value starting with "-" is
-        // not misread as a git option.
-        const raw = await git(['grep', '-I', '-n', '-z', '--untracked', '-e', pattern], repo);
+        const raw = await git(grepArgv(pattern, { ignoreCase, paths: glob ? [glob] : [] }), repo);
         matches = parseGrepLines(raw);
       } catch (err) {
         // git grep exits 1 when nothing matches; other errors are isolated.
@@ -973,14 +996,15 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     if (pattern.includes('\0')) return fail(400, 'invalid pattern');
     const grepPath = query.get('path') ? normalizeRepoPath(query.get('path')) : null;
     if (query.get('path') && !grepPath) return fail(400, 'invalid search path');
+    const ignoreCase = query.get('ignoreCase') === '1';
+    const globParam = query.get('glob');
+    const glob = globParam ? normalizeGrepGlob(globParam) : null;
+    if (globParam && !glob) return fail(400, 'invalid glob filter');
     try {
-      // -I skips binary files, -n prints line numbers, --untracked also
-      // searches files not yet added so the result matches the working tree.
-      // -e declares the pattern explicitly so a value starting with "-" is
-      // not misread as a git option.
-      const argv = ['grep', '-I', '-n', '-z', '--untracked', '-e', pattern];
-      if (grepPath) argv.push('--', grepPath);
-      const raw = await git(argv, repo);
+      const paths = [];
+      if (grepPath) paths.push(grepPath);
+      if (glob) paths.push(glob);
+      const raw = await git(grepArgv(pattern, { ignoreCase, paths }), repo);
       const matches = parseGrepLines(raw);
       return ok({ matches, truncated: false, total: matches.length });
     } catch (err) {
@@ -1195,6 +1219,37 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     await appendAudit({ ok: true, action: 'checkout', repo, ref, tracked });
     return ok({ ok: true, ref, tracked });
+  }
+
+  if (pathname === '/api/pr/checkout') {
+    // Materialize a GitHub pull request as a local branch without switching:
+    // `git fetch origin pull/<n>/head` writes FETCH_HEAD, then `git branch`
+    // points the new branch at it. The working tree is never touched.
+    const number = Number(body.number);
+    if (!Number.isInteger(number) || number < 1 || number > 1_000_000) {
+      return fail(400, 'invalid pull request number');
+    }
+    const branch = validateRefName(body.branch || `pr-${number}`);
+    if (!branch) return fail(400, 'invalid branch name');
+    try {
+      await git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], repo);
+      return fail(409, `branch ${branch} already exists`);
+    } catch { /* expected: the branch must not exist yet */ }
+    try {
+      await git(['fetch', 'origin', `pull/${number}/head`], repo, { timeout: NETWORK_TIMEOUT_MS });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'pr-checkout', repo, number });
+      return gitFail(err, 'fetching the pull request head failed');
+    }
+    const sha = (await git(['rev-parse', 'FETCH_HEAD'], repo)).trim();
+    try {
+      await git(['branch', '--', branch, sha], repo);
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'pr-checkout', repo, number, branch });
+      return gitFail(err, 'creating the local branch failed');
+    }
+    await appendAudit({ ok: true, action: 'pr-checkout', repo, number, branch, sha });
+    return ok({ ok: true, branch, sha });
   }
 
   if (pathname === '/api/branch/create') {

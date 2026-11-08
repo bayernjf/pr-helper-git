@@ -100,11 +100,25 @@ export interface GrepMatch {
   text: string;
 }
 
-export const searchGrep = (repo: string, pattern: string, path?: string) =>
-  request<{ matches: GrepMatch[]; total: number; truncated: boolean }>(
-    `/api/grep?repo=${encodeURIComponent(repo)}&pattern=${encodeURIComponent(pattern)}`
-      + (path ? `&path=${encodeURIComponent(path)}` : ''),
+export interface GrepOptions {
+  ignoreCase?: boolean;
+  glob?: string;
+}
+
+export const searchGrep = (
+  repo: string,
+  pattern: string,
+  path?: string,
+  opts: GrepOptions = {},
+) => {
+  const params = new URLSearchParams({ repo, pattern });
+  if (path) params.set('path', path);
+  if (opts.ignoreCase) params.set('ignoreCase', '1');
+  if (opts.glob) params.set('glob', opts.glob);
+  return request<{ matches: GrepMatch[]; total: number; truncated: boolean }>(
+    `/api/grep?${params.toString()}`,
   );
+};
 
 export interface GrepRepoResult {
   repo: string;
@@ -113,14 +127,25 @@ export interface GrepRepoResult {
   error?: string;
 }
 
-export const searchAllGrep = (pattern: string) =>
-  request<{
+export const searchAllGrep = (pattern: string, opts: GrepOptions = {}) => {
+  const params = new URLSearchParams({ pattern });
+  if (opts.ignoreCase) params.set('ignoreCase', '1');
+  if (opts.glob) params.set('glob', opts.glob);
+  return request<{
     pattern: string;
     results: GrepRepoResult[];
     total: number;
     truncated: boolean;
     limit: number;
-  }>(`/api/grep-all?pattern=${encodeURIComponent(pattern)}`);
+  }>(`/api/grep-all?${params.toString()}`);
+};
+
+export const checkoutPrHead = (repo: string, number: number, branch?: string) =>
+  post('/api/pr/checkout', { repo, number, ...(branch ? { branch } : {}) }) as Promise<{
+    ok: boolean;
+    branch: string;
+    sha: string;
+  }>;
 
 export const moveFile = (repo: string, from: string, to: string) =>
   post('/api/mv', { repo, from, to }) as Promise<{ ok: boolean; from: string; to: string }>;
