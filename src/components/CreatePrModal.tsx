@@ -126,8 +126,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
           </div>
           <label className="checkbox-row">
             <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
-            Open as draft (not ready for review)
-          </label>
+            {t("Open as draft (not ready for review)")}</label>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>

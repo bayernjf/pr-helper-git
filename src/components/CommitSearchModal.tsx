@@ -9,7 +9,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
 import { IconSearch, IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type Mode = 'message' | 'author' | 'path';
 
@@ -86,30 +86,27 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
             onClick={() => applyPrefix('author:')}
             title={t("Filter by author")}
           >
-            author:
-          </button>
+            {t("author:")}</button>
           <button
             type="button"
             className={`btn btn-small commit-search-prefix${mode === 'path' ? ' is-on' : ''}`}
             onClick={() => applyPrefix('path:')}
             title={t("Restrict to commits touching a path")}
           >
-            path:
-          </button>
+            {t("path:")}</button>
           <button type="submit" className="btn btn-primary" disabled={!draft.trim() || loading || !activeRepo}>
-            Search
-          </button>
+            {t("Search")}</button>
         </form>
         <div className="modal-body no-pad">
           {loading ? (
             <div className="list-empty">{t("Searching every reachable ref…")}</div>
           ) : !searched ? (
             <div className="list-empty">
-              Message search is case-insensitive and covers every branch, not just the visible page.
+              {t("Message search is case-insensitive and covers every branch, not just the visible page.")}
             </div>
           ) : commits.length === 0 ? (
             <div className="list-empty">
-              No commit matches {searched.mode === 'message' ? `“${searched.term}”` : `${searched.mode}:${searched.term}`}.
+              {tp("No commit matches {term}.", { term: searched.mode === 'message' ? `“${searched.term}”` : `${searched.mode}:${searched.term}` })}
             </div>
           ) : (
             <div className="commit-search-list">
@@ -138,7 +135,7 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
         </div>
         <div className="modal-footer">
           {searched && commits.length > 0 && (
-            <span className="repo-panel-count">{commits.length} result{commits.length === 1 ? '' : 's'}</span>
+            <span className="repo-panel-count">{commits.length} {t("result")}{commits.length === 1 ? '' : 's'}</span>
           )}
           <span style={{ flex: 1 }} />
           <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>

@@ -86,8 +86,7 @@ export default function LogFilterModal({ onClose }: Props) {
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={clear} disabled={activeCount === 0}>
-            Clear filters
-          </button>
+            {t("Clear filters")}</button>
           <button type="submit" className="btn btn-primary">{t("Apply")}</button>
         </div>
       </form>

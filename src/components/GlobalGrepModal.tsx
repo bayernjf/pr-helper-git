@@ -75,11 +75,9 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
               checked={ignoreCase}
               onChange={(e) => setIgnoreCase(e.target.checked)}
             />
-            Ignore case
-          </label>
+            {t("Ignore case")}</label>
           <button type="submit" className="btn btn-primary" disabled={!pattern.trim() || loading}>
-            Search all
-          </button>
+            {t("Search all")}</button>
         </form>
         <div className="modal-body no-pad grep-body">
           {loading ? (

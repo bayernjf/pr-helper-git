@@ -131,9 +131,9 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
             <IconUser width={15} height={15} />
             {me ? (
               <span>
-                Signed in as <b>{me.name}</b>
-                <span className={`role-badge ${me.role}`}>{me.role}</span>
-                {me.instance && <span className="muted"> (instance owner)</span>}
+                {t("Signed in as")} <b>{me.name}</b>
+                <span className={`role-badge ${me.role}`}>{t(me.role)}</span>
+                {me.instance && <span className="muted"> （{t("instance owner")}）</span>}
               </span>
             ) : (
               <span className="muted">{t("Loading…")}</span>
@@ -185,11 +185,11 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
                   aria-label={t("New member role")}
                 >
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
+                  <option value="member">{t("member")}</option>
+                  <option value="admin">{t("admin")}</option>
                 </select>
                 <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
-                  Create member
+                  {t("Create member")}
                 </button>
               </form>
 
@@ -203,7 +203,7 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                     <input readOnly value={created.token} aria-label={t("New member token")} />
                     <button type="button" className="btn" onClick={copyToken}>
                       <IconCopy width={13} height={13} />
-                      {copied ? 'Copied' : 'Copy'}
+                      {copied ? t('Copied') : t('Copy')}
                     </button>
                   </div>
                 </div>
@@ -216,7 +216,7 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="team-config-actions">
                   <button type="button" className="btn" onClick={exportConfig}>
-                    Export team config
+                    {t("Export team config")}
                   </button>
                   <button
                     type="button"
@@ -224,7 +224,7 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                     disabled={busy}
                     onClick={() => fileRef.current?.click()}
                   >
-                    Import…
+                    {t("Import…")}
                   </button>
                   <label className="hint team-replace">
                     <input
@@ -232,7 +232,7 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                       checked={replaceOnImport}
                       onChange={(e) => setReplaceOnImport(e.target.checked)}
                     />
-                    Replace the current repository list
+                    {t("Replace the current repository list")}
                   </label>
                   <input
                     ref={fileRef}

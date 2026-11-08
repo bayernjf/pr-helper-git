@@ -4,7 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type Tab = 'commits' | 'files';
 
@@ -79,7 +79,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
             disabled={loading || !base || !head || base === head}
             onClick={() => run(base, head)}
           >
-            Compare
+            {t("Compare")}
           </button>
         </div>
 
@@ -89,9 +89,9 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
           {!loading && !error && result && (
             <>
               <div className="compare-summary">
-                <span><b>{result.ahead.length}</b> commits in head only</span>
-                <span><b>{result.behind.length}</b> commits in base only</span>
-                <span><b>{result.files.length}</b> changed files</span>
+                <span><b>{result.ahead.length}</b> {t("commits in head only")}</span>
+                <span><b>{result.behind.length}</b> {t("commits in base only")}</span>
+                <span><b>{result.files.length}</b> {t("changed files")}</span>
               </div>
               <div className="compare-tabs">
                 <button
@@ -99,20 +99,18 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
                   className={tab === 'commits' ? 'active' : ''}
                   onClick={() => setTab('commits')}
                 >
-                  Commits
-                </button>
+                  {t("Commits")}</button>
                 <button
                   type="button"
                   className={tab === 'files' ? 'active' : ''}
                   onClick={() => setTab('files')}
                 >
-                  Files
-                </button>
+                  {t("Files")}</button>
               </div>
               <div className="compare-result">
                 {tab === 'commits' ? (
                   <>
-                    <div className="detail-label">In "{head}" but not "{base}"</div>
+                    <div className="detail-label">{tp("In “{head}” but not “{base}”", { head, base })}</div>
                     {result.ahead.length === 0
                       ? <div className="list-empty">{t("No commits.")}</div>
                       : result.ahead.map((c) => (
@@ -123,7 +121,7 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
                         </div>
                       ))}
                     <div className="detail-label" style={{ marginTop: 12 }}>
-                      In "{base}" but not "{head}"
+                      {tp("In “{base}” but not “{head}”", { head, base })}
                     </div>
                     {result.behind.length === 0
                       ? <div className="list-empty">{t("No commits.")}</div>

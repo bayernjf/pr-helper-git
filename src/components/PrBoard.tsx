@@ -14,7 +14,7 @@ import {
 } from './icons';
 import CreatePrModal from './CreatePrModal';
 import PrDetailModal from './PrDetailModal';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type Column = 'open' | 'merged' | 'closed';
 
@@ -23,12 +23,12 @@ const PAGE_SIZE = 100;
 
 function MergePill({ pr }: { pr: PullRequest }) {
   if (pr.mergeable === false) {
-    return <span className="merge-pill blocked"><IconX width={12} height={12} /> conflicts</span>;
+    return <span className="merge-pill blocked"><IconX width={12} height={12} /> {t("conflicts")}</span>;
   }
   if (pr.mergeable_state === 'clean') {
-    return <span className="merge-pill ok"><IconCheck width={12} height={12} /> mergeable</span>;
+    return <span className="merge-pill ok"><IconCheck width={12} height={12} /> {t("mergeable")}</span>;
   }
-  return <span className="merge-pill unknown">computing</span>;
+  return <span className="merge-pill unknown">{t("computing")}</span>;
 }
 
 function ReviewPill({ state }: { state: ReviewState }) {
@@ -42,7 +42,7 @@ function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
   return (
     <button type="button" className="pr-card" onClick={onOpen}>
       <div className="pr-title">
-        {pr.draft && <span className="draft-tag">draft</span>}
+        {pr.draft && <span className="draft-tag">{t("draft")}</span>}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>#{pr.number} {pr.title}</span>
       </div>
       <div className="pr-meta">
@@ -211,7 +211,7 @@ export default function PrBoard() {
       <div className="empty-state">
         <div className="empty-icon"><IconInbox width={28} height={28} /></div>
         <h3>{t("No GitHub remote")}</h3>
-        <p>Pull-request features need an origin remote hosted on github.com for {activeRepo}.</p>
+        <p>{tp("Pull-request features need an origin remote hosted on github.com for {repo}.", { repo: activeRepo ?? '' })}</p>
       </div>
     );
   }
@@ -258,12 +258,11 @@ export default function PrBoard() {
         <span className="spacer" />
         <button type="button" className="btn" onClick={load} disabled={loading}>
           <IconRefresh width={14} height={14} />
-          {loading ? 'Loading' : 'Refresh'}
+          {loading ? t('Loading') : t('Refresh')}
         </button>
         <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
           <IconPlus width={14} height={14} />
-          New pull request
-        </button>
+          {t("New pull request")}</button>
       </div>
       {error && <div className="toast error" style={{ position: 'static', margin: 10 }}>{error}</div>}
       <div className="pr-board">

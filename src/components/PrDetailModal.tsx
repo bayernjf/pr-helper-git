@@ -14,7 +14,7 @@ import {
 } from './icons';
 import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
 import { useConfirm } from './ui';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 
@@ -417,22 +417,19 @@ export default function PrDetailModal({
 
         <div className="modal-body">
           <div className="detail-value muted" style={{ marginBottom: 16 }}>
-            {pr.head.label} → {pr.base.label} · opened by {pr.user.login} on{' '}
-            {formatFullDate(pr.created_at)}
+            {pr.head.label} → {pr.base.label} · {tp("opened by {user} on {date}", { user: pr.user.login, date: formatFullDate(pr.created_at) })}
           </div>
 
           <div className="detail-section">
             <span className="detail-label">
-              Description
-              {pr.state === 'open' && !editingDescription && (
+              {t("Description")}{pr.state === 'open' && !editingDescription && (
                 <button
                   type="button"
                   className="comment-tool-btn"
                   style={{ marginLeft: 8 }}
                   onClick={startEditDescription}
                 >
-                  Edit
-                </button>
+                  {t("Edit")}</button>
               )}
             </span>
             {editingDescription ? (
@@ -451,8 +448,7 @@ export default function PrDetailModal({
                     onClick={() => setEditingDescription(false)}
                     disabled={editWorking}
                   >
-                    Cancel
-                  </button>
+                    {t("Cancel")}</button>
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -472,7 +468,7 @@ export default function PrDetailModal({
 
           <div className="detail-section">
             <span className="detail-label">
-              Commits ({prCommits.length})
+              {tp("Commits ({count})", { count: prCommits.length })}
             </span>
             <div className="pr-detail-list">
               {prCommits.map((c) => (
@@ -488,7 +484,7 @@ export default function PrDetailModal({
 
           <div className="detail-section">
             <span className="detail-label">
-              Files changed ({prFiles.length})
+              {tp("Files changed ({count})", { count: prFiles.length })}
               <span className="changes-stats" style={{ marginLeft: 8, fontWeight: 600 }}>
                 <span className="add">+{totalAdd}</span>
                 <span className="del">-{totalDel}</span>
@@ -534,7 +530,7 @@ export default function PrDetailModal({
           </div>
 
           <div className="detail-section">
-            <span className="detail-label">Reviewers ({reviewers.length})</span>
+            <span className="detail-label">{tp("Reviewers ({count})", { count: reviewers.length })}</span>
             {reviewers.length === 0 ? (
               <div className="detail-value muted">{t("No reviewers requested yet.")}</div>
             ) : (
@@ -563,13 +559,13 @@ export default function PrDetailModal({
                     }
                   }}
                 />
-                <button type="button" className="btn" onClick={addReviewer}>Request</button>
+                <button type="button" className="btn" onClick={addReviewer}>{t("Request")}</button>
               </div>
             )}
           </div>
 
           <div className="detail-section">
-            <span className="detail-label">Reviews ({reviews.length})</span>
+            <span className="detail-label">{tp("Reviews ({count})", { count: reviews.length })}</span>
             {reviews.length === 0 ? (
               <div className="detail-value muted">{t("No reviews submitted yet.")}</div>
             ) : (
@@ -608,24 +604,21 @@ export default function PrDetailModal({
                     disabled={submittingReview || !reviewBody.trim()}
                     onClick={() => submitReview('COMMENT')}
                   >
-                    Comment
-                  </button>
+                    {t("Comment")}</button>
                   <button
                     type="button"
                     className="btn"
                     disabled={submittingReview}
                     onClick={() => submitReview('APPROVE')}
                   >
-                    Approve
-                  </button>
+                    {t("Approve")}</button>
                   <button
                     type="button"
                     className="btn btn-danger"
                     disabled={submittingReview}
                     onClick={() => submitReview('REQUEST_CHANGES')}
                   >
-                    Request changes
-                  </button>
+                    {t("Request changes")}</button>
                 </div>
               </div>
             )}
@@ -633,7 +626,7 @@ export default function PrDetailModal({
 
           <div className="detail-section">
             <span className="detail-label">
-              Checks{failedChecks > 0 ? ` · ${failedChecks} failing` : ''}
+              {t("Checks")}{failedChecks > 0 ? ` · ${failedChecks} failing` : ''}
             </span>
             {checks.length === 0 ? (
               <div className="detail-value muted">{t("No check runs reported.")}</div>
@@ -656,7 +649,7 @@ export default function PrDetailModal({
           </div>
 
           <div className="detail-section">
-            <span className="detail-label">Comments ({comments.length})</span>
+            <span className="detail-label">{tp("Comments ({count})", { count: comments.length })}</span>
             {comments.length === 0 ? (
               <div className="detail-value muted">{t("No comments yet.")}</div>
             ) : (
@@ -679,8 +672,7 @@ export default function PrDetailModal({
                               onClick={() => startEditComment(c)}
                               disabled={editWorking}
                             >
-                              Edit
-                            </button>
+                              {t("Edit")}</button>
                             <button
                               type="button"
                               className="comment-tool-btn danger"
@@ -688,8 +680,7 @@ export default function PrDetailModal({
                               onClick={() => deleteComment(c)}
                               disabled={editWorking}
                             >
-                              Delete
-                            </button>
+                              {t("Delete")}</button>
                           </span>
                         )}
                       </div>
@@ -708,8 +699,7 @@ export default function PrDetailModal({
                               onClick={cancelEditComment}
                               disabled={editWorking}
                             >
-                              Cancel
-                            </button>
+                              {t("Cancel")}</button>
                             <button
                               type="button"
                               className="btn btn-primary"
@@ -834,8 +824,7 @@ export default function PrDetailModal({
                 </button>
               ) : (
                 <button type="button" className="btn btn-primary" disabled={working} onClick={merge}>
-                  Merge
-                </button>
+                  {t("Merge")}</button>
               )}
             </>
           ) : (

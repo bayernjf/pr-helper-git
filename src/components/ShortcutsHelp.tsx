@@ -69,7 +69,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
         <div className="modal-body shortcuts-body">
           {GROUPS.map((group) => (
             <div className="shortcuts-group" key={group.title}>
-              <h3 className="shortcuts-title">{group.title}</h3>
+              <h3 className="shortcuts-title">{t(group.title)}</h3>
               {group.rows.map((row) => (
                 <div className="shortcuts-row" key={row.description}>
                   <span className="shortcuts-keys">
@@ -77,7 +77,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
                       <kbd key={`${k}-${i}`} className="kbd">{k}</kbd>
                     ))}
                   </span>
-                  <span className="shortcuts-desc">{row.description}</span>
+                  <span className="shortcuts-desc">{t(row.description)}</span>
                 </div>
               ))}
             </div>

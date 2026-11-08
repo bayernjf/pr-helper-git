@@ -17,6 +17,8 @@ export function formatFullDate(iso: string): string {
   });
 }
 
+import { getLocale } from '../i18n';
+
 export function formatRelative(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -41,8 +43,14 @@ export function formatRelative(iso: string): string {
     value = Math.round(value / size);
     unit = name;
   }
-  if (value < 60 && unit === 'second') return 'just now';
+  if (value < 60 && unit === 'second') return getLocale() === 'zh' ? '刚刚' : 'just now';
   const rounded = Math.max(1, value);
+  if (getLocale() === 'zh') {
+    const zhUnit: Record<string, string> = {
+      second: '秒', minute: '分钟', hour: '小时', day: '天', week: '周', month: '个月', year: '年',
+    };
+    return `${rounded}${zhUnit[unit] ?? unit}前`;
+  }
   return `${rounded} ${unit}${rounded === 1 ? '' : 's'} ago`;
 }
 

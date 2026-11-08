@@ -52,8 +52,7 @@ export default function NewFileModal({ onClose, onCreated }: Props) {
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
-            Create
-          </button>
+            {t("Create")}</button>
         </div>
       </form>
     </div>

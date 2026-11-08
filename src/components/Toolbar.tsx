@@ -120,13 +120,13 @@ export default function Toolbar() {
 
   const menuItems: MenuItem[] = dropMenu?.kind === 'pull'
     ? [
-      { id: 'pull-merge', label: 'Pull (merge)' },
-      { id: 'pull-rebase', label: 'Pull with rebase' },
+      { id: 'pull-merge', label: t('Pull (merge)') },
+      { id: 'pull-rebase', label: t('Pull with rebase') },
     ]
     : [
-      { id: 'push-normal', label: 'Push' },
-      { id: 'push-lease', label: 'Force push (--force-with-lease)' },
-      { id: 'push-force', label: 'Force push (--force)', danger: true },
+      { id: 'push-normal', label: t('Push') },
+      { id: 'push-lease', label: t('Force push (--force-with-lease)') },
+      { id: 'push-force', label: t('Force push (--force)'), danger: true },
     ];
 
   async function onMenuSelect(id: string) {
@@ -202,7 +202,7 @@ export default function Toolbar() {
         title="git fetch --all"
         onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
       >
-        Fetch
+        {t("Fetch")}
       </button>
       <span className="btn-group">
         <button
@@ -213,7 +213,7 @@ export default function Toolbar() {
           onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
         >
           <IconDownload width={14} height={14} />
-          Pull
+          {t("Pull")}
         </button>
         <button
           type="button"
@@ -234,7 +234,7 @@ export default function Toolbar() {
           onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
         >
           <IconUpload width={14} height={14} />
-          Push
+          {t("Push")}
         </button>
         <button
           type="button"
@@ -254,7 +254,7 @@ export default function Toolbar() {
         onClick={() => setShowStash(true)}
       >
         <IconStash width={14} height={14} />
-        Stash
+        {t("Stash")}
       </button>
 
       <span className="segmented">

@@ -12,7 +12,7 @@ import {
 } from '../lib/diff-lines';
 import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
@@ -229,7 +229,7 @@ export default function DiffView({
 
   if (!result) return <EmptyHint>{t("Select a file to review its changes.")}</EmptyHint>;
   if (result.masked) {
-    return <EmptyHint>{result.path} is sensitive — its contents are masked.</EmptyHint>;
+    return <EmptyHint>{tp("{path} is sensitive — its contents are masked.", { path: result.path })}</EmptyHint>;
   }
   if (!result.diff) {
     return <EmptyHint>{t("No diff available for this file.")}</EmptyHint>;
@@ -294,8 +294,7 @@ export default function DiffView({
                               return copy;
                             })}
                           >
-                            Clear
-                          </button>
+                            {t("Clear")}</button>
                         </>
                       )}
                       {!staged && (

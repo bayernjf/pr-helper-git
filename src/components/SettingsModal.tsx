@@ -151,7 +151,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               <input
                 id="ai-key"
                 type="password"
-                placeholder={hasKey ? '•••••• stored (leave blank to keep)' : 'sk-…'}
+                placeholder={hasKey ? t('•••••• stored (leave blank to keep)') : 'sk-…'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
@@ -159,18 +159,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="form-row" style={{ alignItems: 'center', gap: 8 }}>
             <button type="button" className="btn" disabled={savingAi} onClick={saveAi}>
-              {savingAi ? 'Saving…' : 'Save AI settings'}
+              {savingAi ? t('Saving…') : t('Save AI settings')}
             </button>
             <button type="button" className="btn" disabled={!configured || testing} onClick={runTest}>
-              {testing ? 'Testing…' : 'Test'}
+              {testing ? t('Testing…') : t('Test')}
             </button>
             {hasKey && (
               <button type="button" className="btn" disabled={savingAi} onClick={clearKey}>
-                Remove key
+                {t("Remove key")}
               </button>
             )}
             <span className="field-note">
-              {configured ? 'Configured' : 'Not configured yet'}
+              {configured ? t('Configured') : t('Not configured yet')}
             </span>
           </div>
         </div>

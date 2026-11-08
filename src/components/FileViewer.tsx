@@ -13,7 +13,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
 import { IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type Mode = 'content' | 'blame' | 'history' | 'edit';
 
@@ -224,14 +224,11 @@ export default function FileViewer({
             <span className="file-name">{filePath}</span>
             <span className="view-toggle">
               <button type="button" className={mode === 'content' ? 'active' : ''} onClick={() => setMode('content')}>
-                Content
-              </button>
+                {t("Content")}</button>
               <button type="button" className={mode === 'blame' ? 'active' : ''} onClick={() => setMode('blame')}>
-                Blame
-              </button>
+                {t("Blame")}</button>
               <button type="button" className={mode === 'history' ? 'active' : ''} onClick={() => setMode('history')}>
-                History
-              </button>
+                {t("History")}</button>
               {canEdit && (
                 <button
                   type="button"
@@ -239,8 +236,7 @@ export default function FileViewer({
                   title={t("Edit working-tree file")}
                   onClick={startEdit}
                 >
-                  Edit
-                </button>
+                  {t("Edit")}</button>
               )}
             </span>
           </div>
@@ -248,7 +244,7 @@ export default function FileViewer({
           {!file && mode !== 'history' ? (
             <div className="diff-empty">{t("Loading…")}</div>
           ) : file?.masked && mode !== 'history' ? (
-            <div className="diff-empty">{filePath} is sensitive — its contents are masked.</div>
+            <div className="diff-empty">{tp("{path} is sensitive — its contents are masked.", { path: filePath })}</div>
           ) : file?.binary && mode !== 'history' ? (
             <div className="diff-empty">{t("Binary file — preview not available.")}</div>
           ) : mode === 'edit' ? (
@@ -263,14 +259,13 @@ export default function FileViewer({
               <div className="file-editor-actions">
                 <span className="editor-hint">{t("Tab to indent · Cmd/Ctrl+S to save")}</span>
                 <button type="button" className="btn" onClick={cancelEdit} disabled={saving}>
-                  Cancel
-                </button>
+                  {t("Cancel")}</button>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={submitEdit}
                   disabled={saving}
-                  title="Save (Cmd/Ctrl+S)"
+                  title={t("Save (Cmd/Ctrl+S)")}
                 >
                   {saving ? 'Saving…' : 'Save changes'}
                 </button>

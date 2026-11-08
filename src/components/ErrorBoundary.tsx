@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { IconAlert, IconRefresh } from './icons';
+import { t } from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -42,11 +43,9 @@ export default class ErrorBoundary extends Component<Props, State> {
           <div className="error-boundary-actions">
             <button type="button" className="btn" onClick={this.retry}>
               <IconRefresh width={14} height={14} />
-              Try again
-            </button>
+              {t("Try again")}</button>
             <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
-              Reload app
-            </button>
+              {t("Reload app")}</button>
           </div>
         </div>
       </div>

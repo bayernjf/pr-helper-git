@@ -8,7 +8,7 @@ import type { DiffResult } from '../types';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
 import { IconCopy, IconEye, IconFile, IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 function statusColor(status: string): string {
   if (status.startsWith('A')) return 'var(--green)';
@@ -147,7 +147,7 @@ export default function CommitDetail() {
       )}
 
       <div className="detail-section">
-        <span className="detail-label">Changed files ({files.length})</span>
+        <span className="detail-label">{tp("Changed files ({count})", { count: files.length })}</span>
         <div className="pr-detail-list">
           {files.map((f) => (
             <button
@@ -196,7 +196,7 @@ export default function CommitDetail() {
                 title={t("Hide pure whitespace changes in this patch")}
                 onClick={toggleIgnoreWs}
               >
-                Ignore whitespace
+                {t("Ignore whitespace")}
               </button>
               <button type="button" className="icon-btn" aria-label={t("Close patch")} title={t("Close patch")} onClick={closePatch}>
                 <IconX />

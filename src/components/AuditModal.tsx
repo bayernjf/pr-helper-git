@@ -5,7 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
 import { IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type OutcomeFilter = 'all' | 'ok' | 'fail';
 
@@ -100,14 +100,14 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
               {total === 0 ? (
                 <div className="list-empty">
                   {filtersActive
-                    ? 'No entries match the current filters.'
-                    : 'No audit entries recorded yet.'}
+                    ? t('No entries match the current filters.')
+                    : t('No audit entries recorded yet.')}
                 </div>
               ) : (
                 <>
                   <div className="audit-meta">
-                    Showing {entries.length} of {total} matching entries, newest first.
-                    {total > entries.length ? ` First ${LOAD_LIMIT} loaded.` : ''}
+                    {tp('Showing {shown} of {total} matching entries, newest first.', { shown: entries.length, total })}
+                    {total > entries.length ? tp(' First {limit} loaded.', { limit: LOAD_LIMIT }) : ''}
                   </div>
                   {entries.map((entry, i) => {
                     const extra = extraFields(entry);
@@ -117,11 +117,11 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                           {entry.ok === false ? '!' : '✓'}
                         </span>
                         <span className="audit-time">{formatFullDate(entry.at)}</span>
-                        <span className="audit-action">{entry.action || 'unknown'}</span>
+                        <span className="audit-action">{entry.action || t('unknown')}</span>
                         <span className="audit-summary">{summarize(entry)}</span>
                         {extra && (
                           <details className="audit-raw">
-                            <summary>raw</summary>
+                            <summary>{t("raw")}</summary>
                             <pre>{extra}</pre>
                           </details>
                         )}

@@ -282,8 +282,7 @@ export default function PrFileReview({
                     <div className="review-composer-actions">
                       <span className="hint">{t("Cmd/Ctrl+Enter to submit")}</span>
                       <button type="button" className="btn" onClick={resetComposer} disabled={posting}>
-                        Cancel
-                      </button>
+                        {t("Cancel")}</button>
                       <button type="button" className="btn btn-primary" onClick={submit} disabled={posting}>
                         {posting ? 'Posting…' : 'Comment'}
                       </button>

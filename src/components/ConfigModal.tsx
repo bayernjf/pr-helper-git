@@ -84,8 +84,7 @@ export default function ConfigModal({ onClose }: Props) {
         </div>
         <div className="modal-body">
           <div className="hint config-hint">
-            Changes write to this repository&apos;s local config. Leave a field blank to remove the
-            local override and inherit the global/system value.
+            {t("Changes write to this repository's local config. Leave a field blank to remove the local override and inherit the global/system value.")}
           </div>
           {loading && <div className="config-status">{t("Loading…")}</div>}
           {error && <div className="config-status config-error">{error}</div>}
@@ -96,7 +95,7 @@ export default function ConfigModal({ onClose }: Props) {
                   <div className="config-key">
                     <span>{entry.key}</span>
                     {entry.inherited && (drafts[entry.key] ?? '') === (entry.effective ?? '') && (
-                      <span className="config-badge">inherited</span>
+                      <span className="config-badge">{t("inherited")}</span>
                     )}
                   </div>
                   <div className="config-control">
@@ -107,7 +106,7 @@ export default function ConfigModal({ onClose }: Props) {
                           setDrafts((prev) => ({ ...prev, [entry.key]: e.target.value }))
                         }
                       >
-                        <option value="">(inherited / unset)</option>
+                        <option value="">{t("(inherited / unset)")}</option>
                         {entry.options!.map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}

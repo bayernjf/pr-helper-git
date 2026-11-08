@@ -21,7 +21,7 @@ import RevertMergeModal from './RevertMergeModal';
 import TagModal from './TagModal';
 import LogFilterModal from './LogFilterModal';
 import { useConfirm } from './ui';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 const ROW_H = 34;
 const COL_W = 20;
@@ -410,7 +410,7 @@ export default function CommitGraph() {
           )}
         </div>
         <span className="graph-search-count">
-          {visibleCommits.length} of {commits.length}
+          {tp("Showing {shown} of {total}", { shown: visibleCommits.length, total: commits.length })}
         </span>
         <div className="graph-path-filter">
           <input
@@ -445,7 +445,7 @@ export default function CommitGraph() {
           title={t("Filter history by author, message or date")}
           onClick={() => setFilterModal(true)}
         >
-          Filters{filterCount ? ` (${filterCount})` : ''}
+          {t("Filters")}{filterCount ? ` (${filterCount})` : ''}
         </button>
         <span className="scope-toggle" role="group" aria-label={t("History scope")}>
           <button
@@ -454,7 +454,7 @@ export default function CommitGraph() {
             onClick={() => setLogScope('all')}
             title={t("Show history across every branch")}
           >
-            All branches
+            {t("All branches")}
           </button>
           <button
             type="button"
@@ -462,7 +462,7 @@ export default function CommitGraph() {
             onClick={() => setLogScope('current')}
             title={t("Follow only the current branch history")}
           >
-            Current branch
+            {t("Current branch")}
           </button>
         </span>
       </div>
@@ -552,7 +552,7 @@ export default function CommitGraph() {
       </div>
 
       {visibleCommits.length === 0 && (
-        <div className="graph-no-match">No commits match “{search}”.</div>
+        <div className="graph-no-match">{tp("No commits match “{query}”.", { query: search })}</div>
       )}
 
       {checked.size > 0 && (
@@ -562,13 +562,13 @@ export default function CommitGraph() {
             type="button"
             className="btn btn-primary"
             disabled={checked.size < 2}
-            title={checked.size < 2 ? 'Select at least two commits' : 'Revert all selected commits'}
+            title={checked.size < 2 ? t('Select at least two commits') : t('Revert all selected commits')}
             onClick={handleBatchRevert}
           >
-            <IconRevert width={14} height={14} /> Revert
+            <IconRevert width={14} height={14} /> {t("Revert")}
           </button>
           <button type="button" className="btn" onClick={handleBatchCopy}>
-            <IconCopy width={14} height={14} /> Copy SHAs
+            <IconCopy width={14} height={14} /> {t("Copy SHAs")}
           </button>
           <button
             type="button"

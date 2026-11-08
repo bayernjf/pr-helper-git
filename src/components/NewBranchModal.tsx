@@ -70,14 +70,12 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
               checked={noCheckout}
               onChange={(e) => setNoCheckout(e.target.checked)}
             />
-            Create branch without switching
-          </label>
+            {t("Create branch without switching")}</label>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
-            Create branch
-          </button>
+            {t("Create branch")}</button>
         </div>
       </form>
     </div>

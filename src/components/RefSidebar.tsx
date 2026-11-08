@@ -523,7 +523,7 @@ export default function RefSidebar() {
         />
       </div>
       <GroupHead
-        label="Local branches"
+        label={t("Local branches")}
         count={groups.local.length}
         open={openGroups.local}
         onToggle={() => toggle('local')}
@@ -575,7 +575,7 @@ export default function RefSidebar() {
       ))}
 
       <GroupHead
-        label="Remote branches"
+        label={t("Remote branches")}
         count={groups.remote.length}
         open={openGroups.remote}
         onToggle={() => toggle('remote')}
@@ -591,7 +591,7 @@ export default function RefSidebar() {
       ))}
 
       <GroupHead
-        label="Tags"
+        label={t("Tags")}
         count={groups.tags.length}
         open={openGroups.tag}
         onToggle={() => toggle('tag')}
@@ -607,7 +607,7 @@ export default function RefSidebar() {
       ))}
 
       <GroupHead
-        label="Stash"
+        label={t("Stash")}
         count={visibleStash.length}
         open={openGroups.stash}
         onToggle={() => toggle('stash')}

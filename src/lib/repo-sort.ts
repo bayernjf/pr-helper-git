@@ -2,6 +2,8 @@
 // ordering and the header aggregate. Kept out of the component so the rules can
 // be unit-tested without a DOM.
 
+import { getLocale } from '../i18n';
+
 export type ActivityLevel = 'fresh' | 'recent' | 'stale' | 'dormant' | 'none';
 
 const MINUTE = 60 * 1000;
@@ -31,6 +33,14 @@ export function relativeAge(at: string | null | undefined, now: number = Date.no
   const ms = new Date(at).getTime();
   if (!Number.isFinite(ms)) return '';
   const age = Math.max(0, now - ms);
+  if (getLocale() === 'zh') {
+    if (age < MINUTE) return '刚刚';
+    if (age < HOUR) return `${Math.floor(age / MINUTE)} 分钟前`;
+    if (age < DAY) return `${Math.floor(age / HOUR)} 小时前`;
+    if (age < 30 * DAY) return `${Math.floor(age / DAY)} 天前`;
+    if (age < 365 * DAY) return `${Math.floor(age / (30 * DAY))} 个月前`;
+    return `${Math.floor(age / (365 * DAY))} 年前`;
+  }
   if (age < MINUTE) return 'just now';
   if (age < HOUR) return `${Math.floor(age / MINUTE)}m ago`;
   if (age < DAY) return `${Math.floor(age / HOUR)}h ago`;

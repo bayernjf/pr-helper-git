@@ -295,8 +295,8 @@ export default function CommandPalette() {
                 onClick={() => execute(command)}
               >
                 <span className="cmdk-icon">{command.icon}</span>
-                <span className="cmdk-label">{command.label}</span>
-                {command.hint && <span className="cmdk-hint">{command.hint}</span>}
+                <span className="cmdk-label">{t(command.label)}</span>
+                {command.hint && <span className="cmdk-hint">{t(command.hint)}</span>}
               </button>
             ))
           )}

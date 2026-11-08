@@ -37,7 +37,7 @@ import {
   IconX,
 } from './icons';
 import { useConfirm } from './ui';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 interface Selection {
   path: string;
@@ -499,13 +499,13 @@ export default function WorkPanel() {
               title={t("Create a new file in this repository")}
               onClick={() => setShowNewFile(true)}
             >
-              <IconPlus width={13} height={13} /> New file
+              <IconPlus width={13} height={13} /> {t("New file")}
             </button>
           </div>
           <Group
             title={t("Staged changes")}
             files={groups.staged}
-            allLabel="Unstage all"
+            allLabel={t("Unstage all")}
             onAll={() => runAction(stageAll(activeRepo!, 'unstage'), 'Unstaged all')}
           >
             {renderTree(trees.staged, 'staged', false)}
@@ -513,7 +513,7 @@ export default function WorkPanel() {
           <Group
             title={t("Unstaged changes")}
             files={groups.unstaged}
-            allLabel="Stage all"
+            allLabel={t("Stage all")}
             onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
           >
             {renderTree(trees.unstaged, 'unstaged', true)}
@@ -529,7 +529,7 @@ export default function WorkPanel() {
                 title={t("Clean untracked files")}
                 onClick={handleClean}
               >
-                <IconBroom width={13} height={13} /> Clean
+                <IconBroom width={13} height={13} /> {t("Clean")}
               </button>
             }
           >
@@ -544,20 +544,20 @@ export default function WorkPanel() {
             title={t("Ignore whitespace changes (-w)")}
             onClick={() => setIgnoreWs((v) => !v)}
           >
-            Ignore whitespace
+            {t("Ignore whitespace")}
           </button>
           <label className="context-picker">
-            Context
+            {t("Context")}
             <select
               value={context === undefined ? '' : context}
               title={t("Diff context lines (--unified)")}
               onChange={(e) => setContext(e.target.value === '' ? undefined : Number(e.target.value))}
             >
-              <option value="">Default (3)</option>
-              <option value={0}>0 lines</option>
-              <option value={3}>3 lines</option>
-              <option value={6}>6 lines</option>
-              <option value={10}>10 lines</option>
+              <option value="">{t("Default (3)")}</option>
+              <option value={0}>{t("0 lines")}</option>
+              <option value={3}>{t("3 lines")}</option>
+              <option value={6}>{t("6 lines")}</option>
+              <option value={10}>{t("10 lines")}</option>
             </select>
           </label>
         </div>
@@ -582,7 +582,7 @@ export default function WorkPanel() {
             disabled={generating || groups.staged.length === 0}
             onClick={handleGenerate}
           >
-            {generating ? 'Generating…' : 'Generate with AI'}
+            {generating ? t('Generating…') : t('Generate with AI')}
           </button>
           {commits.length > 0 && (
             <button
@@ -591,17 +591,17 @@ export default function WorkPanel() {
               onClick={() => setAmend((v) => !v)}
             >
               <IconUndo width={13} height={13} />
-              Amend last commit
+              {t("Amend last commit")}
             </button>
           )}
           {!amend && groups.staged.length === 0 && (
             <button
               type="button"
               className={`amend-toggle${allowEmpty ? ' on' : ''}`}
-              title="Create a commit even when nothing is staged (--allow-empty)"
+              title={t("Create a commit even when nothing is staged (--allow-empty)")}
               onClick={() => setAllowEmpty((v) => !v)}
             >
-              Allow empty
+              {t("Allow empty")}
             </button>
           )}
           <button
@@ -611,10 +611,10 @@ export default function WorkPanel() {
             onClick={handleSubmit}
           >
             {amend
-              ? 'Amend'
+              ? t('Amend')
               : groups.staged.length === 0 && allowEmpty
-                ? 'Commit (empty)'
-                : `Commit (${groups.staged.length})`}
+                ? t('Commit (empty)')
+                : tp('Commit ({count})', { count: groups.staged.length })}
           </button>
         </div>
       </div>

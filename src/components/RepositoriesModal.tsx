@@ -10,7 +10,7 @@ import { useEscape } from '../hooks/use-escape';
 import type { RepoBrief } from '../types';
 import { activityLevel, relativeAge, sortRepos, summarizeRepos } from '../lib/repo-sort';
 import { IconBranch, IconPin, IconRefresh, IconSearch, IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 const PIN_KEY = 'pr-helper-git2-pinned';
 
@@ -298,7 +298,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                       <IconPin width={13} height={13} />
                     </button>
                     {r.name}
-                    {isActive && <span className="repo-panel-active">active</span>}
+                    {isActive && <span className="repo-panel-active">{t("active")}</span>}
                     {r.lastCommit?.at && <span className="repo-panel-age">{relativeAge(r.lastCommit.at)}</span>}
                   </span>
                   <span className="repo-panel-location" title={r.path}>
@@ -357,7 +357,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
               <span key={line} className="repo-panel-report-line">{line}</span>
             ))}
             {pullReport.failures.length > 4 && (
-              <span className="repo-panel-report-line">+{pullReport.failures.length - 4} more</span>
+              <span className="repo-panel-report-line">{tp("+{count} more", { count: pullReport.failures.length - 4 })}</span>
             )}
           </div>
         )}
@@ -366,11 +366,11 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           <button type="button" className="btn" onClick={addRepository}>{t("Add repository…")}</button>
           <label className="repo-panel-toggle">
             <input type="checkbox" checked={dirtyOnly} onChange={(e) => setDirtyOnly(e.target.checked)} />
-            With changes
+            {t("With changes")}
           </label>
-          <label className="repo-panel-toggle" title="Re-read git status every 30s while this panel is open; never fetches or pulls">
+          <label className="repo-panel-toggle" title={t("Re-read git status every 30s while this panel is open; never fetches or pulls")}>
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Auto refresh
+            {t("Auto refresh")}
           </label>
           <span className="spacer" />
           {selected.size > 0 && (
@@ -382,7 +382,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                 onClick={() => setSelected(new Set())}
                 disabled={batchBusy}
               >
-                Clear
+                {t("Clear")}
               </button>
               <button
                 type="button"
@@ -390,7 +390,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                 onClick={batchFetch}
                 disabled={batchBusy}
               >
-                {batchBusy ? 'Working…' : `Fetch ${selected.size}`}
+                {batchBusy ? t('Working…') : tp('Fetch {count}', { count: selected.size })}
               </button>
               <button
                 type="button"

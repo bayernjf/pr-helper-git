@@ -239,7 +239,7 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                 className="btn btn-primary"
                 disabled={working || !name.trim() || !url.trim()}
               >
-                Add
+                {t("Add")}
               </button>
             </div>
           </form>
