@@ -198,6 +198,12 @@ remote is configured and commits stay on the local `main` branch.
   reverse-applies the chosen hunk to the working tree only (`git apply
   -R`), leaving the index untouched so a single hunk can be reverted
   without restoring the whole file.
+- Whole-history commit search: a dedicated dialog (toolbar, command palette,
+  or Shift+Enter with the graph focused) searches every reachable ref —
+  including branches the loaded graph page never showed. A bare query greps
+  the message case-insensitively, `author:` narrows it to an author and
+  `path:` to commits touching a file or directory. Results are capped at 30
+  and selecting one jumps straight to that commit.
 - Line-level staging: clicking a `+`/`-` line marks it, and the hunk header
   then offers Stage N lines (or Unstage N lines in the staged view). The
   server rebuilds a patch from just those lines, recomputing the `@@` counts,

@@ -3059,3 +3059,23 @@ pre.diff {
 .diff-line.selectable:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
 .diff-line.is-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .hunk-btn-primary { color: var(--accent); font-weight: 600; }
+
+/* ---------- commit history search ---------- */
+.commit-search-prefix { font-family: var(--mono); }
+.commit-search-prefix.is-on { border-color: var(--accent); color: var(--accent); }
+.commit-search-list { display: flex; flex-direction: column; }
+.commit-search-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(90px, 150px) 92px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.commit-search-row:hover, .commit-search-row:focus-visible { background: var(--row-hover-bg); outline: none; }
+.commit-search-hash { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+.commit-search-subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.commit-search-author { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit-search-date { font-size: 11px; color: var(--faint); text-align: right; }

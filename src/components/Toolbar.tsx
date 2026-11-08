@@ -8,6 +8,7 @@ import {
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
+import CommitSearchModal from './CommitSearchModal';
 import CompareModal from './CompareModal';
 import ConfigModal from './ConfigModal';
 import GrepModal from './GrepModal';
@@ -63,6 +64,7 @@ export default function Toolbar() {
   const [showReflog, setShowReflog] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showGrep, setShowGrep] = useState(false);
+  const [showCommitSearch, setShowCommitSearch] = useState(false);
   const [showGlobalGrep, setShowGlobalGrep] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
@@ -80,6 +82,7 @@ export default function Toolbar() {
     const openStash = () => setShowStash(true);
     const openCompare = () => setShowCompare(true);
     const openGrep = () => setShowGrep(true);
+    const openCommitSearch = () => setShowCommitSearch(true);
     const openAudit = () => setShowAudit(true);
     const openShortcuts = () => setShowShortcuts(true);
     window.addEventListener('git2:add-repo', openAdd);
@@ -90,6 +93,7 @@ export default function Toolbar() {
     window.addEventListener('git2:stash', openStash);
     window.addEventListener('git2:compare', openCompare);
     window.addEventListener('git2:grep', openGrep);
+    window.addEventListener('git2:search-commits', openCommitSearch);
     window.addEventListener('git2:audit', openAudit);
     window.addEventListener('git2:shortcuts', openShortcuts);
     return () => {
@@ -101,6 +105,7 @@ export default function Toolbar() {
       window.removeEventListener('git2:stash', openStash);
       window.removeEventListener('git2:compare', openCompare);
       window.removeEventListener('git2:grep', openGrep);
+      window.removeEventListener('git2:search-commits', openCommitSearch);
       window.removeEventListener('git2:audit', openAudit);
       window.removeEventListener('git2:shortcuts', openShortcuts);
     };
@@ -279,6 +284,14 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Search commits in all branches"
+        onClick={() => setShowCommitSearch(true)}
+      >
+        <IconClock />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title="Search across all repositories"
         onClick={() => setShowGlobalGrep(true)}
       >
@@ -375,6 +388,7 @@ export default function Toolbar() {
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
+      {showCommitSearch && <CommitSearchModal onClose={() => setShowCommitSearch(false)} />}
       {showGlobalGrep && <GlobalGrepModal onClose={() => setShowGlobalGrep(false)} />}
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
       {showTeam && <TeamModal onClose={() => setShowTeam(false)} />}

@@ -192,6 +192,11 @@ export default function CommitGraph() {
       nextIndex = 0;
     } else if (event.key === 'End') {
       nextIndex = count - 1;
+    } else if (event.key === 'Enter' && event.shiftKey) {
+      // Shift+Enter jumps from the graph to the whole-history search.
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent('git2:search-commits'));
+      return;
     } else if (event.key === 'Enter' || event.key === ' ') {
       // Stop the space bar from scrolling the page while the graph has focus.
       event.preventDefault();

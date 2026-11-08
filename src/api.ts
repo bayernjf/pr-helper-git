@@ -242,6 +242,11 @@ export const getLog = (
   );
 };
 
+export const searchCommits = (repo: string, q: string, limit = 30) =>
+  request<{ commits: Commit[]; query: string; mode: 'message' | 'author' | 'path' }>(
+    `/api/search-commits?repo=${encodeURIComponent(repo)}&q=${encodeURIComponent(q)}&limit=${limit}`,
+  );
+
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);
 

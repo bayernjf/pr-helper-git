@@ -394,6 +394,30 @@ describe('read routes', () => {
     expect(r.json.text).toContain('Details go here.');
     // Leave the config in place; later commit tests do not depend on it.
   });
+
+  it('searches the whole commit history and honours the author/path prefixes', async () => {
+    const byMessage = await get(`/api/search-commits?repo=${q(repoDir)}&q=feature`);
+    expect(byMessage.status).toBe(200);
+    expect(byMessage.json.mode).toBe('message');
+    expect(byMessage.json.commits.map((c) => c.subject)).toContain('feature work');
+
+    const byAuthor = await get(`/api/search-commits?repo=${q(repoDir)}&q=${q('author:tester')}`);
+    expect(byAuthor.status).toBe(200);
+    expect(byAuthor.json.mode).toBe('author');
+    expect(byAuthor.json.commits.length).toBeGreaterThan(0);
+
+    const byPath = await get(`/api/search-commits?repo=${q(repoDir)}&q=${q('path:feature.txt')}`);
+    expect(byPath.status).toBe(200);
+    expect(byPath.json.mode).toBe('path');
+    expect(byPath.json.commits.map((c) => c.subject)).toEqual(['feature work']);
+
+    const empty = await get(`/api/search-commits?repo=${q(repoDir)}&q=`);
+    expect(empty.status).toBe(400);
+    expect(empty.json.error).toBe('missing query');
+
+    const tooLong = await get(`/api/search-commits?repo=${q(repoDir)}&q=${'x'.repeat(201)}`);
+    expect(tooLong.status).toBe(400);
+  });
 });
 
 describe('write routes', () => {

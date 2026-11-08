@@ -154,6 +154,14 @@ export default function CommandPalette() {
           run: () => window.dispatchEvent(new CustomEvent('git2:grep')),
         },
         {
+          id: 'search-commits',
+          label: 'Search commits in all branches',
+          hint: 'author: / path:',
+          search: 'search history commits log find author path message',
+          icon: <IconClock width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:search-commits')),
+        },
+        {
           id: 'scope-all',
           label: 'History: all branches',
           search: 'history scope all branches graph',

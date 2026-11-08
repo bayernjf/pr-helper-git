@@ -29,6 +29,7 @@ const GROUPS: ShortcutGroup[] = [
       { keys: ['Home', 'End'], description: 'Jump to the first or last commit' },
       { keys: ['Enter', 'Space'], description: 'Open the commit detail' },
       { keys: ['⌘/Ctrl', 'Shift', 'F'], description: 'Focus the commit filter' },
+      { keys: ['Shift', 'Enter'], description: 'Search commits in all branches (graph focused)' },
     ],
   },
   {

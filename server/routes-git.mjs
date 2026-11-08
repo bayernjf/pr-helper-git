@@ -16,6 +16,7 @@ import {
   splitFilePatch,
 } from './git.mjs';
 import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { buildCommitSearch } from './search-commits.mjs';
 import {
   isSensitivePath,
   normalizeRepoPath,
@@ -777,6 +778,22 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
         repo,
       );
       return ok({ commits: parseLog(raw), scope, path: pathFilter, filters });
+    } catch (err) {
+      return gitFail(err, 'git log failed');
+    }
+  }
+
+  // Search the whole commit history (every reachable ref) instead of filtering
+  // the current graph: a bare query greps the message, `author:x` the author
+  // and `path:x` restricts to commits touching a path.
+  if (pathname === '/api/search-commits' && method === 'GET') {
+    const built = buildCommitSearch(query.get('q') || '', {
+      limit: Number(query.get('limit')) || undefined,
+    });
+    if (built.error) return fail(400, built.error);
+    try {
+      const raw = await git(built.args, repo);
+      return ok({ commits: parseLog(raw), query: built.term, mode: built.mode });
     } catch (err) {
       return gitFail(err, 'git log failed');
     }

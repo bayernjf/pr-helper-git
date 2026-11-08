@@ -869,3 +869,16 @@ new features target the browser UI and are not adapted to the native shell.
   lines + Clear; selection resets when the diff reloads.
 - Tests: 215 (17 files), including two integration cases that stage/unstage a
   single line with real `git apply`.
+
+### 2026-11-08 whole-history commit search
+
+- `server/search-commits.mjs#buildCommitSearch(q, {limit})` is pure: it decides
+  the mode from the `author:` / `path:` prefix, rejects empty/overlong/multi-line
+  queries and returns the exact `git log --all --date-order --max-count=N -i`
+  argv. `GET /api/search-commits` maps the result to `parseLog`.
+- UI: `CommitSearchModal` (message / author / path, prefix buttons that write the
+  prefix into the box, click a row to jump to the commit). Entries: toolbar
+  button, command palette (`git2:search-commits`), Shift+Enter from the graph.
+- Tests: 222 (18 files) — 6 pure/integration cases in `search-commits.test.mjs`
+  (the integration one proves `--all` reaches an unmerged branch) plus 1 HTTP
+  case in `routes.test.mjs`.
