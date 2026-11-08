@@ -6,7 +6,9 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createTokenChecker, randomToken } from './security.mjs';
+import { randomToken } from './security.mjs';
+import { runAsActor } from './actor.mjs';
+import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import {
@@ -37,7 +39,6 @@ if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
 const isDev = process.env.GIT2_DEV === '1';
 const isDesktop = process.env.GIT2_DESKTOP === '1';
 const TOKEN = isDev ? 'dev-token' : randomToken();
-const tokenOk = createTokenChecker(TOKEN);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -105,7 +106,10 @@ const server = http.createServer(async (req, res) => {
     // Token bootstrap: /?token=... sets an HttpOnly cookie, then redirects.
     if (pathname === '/' && url.searchParams.has('token')) {
       const given = url.searchParams.get('token');
-      if (!tokenOk(given)) return sendJson(res, 401, { error: 'invalid token' });
+      // The instance token belongs to the owner; member tokens opened through
+      // the same bootstrap URL set the same cookie.
+      const identity = await resolveToken(given, TOKEN);
+      if (!identity) return sendJson(res, 401, { error: 'invalid token' });
       res.writeHead(302, {
         location: '/',
         // The token is regenerated on every launch, so a stale cookie is never
@@ -121,7 +125,8 @@ const server = http.createServer(async (req, res) => {
         || req.headers['x-git2-token']
         || (req.headers.cookie || '').match(/(?:^|;\s*)git2_token=([^;]+)/)?.[1]
         || (req.headers.authorization || '');
-      if (!tokenOk(presented)) return sendJson(res, 401, { error: 'unauthorized' });
+      const identity = await resolveToken(presented, TOKEN);
+      if (!identity) return sendJson(res, 401, { error: 'unauthorized' });
 
       // Server-sent events: long-lived stream for file-change notifications.
       if (pathname === '/api/events') {
@@ -147,7 +152,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const body = req.method === 'POST'
+      const body = ['POST', 'DELETE', 'PATCH', 'PUT'].includes(req.method)
         ? await readJsonBody(req, BODY_LIMIT_BY_PATH.get(pathname) || MAX_BODY_BYTES)
         : { value: {} };
       if (body.tooLarge) {
@@ -170,12 +175,17 @@ const server = http.createServer(async (req, res) => {
         query: url.searchParams,
         body: body.value,
         headers: req.headers,
+        identity,
       };
 
-      const gitResult = await handleGitRoute(ctx);
-      if (gitResult) return sendJson(res, gitResult.status, gitResult.json);
-      const githubResult = await handleGithubRoute(ctx);
-      if (githubResult) return sendJson(res, githubResult.status, githubResult.json);
+      // Run the handlers inside the identity context so appendAudit() records
+      // who performed each operation without every route taking a user arg.
+      const result = await runAsActor(identity, async () => (
+        await handleGitRoute(ctx)
+      ) || (
+        await handleGithubRoute(ctx)
+      ));
+      if (result) return sendJson(res, result.status, result.json);
       return sendJson(res, 404, { error: 'not found' });
     }
 

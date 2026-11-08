@@ -173,11 +173,12 @@ afterAll(async () => {
 
 async function api(reqPath, options = {}) {
   const res = await fetch(`http://127.0.0.1:${port}${reqPath}`, {
+    ...options,
     headers: {
       'x-git2-token': 'dev-token',
       ...(options.body ? { 'content-type': 'application/json' } : {}),
+      ...(options.headers || {}),
     },
-    ...options,
   });
   let json = null;
   try {
@@ -784,6 +785,89 @@ describe('batch repository pull', () => {
     expect(r.status).toBe(200);
     expect(r.json.okCount).toBe(1);
     expect(r.json.failCount).toBe(0);
+  });
+});
+
+describe('team identity', () => {
+  const memberToken = [];
+
+  it('reports the instance owner', async () => {
+    const me = await get('/api/me');
+    expect(me.status).toBe(200);
+    expect(me.json).toMatchObject({ name: 'owner', role: 'admin', instance: true });
+  });
+
+  it('creates a member and resolves the personal token', async () => {
+    const created = await post('/api/users', { name: 'alice', role: 'member' });
+    expect(created.status).toBe(200);
+    expect(created.json.user).toMatchObject({ name: 'alice', role: 'member' });
+    expect(typeof created.json.token).toBe('string');
+    memberToken.push(created.json.token);
+
+    const me = await api('/api/me', { headers: { 'x-git2-token': created.json.token } });
+    expect(me.status).toBe(200);
+    expect(me.json).toMatchObject({ name: 'alice', role: 'member', instance: false });
+
+    const forbidden = await api('/api/users', { headers: { 'x-git2-token': created.json.token } });
+    expect(forbidden.status).toBe(403);
+
+    const dup = await post('/api/users', { name: 'alice', role: 'member' });
+    expect(dup.status).toBe(400);
+    const badName = await post('/api/users', { name: 'bad name!', role: 'member' });
+    expect(badName.status).toBe(400);
+    const badRole = await post('/api/users', { name: 'bob', role: 'root' });
+    expect(badRole.status).toBe(400);
+  });
+
+  it('attributes audit entries to the acting member', async () => {
+    const token = memberToken[0];
+    const stage = await api('/api/stage', {
+      method: 'POST',
+      headers: { 'x-git2-token': token },
+      body: JSON.stringify({ repo: repoDir, file: 'a.txt', action: 'stage' }),
+    });
+    expect(stage.status).toBe(200);
+    await api('/api/stage', {
+      method: 'POST',
+      headers: { 'x-git2-token': token },
+      body: JSON.stringify({ repo: repoDir, file: 'a.txt', action: 'unstage' }),
+    });
+    const raw = await fsp.readFile(path.join(homeDir, 'audit.log'), 'utf8');
+    const entries = raw.trim().split('\n').map((line) => JSON.parse(line));
+    const entry = entries.find((e) => e.action === 'stage' && e.user === 'alice');
+    expect(entry).toBeTruthy();
+    expect(entry.role).toBe('member');
+  });
+
+  it('exports and merges the team configuration', async () => {
+    const exported = await get('/api/team/config');
+    expect(exported.status).toBe(200);
+    expect(exported.json.version).toBe(1);
+    expect(exported.json.repos).toContain(repoDir);
+    expect(exported.json.members.map((m) => m.name)).toContain('alice');
+    expect(JSON.stringify(exported.json)).not.toContain('tokenHash');
+
+    const imported = await post('/api/team/config', {
+      repos: [repoDir, '/definitely/not/a/repo'],
+      mode: 'merge',
+    });
+    expect(imported.status).toBe(200);
+    expect(imported.json.imported).toBe(1);
+    expect(imported.json.repos).toContain(repoDir);
+
+    const rejected = await post('/api/team/config', { repos: ['/definitely/not/a/repo'] });
+    expect(rejected.status).toBe(400);
+  });
+
+  it('revokes a member token', async () => {
+    const removed = await api('/api/users', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'alice' }),
+    });
+    expect(removed.status).toBe(200);
+    const me = await api('/api/me', { headers: { 'x-git2-token': memberToken[0] } });
+    expect(me.status).toBe(401);
   });
 });
 

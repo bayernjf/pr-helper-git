@@ -54,6 +54,48 @@ function post(path: string, body: unknown) {
 
 export const getRepos = () => request<{ repos: RepoBrief[] }>('/api/repos');
 
+// ---------- team identity ----------
+
+export interface Me {
+  name: string;
+  role: 'admin' | 'member';
+  instance: boolean;
+}
+
+export interface TeamMember {
+  name: string;
+  role: 'admin' | 'member';
+  createdAt: string | null;
+}
+
+export interface TeamConfig {
+  version: number;
+  exportedAt: string;
+  repos: string[];
+  owner: string;
+  members: Array<{ name: string; role: 'admin' | 'member' }>;
+}
+
+export const getMe = () => request<Me>('/api/me');
+
+export const getTeam = () =>
+  request<{ owner: Me; users: TeamMember[] }>('/api/users');
+
+export const createTeamUser = (name: string, role: 'admin' | 'member') =>
+  post('/api/users', { name, role }) as Promise<{ user: TeamMember; token: string }>;
+
+export const removeTeamUser = (name: string) =>
+  request<{ ok: boolean; name: string }>('/api/users', {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+
+export const getTeamConfig = () => request<TeamConfig>('/api/team/config');
+
+export const importTeamConfig = (payload: { repos: string[]; mode?: 'replace' | 'merge' }) =>
+  post('/api/team/config', payload) as Promise<{ ok: boolean; repos: string[]; imported: number }>;
+
 export const addRepo = (repo: string) =>
   post('/api/repos/add', { repo }) as Promise<{ repos: string[]; path: string }>;
 

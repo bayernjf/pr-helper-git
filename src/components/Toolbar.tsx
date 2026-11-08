@@ -18,6 +18,7 @@ import RepositoriesModal from './RepositoriesModal';
 import SettingsModal from './SettingsModal';
 import ShortcutsHelp from './ShortcutsHelp';
 import StashModal from './StashModal';
+import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 import { useConfirm } from './ui';
 import {
@@ -37,6 +38,7 @@ import {
   IconStash,
   IconSun,
   IconUpload,
+  IconUser,
 } from './icons';
 
 export default function Toolbar() {
@@ -63,6 +65,7 @@ export default function Toolbar() {
   const [showGrep, setShowGrep] = useState(false);
   const [showGlobalGrep, setShowGlobalGrep] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const [showTeam, setShowTeam] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
   const confirm = useConfirm();
@@ -329,6 +332,15 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
+        title="Team members and configuration"
+        aria-label="Team"
+        onClick={() => setShowTeam(true)}
+      >
+        <IconUser />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         onClick={toggleTheme}
@@ -365,6 +377,7 @@ export default function Toolbar() {
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
       {showGlobalGrep && <GlobalGrepModal onClose={() => setShowGlobalGrep(false)} />}
       {showAudit && <AuditModal onClose={() => setShowAudit(false)} />}
+      {showTeam && <TeamModal onClose={() => setShowTeam(false)} />}
       {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
       {dropMenu && (
         <ContextMenu

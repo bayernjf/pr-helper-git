@@ -27,9 +27,12 @@ import {
   addRepo,
   appendAudit,
   listRepos,
+  loadConfig,
   readAudit,
   removeRepo,
+  saveConfig,
 } from './store.mjs';
+import { createUser, listUsers, removeUser } from './identity.mjs';
 import { ensureWatching, stopWatching } from './watcher.mjs';
 
 const DIFF_LINE_LIMIT = 2000;
@@ -264,7 +267,7 @@ function validateDateValue(raw) {
   return /^\d{4}-\d{2}-\d{2}(?:T[\d:.Z+-]+)?$/.test(v) ? v : null;
 }
 
-export async function handleGitRoute({ method, pathname, query, body }) {
+export async function handleGitRoute({ method, pathname, query, body, identity }) {
   if (pathname === '/api/health' && method === 'GET') {
     return ok({ ok: true });
   }
@@ -451,6 +454,71 @@ export async function handleGitRoute({ method, pathname, query, body }) {
     }
     const total = results.reduce((sum, r) => sum + r.matches.length, 0);
     return ok({ pattern, results, total, truncated, limit: GLOBAL_MATCH_CAP });
+  }
+
+  // ---------- team identity ----------
+
+  if (pathname === '/api/me' && method === 'GET') {
+    const current = identity || { name: 'owner', role: 'admin', instance: true };
+    return ok({ name: current.name, role: current.role, instance: !!current.instance });
+  }
+
+  if (pathname === '/api/users') {
+    if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
+    if (method === 'GET') return ok(await listUsers());
+    if (method === 'POST') {
+      const created = await createUser(body.name, body.role || 'member');
+      if (created.error) return fail(400, created.error);
+      await appendAudit({ ok: true, action: 'user-create', target: created.user.name, role: created.user.role });
+      // The plaintext token is returned once and never stored.
+      return ok(created);
+    }
+    if (method === 'DELETE') {
+      const removed = await removeUser(body.name);
+      if (removed.error) return fail(400, removed.error);
+      await appendAudit({ ok: true, action: 'user-remove', target: removed.name });
+      return ok(removed);
+    }
+    return fail(405, 'method not allowed');
+  }
+
+  // Team configuration: the repository registry plus the (non-secret) member
+  // list. Tokens are never exported. Import only accepts repositories that are
+  // real Git working trees on this machine.
+  if (pathname === '/api/team/config') {
+    if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
+    if (method === 'GET') {
+      const config = await loadConfig();
+      const team = await listUsers();
+      return ok({
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        repos: config.repos,
+        owner: team.owner.name,
+        members: team.users.map((u) => ({ name: u.name, role: u.role })),
+      });
+    }
+    if (method === 'POST') {
+      if (!Array.isArray(body.repos)) return fail(400, 'repos must be an array');
+      if (body.repos.length > 200) return fail(400, 'too many repositories (max 200)');
+      const accepted = [];
+      for (const candidate of body.repos) {
+        if (typeof candidate !== 'string' || !path.isAbsolute(candidate)) continue;
+        try {
+          await fsp.stat(path.join(candidate, '.git'));
+          accepted.push(candidate);
+        } catch { /* not a Git working tree; skip */ }
+      }
+      if (!accepted.length) return fail(400, 'no valid repositories in the file');
+      const config = await loadConfig();
+      config.repos = body.mode === 'merge'
+        ? [...new Set([...config.repos, ...accepted])].sort()
+        : [...new Set(accepted)].sort();
+      await saveConfig(config);
+      await appendAudit({ ok: true, action: 'team-config-import', repos: config.repos.length });
+      return ok({ ok: true, repos: config.repos, imported: accepted.length });
+    }
+    return fail(405, 'method not allowed');
   }
 
   // GitHub-specific endpoints are handled by routes-github.mjs and do not

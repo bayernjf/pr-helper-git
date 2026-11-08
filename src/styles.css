@@ -2914,3 +2914,71 @@ pre.diff {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- team panel ---------- */
+.muted { color: var(--faint); }
+.team-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  font-size: 13px;
+}
+.role-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.role-badge.admin { color: var(--yellow); border-color: var(--yellow); }
+.role-badge.member { color: var(--cyan); border-color: var(--cyan); }
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+}
+.team-name { font-weight: 600; }
+.team-note { font-size: 11px; margin-left: auto; }
+.team-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+.team-add input { flex: 1; min-width: 0; }
+.team-add select { width: 110px; }
+.team-token {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+.team-token-row { display: flex; gap: 8px; margin-top: 8px; }
+.team-token-row input { flex: 1; font-family: var(--mono); font-size: 12px; }
+.team-config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.team-replace { display: inline-flex; align-items: center; gap: 6px; }
+.team-file { display: none; }

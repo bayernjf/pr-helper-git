@@ -3,6 +3,7 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { currentActor } from './actor.mjs';
 
 // The home override exists so tests can run against an isolated registry and
 // audit trail without touching the user's real ~/.pr-helper-git2 directory.
@@ -28,13 +29,19 @@ export async function loadConfig() {
   try {
     const raw = await fsp.readFile(CONFIG_FILE, 'utf8');
     const parsed = JSON.parse(raw);
-    return { repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
+    // Keep unknown top-level fields (users, ownerName, future settings) so a
+    // repo add/remove never drops team identity data.
+    return {
+      ...parsed,
+      repos: Array.isArray(parsed.repos) ? parsed.repos : [],
+      users: Array.isArray(parsed.users) ? parsed.users : [],
+    };
   } catch {
-    return { repos: [] };
+    return { repos: [], users: [] };
   }
 }
 
-async function saveConfig(config) {
+export async function saveConfig(config) {
   await fsp.mkdir(CONFIG_DIR, { recursive: true });
   const tmp = `${CONFIG_FILE}.tmp`;
   await fsp.writeFile(tmp, JSON.stringify(config, null, 2));
@@ -62,7 +69,15 @@ export async function removeRepo(absPath) {
 }
 
 export async function appendAudit(entry) {
-  const line = `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`;
+  // Attribute every entry to the authenticated member of the current request.
+  // currentActor() is null outside a request (for example tests calling this
+  // directly), in which case no user field is written.
+  const actor = currentActor();
+  const line = `${JSON.stringify({
+    at: new Date().toISOString(),
+    ...(actor ? { user: actor.name, role: actor.role } : {}),
+    ...entry,
+  })}\n`;
   try {
     await fsp.mkdir(CONFIG_DIR, { recursive: true });
     await fsp.appendFile(AUDIT_FILE, line);
