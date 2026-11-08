@@ -2316,6 +2316,7 @@ pre.diff {
   color: var(--faint);
   font-size: 11.5px;
   padding: 4px 10px;
+  white-space: nowrap;
   cursor: pointer;
 }
 .ws-toggle.active { color: var(--accent); border-color: var(--accent); }
@@ -2327,6 +2328,7 @@ pre.diff {
   gap: 6px;
   color: var(--faint);
   font-size: 11.5px;
+  white-space: nowrap;
 }
 .context-picker select {
   border-radius: 7px;
