@@ -17,6 +17,21 @@ import { useConfirm } from './ui';
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 
+// Classic commit statuses (Jenkins, older CI) are separate from check runs.
+interface CommitStatus {
+  context: string;
+  state: string;
+  target_url?: string;
+}
+
+interface ProtectionInfo {
+  protected: boolean | null;
+  requiredChecks: number;
+}
+
+// Conclusions that mean "this gate did not pass".
+const FAILED_STATES = new Set(['failure', 'error', 'timed_out', 'startup_failure', 'cancelled']);
+
 interface PrCommit {
   sha: string;
   commit: { message: string };
@@ -61,6 +76,7 @@ export default function PrDetailModal({
   const confirm = useConfirm();
   useEscape(onClose);
   const [checks, setChecks] = useState<CheckRun[]>([]);
+  const [protection, setProtection] = useState<ProtectionInfo | null>(null);
   const [prCommits, setPrCommits] = useState<PrCommit[]>([]);
   const [prFiles, setPrFiles] = useState<PrFile[]>([]);
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
@@ -110,12 +126,34 @@ export default function PrDetailModal({
       fetchPages<PrComment>(`${base}/issues/${pr.number}/comments`),
       fetchPages<PrReview>(`${base}/pulls/${pr.number}/reviews`),
       fetchPages<ReviewComment>(`${base}/pulls/${pr.number}/comments`),
+      // 404 means "no protection configured" — that is a fact worth showing,
+      // not a load failure, so it resolves instead of rejecting.
+      githubProxy<{ required_status_checks?: { contexts?: string[] } }>(
+        pat,
+        `${base}/branches/${encodeURIComponent(pr.base.ref)}/protection`,
+      )
+        .then((r) => ({ protected: true, requiredChecks: r.data.required_status_checks?.contexts?.length || 0 }))
+        .catch((err: { status?: number }) => ({ protected: err?.status === 404 ? false : null, requiredChecks: 0 })),
+      githubProxy<{ statuses: CommitStatus[] }>(pat, `${base}/commits/${pr.head.sha}/status`),
     ])
       .then((settled) => {
         if (cancelled) return;
         const dataOf = <T,>(s: PromiseSettledResult<{ data: T }>, fallback: T): T =>
           s.status === 'fulfilled' ? s.value.data : fallback;
-        setChecks(dataOf(settled[0], { check_runs: [] }).check_runs || []);
+        const checkRuns = dataOf(settled[0], { check_runs: [] as CheckRun[] }).check_runs || [];
+        const statuses = dataOf(settled[8], { statuses: [] as CommitStatus[] }).statuses || [];
+        setChecks([
+          ...checkRuns,
+          ...statuses.map((s, i) => ({
+            id: -1 - i,
+            name: s.context,
+            status: s.state,
+            // pending has no conclusion; anything but success is a failure gate.
+            conclusion: s.state === 'success' ? 'success' : s.state === 'pending' ? null : 'failure',
+            html_url: s.target_url || '',
+          })),
+        ]);
+        setProtection(settled[7].status === 'fulfilled' ? settled[7].value : null);
         setPrCommits(dataOf(settled[1], [] as PrCommit[]));
         setPrFiles(dataOf(settled[2], [] as PrFile[]));
         setReviewers(dataOf(settled[3], { users: [] as Reviewer[] }).users || []);
@@ -132,6 +170,14 @@ export default function PrDetailModal({
   }, [pat, base, pr.number, pr.head.sha, toast]);
 
   async function merge() {
+    const failed = checks.filter((c) => c.conclusion && FAILED_STATES.has(c.conclusion)).length;
+    if (failed > 0) {
+      const override = await confirm(
+        `Merge with ${failed} failing check${failed === 1 ? '' : 's'}?`,
+        'The head commit did not pass every CI gate. GitHub may still block the merge if the base branch requires these checks.',
+      );
+      if (!override) return;
+    }
     const ok = await confirm(
       `Merge PR #${pr.number} using ${method}?`,
       'Branch protection and required reviews are enforced by GitHub.',
@@ -150,6 +196,8 @@ export default function PrDetailModal({
       setWorking(false);
     }
   }
+
+  const failedChecks = checks.filter((c) => c.conclusion && FAILED_STATES.has(c.conclusion)).length;
 
   // Create a local branch that points at the PR head, leaving the working tree
   // and current branch untouched.
@@ -583,7 +631,9 @@ export default function PrDetailModal({
           </div>
 
           <div className="detail-section">
-            <span className="detail-label">Checks</span>
+            <span className="detail-label">
+              Checks{failedChecks > 0 ? ` · ${failedChecks} failing` : ''}
+            </span>
             {checks.length === 0 ? (
               <div className="detail-value muted">No check runs reported.</div>
             ) : (
@@ -708,6 +758,30 @@ export default function PrDetailModal({
           {pr.state === 'open' && (
             <div className="detail-section">
               <span className="detail-label">Merge method</span>
+              {(!pr.merged && !pr.merged_at) && (failedChecks > 0 || protection?.protected === false || (protection?.protected === true && protection.requiredChecks > 0)) && (
+                <div className="ci-gate">
+                  {failedChecks > 0 && (
+                    <div className="ci-gate-row danger">
+                      <IconX width={14} height={14} />
+                      <span>
+                        {failedChecks} failing check{failedChecks === 1 ? '' : 's'} on {shortHash(pr.head.sha)} — GitHub will reject the merge if these are required.
+                      </span>
+                    </div>
+                  )}
+                  {protection?.protected === false && (
+                    <div className="ci-gate-row">
+                      <span>
+                        Branch <strong>{pr.base.ref}</strong> has no protection rules — direct pushes and force-pushes are allowed. Consider enabling branch protection on GitHub.
+                      </span>
+                    </div>
+                  )}
+                  {protection?.protected === true && protection.requiredChecks > 0 && (
+                    <div className="ci-gate-row muted">
+                      {protection.requiredChecks} required status check{protection.requiredChecks === 1 ? '' : 's'} on {pr.base.ref}.
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="merge-options">
                 {(Object.keys(MERGE_INFO) as MergeMethod[]).map((m) => (
                   <button

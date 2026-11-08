@@ -3117,3 +3117,14 @@ pre.diff {
   color: var(--text);
 }
 .rebase-move { display: flex; justify-content: flex-end; gap: 2px; }
+
+/* CI gate summary above merge options: failing checks + branch protection. */
+.ci-gate { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 4px; }
+.ci-gate-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 9px; font-size: 12px; line-height: 1.35;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--amber-soft); color: var(--text);
+}
+.ci-gate-row.danger { border-color: rgba(240, 85, 103, 0.4); background: rgba(240, 85, 103, 0.08); }
+.ci-gate-row.muted { background: transparent; color: var(--text-faint); }

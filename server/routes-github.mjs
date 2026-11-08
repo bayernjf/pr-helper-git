@@ -6,58 +6,7 @@ import { appendAudit, listRepos } from './store.mjs';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_TIMEOUT_MS = 20_000;
-const SEG = '[\\w.-]+';
-
-const ALLOWLIST = [
-  {
-    method: 'GET',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls(/\\d+(/(commits|files|requested-reviewers|reviews))?)?$`),
-  },
-  {
-    method: 'GET',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/commits/${SEG}/check-runs$`),
-  },
-  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches(/${SEG})?$`) },
-  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
-  // Line-level review comments live under pulls (not issues); POST anchors a
-  // comment to a commit/path/line inside a PR diff.
-  {
-    method: 'GET',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/comments$`),
-  },
-  {
-    method: 'POST',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/comments$`),
-  },
-  // GitHub locates a single comment at issues/comments/:cid (no issue number);
-  // the nested .../issues/:n/comments/:cid form returns 404 upstream.
-  {
-    method: 'PATCH',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/comments/\\d+$`),
-  },
-  {
-    method: 'DELETE',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/comments/\\d+$`),
-  },
-  // Line-level review comments use the flat pulls/comments/:cid endpoint
-  // (distinct from the issues/comments path used for issue-level comments).
-  {
-    method: 'PATCH',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/comments/\\d+$`),
-  },
-  {
-    method: 'DELETE',
-    regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/comments/\\d+$`),
-  },
-  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}$`) },
-  { method: 'GET', regex: /^\/user$/ },
-  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },
-  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
-  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/requested-reviewers$`) },
-  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/reviews$`) },
-  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+/merge$`) },
-  { method: 'PATCH', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+$`) },
-];
+import { isAllowed } from './github-allowlist.mjs';
 
 const ok = (json, status = 200) => ({ status, json });
 const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
@@ -93,11 +42,6 @@ async function githubGraphql(pat, query, variables) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function isAllowed(method, path) {
-  if (typeof path !== 'string' || !path.startsWith('/') || path.includes('..')) return false;
-  return ALLOWLIST.some((entry) => entry.method === method && entry.regex.test(path));
 }
 
 // Parse an origin remote URL into owner/repo when hosted on GitHub.
