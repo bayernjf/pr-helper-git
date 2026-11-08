@@ -998,3 +998,18 @@ what the audit log and its filter use. Covered by one new `i18n.test.ts` case
 Also added the first `CHANGELOG.md`, back-filled with the 0.1.0 feature set and
 the unreleased fixes (merge conflict contract, translation sweep, toasts, audit
 labels, no-wrap toggles).
+
+### 2026-11-09 Commit graph keyboard parity
+
+The graph already had `role=listbox`, `role=option`, `aria-selected` and
+arrow/Home/End/Enter, but it still differed from the vanilla client: no
+PageUp/PageDown, no Escape, and no `aria-activedescendant`. Those three are in
+now, with row ids (`commit-row-<hash>`) so the active option can be named.
+
+The decision math lives in `src/lib/graph-nav.ts` (`nextCommitIndex`,
+`pageSizeForViewport`) so it can be unit-tested without mounting React; the
+component keeps the DOM part (selection, focus, reveal, scrolling). Tested at
+three levels: 6 unit cases for the math, 4 jsdom interaction cases that render
+the real component and press keys against `selectCommit`, and 2 SSR cases that
+assert the listbox/option/`aria-activedescendant` markup. `jsdom` is now a dev
+dependency here too.
