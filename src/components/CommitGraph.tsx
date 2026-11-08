@@ -6,6 +6,7 @@ import { formatRelative, shortHash } from '../lib/format';
 import { windowRange } from '../lib/virtual-range';
 import type { Ref } from '../types';
 import { ContextMenu, type MenuItem } from './context-menu';
+import RebaseModal from './RebaseModal';
 import {
   IconBranch,
   IconCommit,
@@ -102,6 +103,7 @@ export default function CommitGraph() {
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [tagFrom, setTagFrom] = useState<string | null>(null);
   const [revertMerge, setRevertMerge] = useState<{ hash: string; parentCount: number } | null>(null);
+  const [rebaseBase, setRebaseBase] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [pathDraft, setPathDraft] = useState('');
   const [filterModal, setFilterModal] = useState(false);
@@ -251,6 +253,7 @@ export default function CommitGraph() {
     { separator: true },
     { id: 'revert', label: 'Revert commit (new commit)', icon: <IconRevert width={15} height={15} /> },
     { id: 'cherry-pick', label: 'Cherry-pick onto current branch' },
+    { id: 'rebase-i', label: 'Interactive rebase from here' },
     ...(menu && commits[0] && menu.hash === commits[0].hash
       ? [{ id: 'undo', label: 'Undo last commit (keep changes staged)' }]
       : []),
@@ -313,6 +316,14 @@ export default function CommitGraph() {
         'git cherry-pick applies the change as a new commit here; a conflict leaves the repository in the cherry-picking state.',
       );
       if (yes) await runAction(cherryPick(currentRepo!, hash), 'Commit cherry-picked');
+      return;
+    } else if (id === 'rebase-i') {
+      const hash = menu.hash;
+      const target = commits.find((c) => c.hash === hash);
+      setMenu(null);
+      // Rewriting everything newer than this commit: a root commit has no
+      // parent to anchor onto, so the whole branch is the range.
+      setRebaseBase(target && target.parents.length === 0 ? 'root' : hash);
       return;
     } else if (id === 'undo') {
       setMenu(null);
@@ -607,6 +618,7 @@ export default function CommitGraph() {
           onClose={() => setRevertMerge(null)}
         />
       )}
+      {rebaseBase && <RebaseModal base={rebaseBase} onClose={() => setRebaseBase(null)} />}
       {filterModal && <LogFilterModal onClose={() => setFilterModal(false)} />}
     </div>
   );

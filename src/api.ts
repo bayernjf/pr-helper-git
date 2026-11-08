@@ -247,6 +247,24 @@ export const searchCommits = (repo: string, q: string, limit = 30) =>
     `/api/search-commits?repo=${encodeURIComponent(repo)}&q=${encodeURIComponent(q)}&limit=${limit}`,
   );
 
+export type RebasePlan = {
+  base: string;
+  commits: Commit[];
+  dirty: boolean;
+  merges: string[];
+  upstream: string | null;
+  pushed: boolean;
+};
+
+export const rebasePlan = (repo: string, base: string) =>
+  request<RebasePlan>(`/api/rebase/plan?repo=${encodeURIComponent(repo)}&base=${encodeURIComponent(base)}`);
+
+export const rebaseInteractive = (
+  repo: string,
+  base: string,
+  commands: { hash: string; action: string; message?: string }[],
+) => post('/api/rebase/interactive', { repo, base, commands });
+
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);
 

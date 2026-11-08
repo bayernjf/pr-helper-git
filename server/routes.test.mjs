@@ -694,6 +694,83 @@ describe('rebase operation state', () => {
   });
 });
 
+describe('interactive rebase', () => {
+  async function seedRepo(name, subjects) {
+    const dir = path.join(tmpRoot, name);
+    await fsp.mkdir(dir);
+    git(['init', '-b', 'main'], dir);
+    git(['config', 'user.email', 'tester@example.com'], dir);
+    git(['config', 'user.name', 'Tester'], dir);
+    for (const [index, subject] of subjects.entries()) {
+      await fsp.writeFile(path.join(dir, `f${index}.txt`), `${subject}\n`, 'utf8');
+      git(['add', '.'], dir);
+      git(['commit', '-m', subject], dir);
+    }
+    expect((await post('/api/repos/add', { repo: dir })).status).toBe(200);
+    return dir;
+  }
+
+  it('reorders, rewords and drops commits from a plan', async () => {
+    const dir = await seedRepo('ir-repo', ['c1 one', 'c2 two', 'c3 three']);
+
+    const plan = await get(`/api/rebase/plan?repo=${encodeURIComponent(dir)}&base=root`);
+    expect(plan.status).toBe(200);
+    expect(plan.json.commits.map((c) => c.subject)).toEqual(['c1 one', 'c2 two', 'c3 three']);
+    expect(plan.json.dirty).toBe(false);
+    expect(plan.json.merges).toEqual([]);
+    const [c1, c2, c3] = plan.json.commits.map((c) => c.hash);
+
+    const res = await post('/api/rebase/interactive', {
+      repo: dir,
+      base: 'root',
+      commands: [
+        { hash: c3, action: 'pick' },
+        { hash: c1, action: 'reword', message: 'c1 one, reworded' },
+        { hash: c2, action: 'drop' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.json.conflicted).toBe(false);
+
+    expect(git(['log', '--format=%s'], dir).trim().split('\n'))
+      .toEqual(['c1 one, reworded', 'c3 three']);
+    // Dropping c2 must drop the file it introduced, and leave nothing uncommitted.
+    expect(git(['ls-tree', '-r', '--name-only', 'HEAD'], dir).trim().split('\n'))
+      .toEqual(['f0.txt', 'f2.txt']);
+    expect(git(['status', '--porcelain'], dir).trim()).toBe('');
+  });
+
+  it('rejects a plan that silently omits a commit', async () => {
+    const dir = await seedRepo('ir-guard', ['g1', 'g2']);
+    const plan = await get(`/api/rebase/plan?repo=${encodeURIComponent(dir)}&base=root`);
+    const [first] = plan.json.commits.map((c) => c.hash);
+    const res = await post('/api/rebase/interactive', {
+      repo: dir,
+      base: 'root',
+      commands: [{ hash: first, action: 'pick' }],
+    });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/omits/);
+    // Nothing may have been rewritten by the rejected request.
+    expect(git(['log', '--format=%s'], dir).trim().split('\n')).toEqual(['g2', 'g1']);
+  });
+
+  it('refuses to rebase over uncommitted changes', async () => {
+    const dir = await seedRepo('ir-dirty', ['d1', 'd2']);
+    await fsp.writeFile(path.join(dir, 'f0.txt'), 'dirty\n', 'utf8');
+    const plan = await get(`/api/rebase/plan?repo=${encodeURIComponent(dir)}&base=root`);
+    expect(plan.json.dirty).toBe(true);
+    const hashes = plan.json.commits.map((c) => c.hash);
+    const res = await post('/api/rebase/interactive', {
+      repo: dir,
+      base: 'root',
+      commands: hashes.map((hash) => ({ hash, action: 'pick' })),
+    });
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatch(/working tree has changes/);
+  });
+});
+
 describe('revert conflict handling', () => {
   it('registers the revert repository', async () => {
     const r = await post('/api/repos/add', { repo: revertDir });

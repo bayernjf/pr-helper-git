@@ -1,7 +1,9 @@
 // Git API routes. Every handler returns { status, json } or null when the
 // route does not match. Write actions use fixed argv arrays and are audited.
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildHunkPatch,
   cleanCommitMessage,
@@ -17,6 +19,7 @@ import {
 } from './git.mjs';
 import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
 import { buildCommitSearch } from './search-commits.mjs';
+import { validateRebasePlan } from './rebase-todo.mjs';
 import {
   isSensitivePath,
   normalizeRepoPath,
@@ -55,6 +58,9 @@ const DIFF_LINE_LIMIT = 2000;
 const SAVE_MAX_BYTES = 1024 * 1024; // matches the 1 MB file viewer cap
 const LOG_LIMIT_DEFAULT = 200;
 const LOG_LIMIT_MAX = 1000;
+// A rebase replays commits one by one, so it needs far more head-room than a
+// single git call.
+const REBASE_TIMEOUT_MS = 120000;
 const FILE_MAX_BYTES = 1_000_000;
 // Network operations routinely take longer than a local git command; a 20s
 // cap would kill a slow fetch/pull/push mid-flight.
@@ -210,6 +216,52 @@ async function repoBrief(absPath) {
 function validateStashIndex(raw) {
   const n = Number(raw);
   return Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
+}
+
+// ---------- interactive rebase helpers ----------
+
+/**
+ * A rebase base is either the literal "root" (rewrite the whole branch) or a
+ * revision. The pattern rejects anything that could be read as an option.
+ */
+function normalizeRebaseBase(raw) {
+  const value = String(raw ?? '').trim();
+  if (value === 'root') return 'root';
+  if (!/^[0-9A-Za-z._/-]{1,120}$/.test(value)) return null;
+  if (value.startsWith('-')) return null;
+  return value;
+}
+
+/** Commits a `rebase -i <base>` would list, oldest first. */
+async function rebaseCommits(repo, base) {
+  const args = [
+    'log',
+    '--reverse',
+    '--date-order',
+    '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e',
+  ];
+  args.push(base === 'root' ? 'HEAD' : `${base}..HEAD`);
+  return parseLog(await git(args, repo));
+}
+
+/** Conditions the UI must show before rewriting history. */
+async function rebaseGuardrails(repo, commits) {
+  const dirty = (await git(['status', '--porcelain'], repo)).trim().length > 0;
+  const merges = commits.filter((c) => c.parents.length > 1).map((c) => c.hash.slice(0, 7));
+  let upstream = null;
+  let pushed = false;
+  try {
+    upstream = (await git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], repo)).trim() || null;
+  } catch { /* no upstream configured */ }
+  if (upstream && commits.length) {
+    try {
+      // The oldest commit already living on the remote means the whole range is
+      // published; rewriting it would require a force-push.
+      await git(['merge-base', '--is-ancestor', commits[0].hash, upstream], repo);
+      pushed = true;
+    } catch { /* range is still local */ }
+  }
+  return { dirty, merges, upstream, pushed };
 }
 
 // Detect in-progress multi-step operations. A standard repository has a .git
@@ -797,6 +849,21 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     } catch (err) {
       return gitFail(err, 'git log failed');
     }
+  }
+
+  // Preview for the interactive-rebase dialog: the commits, plus the facts the
+  // UI has to warn about (dirty tree, merge commits, already-pushed range).
+  if (pathname === '/api/rebase/plan' && method === 'GET') {
+    const base = normalizeRebaseBase(query.get('base'));
+    if (!base) return fail(400, 'invalid rebase base');
+    let commits;
+    try {
+      commits = await rebaseCommits(repo, base);
+    } catch (err) {
+      return gitFail(err, 'cannot list commits to rebase');
+    }
+    const guardrails = await rebaseGuardrails(repo, commits);
+    return ok({ base, commits, ...guardrails });
   }
 
   if (pathname === '/api/refs' && method === 'GET') {
@@ -1743,6 +1810,72 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
       await appendAudit({ ok: false, action: 'merge-abort', repo });
       return gitFail(err, 'git merge --abort failed');
     }
+  }
+
+  // Interactive rebase: reorder, reword, squash, fixup, drop and edit, driven by
+  // the two shims in server/rebase-{sequence,msg}.mjs. Nothing here trusts the
+  // browser's commit list — the plan is validated against the range we re-read.
+  if (pathname === '/api/rebase/interactive') {
+    const base = normalizeRebaseBase(body.base);
+    if (!base) return fail(400, 'invalid rebase base');
+    let commits;
+    try {
+      commits = await rebaseCommits(repo, base);
+    } catch (err) {
+      return gitFail(err, 'cannot list commits to rebase');
+    }
+    const guardrails = await rebaseGuardrails(repo, commits);
+    if (guardrails.dirty) return fail(409, 'working tree has changes; commit or stash them first');
+    if (guardrails.merges.length) {
+      return fail(409, `refusing to flatten merge commits: ${guardrails.merges.join(', ')}`);
+    }
+    const verdict = validateRebasePlan(
+      commits.map((c) => ({ hash: c.hash, subject: c.subject })),
+      body.commands,
+    );
+    if (verdict.error) return fail(400, verdict.error);
+
+    const state = await detectRepoState(repo);
+    if (state.rebaseInProgress || state.mergeInProgress || state.revertInProgress) {
+      return fail(409, 'another multi-step operation is in progress; finish or abort it first');
+    }
+
+    const serverDir = path.dirname(fileURLToPath(import.meta.url));
+    const shim = (name) => `'${process.execPath}' '${path.join(serverDir, name)}'`;
+    const rewords = verdict.plan
+      .filter((item) => item.action === 'reword')
+      .map((item) => ({ subject: item.subject, message: item.message }));
+    const stateDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'git2-rebase-'));
+    const stateFile = path.join(stateDir, 'rewords.json');
+    await fsp.writeFile(stateFile, JSON.stringify(rewords), 'utf8');
+    try {
+      const args = base === 'root' ? ['rebase', '-i', '--root'] : ['rebase', '-i', base];
+      await git(args, repo, {
+        env: {
+          GIT_SEQUENCE_EDITOR: shim('rebase-sequence.mjs'),
+          GIT_EDITOR: shim('rebase-msg.mjs'),
+          GIT2_REBASE_PLAN: JSON.stringify(
+            verdict.plan.map((item) => ({ hash: item.hash, action: item.action })),
+          ),
+          GIT2_REWORD_MSGS: JSON.stringify(rewords),
+          GIT2_REWORD_STATE: stateFile,
+        },
+        timeout: REBASE_TIMEOUT_MS,
+      });
+    } catch (err) {
+      const after = await detectRepoState(repo);
+      if (after.rebaseInProgress) {
+        // A conflict is a normal outcome; the rebase banner offers continue/abort.
+        await appendAudit({ ok: true, action: 'rebase-interactive', repo, conflicted: true });
+        return ok({ ok: true, conflicted: true });
+      }
+      await appendAudit({ ok: false, action: 'rebase-interactive', repo });
+      return gitFail(err, 'git rebase failed');
+    } finally {
+      await fsp.rm(stateDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    await appendAudit({ ok: true, action: 'rebase-interactive', repo, commits: commits.length });
+    return ok({ ok: true, conflicted: false, commits: commits.length });
   }
 
   if (pathname === '/api/rebase/continue') {
