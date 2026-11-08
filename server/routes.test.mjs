@@ -1371,3 +1371,19 @@ describe('git config routes', () => {
     expect(branch.local).toBeNull();
   });
 });
+
+describe('commit signature check', () => {
+  it('reports an unsigned commit as N without failing', async () => {
+    const headSha = git(['rev-parse', 'HEAD'], repoDir).trim();
+    const r = await get(`/api/signature?repo=${q(repoDir)}&sha=${headSha}`);
+    expect(r.status).toBe(200);
+    expect(r.json.status).toBe('N');
+    expect(r.json.verified).toBe(false);
+    expect(r.json.signer).toBe('');
+  });
+
+  it('rejects a malformed sha', async () => {
+    const r = await get(`/api/signature?repo=${q(repoDir)}&sha=not-a-sha`);
+    expect(r.status).toBe(400);
+  });
+});
