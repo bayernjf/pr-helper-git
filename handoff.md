@@ -985,3 +985,16 @@ Chinese user sees Chinese outcomes and Chinese failure headlines.
 
 Known gaps: audit action names and raw git/GitHub output (branch names, commit
 subjects, git stderr detail) stay exactly as git reports them.
+
+### 2026-11-09 Audit action labels, changelog
+
+Audit entries used the server's action identifier verbatim (`repo-add`,
+`stash-create`, …), so a Chinese audit panel showed English identifiers.
+`auditAction()` in `src/i18n.ts` maps 50 of them to Chinese labels and passes
+unknown ones through; the English UI keeps the raw identifier because that is
+what the audit log and its filter use. Covered by one new `i18n.test.ts` case
+(250 tests / 21 files).
+
+Also added the first `CHANGELOG.md`, back-filled with the 0.1.0 feature set and
+the unreleased fixes (merge conflict contract, translation sweep, toasts, audit
+labels, no-wrap toggles).
