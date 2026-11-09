@@ -311,6 +311,19 @@ remote is configured and commits stay on the local `main` branch.
   token is stored only in the browser and sent through the local proxy, never
   written to disk.
 
+### Phone view (`/m`)
+
+Opening `/m` (or any URL with `?mobile=1`) renders a read-only, single-column
+layout built for a phone: one sticky bar with repository picker, refresh and
+language toggle, then branch + ahead/behind, staged/unstaged/untracked counts,
+and an 80-commit list. Tapping a commit opens a full-screen sheet with author,
+date, signature verdict, body, changed files (`+n/-n`) and the per-file diff.
+There is no staging, commit, push or rebase control in this view.
+
+The server still binds `127.0.0.1`: to reach it from a phone use a private
+overlay network (Tailscale/ZeroTier) or an SSH port forward, never public port
+forwarding. The one-time token in the URL is still the only credential.
+
 ### Deliberately out of scope
 
 Worktrees, adding or updating submodules (status is read-only), creating GPG

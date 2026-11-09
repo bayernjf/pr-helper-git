@@ -177,6 +177,12 @@ check "health with token is 200" "200" "$(getcode health)"
 check "register non-git dir is 400" "400" "$(post repos/add "$(printf '{"repo":"%s"}' "$DEMO/home")")"
 
 echo ""
+echo "=== E2E: Mobile shell ==="
+MOBILE_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/m?token=$TOKEN")
+check "mobile shell responds" "200" "$MOBILE_CODE"
+MOBILE_BODY=$(curl -s "$BASE/m?token=$TOKEN")
+contains "mobile shell is the app entry" '<div id="root">' "$MOBILE_BODY"
+
 echo "=== E2E: Repos + Core reads ==="
 check "register repo A" "200" "$(post repos/add "$(printf '{"repo":"%s"}' "$REPO_A")")"
 check "register repo B" "200" "$(post repos/add "$(printf '{"repo":"%s"}' "$REPO_B")")"

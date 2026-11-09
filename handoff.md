@@ -1046,3 +1046,26 @@ detached. `POST /api/bisect/mark` and `/reset` refuse when no session is active,
 and reset verified to restore the original branch (`main`). Covered by three
 route tests against a real fixture repo plus five E2E checks (start → active →
 reset → cleared → branch restored).
+
+### 2026-11-09 Read-only phone view (/m)
+
+After measuring the desktop layout at 390 px (scrollWidth 619, graph squeezed
+to 70 px, working panel 0 px wide) the phone case was handled with a separate
+read-only view instead of a responsive rewrite.
+
+- `src/components/MobileApp.tsx` — sticky repo picker / refresh / language
+  toggle, branch + ahead/behind, staged/unstaged/untracked chips, 80-commit
+  list, full-screen commit sheet (author, date, `%G?` signature, body, files
+  with `+n/-n`, per-file diff). No mutating endpoints are called.
+- `src/main.tsx` — `/m` or `?mobile=1` renders `MobileApp`, everything else
+  keeps the desktop app.
+- `server/main.mjs` — extensionless `GET` misses now fall back to
+  `dist/index.html`, so `/m` works in the production server.
+- `src/styles.css` — `.m-*` block with 44 px touch targets, sticky header,
+  `env(safe-area-inset-*)`, `100dvh`.
+- Tests: `src/components/mobile.test.tsx` (jsdom, stubbed fetch, list → commit
+  → file diff). E2E: `/m` responds 200 and returns the app entry
+  (109/109).
+
+Baseline after this round: 271 unit tests / 25 files, E2E 109/109.
+

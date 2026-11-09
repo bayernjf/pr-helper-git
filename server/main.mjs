@@ -236,6 +236,22 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, headers);
     return res.end(data);
   } catch (err) {
+    if (err.code === 'ENOENT' && req.method === 'GET' && !path.extname(pathname)) {
+      // Client-side routes (/m) have no file of their own: serve the entry shell.
+      try {
+        const html = await fsp.readFile(path.join(DIST_DIR, 'index.html'));
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          ...NOSNIFF,
+          'referrer-policy': 'no-referrer',
+          'cache-control': 'no-store',
+          'content-security-policy': CONTENT_SECURITY_POLICY,
+        });
+        return res.end(html);
+      } catch {
+        // fall through to the 404 below
+      }
+    }
     if (err.code === 'ENOENT') {
       res.writeHead(404, {
         'content-type': 'text/plain; charset=utf-8',
