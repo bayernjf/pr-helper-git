@@ -322,6 +322,8 @@ shows that file's diff. Tapping a commit opens a full-screen sheet with author,
 date, signature verdict, body, changed files (`+n/-n`) and the per-file diff.
 There is no staging, commit, push or rebase control in this view.
 
+`/m?repo=<path>&commit=<sha>` deep-links straight to one commit of one repository.
+
 The server binds `127.0.0.1` by default. For phone access set
 `GIT2_HOST=0.0.0.0` (or a specific LAN/Tailscale address) and restart, or keep
 the default and use an SSH port forward. Only do this on a private network
@@ -460,10 +462,10 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (270 tests, 24 files)
+npm test           # Vitest unit + route-level HTTP tests (274 tests, 25 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (107 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (109 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not

@@ -1072,4 +1072,5 @@ read-only view instead of a responsive rewrite.
   non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
   now covers both the commit flow and the working-tree diff.
 
-Baseline after this round: 272 unit tests / 25 files, E2E 109/109.
+Baseline after this round: 274 unit tests / 25 files, E2E 109/109.
+Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README §Phone view).
