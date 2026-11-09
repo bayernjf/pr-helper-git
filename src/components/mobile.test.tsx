@@ -2,7 +2,7 @@
 // DOM test for the read-only phone layout: mount it, load a repository, open
 // a commit and then a file, and assert the rendered text follows the fetched
 // payloads. fetch is stubbed, so nothing leaves the process.
-import { createElement } from 'react';
+import { StrictMode, createElement } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,7 @@ let host: HTMLElement;
 
 beforeEach(() => {
   localStorage.clear();
+  history.replaceState(null, '', '/m');
   document.body.replaceChildren();
   host = document.createElement('div');
   document.body.append(host);
@@ -90,6 +91,21 @@ describe('mobile read-only view', () => {
     await flush();
     expect(host.textContent).toContain('+new line');
   });
+  it('opens a commit from the ?repo= and ?commit= deep link', async () => {
+    history.replaceState(null, '', `/m?repo=${encodeURIComponent(repo)}&commit=aaaa1111`);
+    await act(async () => { root!.render(createElement(StrictMode, null, createElement(MobileApp))); });
+    await flush();
+    await flush();
+    expect(host.textContent).toContain('fix the thing');
+    expect(location.search).toContain('commit=aaaa1111');
+    expect(location.search).toContain(`repo=${encodeURIComponent(repo)}`);
+
+    const close = host.querySelector('.m-sheet .m-icon-btn') as HTMLButtonElement;
+    await act(async () => { close.click(); });
+    await flush();
+    expect(location.search).not.toContain('commit=');
+  });
+
   it('lists working-tree changes and opens their diff', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

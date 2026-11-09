@@ -1,7 +1,7 @@
 // Read-only phone layout, served at /m (or /?mobile=1). No staging, commit or
 // push controls: the point is checking a repository from a phone, so everything
 // here is big, single-column and read-only.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getCommitDiff,
   getDiff,
@@ -28,7 +28,13 @@ type Detail = {
 export default function MobileApp() {
   const locale = useLocale();
   const [repos, setRepos] = useState<RepoBrief[]>([]);
-  const [repo, setRepo] = useState<string>(getPref<string>('mobile.repo', ''));
+  const initial = new URLSearchParams(location.search);
+  const pendingRepo = useRef(initial.get('repo'));
+  const pendingCommit = useRef(initial.get('commit'));
+  // Seed the state from ?repo= so StrictMode's double effect still loads the
+  // linked repository; clearing a ref here would make the second pass fall back
+  // to the previously remembered repo.
+  const [repo, setRepo] = useState<string>(pendingRepo.current || getPref<string>('mobile.repo', ''));
   const [commits, setCommits] = useState<Commit[]>([]);
   const [status, setStatus] = useState<ParsedStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +47,9 @@ export default function MobileApp() {
     try {
       const res = await getRepos();
       setRepos(res.repos);
-      const chosen = repo && res.repos.some((r) => r.path === repo) ? repo : res.repos[0]?.path || '';
+      const chosen = repo && res.repos.some((r) => r.path === repo)
+        ? repo
+        : res.repos[0]?.path || '';
       if (chosen && chosen !== repo) setRepo(chosen);
       if (!chosen) setError(t('No repositories yet.'));
       return chosen;
@@ -62,6 +70,12 @@ export default function MobileApp() {
       ]);
       setCommits(logRes.commits);
       setStatus(statusRes?.status || null);
+      const wantedCommit = pendingCommit.current;
+      if (wantedCommit) {
+        pendingCommit.current = null;
+        const match = logRes.commits.find((c) => c.hash === wantedCommit || c.hash.startsWith(wantedCommit));
+        if (match) await openCommit(match, target);
+      }
     } catch (err: any) {
       setCommits([]);
       setStatus(null);
@@ -93,16 +107,18 @@ export default function MobileApp() {
     setPref('mobile.repo', next);
     setDetail(null);
     setDiff(null);
+    syncUrl(null, null);
     loadRepo(next);
   }
 
-  async function openCommit(commit: Commit) {
+  async function openCommit(commit: Commit, targetRepo = repo) {
     setDetail({ commit, files: null, signature: null });
     setDiff(null);
+    syncUrl(targetRepo, commit.hash);
     try {
       const [filesRes, sigRes] = await Promise.all([
-        getCommitFiles(repo, commit.hash).catch(() => ({ files: [] as CommitFile[] })),
-        getCommitSignature(repo, commit.hash).catch(() => null),
+        getCommitFiles(targetRepo, commit.hash).catch(() => ({ files: [] as CommitFile[] })),
+        getCommitSignature(targetRepo, commit.hash).catch(() => null),
       ]);
       setDetail((current) => (current && current.commit.hash === commit.hash
         ? { commit, files: filesRes.files, signature: sigRes }
@@ -110,6 +126,20 @@ export default function MobileApp() {
     } catch {
       setDetail((current) => (current ? { ...current, files: [] } : current));
     }
+  }
+
+  function syncUrl(repoPath: string | null, hash: string | null): void {
+    try {
+      const url = new URL(location.href);
+      if (repoPath && hash) {
+        url.searchParams.set('repo', repoPath);
+        url.searchParams.set('commit', hash);
+      } else {
+        url.searchParams.delete('repo');
+        url.searchParams.delete('commit');
+      }
+      history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch { /* ignore */ }
   }
 
   async function openFile(file: CommitFile) {
@@ -229,7 +259,7 @@ export default function MobileApp() {
       {detail && (
         <div className="m-sheet" role="dialog" aria-modal="true">
           <header className="m-sheet-header">
-            <button type="button" className="m-icon-btn" aria-label={t('Close')} onClick={() => { setDetail(null); setDiff(null); }}>
+            <button type="button" className="m-icon-btn" aria-label={t('Close')} onClick={() => { setDetail(null); setDiff(null); syncUrl(null, null); }}>
               <IconX width={18} height={18} />
             </button>
             <span className="m-sheet-title">{shortHash(detail.commit.hash)}</span>
