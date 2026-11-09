@@ -7,6 +7,7 @@ import {
 } from '../api';
 import { useApp } from '../app-state';
 import AddRepoModal from './AddRepoModal';
+import { Dropdown } from './Dropdown';
 import AuditModal from './AuditModal';
 import CommitSearchModal from './CommitSearchModal';
 import CompareModal from './CompareModal';
@@ -159,24 +160,22 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      <select
+      <Dropdown
         className="repo-select"
         value={activeRepo || ''}
-        onChange={(e) => {
-          if (e.target.value === '__add__') {
+        onChange={(v) => {
+          if (v === '__add__') {
             setShowAdd(true);
-            e.target.value = activeRepo || '';
           } else {
-            selectRepo(e.target.value);
+            selectRepo(v);
           }
         }}
-      >
-        {repos.length === 0 && <option value="">{t("No repository")}</option>}
-        {repos.map((r) => (
-          <option key={r.path} value={r.path}>{r.name}</option>
-        ))}
-        <option value="__add__">{t("+ Add repository…")}</option>
-      </select>
+        options={[
+          ...(repos.length === 0 ? [{ value: '', label: t('No repository') }] : []),
+          ...repos.map((r) => ({ value: r.path, label: r.name })),
+          { value: '__add__', label: t('+ Add repository…') },
+        ]}
+      />
       <button
         type="button"
         className="icon-btn"

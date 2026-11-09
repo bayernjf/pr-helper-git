@@ -3,6 +3,7 @@ import { getAiConfig, saveAiConfig, testAi } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { getLocale, setLocale, t, type Locale } from '../i18n';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -92,17 +93,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="modal-body">
           <div className="form-group">
             <label htmlFor="ui-locale">Language / 语言</label>
-            <select
+            <Dropdown
               id="ui-locale"
               value={getLocale()}
-              onChange={(e) => {
-                setLocale(e.target.value as Locale);
-                toast(e.target.value === 'zh' ? '界面已切换为中文' : 'Interface set to English', 'info');
+              onChange={(v) => {
+                setLocale(v as Locale);
+                toast(v === 'zh' ? '界面已切换为中文' : 'Interface set to English', 'info');
               }}
-            >
-              <option value="en">English</option>
-              <option value="zh">中文</option>
-            </select>
+              options={[
+                { value: 'en', label: 'English' },
+                { value: 'zh', label: '中文' },
+              ]}
+            />
           </div>
 
           <div className="form-group">

@@ -18,6 +18,7 @@ import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import { getPref, setPref, repoPref } from '../lib/prefs';
 import DiffView from './DiffView';
+import { Dropdown } from './Dropdown';
 import FileViewer from './FileViewer';
 import NewFileModal from './NewFileModal';
 import RenameFileModal from './RenameFileModal';
@@ -548,17 +549,18 @@ export default function WorkPanel() {
           </button>
           <label className="context-picker">
             {t("Context")}
-            <select
-              value={context === undefined ? '' : context}
-              title={t("Diff context lines (--unified)")}
-              onChange={(e) => setContext(e.target.value === '' ? undefined : Number(e.target.value))}
-            >
-              <option value="">{t("Default (3)")}</option>
-              <option value={0}>{t("0 lines")}</option>
-              <option value={3}>{t("3 lines")}</option>
-              <option value={6}>{t("6 lines")}</option>
-              <option value={10}>{t("10 lines")}</option>
-            </select>
+            <Dropdown
+              value={context === undefined ? '' : String(context)}
+              title={t('Diff context lines (--unified)')}
+              onChange={(v) => setContext(v === '' ? undefined : Number(v))}
+              options={[
+                { value: '', label: t('Default (3)') },
+                { value: '0', label: t('0 lines') },
+                { value: '3', label: t('3 lines') },
+                { value: '6', label: t('6 lines') },
+                { value: '10', label: t('10 lines') },
+              ]}
+            />
           </label>
         </div>
         <DiffView

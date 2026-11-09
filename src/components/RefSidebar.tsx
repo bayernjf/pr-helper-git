@@ -28,6 +28,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
 import { ContextMenu, type MenuItem } from './context-menu';
+import { Dropdown } from './Dropdown';
 import {
   IconBranch,
   IconChevronDown,
@@ -563,16 +564,17 @@ export default function RefSidebar() {
         onToggle={() => toggle('local')}
         action={(
           <>
-            <select
+            <Dropdown
               className="branch-sort"
-              title={t("Sort local branches")}
+              title={t('Sort local branches')}
               value={branchSort}
-              onChange={(e) => changeSort(e.target.value as BranchSort)}
-            >
-              <option value="default">{t("Default")}</option>
-              <option value="name">{t("Name")}</option>
-              <option value="recent">{t("Recent")}</option>
-            </select>
+              onChange={(v) => changeSort(v as BranchSort)}
+              options={[
+                { value: 'default', label: t('Default') },
+                { value: 'name', label: t('Name') },
+                { value: 'recent', label: t('Recent') },
+              ]}
+            />
             <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title={t("New branch")} onClick={() => setShowNew(true)}>
               <IconPlus width={15} height={15} />
             </button>

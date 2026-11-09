@@ -18,6 +18,7 @@ import { formatFullDate, formatRelative, shortHash } from '../lib/format';
 import { setLocale, t, useLocale } from '../i18n';
 import type { Commit, ParsedStatus, RepoBrief, StatusFile } from '../types';
 import { IconBranch, IconChevronRight, IconRefresh, IconX } from './icons';
+import { Dropdown } from './Dropdown';
 
 type Detail = {
   commit: Commit;
@@ -168,17 +169,17 @@ export default function MobileApp() {
   return (
     <div className="m-app">
       <header className="m-header">
-        <select
+        <Dropdown
           className="m-repo-select"
           aria-label={t('Repository')}
           value={repo}
-          onChange={(e) => selectRepo(e.target.value)}
-        >
-          {repos.length === 0 && <option value="">{t('No repositories yet.')}</option>}
-          {repos.map((r) => (
-            <option key={r.path} value={r.path}>{r.name}</option>
-          ))}
-        </select>
+          onChange={selectRepo}
+          options={
+            repos.length === 0
+              ? [{ value: '', label: t('No repositories yet.') }]
+              : repos.map((r) => ({ value: r.path, label: r.name }))
+          }
+        />
         <button
           type="button"
           className="m-icon-btn"

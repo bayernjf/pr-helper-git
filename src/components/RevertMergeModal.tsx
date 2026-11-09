@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { revertCommit } from '../api';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 interface Props {
@@ -40,14 +41,11 @@ export default function RevertMergeModal({ hash, parentCount, onClose }: Props) 
               Reverting a merge needs a mainline (-m). Parent 1 is the branch checked out
               when the merge happened; changes introduced by the other parents are undone.
             </p>
-            <select
-              value={mainline}
-              onChange={(e) => setMainline(Number(e.target.value))}
-            >
-              {Array.from({ length: parentCount }, (_, i) => (
-                <option key={i + 1} value={i + 1}>Parent {i + 1}</option>
-              ))}
-            </select>
+            <Dropdown
+              value={String(mainline)}
+              onChange={(v) => setMainline(Number(v))}
+              options={Array.from({ length: parentCount }, (_, i) => ({ value: String(i + 1), label: `Parent ${i + 1}` }))}
+            />
           </div>
         </div>
         <div className="modal-footer">

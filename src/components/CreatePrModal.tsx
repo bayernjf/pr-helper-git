@@ -5,6 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import type { Ref } from '../types';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 interface Props {
@@ -85,15 +86,21 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="pr-base">{t("Base")}</label>
-              <select id="pr-base" value={base} onChange={(e) => setBase(e.target.value)}>
-                {branches.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <Dropdown
+                id="pr-base"
+                value={base}
+                onChange={setBase}
+                options={branches.map((b) => ({ value: b, label: b }))}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="pr-head">{t("Compare")}</label>
-              <select id="pr-head" value={head} onChange={(e) => setHead(e.target.value)}>
-                {branches.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <Dropdown
+                id="pr-head"
+                value={head}
+                onChange={setHead}
+                options={branches.map((b) => ({ value: b, label: b }))}
+              />
             </div>
           </div>
           <div className="form-group">

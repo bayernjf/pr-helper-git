@@ -4,6 +4,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t, tp } from '../i18n';
 
 type Tab = 'commits' | 'files';
@@ -62,16 +63,12 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
         <div className="compare-picker">
           <div className="compare-field">
             <label>{t("Base")}</label>
-            <select value={base} onChange={(e) => setBase(e.target.value)}>
-              {options.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <Dropdown value={base} onChange={setBase} options={options.map((o) => ({ value: o, label: o }))} />
           </div>
           <span className="compare-arrow">→</span>
           <div className="compare-field">
             <label>{t("Head")}</label>
-            <select value={head} onChange={(e) => setHead(e.target.value)}>
-              {options.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <Dropdown value={head} onChange={setHead} options={options.map((o) => ({ value: o, label: o }))} />
           </div>
           <button
             type="button"

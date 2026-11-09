@@ -13,6 +13,7 @@ import {
   IconX,
 } from './icons';
 import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
+import { Dropdown } from './Dropdown';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 
@@ -483,24 +484,21 @@ export default function PrDetailModal({
                 </span>
               ))}
               {pr.state === 'open' && (
-                <select
+                <Dropdown
                   className="pr-label-add"
-                  value=""
                   aria-label={t("Add label")}
                   disabled={labelBusy}
-                  onChange={(e) => {
-                    const picked = e.target.value;
-                    e.target.value = '';
+                  value=""
+                  onChange={(picked) => {
                     if (picked) void addLabel(picked);
                   }}
-                >
-                  <option value="">+ {t("Add label")}</option>
-                  {repoLabels
-                    .filter((l) => !labels.some((current) => current.name === l.name))
-                    .map((l) => (
-                      <option key={l.name} value={l.name}>{l.name}</option>
-                    ))}
-                </select>
+                  options={[
+                    { value: '', label: `+ ${t('Add label')}` },
+                    ...repoLabels
+                      .filter((l) => !labels.some((current) => current.name === l.name))
+                      .map((l) => ({ value: l.name, label: l.name })),
+                  ]}
+                />
               )}
             </div>
           </div>

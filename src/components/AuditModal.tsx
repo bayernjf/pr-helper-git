@@ -5,6 +5,7 @@ import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { auditAction, t, tp } from '../i18n';
 
 type OutcomeFilter = 'all' | 'ok' | 'fail';
@@ -91,11 +92,15 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                   spellCheck={false}
                   onChange={(e) => setTextFilter(e.target.value)}
                 />
-                <select value={outcome} onChange={(e) => setOutcome(e.target.value as OutcomeFilter)}>
-                  <option value="all">{t("All outcomes")}</option>
-                  <option value="ok">{t("Success only")}</option>
-                  <option value="fail">{t("Failures only")}</option>
-                </select>
+                <Dropdown
+                value={outcome}
+                onChange={(v) => setOutcome(v as OutcomeFilter)}
+                options={[
+                  { value: 'all', label: t('All outcomes') },
+                  { value: 'ok', label: t('Success only') },
+                  { value: 'fail', label: t('Failures only') },
+                ]}
+              />
               </div>
               {total === 0 ? (
                 <div className="list-empty">

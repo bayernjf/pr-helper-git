@@ -7,6 +7,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconAlert, IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 type Action = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
@@ -165,16 +166,13 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
               <div className="rebase-hint">{t("Applied top to bottom — the top row is the oldest commit.")}</div>
               {rows.map((row, index) => (
                 <div className={`rebase-row${row.action === 'drop' ? ' is-dropped' : ''}`} key={row.hash}>
-                  <select
+                  <Dropdown
                     className="rebase-action"
                     aria-label={`Action for ${shortHash(row.hash)}`}
                     value={row.action}
-                    onChange={(e) => setAction(index, e.target.value as Action)}
-                  >
-                    {ACTIONS.map((action) => (
-                      <option key={action} value={action}>{action}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => setAction(index, v as Action)}
+                    options={ACTIONS.map((action) => ({ value: action, label: action }))}
+                  />
                   <span className="rebase-hash">{shortHash(row.hash)}</span>
                   <span className="rebase-subject">
                     <span className="truncate" title={row.subject}>{row.subject}</span>

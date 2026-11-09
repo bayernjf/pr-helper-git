@@ -3,6 +3,7 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { getConfig, saveConfig, type ConfigEntry } from '../api';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 interface Props {
@@ -100,17 +101,16 @@ export default function ConfigModal({ onClose }: Props) {
                   </div>
                   <div className="config-control">
                     {entry.type === 'enum' ? (
-                      <select
+                      <Dropdown
                         value={drafts[entry.key] ?? ''}
-                        onChange={(e) =>
-                          setDrafts((prev) => ({ ...prev, [entry.key]: e.target.value }))
+                        onChange={(v) =>
+                          setDrafts((prev) => ({ ...prev, [entry.key]: v }))
                         }
-                      >
-                        <option value="">{t("(inherited / unset)")}</option>
-                        {entry.options!.map((opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                        options={[
+                          { value: '', label: t('(inherited / unset)') },
+                          ...entry.options!.map((opt) => ({ value: opt, label: opt })),
+                        ]}
+                      />
                     ) : (
                       <input
                         type={entry.type === 'email' ? 'email' : 'text'}

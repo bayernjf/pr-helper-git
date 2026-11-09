@@ -3,6 +3,7 @@ import { createBranch } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 interface Props {
@@ -56,12 +57,12 @@ export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
             {fromRef ? (
               <input value={fromRef} readOnly />
             ) : (
-              <select id="branch-from" value={from} onChange={(e) => setFrom(e.target.value)}>
-                <option value="">{t("Current HEAD")}</option>
-                {branchRefs.map((r) => (
-                  <option key={r.name} value={r.shortName}>{r.shortName}</option>
-                ))}
-              </select>
+              <Dropdown
+                id="branch-from"
+                value={from}
+                onChange={setFrom}
+                options={[{ value: '', label: t('Current HEAD') }, ...branchRefs.map((r) => ({ value: r.shortName, label: r.shortName }))]}
+              />
             )}
           </div>
           <label className="checkbox-row">

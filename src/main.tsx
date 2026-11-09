@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider, ToastProvider } from './components/ui';
 import { getPref } from './lib/prefs';
 import './styles.css';
+import { installTooltips } from './design/tooltip';
 
 // Apply the saved theme before the first paint so a light-theme user does not
 // see a dark flash. The provider keeps the attribute in sync afterwards.
@@ -17,7 +18,11 @@ document.documentElement.dataset.theme = getPref<Theme>('theme', 'dark');
 const params = new URLSearchParams(window.location.search);
 const isMobileView = window.location.pathname.replace(/\/+$/, '') === '/m' || params.get('mobile') === '1';
 
-createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!);
+
+installTooltips();
+
+root.render(
   <StrictMode>
     <ToastProvider>
       <ConfirmProvider>

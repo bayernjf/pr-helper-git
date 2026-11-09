@@ -14,6 +14,7 @@ import {
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconCopy, IconTrash, IconUser, IconX } from './icons';
+import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 export default function TeamModal({ onClose }: { onClose: () => void }) {
@@ -180,14 +181,15 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setName(e.target.value)}
                   aria-label={t("New member name")}
                 />
-                <select
+                <Dropdown
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-                  aria-label={t("New member role")}
-                >
-                  <option value="member">{t("member")}</option>
-                  <option value="admin">{t("admin")}</option>
-                </select>
+                  onChange={(v) => setRole(v as 'admin' | 'member')}
+                  aria-label={t('New member role')}
+                  options={[
+                    { value: 'member', label: t('member') },
+                    { value: 'admin', label: t('admin') },
+                  ]}
+                />
                 <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
                   {t("Create member")}
                 </button>
