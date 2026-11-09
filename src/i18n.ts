@@ -259,6 +259,8 @@ export const ZH: Record<string, string> = {
   'No repositories yet.': '还没有仓库。',
   'No file changes.': '没有文件改动。',
   'Sensitive file masked.': '敏感文件已遮挡。',
+  'Uncommitted changes': '未提交改动',
+  'unmerged': '冲突中',
   'detached HEAD': '游离 HEAD',
   'Start or continue a bisect': '开始或继续二分定位',
   'Bisect moves HEAD onto candidate commits and restores the starting branch on reset.': '二分定位会把 HEAD 切到候选提交，结束时会回到起始分支。',

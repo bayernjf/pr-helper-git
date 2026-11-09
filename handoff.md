@@ -1067,5 +1067,9 @@ read-only view instead of a responsive rewrite.
   → file diff). E2E: `/m` responds 200 and returns the app entry
   (109/109).
 
-Baseline after this round: 271 unit tests / 25 files, E2E 109/109.
+- Follow-up in the same round: the phone view lists working-tree changes
+  (tap → `/api/diff` for that file), and the server accepts `GIT2_HOST` for
+  non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
+  now covers both the commit flow and the working-tree diff.
 
+Baseline after this round: 272 unit tests / 25 files, E2E 109/109.

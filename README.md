@@ -316,13 +316,17 @@ remote is configured and commits stay on the local `main` branch.
 Opening `/m` (or any URL with `?mobile=1`) renders a read-only, single-column
 layout built for a phone: one sticky bar with repository picker, refresh and
 language toggle, then branch + ahead/behind, staged/unstaged/untracked counts,
-and an 80-commit list. Tapping a commit opens a full-screen sheet with author,
+an 80-commit list. When the working tree is dirty the same screen lists every
+changed file (status letter, path, staged/unstaged/untracked), and tapping one
+shows that file's diff. Tapping a commit opens a full-screen sheet with author,
 date, signature verdict, body, changed files (`+n/-n`) and the per-file diff.
 There is no staging, commit, push or rebase control in this view.
 
-The server still binds `127.0.0.1`: to reach it from a phone use a private
-overlay network (Tailscale/ZeroTier) or an SSH port forward, never public port
-forwarding. The one-time token in the URL is still the only credential.
+The server binds `127.0.0.1` by default. For phone access set
+`GIT2_HOST=0.0.0.0` (or a specific LAN/Tailscale address) and restart, or keep
+the default and use an SSH port forward. Only do this on a private network
+(Tailscale/ZeroTier/WireGuard); never forward the port from a router or expose
+it publicly. The one-time token in the URL is still the only credential.
 
 ### Deliberately out of scope
 

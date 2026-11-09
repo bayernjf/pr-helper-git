@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import {
   getCommitDiff,
+  getDiff,
   getCommitFiles,
   getCommitSignature,
   getLog,
@@ -15,7 +16,7 @@ import {
 import { getPref, setPref } from '../lib/prefs';
 import { formatFullDate, formatRelative, shortHash } from '../lib/format';
 import { setLocale, t, useLocale } from '../i18n';
-import type { Commit, ParsedStatus, RepoBrief } from '../types';
+import type { Commit, ParsedStatus, RepoBrief, StatusFile } from '../types';
 import { IconBranch, IconChevronRight, IconRefresh, IconX } from './icons';
 
 type Detail = {
@@ -34,6 +35,7 @@ export default function MobileApp() {
   const [error, setError] = useState('');
   const [detail, setDetail] = useState<Detail | null>(null);
   const [diff, setDiff] = useState<{ file: string; text: string; masked: boolean } | null>(null);
+  const [work, setWork] = useState<{ file: StatusFile; text: string | null; masked: boolean } | null>(null);
 
   async function loadRepos() {
     try {
@@ -120,7 +122,18 @@ export default function MobileApp() {
     }
   }
 
+  async function openWork(file: StatusFile) {
+    setWork({ file, text: null, masked: false });
+    try {
+      const res = await getDiff(repo, file.path, file.area === 'staged');
+      setWork({ file, text: res.diff, masked: res.masked });
+    } catch (err: any) {
+      setWork({ file, text: err?.message || String(err), masked: false });
+    }
+  }
+
   const dirty = status ? status.files.length : 0;
+  const areaLabel = (area: StatusFile['area']) => (area === 'unmerged' ? t('unmerged') : t(area));
 
   return (
     <div className="m-app">
@@ -168,6 +181,23 @@ export default function MobileApp() {
           <span className="m-chip">{`${t('untracked')} ${status?.files.filter((f) => f.area === 'untracked').length ?? 0}`}</span>
           {status && dirty === 0 && <span className="m-chip m-clean">{t('Working tree clean')}</span>}
         </div>
+        {status && dirty > 0 && (
+          <div className="m-work">
+            <div className="m-section-title">{t('Uncommitted changes')}</div>
+            {status.files.map((file) => (
+              <button
+                key={`${file.area}:${file.path}`}
+                type="button"
+                className="m-file"
+                onClick={() => openWork(file)}
+              >
+                <span className="m-file-status">{file.status}</span>
+                <span className="m-file-path">{file.path}</span>
+                <span className="m-file-area">{areaLabel(file.area)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {error && <div className="m-error">{error}</div>}
@@ -241,6 +271,25 @@ export default function MobileApp() {
                 <pre className="m-diff">{diff.text}</pre>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {work && (
+        <div className="m-sheet" role="dialog" aria-modal="true">
+          <header className="m-sheet-header">
+            <button type="button" className="m-icon-btn" aria-label={t('Close')} onClick={() => setWork(null)}>
+              <IconX width={18} height={18} />
+            </button>
+            <span className="m-sheet-title">{work.file.path}</span>
+          </header>
+          <div className="m-sheet-body">
+            <div className="m-detail-meta">
+              <div><span>{t('Files')}</span><span>{`${work.file.status} · ${areaLabel(work.file.area)}`}</span></div>
+            </div>
+            {work.text === null && <div className="m-empty">{t('Loading…')}</div>}
+            {work.text !== null && work.masked && <div className="m-error">{t('Sensitive file masked.')}</div>}
+            {work.text !== null && <pre className="m-diff">{work.text}</pre>}
           </div>
         </div>
       )}

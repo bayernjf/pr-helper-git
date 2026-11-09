@@ -31,6 +31,10 @@ const BODY_LIMIT_BY_PATH = new Map([['/api/save', SAVE_BODY_BYTES]]);
 const args = process.argv.slice(2);
 const portArg = args.find((a) => a.startsWith('--port='));
 const PORT = portArg ? Number(portArg.split('=')[1]) : 4789;
+// Loopback by default. Set GIT2_HOST=0.0.0.0 (or a LAN address) only when the
+// port sits behind a private network such as Tailscale; the token is the only
+// credential, so never expose this on a public interface.
+const HOST = process.env.GIT2_HOST || '127.0.0.1';
 if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
   console.error(`Invalid --port value: ${portArg}`);
   process.exit(1);
@@ -269,7 +273,7 @@ const server = http.createServer(async (req, res) => {
 server.keepAliveTimeout = 60_000;
 server.headersTimeout = 65_000;
 
-server.listen(PORT, '127.0.0.1', async () => {
+server.listen(PORT, HOST, async () => {
   const bound = server.address().port;
   for (const repoPath of await listRepos()) {
     ensureWatching(repoPath);
@@ -279,9 +283,13 @@ server.listen(PORT, '127.0.0.1', async () => {
     // can learn the ephemeral port and token without parsing prose.
     console.log(`GIT2_READY ${JSON.stringify({ port: bound, token: TOKEN })}`);
   } else if (isDev) {
-    console.log(`API server (dev) → http://127.0.0.1:${bound}`);
+    console.log(`API server (dev) → http://${HOST}:${bound}`);
   } else {
-    console.log(`PR Helper Git2 → http://127.0.0.1:${bound}/?token=${TOKEN}`);
+    console.log(`PR Helper Git2 → http://${HOST}:${bound}/?token=${TOKEN}`);
+    console.log(`Phone view     → http://${HOST}:${bound}/m?token=${TOKEN}`);
+    if (HOST !== '127.0.0.1') {
+      console.log(`WARNING: listening on ${HOST}; keep this port on a private network (Tailscale/SSH tunnel).`);
+    }
   }
 });
 

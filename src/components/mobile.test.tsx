@@ -90,4 +90,37 @@ describe('mobile read-only view', () => {
     await flush();
     expect(host.textContent).toContain('+new line');
   });
+  it('lists working-tree changes and opens their diff', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/repos')) {
+        return json({ repos: [{ path: repo, name: 'demo', branch: 'main', upstream: null, ahead: 0, behind: 1, staged: 1, unstaged: 2, untracked: 1, lastCommit: null, error: null }] });
+      }
+      if (url.includes('/api/log')) {
+        return json({ commits: [{ hash: 'cccc3333', parents: [], authorName: 'Ann', authorEmail: 'ann@x', date: '2026-11-08T10:00:00Z', subject: 'wip', body: '' }] });
+      }
+      if (url.includes('/api/status')) {
+        return json({ status: { branch: 'main', upstream: 'origin/main', ahead: 0, behind: 1, files: [
+          { path: 'staged.txt', status: 'M', area: 'staged' },
+          { path: 'work.txt', status: 'M', area: 'unstaged' },
+          { path: 'new.txt', status: '?', area: 'untracked' },
+        ] } });
+      }
+      if (url.includes('/api/diff')) {
+        return json({ masked: false, path: 'work.txt', diff: '@@ -1 +1 @@\n-old\n+work line', truncated: false });
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }));
+
+    await act(async () => { root!.render(createElement(MobileApp)); });
+    await flush();
+    expect(host.textContent).toContain('Uncommitted changes');
+    expect(host.textContent).toContain('new.txt');
+
+    const rows = host.querySelectorAll('section.m-status button.m-file');
+    expect(rows.length).toBe(3);
+    await act(async () => { (rows[1] as HTMLButtonElement).click(); });
+    await flush();
+    expect(host.textContent).toContain('+work line');
+  });
 });

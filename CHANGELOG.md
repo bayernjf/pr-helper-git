@@ -5,7 +5,8 @@
 ## [Unreleased]
 
 ### 新增
-- **只读手机视图 `/m`**：单列窄屏布局（仓库选择 / 刷新 / 中英切换、分支与 ahead/behind、暂存计数、80 条提交列表；点提交弹出全屏详情，含签名结论、正文、文件 `+n/-n` 与单文件 diff），无任何写操作。`/m` 与 `?mobile=1` 都可进入；服务端为无扩展名的 GET 深链回退 `index.html`。手机连通仍需 Tailscale / SSH 端口转发（服务只绑 `127.0.0.1`）。
+- **只读手机视图 `/m`**：单列窄屏布局（仓库选择 / 刷新 / 中英切换、分支与 ahead/behind、暂存计数、未提交改动列表、80 条提交列表；点改动或提交都弹出全屏详情，含签名结论、正文、文件 `+n/-n` 与单文件 diff），无任何写操作。`/m` 与 `?mobile=1` 都可进入；服务端为无扩展名的 GET 深链回退 `index.html`。
+- **`GIT2_HOST`**：服务默认仍绑 `127.0.0.1`，可用 `GIT2_HOST=0.0.0.0` 或具体内网/Tailscale 地址覆盖；非 loopback 时启动日志打印告警，并额外打印 `/m` 的访问地址。
 
 ### 修复
 - **merge 冲突契约**：`POST /api/merge` 命中冲突时改为返回 `409` 并带上 `conflicts` 与 `state`（之前走 `gitFail` 返回 400，前端拿不到冲突列表，与 revert / cherry-pick 的 409 约定不一致）；`POST /api/commit` 的「无暂存内容」守卫只在**非** `mergeInProgress` 时拒绝，取 `ours` 解决冲突后可以正常收尾提交。
@@ -21,7 +22,7 @@
 ### 测试
 - 新增 HTTP 层 E2E（`e2e/run.sh`，端口 18774，`GIT2_DEV=1` 固定 `dev-token`、`PR_HELPER_HOME` 隔离、fixture 现场创建），覆盖 Security → 仓库注册 → 暂存/提交/撤销 → 分支/标签/储藏 → grep/对比/rebase 计划 → cherry-pick/merge → GitHub 代理守卫 → 审计 → 注销，共 **109 项**（含 `/m` 深链 2 项）。
 - `server/routes.test.mjs` 新增 merge 冲突契约 4 项（409 带冲突文件、取 `ours` 后提交产生 3-token 的 merge 提交、merge 之外的空提交仍 409）。
-- 当前基线：**271 单测 / 25 文件**（`routes.test.mjs` 单独 89，新增手机视图 DOM 测试 1 项）、E2E 109/109。
+- 当前基线：**272 单测 / 25 文件**（`routes.test.mjs` 单独 89，手机视图 DOM 测试 2 项）、E2E 109/109。
 
 ## [0.1.0] - 2026-11-08
 
