@@ -13,6 +13,7 @@ import CompareModal from './CompareModal';
 import ConfigModal from './ConfigModal';
 import GrepModal from './GrepModal';
 import GlobalGrepModal from './GlobalGrepModal';
+import BisectModal from './BisectModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import RepositoriesModal from './RepositoriesModal';
@@ -63,6 +64,7 @@ export default function Toolbar() {
   const [showConfig, setShowConfig] = useState(false);
   const [showStash, setShowStash] = useState(false);
   const [showReflog, setShowReflog] = useState(false);
+  const [showBisect, setShowBisect] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showGrep, setShowGrep] = useState(false);
   const [showCommitSearch, setShowCommitSearch] = useState(false);
@@ -80,6 +82,7 @@ export default function Toolbar() {
     const openSettings = () => setShowSettings(true);
     const openRemotes = () => setShowRemotes(true);
     const openReflog = () => setShowReflog(true);
+    const openBisect = () => setShowBisect(true);
     const openStash = () => setShowStash(true);
     const openCompare = () => setShowCompare(true);
     const openGrep = () => setShowGrep(true);
@@ -91,6 +94,7 @@ export default function Toolbar() {
     window.addEventListener('git2:settings', openSettings);
     window.addEventListener('git2:remotes', openRemotes);
     window.addEventListener('git2:reflog', openReflog);
+    window.addEventListener('git2:bisect', openBisect);
     window.addEventListener('git2:stash', openStash);
     window.addEventListener('git2:compare', openCompare);
     window.addEventListener('git2:grep', openGrep);
@@ -103,6 +107,7 @@ export default function Toolbar() {
       window.removeEventListener('git2:settings', openSettings);
       window.removeEventListener('git2:remotes', openRemotes);
       window.removeEventListener('git2:reflog', openReflog);
+      window.removeEventListener('git2:bisect', openBisect);
       window.removeEventListener('git2:stash', openStash);
       window.removeEventListener('git2:compare', openCompare);
       window.removeEventListener('git2:grep', openGrep);
@@ -387,6 +392,7 @@ export default function Toolbar() {
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
       {showStash && <StashModal onClose={() => setShowStash(false)} />}
       {showReflog && <ReflogModal onClose={() => setShowReflog(false)} />}
+      {showBisect && <BisectModal onClose={() => setShowBisect(false)} />}
       {showCompare && <CompareModal onClose={() => setShowCompare(false)} />}
       {showGrep && <GrepModal onClose={() => setShowGrep(false)} />}
       {showCommitSearch && <CommitSearchModal onClose={() => setShowCommitSearch(false)} />}

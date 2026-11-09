@@ -317,6 +317,27 @@ export interface SubmoduleEntry {
   describe: string;
 }
 
+export interface BisectState {
+  active: boolean;
+  /** Branch/ref the session started from, restored by Reset. */
+  start: string | null;
+  current: { sha: string; subject: string } | null;
+  log: string;
+  decisions: { good: number; bad: number };
+}
+
+export const getBisectState = (repo: string) =>
+  request<BisectState>(`/api/bisect?repo=${encodeURIComponent(repo)}`);
+
+export const startBisect = (repo: string, good: string, bad: string) =>
+  post('/api/bisect/start', { repo, good, bad }) as Promise<{ ok: boolean; message: string; state: BisectState }>;
+
+export const markBisect = (repo: string, verdict: 'good' | 'bad') =>
+  post('/api/bisect/mark', { repo, verdict }) as Promise<{ ok: boolean; message: string; state: BisectState }>;
+
+export const resetBisect = (repo: string) =>
+  post('/api/bisect/reset', { repo }) as Promise<{ ok: boolean; message: string; state: BisectState }>;
+
 export const getSubmodules = (repo: string) =>
   request<{ entries: SubmoduleEntry[] }>(`/api/submodules?repo=${encodeURIComponent(repo)}`);
 

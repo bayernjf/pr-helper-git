@@ -3130,3 +3130,15 @@ pre.diff {
 }
 .ci-gate-row.danger { border-color: rgba(240, 85, 103, 0.4); background: rgba(240, 85, 103, 0.08); }
 .ci-gate-row.muted { background: transparent; color: var(--text-faint); }
+
+.bisect-log {
+  margin-top: 12px;
+  padding: 8px 10px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  border-radius: 6px;
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.08));
+}

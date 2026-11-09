@@ -94,6 +94,38 @@ function validateRefSpec(raw) {
 }
 
 const ok = (json) => ({ status: 200, json });
+/** Resolve a path inside the repository's own git dir (BISECT_LOG, BISECT_START). */
+async function gitDirPath(repo, name) {
+  const rel = (await git(['rev-parse', '--git-path', name], repo)).trim();
+  return path.isAbsolute(rel) ? rel : path.resolve(repo, rel);
+}
+
+async function readBisectState(repo) {
+  let log = '';
+  try {
+    log = await fsp.readFile(await gitDirPath(repo, 'BISECT_LOG'), 'utf8');
+  } catch {
+    return { active: false, start: null, current: null, log: '', decisions: { good: 0, bad: 0 } };
+  }
+  let start = null;
+  try {
+    start = (await fsp.readFile(await gitDirPath(repo, 'BISECT_START'), 'utf8')).trim() || null;
+  } catch {
+    start = null;
+  }
+  let current = null;
+  try {
+    const raw = await git(['log', '-1', '--format=%H%x00%s'], repo);
+    const [sha = '', subject = ''] = raw.replace(/\n$/, '').split('\u0000');
+    if (sha.trim()) current = { sha: sha.trim(), subject: subject.trim() };
+  } catch {
+    current = null;
+  }
+  const good = (log.match(/^# good:/gm) || []).length;
+  const bad = (log.match(/^# bad:/gm) || []).length;
+  return { active: true, start, current, log, decisions: { good, bad } };
+}
+
 const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
 
 function gitFail(err, fallback) {
@@ -1029,6 +1061,12 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   // X expired, Y expired key, R revoked key.
   // Submodule states: " " up to date, "-" not initialized, "+" checked-out
   // commit differs from the index, "U" unresolved conflicts.
+  // Bisect state: read from the marker files git itself maintains, so this
+  // works even after a server restart. BISECT_LOG only exists mid-session.
+  if (pathname === '/api/bisect' && method === 'GET') {
+    return ok(await readBisectState(repo));
+  }
+
   if (pathname === '/api/submodules' && method === 'GET') {
     try {
       const out = await git(['submodule', 'status', '--recursive'], repo);
@@ -1950,6 +1988,62 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     } catch (err) {
       await appendAudit({ ok: false, action: 'rebase-abort', repo });
       return gitFail(err, 'git rebase --abort failed');
+    }
+  }
+
+  if (pathname === '/api/bisect/start') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const bad = typeof body.bad === 'string' && /^[0-9a-f]{7,40}$/.test(body.bad.trim())
+      ? body.bad.trim()
+      : null;
+    const good = typeof body.good === 'string' && /^[0-9a-f]{7,40}$/.test(body.good.trim())
+      ? body.good.trim()
+      : null;
+    if (!bad || !good) return fail(400, 'good and bad must be commit shas');
+    if (bad === good) return fail(400, 'good and bad must differ');
+    try {
+      const started = await git(['bisect', 'start'], repo);
+      const markedBad = await git(['bisect', 'bad', bad], repo);
+      const markedGood = await git(['bisect', 'good', good], repo);
+      const message = (started + markedBad + markedGood)
+        .split('\n').filter((line) => line.trim()).join('\n');
+      await appendAudit({ ok: true, action: 'bisect-start', repo, good, bad });
+      return ok({ ok: true, message, state: await readBisectState(repo) });
+    } catch (err) {
+      // A half-started session leaves HEAD detached at a random commit, so
+      // reset best-effort instead of stranding the user.
+      await git(['bisect', 'reset'], repo).catch(() => '');
+      await appendAudit({ ok: false, action: 'bisect-start', repo, good, bad });
+      return gitFail(err, 'git bisect start failed');
+    }
+  }
+
+  if (pathname === '/api/bisect/mark') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    const verdict = body.verdict === 'good' || body.verdict === 'bad' ? body.verdict : null;
+    if (!verdict) return fail(400, 'verdict must be good or bad');
+    if (!(await readBisectState(repo)).active) return fail(400, 'no bisect in progress');
+    try {
+      const out = await git(['bisect', verdict], repo);
+      const message = out.split('\n').filter((line) => line.trim()).join('\n');
+      await appendAudit({ ok: true, action: 'bisect-mark', repo, verdict });
+      return ok({ ok: true, message, state: await readBisectState(repo) });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'bisect-mark', repo, verdict });
+      return gitFail(err, `git bisect ${verdict} failed`);
+    }
+  }
+
+  if (pathname === '/api/bisect/reset') {
+    if (method !== 'POST') return fail(405, 'method not allowed');
+    if (!(await readBisectState(repo)).active) return fail(400, 'no bisect in progress');
+    try {
+      const out = await git(['bisect', 'reset'], repo);
+      await appendAudit({ ok: true, action: 'bisect-reset', repo });
+      return ok({ ok: true, message: out.trim(), state: await readBisectState(repo) });
+    } catch (err) {
+      await appendAudit({ ok: false, action: 'bisect-reset', repo });
+      return gitFail(err, 'git bisect reset failed');
     }
   }
 

@@ -148,6 +148,13 @@ export default function CommandPalette() {
           run: () => window.dispatchEvent(new CustomEvent('git2:reflog')),
         },
         {
+          id: 'bisect',
+          label: 'Start or continue a bisect',
+          search: 'bisect binary search regression good bad',
+          icon: <IconBranch width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:bisect')),
+        },
+        {
           id: 'grep',
           label: 'Search repository contents (git grep)',
           search: 'grep search find content text',
