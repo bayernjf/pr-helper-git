@@ -34,6 +34,28 @@ export function useLocale(): Locale {
 
 /** English source string → Chinese. */
 export const ZH: Record<string, string> = {
+  'Auto fetch (10 min)': '自动 Fetch（10 分钟）',
+  'Change count': '变更数',
+  'Conflicts first': '冲突优先',
+  'Fetch all repositories': '拉取全部仓库',
+  'Fetching…': '拉取中…',
+  'Open in Terminal': '在终端中打开',
+  'Open in VS Code': '在 VS Code 中打开',
+  'Open pull requests': '开启的 Pull Request',
+  'Open repository': '打开仓库',
+  'Pin to top': '置顶',
+  'Recent commit': '最近提交',
+  'Remove from list': '从列表移除',
+  'Remove {name} from the list? Disk files stay untouched.': '从列表移除「{name}」？磁盘文件不受影响。',
+  'Reveal in Finder': '在 Finder 中显示',
+  'Right-click a card for more actions': '右键卡片查看更多操作',
+  'Silently fetch every repository every 10 minutes while this page is open': '本页打开期间每 10 分钟静默拉取全部仓库',
+  'Sort order': '排序方式',
+  'Unpin': '取消置顶',
+  'clean': '干净',
+  'unavailable': '不可用',
+  '{name} removed': '已移除 {name}',
+  '…': '…',
   // ----- toolbar / work panel / graph -----
   'Fetch': '获取',
   'Pull': '拉取',

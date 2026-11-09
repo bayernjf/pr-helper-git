@@ -264,6 +264,13 @@ export default function Toolbar() {
       <span className="segmented">
         <button
           type="button"
+          className={view === 'dashboard' ? 'active' : ''}
+          onClick={() => setView('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
           className={view === 'git' ? 'active' : ''}
           onClick={() => setView('git')}
         >

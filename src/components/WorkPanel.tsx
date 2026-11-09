@@ -234,7 +234,11 @@ export default function WorkPanel() {
   const confirm = useConfirm();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(() =>
+    activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
+  useEffect(() => {
+    setMessage(activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
+  }, [activeRepo]);
   const [amend, setAmend] = useState(false);
   const [ignoreWs, setIgnoreWs] = useState(false);
   const [context, setContext] = useState<number | undefined>(undefined);
@@ -414,6 +418,7 @@ export default function WorkPanel() {
       const result = await runAction(amendCommit(activeRepo!, text), 'Last commit amended');
       if (result !== null) {
         setMessage('');
+        localStorage.removeItem(`git2-draft:${activeRepo}`);
         setAmend(false);
       }
       return;
@@ -422,6 +427,7 @@ export default function WorkPanel() {
     const result = await runAction(commitChanges(activeRepo!, text, allowEmpty), 'Committed');
     if (result !== null) {
       setMessage('');
+      localStorage.removeItem(`git2-draft:${activeRepo}`);
       setAllowEmpty(false);
     }
   }
@@ -574,7 +580,10 @@ export default function WorkPanel() {
         <textarea
           placeholder={t("Summary of the staged changes…")}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, e.target.value);
+          }}
         />
         <div className="form-side">
           <button

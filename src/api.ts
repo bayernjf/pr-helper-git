@@ -99,6 +99,9 @@ export const importTeamConfig = (payload: { repos: string[]; mode?: 'replace' | 
 export const addRepo = (repo: string) =>
   post('/api/repos/add', { repo }) as Promise<{ repos: string[]; path: string }>;
 
+export const openExternal = (repo: string, target: 'finder' | 'terminal' | 'editor') =>
+  post('/api/repos/open-external', { repo, target });
+
 export const removeRepo = (repo: string) =>
   post('/api/repos/remove', { repo }) as Promise<{ repos: string[] }>;
 

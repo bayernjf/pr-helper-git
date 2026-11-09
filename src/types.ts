@@ -9,6 +9,7 @@ export interface RepoBrief {
   behind: number;
   staged: number;
   unstaged: number;
+  unmerged: number;
   untracked: number;
   lastCommit: { at: string; subject: string } | null;
   error: string | null;

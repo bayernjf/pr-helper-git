@@ -21,7 +21,7 @@ import { useToast, type ToastKind } from './components/ui';
 import { getPref, setPref } from './lib/prefs';
 import { t as translateText } from './i18n';
 
-type View = 'git' | 'pr';
+type View = 'git' | 'pr' | 'dashboard';
 export type Theme = 'dark' | 'light';
 const ACTIVE_KEY = 'git2-active-repo';
 const PAT_KEY = 'git2-pat';

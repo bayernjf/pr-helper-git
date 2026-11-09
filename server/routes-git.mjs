@@ -220,6 +220,7 @@ async function repoBrief(absPath) {
     behind: 0,
     staged: 0,
     unstaged: 0,
+    unmerged: 0,
     untracked: 0,
     lastCommit: null,
     error: null,
@@ -232,7 +233,8 @@ async function repoBrief(absPath) {
     brief.behind = status.behind;
     for (const f of status.files) {
       if (f.area === 'staged') brief.staged += 1;
-      else if (f.area === 'unstaged' || f.area === 'unmerged') brief.unstaged += 1;
+      else if (f.area === 'unmerged') brief.unmerged += 1;
+      else if (f.area === 'unstaged') brief.unstaged += 1;
       else brief.untracked += 1;
     }
     try {
@@ -430,6 +432,39 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     stopWatching(target);
     await appendAudit({ action: 'repo-remove', repo: target });
     return ok({ repos });
+  }
+
+  // Reveal a repository in Finder / Terminal / a code editor (macOS `open`).
+  // Parity with pr-helper-git's dashboard context menu.
+  if (pathname === '/api/repos/open-external' && method === 'POST') {
+    const target = typeof body.repo === 'string' ? body.repo : null;
+    if (!target) return fail(400, 'invalid repository path');
+    const registered = await listRepos();
+    if (!registered.includes(target)) return fail(403, 'unknown or unregistered repo');
+    const target2 = ['finder', 'terminal', 'editor'].includes(body.target) ? body.target : null;
+    if (!target2) return fail(400, 'invalid target');
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const run = promisify(execFile);
+    try {
+      if (target2 === 'finder') await run('open', [target]);
+      else if (target2 === 'terminal') await run('open', ['-a', 'Terminal', target]);
+      else {
+        try {
+          await run('code', [target], { timeout: 5000 });
+        } catch {
+          try {
+            await run('cursor', [target], { timeout: 5000 });
+          } catch {
+            await run('open', ['-a', 'Visual Studio Code', target], { timeout: 5000 });
+          }
+        }
+      }
+    } catch (err) {
+      return fail(500, `open failed (${target2}): ${err?.message || err}`);
+    }
+    await appendAudit({ ok: true, action: `open-external.${target2}`, repo: target });
+    return ok({ done: true });
   }
 
   if (pathname === '/api/repos/pull' && method === 'POST') {
