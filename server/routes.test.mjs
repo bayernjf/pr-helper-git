@@ -1387,3 +1387,11 @@ describe('commit signature check', () => {
     expect(r.status).toBe(400);
   });
 });
+
+describe('submodule status', () => {
+  it('returns an empty list for a repository without submodules', async () => {
+    const r = await get(`/api/submodules?repo=${q(repoDir)}`);
+    expect(r.status).toBe(200);
+    expect(r.json.entries).toEqual([]);
+  });
+});

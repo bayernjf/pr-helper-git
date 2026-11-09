@@ -198,6 +198,9 @@ REFS=$(getq refs --data-urlencode "repo=$REPO_A")
 contains "refs list main" "main" "$REFS"
 contains "refs list origin/main" "origin/main" "$REFS"
 
+SUBS=$(getq submodules --data-urlencode "repo=$REPO_A")
+check "no submodules in repo A" "0" "$(echo "$SUBS" | json 'len(d["entries"])')"
+
 FILE=$(getq file --data-urlencode "repo=$REPO_A" --data-urlencode "file=file1.txt")
 contains "file content" "content 1" "$FILE"
 
