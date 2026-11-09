@@ -18,6 +18,7 @@ let repoDir;
 let rebaseDir;
 let conflictDir;
 let mergeDir;
+let bisectDir;
 let revertDir;
 let revertSha;
 let serverProc;
@@ -139,6 +140,17 @@ beforeAll(async () => {
   // A repository whose two branches edit the same line, used to pin the merge
   // conflict contract: 409 + conflict list, then a commit that records MERGE_HEAD
   // even when "ours" leaves the index identical to HEAD.
+  bisectDir = path.join(tmpRoot, 'bisect-repo');
+  await fsp.mkdir(bisectDir);
+  git(['init', '-b', 'main'], bisectDir);
+  git(['config', 'user.email', 'tester@example.com'], bisectDir);
+  git(['config', 'user.name', 'Tester'], bisectDir);
+  for (let i = 1; i <= 5; i += 1) {
+    await fsp.writeFile(path.join(bisectDir, 'count.txt'), `line ${i}\n`, 'utf8');
+    git(['add', '.'], bisectDir);
+    git(['commit', '-m', `bisect commit ${i}`], bisectDir);
+  }
+
   mergeDir = path.join(tmpRoot, 'merge-repo');
   await fsp.mkdir(mergeDir);
   git(['init', '-b', 'main'], mergeDir);
@@ -1393,5 +1405,55 @@ describe('submodule status', () => {
     const r = await get(`/api/submodules?repo=${q(repoDir)}`);
     expect(r.status).toBe(200);
     expect(r.json.entries).toEqual([]);
+  });
+});
+
+describe('bisect wizard', () => {
+  beforeAll(async () => {
+    // Route dispatch checks registration before the handler runs.
+    const r = await post('/api/repos/add', { repo: bisectDir });
+    expect(r.status).toBe(200);
+  });
+
+  it('reports no session before starting', async () => {
+    const r = await get(`/api/bisect?repo=${q(bisectDir)}`);
+    expect(r.status).toBe(200);
+    expect(r.json.active).toBe(false);
+    expect(r.json.current).toBe(null);
+  });
+
+  it('starts, marks and resets a session against real git', async () => {
+    const first = git(['rev-list', '--max-parents=0', 'HEAD'], bisectDir).trim();
+    const bad = git(['rev-parse', 'HEAD'], bisectDir).trim();
+
+    const started = await post('/api/bisect/start', { repo: bisectDir, good: first, bad });
+    expect(started.status).toBe(200);
+    expect(started.json.state.active).toBe(true);
+    expect(started.json.state.current.sha).toMatch(/^[0-9a-f]{40}$/);
+
+    const status = await get(`/api/bisect?repo=${q(bisectDir)}`);
+    expect(status.json.active).toBe(true);
+    expect(status.json.decisions.bad).toBe(1);
+    expect(status.json.decisions.good).toBe(1);
+
+    const mark = await post('/api/bisect/mark', { repo: bisectDir, verdict: 'good' });
+    expect(mark.status).toBe(200);
+    expect(mark.json.state.active).toBe(true);
+
+    const reset = await post('/api/bisect/reset', { repo: bisectDir });
+    expect(reset.status).toBe(200);
+    expect(reset.json.state.active).toBe(false);
+
+    // reset must put the original branch back, not leave a detached HEAD
+    expect(git(['rev-parse', '--abbrev-ref', 'HEAD'], bisectDir).trim()).toBe('main');
+  });
+
+  it('rejects malformed refs and marking without a session', async () => {
+    const bad = await post('/api/bisect/start', { repo: bisectDir, good: 'nope', bad: 'HEAD' });
+    expect(bad.status).toBe(400);
+    const mark = await post('/api/bisect/mark', { repo: bisectDir, verdict: 'good' });
+    expect(mark.status).toBe(400);
+    const reset = await post('/api/bisect/reset', { repo: bisectDir });
+    expect(reset.status).toBe(400);
   });
 });

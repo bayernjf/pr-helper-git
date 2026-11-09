@@ -365,6 +365,17 @@ check "pull brings the clone commit" "200" "$(post pull "$(printf '{"repo":"%s"}
 contains "log shows pulled commit" "from clone" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")"
 
 echo ""
+echo "=== E2E: Bisect ==="
+B_GOOD=$(git -C "$REPO_A" rev-list --max-parents=0 HEAD)
+B_BAD=$(git -C "$REPO_A" rev-parse HEAD)
+check "bisect start" "200" "$(post bisect/start "$(printf '{"repo":"%s","good":"%s","bad":"%s"}' "$REPO_A" "$B_GOOD" "$B_BAD")")"
+BIS=$(getq bisect --data-urlencode "repo=$REPO_A")
+check "bisect is active" "True" "$(echo "$BIS" | json 'd["active"]')"
+check "bisect reset" "200" "$(post bisect/reset "$(printf '{"repo":"%s"}' "$REPO_A")")"
+BIS2=$(getq bisect --data-urlencode "repo=$REPO_A")
+check "bisect is cleared" "False" "$(echo "$BIS2" | json 'd["active"]')"
+check "bisect restored the branch" "main" "$(git -C "$REPO_A" rev-parse --abbrev-ref HEAD)"
+
 echo "=== E2E: GitHub proxy guards ==="
 check "github proxy without PAT is 401" "401" "$(curl -s -o /dev/null -w '%{http_code}' -X POST \
   -H 'Content-Type: application/json' -d '{}' "$BASE/api/github?token=$TOKEN")"
