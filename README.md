@@ -50,7 +50,10 @@ remote is configured and commits stay on the local `main` branch.
 - Switch the graph's history scope between every branch (`--all`) and the
   current branch only, straight from the graph toolbar.
 - Ref sidebar with collapsible local branches, remote branches, tags and stash
-  groups; a right-click context menu exposes the full action set.
+  groups; a right-click context menu exposes the full action set. A read-only
+  Submodules group appears when the repository has submodules, showing git's
+  four states (up to date, not initialized, checked-out commit differs,
+  conflicted) with the pinned SHA and describe string.
 - Checkout branches/tags, create branches (with a start point), rename and
   delete branches (safe delete, with an optional force delete), and merge a
   branch into the current branch.
@@ -71,7 +74,11 @@ remote is configured and commits stay on the local `main` branch.
 - See branch divergence at a glance with ahead/behind badges (plus a red
   `gone` marker when the upstream ref was deleted on the remote), inspect a
   stash's patch before applying it, and copy a full commit hash with one click.
-  Every dialog also closes on Escape.
+  The detail panel also reports the commit's signature verdict from git's
+  `%G?` letter (verified, bad, unknown validity, unsigned, cannot be checked,
+  expired, expired key, revoked key), which needs no signing key material —
+  unsigned repositories simply read "Not signed". Every dialog also closes on
+  Escape.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
   touched.
@@ -302,8 +309,9 @@ remote is configured and commits stay on the local `main` branch.
 
 ### Deliberately out of scope
 
-Interactive rebase, submodules, worktrees, GPG signing, a three-way merge
-editor, GitHub App OAuth, webhooks, a database, web push and deployment gates.
+Worktrees, adding or updating submodules (status is read-only), creating GPG
+signatures (verification is supported), a three-way merge editor, GitHub App
+OAuth, webhooks, a database, web push and deployment gates.
 Conflicts are handled per file from the in-app panel (Use current / Use
 incoming / Mark resolved), not by editing conflict markers in place.
 
