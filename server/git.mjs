@@ -206,6 +206,18 @@ export function parseBlame(output) {
 }
 
 // Parse `git reflog` lines: "<sha> <ref>@{<n>}: <action>: <description>".
+/** `git submodule status --recursive` lines: " <state><sha> <path> (<describe>)". */
+export function parseSubmoduleStatus(output) {
+  const entries = [];
+  for (const line of output.split('\n')) {
+    if (!line.trim()) continue;
+    const m = line.match(/^([ +\-U])([0-9a-f]{7,40}) ([^ (]+)(?: \(([^)]*)\))?$/);
+    if (!m) continue;
+    entries.push({ state: m[1], sha: m[2], path: m[3], describe: m[4] || '' });
+  }
+  return entries;
+}
+
 export function parseReflog(output) {
   const entries = [];
   for (const line of output.split('\n')) {

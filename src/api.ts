@@ -309,6 +309,17 @@ export interface CommitSignature {
   verified: boolean;
 }
 
+export interface SubmoduleEntry {
+  /** ' ' up to date, '-' not initialized, '+' checked-out differs, 'U' conflicts. */
+  state: string;
+  sha: string;
+  path: string;
+  describe: string;
+}
+
+export const getSubmodules = (repo: string) =>
+  request<{ entries: SubmoduleEntry[] }>(`/api/submodules?repo=${encodeURIComponent(repo)}`);
+
 export const getCommitSignature = (repo: string, sha: string) =>
   request<CommitSignature>(
     `/api/signature?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,

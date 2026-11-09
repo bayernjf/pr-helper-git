@@ -232,6 +232,12 @@ export const ZH: Record<string, string> = {
   'Expired key': '密钥已过期',
   'Revoked key': '密钥已吊销',
   'Unknown signature status': '未知签名状态',
+  'Submodules': '子模块',
+  'Up to date': '已同步',
+  'Not initialized': '未初始化',
+  'Modified': '已修改',
+  'Conflicted': '冲突',
+  'Unknown': '未知',
   // ----- shell / toolbar -----
   'No repository selected': '未选择仓库',
   'Use the repository selector in the toolbar to register, clone or initialise a repository.':

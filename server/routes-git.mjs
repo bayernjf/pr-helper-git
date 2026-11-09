@@ -14,6 +14,7 @@ import {
   parsePorcelainV2,
   parseRefs,
   parseReflog,
+  parseSubmoduleStatus,
   parseTagObject,
   splitFilePatch,
 } from './git.mjs';
@@ -1026,6 +1027,17 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   // Signature check for one commit. `%G?` is one letter per commit:
   // G good, B bad, U unknown validity, N no signature, E cannot be checked,
   // X expired, Y expired key, R revoked key.
+  // Submodule states: " " up to date, "-" not initialized, "+" checked-out
+  // commit differs from the index, "U" unresolved conflicts.
+  if (pathname === '/api/submodules' && method === 'GET') {
+    try {
+      const out = await git(['submodule', 'status', '--recursive'], repo);
+      return ok({ entries: parseSubmoduleStatus(out) });
+    } catch (err) {
+      return gitFail(err, 'git submodule status failed');
+    }
+  }
+
   if (pathname === '/api/signature' && method === 'GET') {
     const sha = typeof query.get('sha') === 'string' ? query.get('sha').trim() : '';
     if (!/^[0-9a-f]{7,40}$/.test(sha)) return fail(400, 'invalid commit sha');

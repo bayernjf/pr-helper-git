@@ -12,6 +12,7 @@ import {
   deleteRemoteTag,
   getStashList,
   getStashShow,
+  getSubmodules,
   getTagShow,
   pushBranch,
   pushTag,
@@ -20,6 +21,7 @@ import {
   stashApply,
   stashDrop,
   type StashEntry,
+  type SubmoduleEntry,
   type TagDetail,
 } from '../api';
 import { useApp } from '../app-state';
@@ -37,6 +39,7 @@ import {
   IconMore,
   IconPin,
   IconPlus,
+  IconFile,
   IconSearch,
   IconStash,
   IconTag,
@@ -53,6 +56,24 @@ import type { Ref } from '../types';
 import { t } from '../i18n';
 
 type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
+
+/** git submodule status prefix letters, mapped to display copy. */
+function submoduleLabel(state: string): string {
+  switch (state) {
+    case ' ': return t('Up to date');
+    case '-': return t('Not initialized');
+    case '+': return t('Modified');
+    case 'U': return t('Conflicted');
+    default: return t('Unknown');
+  }
+}
+
+function submoduleColor(state: string): string {
+  if (state === ' ') return 'var(--green)';
+  if (state === '-') return 'var(--text-dim)';
+  if (state === '+') return 'var(--amber)';
+  return 'var(--red)';
+}
 
 interface MenuState {
   x: number;
@@ -196,13 +217,26 @@ export default function RefSidebar() {
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [filter, setFilter] = useState('');
-  const defaultGroups = { local: true, remote: true, tag: true, stash: true };
+  const [submodules, setSubmodules] = useState<SubmoduleEntry[]>([]);
+  const defaultGroups = { local: true, remote: true, tag: true, stash: true, submodules: true };
   const [openGroups, setOpenGroups] = useState(() =>
     activeRepo
       ? getPref(repoPref(activeRepo, 'refGroups'), defaultGroups)
       : defaultGroups);
 
   // Restore the collapsed/expanded state when switching repositories.
+  // Submodule states are read-only: `git submodule status` never touches the
+  // working tree, so this can run on every repo switch.
+  useEffect(() => {
+    let cancelled = false;
+    setSubmodules([]);
+    if (!activeRepo) return;
+    getSubmodules(activeRepo)
+      .then((res) => { if (!cancelled) setSubmodules(res.entries); })
+      .catch(() => { if (!cancelled) setSubmodules([]); });
+    return () => { cancelled = true; };
+  }, [activeRepo]);
+
   useEffect(() => {
     if (!activeRepo) return;
     setOpenGroups(getPref(repoPref(activeRepo, 'refGroups'), defaultGroups));
@@ -620,6 +654,24 @@ export default function RefSidebar() {
           onOpen={() => runAction(stashApply(activeRepo!, entry.index, false), 'Stash applied')}
           onMenu={(e) => openMenu(e, 'stash', entry.subject, entry.index)}
         />
+      ))}
+
+      {submodules.length > 0 && (
+        <GroupHead
+          label={t("Submodules")}
+          count={submodules.length}
+          open={openGroups.submodules !== false}
+          onToggle={() => setOpenGroups((prev) => ({ ...prev, submodules: prev.submodules === false }))}
+        />
+      )}
+      {submodules.length > 0 && openGroups.submodules !== false && submodules.map((sm) => (
+        <div key={sm.path} className="ref-row" title={`${sm.sha.slice(0, 8)} ${sm.describe}`.trim()}>
+          <span className="ref-icon"><IconFile width={15} height={15} /></span>
+          <span className="ref-name">{sm.path}</span>
+          <span className="track-badge">
+            <span style={{ color: submoduleColor(sm.state) }}>{submoduleLabel(sm.state)}</span>
+          </span>
+        </div>
       ))}
 
       {showNew && activeRepo && (
