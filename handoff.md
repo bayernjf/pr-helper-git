@@ -1033,3 +1033,16 @@ checked-out commit differs, `U` conflict). The sidebar renders a read-only
 "Submodules" group only when a repo actually has submodules, colour-coded by
 state. Covered by a parser test with all four prefixes, a route test for the
 empty repository, and one E2E check.
+
+### 2026-11-09 Bisect wizard
+
+The last parity candidate. `GET /api/bisect` reads git's own marker files
+(`$(git rev-parse --git-path BISECT_LOG)` and `BISECT_START`) instead of keeping
+state in memory, so a running bisect survives a server restart; it also reports
+the current candidate commit and the good/bad counts parsed from the log.
+`POST /api/bisect/start` runs `git bisect start`, then `bisect bad <sha>` /
+`bisect good <sha>`; a failure mid-way best-effort resets so HEAD is not left
+detached. `POST /api/bisect/mark` and `/reset` refuse when no session is active,
+and reset verified to restore the original branch (`main`). Covered by three
+route tests against a real fixture repo plus five E2E checks (start → active →
+reset → cleared → branch restored).

@@ -82,6 +82,10 @@ remote is configured and commits stay on the local `main` branch.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
   touched.
+- Bisect wizard from the command palette: start from a good and a bad commit
+  (prefilled with the ends of the loaded history), mark the current commit
+  good/bad, and reset back to the starting branch. State is read from git's
+  own `BISECT_LOG` / `BISECT_START`, so a session survives a server restart.
 - Manage git remotes from a dedicated modal: inspect fetch/push URLs, add a
   remote over a validated network URL, rename one, edit a remote's URL inline
   (including the separate push URL), or remove one, with every write audited.
@@ -439,10 +443,10 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (267 tests, 24 files)
+npm test           # Vitest unit + route-level HTTP tests (270 tests, 24 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (102 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (107 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not
