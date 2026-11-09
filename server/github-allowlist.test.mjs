@@ -8,6 +8,14 @@ describe('github allowlist', () => {
     expect(isAllowed('GET', '/repos/o/r/branches/main/protection')).toBe(true);
   });
 
+  it('allows label reads and label mutations on a pull request', () => {
+    expect(isAllowed('GET', '/repos/o/r/labels')).toBe(true);
+    expect(isAllowed('GET', '/repos/o/r/issues/12/labels')).toBe(true);
+    expect(isAllowed('POST', '/repos/o/r/issues/12/labels')).toBe(true);
+    expect(isAllowed('DELETE', '/repos/o/r/issues/12/labels/needs%20review')).toBe(true);
+    expect(isAllowed('POST', '/repos/o/r/labels')).toBe(false);
+  });
+
   it('rejects sibling and mutating endpoints', () => {
     expect(isAllowed('DELETE', '/repos/o/r/branches/main/protection')).toBe(false);
     expect(isAllowed('PUT', '/repos/o/r/branches/main/protection')).toBe(false);

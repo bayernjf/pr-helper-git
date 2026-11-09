@@ -50,6 +50,17 @@ export const ALLOWLIST = [
     method: 'DELETE',
     regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/comments/\\d+$`),
   },
+  // Labels: the repo label list populates the picker, and labels are attached
+  // to a pull request through the issues API (pulls share the issue number
+  // space). The label name is URL-encoded and may contain spaces, so it cannot
+  // use SEG here.
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/labels$`) },
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/labels$`) },
+  { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/labels$`) },
+  {
+    method: 'DELETE',
+    regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/labels/[^/]+$`),
+  },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}$`) },
   { method: 'GET', regex: /^\/user$/ },
   { method: 'POST', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },

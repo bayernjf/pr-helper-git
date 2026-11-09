@@ -98,6 +98,9 @@ export default function PrDetailModal({
   const [editWorking, setEditWorking] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [labels, setLabels] = useState(pr.labels || []);
+  const [repoLabels, setRepoLabels] = useState<Array<{ name: string; color?: string }>>([]);
+  const [labelBusy, setLabelBusy] = useState(false);
 
   const base = `/repos/${remote!.owner}/${remote!.repo}`;
 
@@ -113,6 +116,47 @@ export default function PrDetailModal({
       if (items.length < 100) break;
     }
     return { data: all };
+  }
+
+  // Repo label list drives the picker. A repo with no labels (or a token
+  // without label scope) simply gets an empty picker; it must not break the
+  // rest of the modal.
+  useEffect(() => {
+    let cancelled = false;
+    githubProxy<Array<{ name: string; color?: string }>>(pat, `${base}/labels?per_page=100`)
+      .then((res) => {
+        if (!cancelled) setRepoLabels(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pat, base]);
+
+  async function addLabel(name: string) {
+    if (!name || labelBusy) return;
+    setLabelBusy(true);
+    try {
+      await githubProxy(pat, `${base}/issues/${pr.number}/labels`, 'POST', { labels: [name] });
+      setLabels((prev) => (prev.some((l) => l.name === name) ? prev : [...prev, repoLabels.find((l) => l.name === name) || { name }]));
+    } catch {
+      toast(t('Could not add the label.'));
+    } finally {
+      setLabelBusy(false);
+    }
+  }
+
+  async function removeLabel(name: string) {
+    if (labelBusy) return;
+    setLabelBusy(true);
+    try {
+      await githubProxy(pat, `${base}/issues/${pr.number}/labels/${encodeURIComponent(name)}`, 'DELETE');
+      setLabels((prev) => prev.filter((l) => l.name !== name));
+    } catch {
+      toast(t('Could not remove the label.'));
+    } finally {
+      setLabelBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -418,6 +462,47 @@ export default function PrDetailModal({
         <div className="modal-body">
           <div className="detail-value muted" style={{ marginBottom: 16 }}>
             {pr.head.label} → {pr.base.label} · {tp("opened by {user} on {date}", { user: pr.user.login, date: formatFullDate(pr.created_at) })}
+          </div>
+
+          <div className="detail-section">
+            <span className="detail-label">{t("Labels")}</span>
+            <div className="pr-labels">
+              {labels.map((label) => (
+                <span className="pr-label" key={label.name}>
+                  <span className="pr-label-dot" style={{ background: `#${label.color || '888888'}` }} />
+                  {label.name}
+                  <button
+                    type="button"
+                    className="pr-label-remove"
+                    aria-label={tp("Remove label {name}", { name: label.name })}
+                    disabled={labelBusy}
+                    onClick={() => removeLabel(label.name)}
+                  >
+                    <IconX width={10} height={10} />
+                  </button>
+                </span>
+              ))}
+              {pr.state === 'open' && (
+                <select
+                  className="pr-label-add"
+                  value=""
+                  aria-label={t("Add label")}
+                  disabled={labelBusy}
+                  onChange={(e) => {
+                    const picked = e.target.value;
+                    e.target.value = '';
+                    if (picked) void addLabel(picked);
+                  }}
+                >
+                  <option value="">+ {t("Add label")}</option>
+                  {repoLabels
+                    .filter((l) => !labels.some((current) => current.name === l.name))
+                    .map((l) => (
+                      <option key={l.name} value={l.name}>{l.name}</option>
+                    ))}
+                </select>
+              )}
+            </div>
           </div>
 
           <div className="detail-section">
