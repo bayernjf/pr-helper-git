@@ -102,6 +102,10 @@ export const addRepo = (repo: string) =>
 export const openExternal = (repo: string, target: 'finder' | 'terminal' | 'editor') =>
   post('/api/repos/open-external', { repo, target });
 
+/** Raw file bytes URL for image diffs (server serves images only). */
+export const rawFileUrl = (repo: string, path: string, ref = 'HEAD') =>
+  `/api/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`;
+
 export const removeRepo = (repo: string) =>
   post('/api/repos/remove', { repo }) as Promise<{ repos: string[] }>;
 

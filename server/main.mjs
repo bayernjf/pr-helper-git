@@ -189,6 +189,14 @@ const server = http.createServer(async (req, res) => {
       ) || (
         await handleGithubRoute(ctx)
       ));
+      if (result && result.raw) {
+        res.writeHead(result.status, {
+          'content-type': result.contentType || 'application/octet-stream',
+          'cache-control': 'no-cache',
+          ...NOSNIFF,
+        });
+        return res.end(result.raw);
+      }
       if (result) return sendJson(res, result.status, result.json);
       return sendJson(res, 404, { error: 'not found' });
     }

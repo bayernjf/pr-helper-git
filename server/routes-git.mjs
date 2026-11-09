@@ -425,6 +425,33 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     return ok({ repos, path: target });
   }
 
+  // Raw file bytes for image diffs: ref omitted (or HEAD) + working-tree path.
+  // GET /api/raw?repo=&path=&ref=  → binary body with a sniffed content type.
+  if (pathname === '/api/raw' && method === 'GET') {
+    const repo = typeof query.get('repo') === 'string' ? query.get('repo') : null;
+    const rel = normalizeRepoPath(query.get('path') || '');
+    if (!repo || !rel) return fail(400, 'invalid path');
+    const ref = (query.get('ref') || 'HEAD').trim() || 'HEAD';
+    if (!/^[0-9a-fA-F]{4,40}$/.test(ref) && ref !== 'HEAD') return fail(400, 'invalid ref');
+    const registered = await listRepos();
+    if (!registered.includes(repo)) return fail(403, 'unknown or unregistered repo');
+    const abs = await resolveInside(repo, rel);
+    const IMAGE_TYPES = {
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon', '.bmp': 'image/bmp',
+    };
+    const ext = path.extname(rel).toLowerCase();
+    if (!IMAGE_TYPES[ext]) return fail(400, 'only image files are served raw');
+    let bytes;
+    try {
+      bytes = await git(['show', `${ref}:${rel}`], repo, { encoding: 'buffer' });
+    } catch {
+      return fail(404, ref === 'HEAD' ? 'file not in HEAD' : 'not found in ref');
+    }
+    return { status: 200, raw: bytes, contentType: IMAGE_TYPES[ext] };
+  }
+
   if (pathname === '/api/repos/remove' && method === 'POST') {
     const target = typeof body.repo === 'string' ? body.repo : null;
     if (!target) return fail(400, 'invalid repository path');

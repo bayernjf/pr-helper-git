@@ -23,6 +23,8 @@ import TagModal from './TagModal';
 import LogFilterModal from './LogFilterModal';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
+import { aggregateCi } from '../lib/ci';
+import { githubProxy } from '../api';
 
 const ROW_H = 34;
 const COL_W = 20;
@@ -85,6 +87,8 @@ interface MenuState {
 
 export default function CommitGraph() {
   const {
+    pat,
+    remote,
     commits,
     selectedHash,
     selectCommit,
@@ -114,6 +118,53 @@ export default function CommitGraph() {
 
   // Batch selection belongs to one repository; drop it when switching repos.
   useEffect(() => { setChecked(new Set()); }, [currentRepo]);
+
+  // CI status dots: for up to 10 open PRs, roll up check runs + commit
+  // statuses for the head SHA and map sha -> state. Same rollup rules as
+  // pr-helper-git (failure > pending > success).
+  const [ciBySha, setCiBySha] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) {
+      setCiBySha({});
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const pulls = await githubProxy<Array<{ number: number; head: { sha: string } }>>(
+          pat,
+          `/repos/${remote.owner}/${remote.repo}/pulls?state=open&per_page=100`,
+        );
+        const heads = (Array.isArray(pulls.data) ? pulls.data : []).slice(0, 10).map((p) => p.head.sha);
+        const next: Record<string, string> = {};
+        await Promise.allSettled(heads.map(async (sha) => {
+          try {
+            const runs = await githubProxy<{ check_runs?: Array<{ state?: string; conclusion?: string }> }>(
+              pat,
+              `/repos/${remote.owner}/${remote.repo}/commits/${sha}/check-runs`,
+            );
+            const statusesRes = await githubProxy<Array<{ state?: string }>>(
+              pat,
+              `/repos/${remote.owner}/${remote.repo}/commits/${sha}/statuses`,
+            );
+            const list = [
+              ...((runs.data && runs.data.check_runs) || []).map((c) => ({ state: c.state, conclusion: c.conclusion })),
+              ...(Array.isArray(statusesRes.data) ? statusesRes.data : []).map((st) => ({ state: st.state })),
+            ];
+            next[sha] = aggregateCi(list);
+          } catch {
+            next[sha] = 'none';
+          }
+        }));
+        if (alive) setCiBySha(next);
+      } catch {
+        if (alive) setCiBySha({});
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [pat, remote, currentRepo]);
 
   function toggleChecked(hash: string) {
     setChecked((prev) => {
@@ -544,6 +595,13 @@ export default function CommitGraph() {
                 onClick={(e) => e.stopPropagation()}
                 onChange={() => toggleChecked(commit.hash)}
               />
+              {ciBySha[commit.hash] && ciBySha[commit.hash] !== 'none' && (
+                <span
+                  className={`ci-dot ci-${ciBySha[commit.hash]}`}
+                  title={t(`CI ${ciBySha[commit.hash]}`)}
+                  aria-label={t(`CI ${ciBySha[commit.hash]}`)}
+                />
+              )}
               <RefBadges hash={commit.hash} />
               <span className="graph-subject">{commit.subject}</span>
               <span className="graph-author">{commit.authorName}</span>

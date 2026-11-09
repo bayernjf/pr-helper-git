@@ -6,6 +6,7 @@ export const GIT_TIMEOUT_MS = 20_000;
 export const MAX_BUFFER = 32 * 1024 * 1024;
 
 export function git(args, cwd, options = {}) {
+  const encoding = options.encoding || 'utf8';
   // Keep UTF-8 paths literal instead of C-quoted octal escapes: the UI and the
   // follow-up API calls address files by path, so `git` must report the real
   // name.
@@ -22,6 +23,7 @@ export function git(args, cwd, options = {}) {
         timeout: options.timeout || GIT_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER,
         env,
+        encoding,
       },
       (err, stdout, stderr) => {
         if (err) {

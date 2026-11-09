@@ -22,8 +22,7 @@ import { Dropdown } from './Dropdown';
 import FileViewer from './FileViewer';
 import NewFileModal from './NewFileModal';
 import RenameFileModal from './RenameFileModal';
-import {
-  IconBan,
+import { IconBan,
   IconBroom,
   IconChevronDown,
   IconChevronRight,
@@ -36,6 +35,7 @@ import {
   IconTrash,
   IconUndo,
   IconX,
+  IconClock,
 } from './icons';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
@@ -229,6 +229,15 @@ function Group({
   );
 }
 
+function countLine(message: string): string {
+  const first = message.split('\n')[0] || '';
+  const len = first.length;
+  if (len === 0) return '';
+  if (len > 72) return `${len} > 72`;
+  if (len > 50) return `${len} / 72`;
+  return `${len} / 50`;
+}
+
 export default function WorkPanel() {
   const { activeRepo, status, runAction, commits, toast } = useApp();
   const confirm = useConfirm();
@@ -236,6 +245,21 @@ export default function WorkPanel() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [message, setMessage] = useState(() =>
     activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyKey = 'git2-commit-history';
+  const loadHistory = (): string[] => {
+    try {
+      const raw = localStorage.getItem(historyKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
+  const saveHistory = (text: string) => {
+    const list = loadHistory().filter((x) => x !== text);
+    localStorage.setItem(historyKey, JSON.stringify([text, ...list].slice(0, 10)));
+  };
   useEffect(() => {
     setMessage(activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
   }, [activeRepo]);
@@ -392,6 +416,22 @@ export default function WorkPanel() {
     await runAction(removeFile(activeRepo!, file.path, force), `Deleted ${file.path}`);
   }
 
+  // Discard every unstaged + untracked change (git-side "Discard All" parity).
+  async function handleDiscardAll() {
+    const files = [...groups.unstaged, ...groups.untracked].map((f) => f.path);
+    if (files.length === 0) return;
+    const ok = await confirm(
+      t('Discard all changes?'),
+      tp('{count} file(s) will be reverted or deleted. This cannot be undone.', { count: files.length }),
+    );
+    if (!ok) return;
+    const results = await Promise.allSettled(files.map((p) =>
+      groups.untracked.some((u) => u.path === p) ? removeFile(activeRepo!, p) : discardFile(activeRepo!, p),
+    ));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    await runAction(Promise.resolve(), failed === 0 ? 'All changes discarded' : `${failed} file(s) failed`);
+  }
+
   async function handleClean() {
     try {
       const preview = await cleanDryRun(activeRepo!);
@@ -417,6 +457,7 @@ export default function WorkPanel() {
     if (amend) {
       const result = await runAction(amendCommit(activeRepo!, text), 'Last commit amended');
       if (result !== null) {
+        saveHistory(text);
         setMessage('');
         localStorage.removeItem(`git2-draft:${activeRepo}`);
         setAmend(false);
@@ -426,6 +467,7 @@ export default function WorkPanel() {
     if (groups.staged.length === 0 && !allowEmpty) return;
     const result = await runAction(commitChanges(activeRepo!, text, allowEmpty), 'Committed');
     if (result !== null) {
+      saveHistory(text);
       setMessage('');
       localStorage.removeItem(`git2-draft:${activeRepo}`);
       setAllowEmpty(false);
@@ -531,13 +573,22 @@ export default function WorkPanel() {
             allLabel="Stage all"
             onAll={() => runAction(stageAll(activeRepo!, 'stage'), 'Staged all')}
             extra={
-              <button
-                type="button"
-                title={t("Clean untracked files")}
-                onClick={handleClean}
-              >
-                <IconBroom width={13} height={13} /> {t("Clean")}
-              </button>
+              <>
+                <button
+                  type="button"
+                  title={t('Discard all unstaged and untracked changes')}
+                  onClick={handleDiscardAll}
+                >
+                  <IconUndo width={13} height={13} /> {t('Discard all')}
+                </button>
+                <button
+                  type="button"
+                  title={t('Clean untracked files')}
+                  onClick={handleClean}
+                >
+                  <IconBroom width={13} height={13} /> {t('Clean')}
+                </button>
+              </>
             }
           >
             {renderTree(trees.untracked, 'untracked', false)}
@@ -577,15 +628,46 @@ export default function WorkPanel() {
       </div>
 
       <div className="commit-form">
-        <textarea
-          placeholder={t("Summary of the staged changes…")}
-          value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, e.target.value);
-          }}
-        />
-        <div className="form-side">
+        <div className="commit-form-row">
+          <textarea
+            placeholder={t("Summary of the staged changes…")}
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, e.target.value);
+            }}
+          />
+          <span className="commit-count" aria-hidden="true">{countLine(message)}</span>
+        </div>
+        <div className="form-side" style={{ position: 'relative' }}>
+          {historyOpen && (
+            <div className="commit-history">
+              {loadHistory().length === 0 && <div className="dropdown-empty">{t('No history yet.')}</div>}
+              {loadHistory().map((msg, i) => (
+                <div
+                  key={`${i}-${msg.slice(0, 24)}`}
+                  className="dropdown-item"
+                  onClick={() => {
+                    setMessage(msg);
+                    if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, msg);
+                    setHistoryOpen(false);
+                  }}
+                >
+                  {msg.split('\n')[0]}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className="amend-toggle"
+            title={t('Recent commit messages')}
+            aria-label={t('Recent commit messages')}
+            onClick={() => setHistoryOpen((v) => !v)}
+          >
+            <IconClock width={13} height={13} />
+            {t('History')}
+          </button>
           <button
             type="button"
             className="amend-toggle"
@@ -599,7 +681,13 @@ export default function WorkPanel() {
             <button
               type="button"
               className={`amend-toggle${amend ? ' on' : ''}`}
-              onClick={() => setAmend((v) => !v)}
+              onClick={() => {
+                setAmend((v) => {
+                  const next = !v;
+                  if (next && !message.trim() && commits[0]) setMessage(commits[0].subject);
+                  return next;
+                });
+              }}
             >
               <IconUndo width={13} height={13} />
               {t("Amend last commit")}

@@ -3447,3 +3447,42 @@ pre.diff {
 .dash-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dash-card-commit { font-size: var(--fs-body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dash-empty { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 0; color: var(--muted); }
+
+
+/* ---------- CI status dots on graph rows ---------- */
+.ci-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0; margin-right: 2px;
+}
+.ci-success { background: var(--green); }
+.ci-pending { background: var(--yellow); animation: ci-pulse 1.6s ease-in-out infinite; }
+.ci-failure { background: var(--red); }
+@keyframes ci-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+
+/* ---------- image diff ---------- */
+.image-comparison { display: flex; gap: 14px; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-sm); margin: 10px 0; }
+.image-comparison figure { margin: 0; flex: 1; min-width: 0; }
+.image-comparison figcaption { font-size: var(--fs-meta); color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+.image-comparison img { max-width: 100%; max-height: 320px; background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 16px 16px; border-radius: var(--radius-xs); }
+.image-missing { padding: 30px; color: var(--faint); font-size: var(--fs-body); }
+
+
+/* ---------- commit form extras ---------- */
+.commit-form-row { display: flex; flex-direction: column; gap: 2px; }
+.commit-count { align-self: flex-end; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
+.commit-history {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  min-width: 260px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--ctx-bg);
+  border: 1px solid var(--ctx-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  animation: pop-in 0.12s ease;
+}

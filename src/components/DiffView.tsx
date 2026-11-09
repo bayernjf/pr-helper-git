@@ -12,6 +12,7 @@ import {
 } from '../lib/diff-lines';
 import type { DiffResult } from '../types';
 import { IconSplit, IconUnified } from './icons';
+import { rawFileUrl } from '../api';
 import { t, tp } from '../i18n';
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
@@ -228,6 +229,31 @@ export default function DiffView({
   }
 
   if (!result) return <EmptyHint>{t("Select a file to review its changes.")}</EmptyHint>;
+  // Image files: side-by-side old (HEAD) / new (working tree) previews.
+  const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'];
+  const isImage = repo && imageExts.some((ext) => result.path.toLowerCase().endsWith(ext));
+  if (isImage) {
+    const newExists = !result.untracked;
+    return (
+      <div className="image-comparison">
+        <figure>
+          <figcaption>HEAD</figcaption>
+          {!result.untracked && (
+            <img src={`${rawFileUrl(repo, result.path, 'HEAD')}`} alt={result.path} />
+          )}
+          {result.untracked && <div className="image-missing">—</div>}
+        </figure>
+        <figure>
+          <figcaption>{t('Working tree')}</figcaption>
+          {newExists ? (
+            <img src={`${rawFileUrl(repo, result.path)}`} alt={result.path} />
+          ) : (
+            <div className="image-missing">{t('Deleted from working tree')}</div>
+          )}
+        </figure>
+      </div>
+    );
+  }
   if (result.masked) {
     return <EmptyHint>{tp("{path} is sensitive — its contents are masked.", { path: result.path })}</EmptyHint>;
   }
