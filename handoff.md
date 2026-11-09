@@ -1023,3 +1023,13 @@ check, X/Y expired, R revoked). The letter comes from git alone — no key
 material is needed — so repositories with no signing key still get a truthful
 "Not signed" instead of an error. Two route tests pin the unsigned path and the
 400 on a malformed sha.
+
+### 2026-11-09 Submodule status panel
+
+`GET /api/submodules?repo=..` runs `git submodule status --recursive` and returns
+`{entries:[{state,sha,path,describe}]}` through `parseSubmoduleStatus`, which
+keeps the one-character state prefix (space clean, `-` not initialized, `+`
+checked-out commit differs, `U` conflict). The sidebar renders a read-only
+"Submodules" group only when a repo actually has submodules, colour-coded by
+state. Covered by a parser test with all four prefixes, a route test for the
+empty repository, and one E2E check.
