@@ -13,6 +13,7 @@ import { Dropdown } from './Dropdown';
 import { ContextMenu } from './context-menu';
 import type { MenuItem } from './context-menu';
 import { IconBranch, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, IconDownload } from './icons';
+import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 
 type SortKey = 'conflict' | 'name' | 'recent' | 'changes';
@@ -38,6 +39,7 @@ function parentDir(p: string) {
 
 export default function DashboardPage() {
   const { repos, activeRepo, selectRepo, refresh, pat, toast } = useApp();
+  const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem(SORT_KEY) as SortKey) || 'conflict');
   const [pinned, setPinned] = useState<string[]>(() => loadPinned());
@@ -122,7 +124,12 @@ export default function DashboardPage() {
   }
 
   async function remove(path: string, name: string) {
-    const ok = await window.confirm(`${t('Remove {name} from the list? Disk files stay untouched.').replace('{name}', name)}`);
+    const ok = await confirm({
+      title: t('Remove {name} from the list?').replace('{name}', name),
+      detail: t('Disk files stay untouched.'),
+      confirmLabel: t('Remove'),
+      danger: true,
+    });
     if (!ok) return;
     try {
       await removeRepo(path);

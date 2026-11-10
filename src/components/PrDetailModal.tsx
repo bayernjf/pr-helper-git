@@ -431,7 +431,11 @@ export default function PrDetailModal({
   }
 
   async function changeState(state: 'open' | 'closed') {
-    const ok = await confirm(state === 'closed' ? `Close PR #${pr.number}?` : `Reopen PR #${pr.number}?`);
+    const ok = await confirm({
+      title: state === 'closed' ? `Close PR #${pr.number}?` : `Reopen PR #${pr.number}?`,
+      confirmLabel: state === 'closed' ? t('Close PR') : t('Reopen PR'),
+      danger: state === 'closed',
+    });
     if (!ok) return;
     setWorking(true);
     try {

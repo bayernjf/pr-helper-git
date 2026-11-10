@@ -86,10 +86,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const confirm = useConfirm();
 
   async function compactAudit() {
-    const ok = await confirm(
-      t('Compact audit log?'),
-      t('Keeps only the newest ~1 MB / 10,000 entries. Older audit records are dropped and this cannot be undone.'),
-    );
+    const ok = await confirm({
+      title: t('Compact audit log?'),
+      detail: t('Keeps only the newest ~1 MB / 10,000 entries. Older audit records are dropped and this cannot be undone.'),
+      confirmLabel: t('Compact'),
+      danger: true,
+    });
     if (!ok) return;
     try {
       await rotateAudit();
@@ -101,10 +103,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   }
 
   async function pruneStaleRepos() {
-    const ok = await confirm(
-      t('Prune stale repositories?'),
-      t('Removes registry entries whose paths no longer exist or are no longer Git worktrees. No files are deleted.'),
-    );
+    const ok = await confirm({
+      title: t('Prune stale repositories?'),
+      detail: t('Removes registry entries whose paths no longer exist or are no longer Git worktrees. No files are deleted.'),
+      confirmLabel: t('Prune'),
+      danger: false,
+    });
     if (!ok) return;
     try {
       const result = await pruneRepos();

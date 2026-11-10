@@ -11,6 +11,14 @@ repository is never pushed.
 as `v0.2.0`. No remote is configured by design, so the tag is local-only until
 the owner chooses a remote.
 
+## Interaction contract (2026-11-10)
+
+`ToastProvider` and `ConfirmProvider` are the shared contract for both clients:
+toasts last 3.6 s and carry a kind icon (`toast-info` / `toast-success` /
+`toast-error`); confirmations use `aria-labelledby` / `aria-describedby`, accept
+`{ danger, confirmLabel }`, and use `btn-danger` only for destructive actions.
+Never call `window.confirm` — `DashboardPage` now uses `useConfirm()` too.
+
 **Current target: web only.** Since 2026-11 desktop development is paused:
 new features target the browser UI and are not adapted to the native shell.
 `desktop/main.swift` and `npm run desktop` are kept as-is but frozen.
@@ -1079,7 +1087,7 @@ read-only view instead of a responsive rewrite.
   non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
   now covers both the commit flow and the working-tree diff.
 
-Baseline after this round: 284 unit tests / 26 files, E2E 115/115.
+Baseline after this round: 287 unit tests / 27 files, E2E 115/115.
 2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
 and four accent presets (violet/ocean/forest/amber), applied before first paint and
 persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.
