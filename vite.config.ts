@@ -34,6 +34,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'server/**/*.test.mjs'],
     // Generous defaults keep the suite reliable on a loaded workstation or CI
     // runner; individual tests normally finish in well under a second.
