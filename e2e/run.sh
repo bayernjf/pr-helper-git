@@ -382,6 +382,66 @@ BIS2=$(getq bisect --data-urlencode "repo=$REPO_A")
 check "bisect is cleared" "False" "$(echo "$BIS2" | json 'd["active"]')"
 check "bisect restored the branch" "main" "$(git -C "$REPO_A" rev-parse --abbrev-ref HEAD)"
 
+echo "=== E2E: Destructive-scenario coverage (from pr-helper-git's 121) ==="
+ENCODED_REPO=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$REPO_A'))")
+# commit.template: resolved server-side, comment lines stripped.
+printf 'e2e template subject\n\nbody from template\n# a comment that must be stripped\n' > "$REPO_A/e2e-TEMPLATE.txt"
+git -C "$REPO_A" config commit.template e2e-TEMPLATE.txt
+TPL=$(curl -s "$BASE/api/commit-template?token=$TOKEN&repo=$REPO_A")
+contains "commit template is returned" 'e2e template subject' "$TPL"
+check "commit template strips comments" "0" "$(echo "$TPL" | grep -c 'a comment that must be stripped' || true)"
+
+# allow-empty: commits with nothing staged when the flag is set.
+check "allow-empty commit" "200" "$(post commit "$(printf '{"repo":"%s","message":"e2e: empty commit","allowEmpty":true}' "$REPO_A")")"
+EMPTY_LOG=$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")
+contains "empty commit is recorded" "e2e: empty commit" "$EMPTY_LOG"
+
+# clean: two-phase (dry-run preview → confirm) and ignored files survive.
+printf 'keep me\n' > "$REPO_A/ignored.tmp"
+printf 'ignored.tmp\n' > "$REPO_A/.gitignore"
+printf 'delete me\n' > "$REPO_A/clean-me.txt"
+CLEAN_DRY=$(curl -s -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s","dryRun":true}' "$REPO_A")" "$BASE/api/clean?token=$TOKEN")
+contains "clean dry-run lists the untracked file" "clean-me.txt" "$CLEAN_DRY"
+check "clean requires confirmation" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s"}' "$REPO_A")" "$BASE/api/clean?token=$TOKEN")"
+check "clean deletes untracked" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s","confirm":true}' "$REPO_A")" "$BASE/api/clean?token=$TOKEN")"
+check "ignored file survives clean" "yes" "$([ -f "$REPO_A/ignored.tmp" ] && echo yes || echo no)"
+rm -f "$REPO_A/ignored.tmp"
+
+# hard reset: refuses without confirm, then rewrites and clears the tree.
+echo "will vanish" > "$REPO_A/hard-reset.txt"
+git -C "$REPO_A" add hard-reset.txt && git -C "$REPO_A" commit -qm "e2e: before hard reset"
+GOOD_SHA=$(git -C "$REPO_A" rev-parse HEAD~1)
+check "hard reset requires confirm" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s","mode":"hard","sha":"%s"}' "$REPO_A" "$GOOD_SHA")" "$BASE/api/reset?token=$TOKEN")"
+check "hard reset" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s","mode":"hard","sha":"%s","confirm":true}' "$REPO_A" "$GOOD_SHA")" "$BASE/api/reset?token=$TOKEN")"
+check "hard reset restored the tree" "yes" "$([ ! -f "$REPO_A/hard-reset.txt" ] && echo yes || echo no)"
+
+# force-with-lease: successful protected force push to the bare remote.
+echo "lease me" > "$REPO_A/lease.txt"
+git -C "$REPO_A" add . && git -C "$REPO_A" commit -qm "e2e: lease commit"
+check "force-with-lease push" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s","force":"force-with-lease","confirm":true}' "$REPO_A")" "$BASE/api/push?token=$TOKEN")"
+
+# rebase conflict → continue (forked sides editing the same file).
+git -C "$REPO_A" checkout -qb rb2 "main~1"
+echo rb2 > "$REPO_A/conflict2.txt"
+git -C "$REPO_A" add conflict2.txt && git -C "$REPO_A" commit -qm "e2e: rb2 commit"
+git -C "$REPO_A" checkout -q main
+echo mainv > "$REPO_A/conflict2.txt"
+git -C "$REPO_A" add conflict2.txt && git -C "$REPO_A" commit -qm "e2e: main advance"
+MAIN_HEAD=$(git -C "$REPO_A" rev-parse main)
+RB2_SHA=$(git -C "$REPO_A" rev-parse rb2)
+git -C "$REPO_A" checkout -q rb2
+REBASE_BODY=$(curl -s -X POST -H 'Content-Type: application/json' \
+  -d "$(printf '{"repo":"%s","base":"%s","commands":[{"hash":"%s","action":"pick"}]}' "$REPO_A" "$MAIN_HEAD" "$RB2_SHA")" \
+  "$BASE/api/rebase/interactive?token=$TOKEN")
+contains "conflicting rebase reports conflict" '"conflicted":true' "$REBASE_BODY"
+# Simulate the user resolving the marker file, then finish the plan.
+git -C "$REPO_A" checkout --theirs conflict2.txt && git -C "$REPO_A" add conflict2.txt
+check "rebase conflict continue" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$(printf '{"repo":"%s"}' "$REPO_A")" "$BASE/api/rebase/continue?token=$TOKEN")"
+REBASED_LOG=$(getq log --data-urlencode "repo=$REPO_A")
+contains "rebase continue replayed the commit" "e2e: rb2 commit" "$REBASED_LOG"
+git -C "$REPO_A" checkout -q main 2>/dev/null || true
+git -C "$REPO_A" branch -D rb2 >/dev/null 2>&1 || true
+
 echo "=== E2E: Server-side PAT ==="
 check "pat status empty" "false" "$(curl -s "$BASE/api/pat/status?token=$TOKEN" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["hasServerPat"]).lower())')"
 check "pat store" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"pat":"github_pat_E2EPLACEHOLDER"}' "$BASE/api/pat?token=$TOKEN")"

@@ -871,7 +871,11 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     try {
       const stat = await fsp.stat(resolved);
       if (stat.size > SAVE_MAX_BYTES) return fail(400, 'commit template too large');
-      const text = await fsp.readFile(resolved, 'utf8');
+      const text = (await fsp.readFile(resolved, 'utf8'))
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .filter((line) => !line.startsWith('#'))
+        .join('\n');
       return ok({ configured: true, path: configuredPath, text });
     } catch (err) {
       return fail(400, 'cannot read commit template', err.message);
