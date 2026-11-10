@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
-import { getAiConfig, saveAiConfig, testAi } from '../api';
+import {
+  getAiConfig, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos, type StorageInfo,
+} from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 import { Dropdown } from './Dropdown';
-import { getLocale, setLocale, t, type Locale } from '../i18n';
+import { useConfirm } from './ui';
+import { getLocale, setLocale, t, tp, type Locale } from '../i18n';
+import { ACCENTS, type Accent, type ThemeMode } from '../lib/appearance';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { pat, setPat, toast } = useApp();
+  const { pat, setPat, toast, theme, accent, setTheme, setAccent } = useApp();
   const [value, setValue] = useState(pat);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -29,6 +34,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         setConfigured(cfg.configured);
       })
       .catch(() => { /* settings are optional */ });
+    getStorage().then(setStorage).catch(() => { /* maintenance is optional */ });
   }, []);
 
   async function saveAi(event: React.MouseEvent) {
@@ -74,6 +80,38 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
     } finally {
       setTesting(false);
+    }
+  }
+
+  const confirm = useConfirm();
+
+  async function compactAudit() {
+    const ok = await confirm(
+      t('Compact audit log?'),
+      t('Keeps only the newest ~1 MB / 10,000 entries. Older audit records are dropped and this cannot be undone.'),
+    );
+    if (!ok) return;
+    try {
+      await rotateAudit();
+      toast(t('Audit log compacted'), 'success');
+      setStorage(await getStorage());
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function pruneStaleRepos() {
+    const ok = await confirm(
+      t('Prune stale repositories?'),
+      t('Removes registry entries whose paths no longer exist or are no longer Git worktrees. No files are deleted.'),
+    );
+    if (!ok) return;
+    try {
+      const result = await pruneRepos();
+      toast(tp('Removed {n} stale entries', { n: result.removed }), 'success');
+      setStorage(await getStorage());
+    } catch (err: any) {
+      toast(err.message, 'error');
     }
   }
 
@@ -123,6 +161,72 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </a>
               .
             </div>
+          </div>
+
+          <h3 className="settings-section">{t("Appearance")}</h3>
+          <div className="form-group">
+            <label>{t("Theme mode")}</label>
+            <div className="segmented">
+              {([
+                ['dark', t('Dark')],
+                ['light', t('Light')],
+                ['auto', t('Follow system')],
+              ] as [ThemeMode, string][]).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={theme === mode ? 'active' : ''}
+                  onClick={() => setTheme(mode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group">
+            <label>{t("Accent")}</label>
+            <div className="segmented">
+              {ACCENTS.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={accent === name ? 'active' : ''}
+                  onClick={() => setAccent(name as Accent)}
+                >
+                  <span
+                    className="accent-dot"
+                    style={{
+                      background: {
+                        violet: '#8b6cef', ocean: '#4f8ff7', forest: '#45a06b', amber: '#d79a3c',
+                      }[name],
+                    }}
+                  />
+                  {t(name[0].toUpperCase() + name.slice(1))}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <h3 className="settings-section">{t("Server data")}</h3>
+          <div className="hint" style={{ marginBottom: 10 }}>
+            {storage ? (
+              <>
+                <div style={{ wordBreak: 'break-all' }}>{storage.dataDir}</div>
+                {storage.files.map((file) => (
+                  <span key={file.name} style={{ marginRight: 12 }}>
+                    {file.name} · {file.size < 1024 ? `${file.size} B` : `${(file.size / 1024).toFixed(1)} KB`}
+                  </span>
+                ))}
+              </>
+            ) : t('Loading data directory…')}
+          </div>
+          <div className="form-row" style={{ alignItems: 'center', gap: 8 }}>
+            <button type="button" className="btn" onClick={compactAudit}>
+              {t('Compact audit log')}
+            </button>
+            <button type="button" className="btn" onClick={pruneStaleRepos}>
+              {t('Prune stale repositories')}
+            </button>
           </div>
 
           <h3 className="settings-section">{t("AI generation")}</h3>

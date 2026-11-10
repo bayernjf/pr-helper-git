@@ -1,4 +1,5 @@
 @import './design/tokens.css';
+@import './design/accents.css';
 
 /* Legacy variable aliases — git2's own names now resolve to the shared
    design tokens; theme flips cascade automatically via var() indirection. */
@@ -289,9 +290,15 @@ button {
 .segmented button.active {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 1px 4px rgba(124, 108, 255, 0.4);
+  box-shadow: 0 1px 4px var(--accent-soft);
 }
 .segmented button:not(.active):hover { color: var(--text); }
+.accent-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
 
 /* ---------- Main layout ---------- */
 .main {

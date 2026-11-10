@@ -32,10 +32,13 @@ import {
 import {
   addRepo,
   appendAudit,
+  configPaths,
   listRepos,
   loadConfig,
+  pruneRepos,
   readAudit,
   removeRepo,
+  rotateAudit,
   saveConfig,
 } from './store.mjs';
 import { createUser, listUsers, removeUser } from './identity.mjs';
@@ -399,6 +402,38 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     }
     const result = await readAudit(limit, filters);
     return ok({ collectedAt: new Date().toISOString(), ...result });
+  }
+
+  // ---------- local data maintenance ----------
+  // The settings page shows the config directory and its file sizes, and can
+  // compact the audit log or drop registry entries whose paths have vanished.
+  if (pathname === '/api/storage' && method === 'GET') {
+    if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
+    const { CONFIG_DIR, CONFIG_FILE, AUDIT_FILE } = configPaths();
+    const files = [];
+    for (const [name, file] of [['config.json', CONFIG_FILE], ['audit.log', AUDIT_FILE]]) {
+      try {
+        const st = await fsp.stat(file);
+        files.push({ name, size: st.size });
+      } catch {
+        /* missing */
+      }
+    }
+    return ok({ dataDir: CONFIG_DIR, files });
+  }
+
+  if (pathname === '/api/maintenance/audit-rotate' && method === 'POST') {
+    if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
+    await rotateAudit();
+    await appendAudit({ action: 'audit-rotate' });
+    return ok({ ok: true });
+  }
+
+  if (pathname === '/api/maintenance/prune-repos' && method === 'POST') {
+    if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
+    const result = await pruneRepos();
+    await appendAudit({ action: 'repos-prune', removed: result.removed });
+    return ok({ ok: true, ...result });
   }
 
   // ---------- repository registry ----------

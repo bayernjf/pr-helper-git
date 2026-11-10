@@ -3,16 +3,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import MobileApp from './components/MobileApp';
 import { AppDataProvider } from './app-state';
-import type { Theme } from './app-state';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider, ToastProvider } from './components/ui';
-import { getPref } from './lib/prefs';
+import { getAccent, getThemeMode, applyAppearance } from './lib/appearance';
 import './styles.css';
 import { installTooltips } from './design/tooltip';
 
-// Apply the saved theme before the first paint so a light-theme user does not
-// see a dark flash. The provider keeps the attribute in sync afterwards.
-document.documentElement.dataset.theme = getPref<Theme>('theme', 'dark');
+// Apply the saved theme and accent before the first paint so a light-theme
+// user does not see a dark flash. The provider keeps them in sync afterwards.
+applyAppearance(getThemeMode(), getAccent());
 
 // /m (or /?mobile=1) serves a read-only, single-column layout for phones.
 const params = new URLSearchParams(window.location.search);

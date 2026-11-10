@@ -19,10 +19,11 @@ import type {
 } from './types';
 import { useToast, type ToastKind } from './components/ui';
 import { getPref, setPref } from './lib/prefs';
+import { applyAppearance, getAccent, getThemeMode, type Accent, type ThemeMode } from './lib/appearance';
 import { t as translateText } from './i18n';
 
 type View = 'git' | 'pr' | 'dashboard';
-export type Theme = 'dark' | 'light';
+export type Theme = ThemeMode;
 const ACTIVE_KEY = 'git2-active-repo';
 const PAT_KEY = 'git2-pat';
 export const LOG_PAGE_SIZE = 200;
@@ -40,6 +41,7 @@ interface AppData {
   selectedHash: string | null;
   view: View;
   theme: Theme;
+  accent: Accent;
   pat: string;
   busy: boolean;
   repoLoading: boolean;
@@ -55,6 +57,8 @@ interface AppData {
   selectRepo: (path: string) => void;
   selectCommit: (hash: string | null) => void;
   setView: (view: View) => void;
+  setTheme: (mode: Theme) => void;
+  setAccent: (accent: Accent) => void;
   toggleTheme: () => void;
   refreshRepos: () => Promise<RepoBrief[]>;
   refresh: () => Promise<void>;
@@ -76,7 +80,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [remote, setRemote] = useState<RemoteInfo | null>(null);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
   const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
-  const [theme, setTheme] = useState<Theme>(() => getPref<Theme>('theme', 'dark'));
+  const [theme, setTheme] = useState<Theme>(() => getThemeMode());
+  const [accent, setAccentState] = useState<Accent>(() => getAccent());
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
@@ -231,15 +236,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setPref('view', next);
   }, []);
 
-  // Reflect the theme on <html> and persist it. main.tsx sets the attribute
-  // before first render to avoid a flash of the wrong theme.
+  // Reflect mode + accent on <html>, persist them, and follow the OS while the
+  // mode is "auto". main.tsx applies the saved values before first paint.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    applyAppearance(theme, accent);
     setPref('theme', theme);
-  }, [theme]);
+    setPref('accent', accent);
+    if (theme !== 'auto') return;
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = () => applyAppearance('auto', accent);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [theme, accent]);
+
+  const setAccent = useCallback((next: Accent) => setAccentState(next), []);
 
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setTheme((prev) => (prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'));
   }, []);
 
   // Switch the history scope and reload the active repo immediately. Keep the
@@ -322,6 +335,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       selectedHash,
       view,
       theme,
+      accent,
       pat,
       busy,
       repoLoading,
@@ -337,6 +351,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       selectRepo,
       selectCommit: setSelectedHash,
       setView,
+      setTheme,
+      setAccent,
       toggleTheme,
       refreshRepos,
       refresh,
@@ -345,10 +361,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [
     repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    theme, pat, busy, repoLoading, logLimit, logScope, logPath, logFilters,
+    theme, accent, pat, busy, repoLoading, logLimit, logScope, logPath, logFilters,
     toast, setPat, setLogScope,
     setLogPath, setLogFilters, selectRepo, refreshRepos, refresh, loadMore,
-    runAction, toggleTheme,
+    runAction, toggleTheme, setAccent,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -34,6 +34,7 @@ import {
   IconGlobe,
   IconKeyboard,
   IconList,
+  IconMonitor,
   IconMoon,
   IconSearch,
   IconServer,
@@ -366,11 +367,11 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        title={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
+        aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
         onClick={toggleTheme}
       >
-        {theme === 'dark' ? <IconMoon /> : <IconSun />}
+        {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
       </button>
       <button
         type="button"

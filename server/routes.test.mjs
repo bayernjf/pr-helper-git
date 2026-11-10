@@ -1221,6 +1221,43 @@ describe('audit log endpoint and retention', () => {
   });
 });
 
+describe('data maintenance endpoints', () => {
+  it('reports the data directory and its file sizes', async () => {
+    const r = await get('/api/storage');
+    expect(r.status).toBe(200);
+    expect(r.json.dataDir).toBe(homeDir);
+    const config = r.json.files.find((f) => f.name === 'config.json');
+    expect(config).toBeTruthy();
+    expect(config.size).toBeGreaterThan(0);
+  });
+
+  it('compacts the audit log and records the action', async () => {
+    const r = await post('/api/maintenance/audit-rotate', {});
+    expect(r.status).toBe(200);
+    expect(r.json.ok).toBe(true);
+    const audit = await get('/api/audit?limit=1000&q=audit-rotate');
+    expect(audit.status).toBe(200);
+    expect(audit.json.entries.some((e) => e.action === 'audit-rotate')).toBe(true);
+  });
+
+  it('drops registry entries whose paths vanished and keeps live ones', async () => {
+    const configFile = path.join(homeDir, 'config.json');
+    const config = JSON.parse(await fsp.readFile(configFile, 'utf8'));
+    const stale = path.join(tmpRoot, 'gone-repo');
+    config.repos = [...new Set([...config.repos, repoDir, stale])];
+    await fsp.writeFile(configFile, JSON.stringify(config, null, 2));
+
+    const r = await post('/api/maintenance/prune-repos', {});
+    expect(r.status).toBe(200);
+    expect(r.json.removed).toBe(1);
+    expect(r.json.total).toBe(config.repos.length - 1);
+
+    const after = JSON.parse(await fsp.readFile(configFile, 'utf8'));
+    expect(after.repos).not.toContain(stale);
+    expect(after.repos).toContain(repoDir);
+  });
+});
+
 describe('file save endpoint', () => {
   const scratch = 'save-scratch.txt';
 

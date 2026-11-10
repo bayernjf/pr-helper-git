@@ -68,6 +68,27 @@ export async function removeRepo(absPath) {
   return config.repos;
 }
 
+/** Drop registry entries whose paths no longer exist or are no longer Git. */
+export async function pruneRepos() {
+  const config = await loadConfig();
+  const alive = [];
+  let removed = 0;
+  for (const repo of config.repos) {
+    try {
+      const st = await fsp.stat(path.join(repo, '.git'));
+      if (st.isFile() || st.isDirectory()) alive.push(repo);
+      else removed += 1;
+    } catch {
+      removed += 1;
+    }
+  }
+  if (removed > 0) {
+    config.repos = alive;
+    await saveConfig(config);
+  }
+  return { removed, total: alive.length };
+}
+
 export async function appendAudit(entry) {
   // Attribute every entry to the authenticated member of the current request.
   // currentActor() is null outside a request (for example tests calling this

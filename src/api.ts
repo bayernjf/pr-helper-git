@@ -226,6 +226,27 @@ export const getAudit = (limit = 200, filters: AuditFilters = {}) => {
   );
 };
 
+export interface StorageInfo {
+  dataDir: string;
+  files: { name: string; size: number }[];
+}
+
+export const getStorage = () => request<StorageInfo>('/api/storage');
+
+export const rotateAudit = () =>
+  request<{ ok: true }>('/api/maintenance/audit-rotate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+
+export const pruneRepos = () =>
+  request<{ ok: true; removed: number; total: number }>('/api/maintenance/prune-repos', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+
 export const getStatus = (repo: string) =>
   request<{ status: ParsedStatus; state: ParsedStatus['state'] }>(
     `/api/status?repo=${encodeURIComponent(repo)}`,

@@ -210,6 +210,12 @@ remote is configured and commits stay on the local `main` branch.
   atomically, keeping the newest entries that fit a 1 MB / 10,000-entry
   budget; corrupt lines are dropped and the rewritten file always stays
   below the trigger so ordinary appends never re-rotate.
+- Appearance settings: dark / light / follow-system modes plus four accent
+  presets (violet, ocean, forest, amber), persisted locally and applied before
+  first paint; the toolbar button cycles dark → light → system.
+- Server data maintenance in Settings: shows the data directory and file
+  sizes, compacts the audit log on demand, and prunes registry entries whose
+  paths no longer exist or are no longer Git worktrees (no files are deleted).
 - Team use on one local instance (M1): the startup token belongs to the
   instance owner (`admin`). The Team panel creates additional members with
   their own one-time token, lists and revokes them, and exports/imports the
@@ -480,10 +486,10 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (281 tests, 26 files)
+npm test           # Vitest unit + route-level HTTP tests (284 tests, 26 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (109 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (115 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not

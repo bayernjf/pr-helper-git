@@ -400,6 +400,16 @@ contains "audit records repo add" '"action":"repo-add"' "$AUDIT"
 check "audit rejects bad limit" "400" "$(getcode audit --data-urlencode "limit=abc")"
 
 echo ""
+echo "=== E2E: Data maintenance ==="
+BEFORE_REPOS=$(getq repos | json 'len(d["repos"])')
+check "storage lists the data directory" "200" "$(getcode storage)"
+contains "storage reports config.json" 'config.json' "$(getq storage)"
+check "audit log compacts" "200" "$(post maintenance/audit-rotate '{}')"
+contains "audit records the rotate" '"action":"audit-rotate"' "$(getq audit --data-urlencode "limit=50")"
+check "stale repositories prune" "200" "$(post maintenance/prune-repos '{}')"
+check "repo list unchanged after prune" "$BEFORE_REPOS" "$(getq repos | json 'len(d["repos"])')"
+
+echo ""
 echo "=== E2E: Deregister ==="
 check "remove repo B" "200" "$(post repos/remove "$(printf '{"repo":"%s"}' "$REPO_B")")"
 check "repo list has five entries after removing B" "5" "$(getq repos | json 'len(d["repos"])')"

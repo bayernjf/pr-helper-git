@@ -1,0 +1,41 @@
+/* Accent presets. tokens.css owns the default violet palette; these override
+   only the accent family so the surface colors stay untouched. */
+
+html[data-accent='ocean'] {
+  --accent: #4f8ff7;
+  --accent-hover: #70a7ff;
+  --accent-soft: rgba(79, 143, 247, 0.15);
+  --accent-line: rgba(79, 143, 247, 0.4);
+}
+html[data-theme='light'][data-accent='ocean'] {
+  --accent: #1f6feb;
+  --accent-hover: #1558c4;
+  --accent-soft: rgba(31, 111, 235, 0.1);
+  --accent-line: rgba(31, 111, 235, 0.35);
+}
+
+html[data-accent='forest'] {
+  --accent: #45a06b;
+  --accent-hover: #5cbb82;
+  --accent-soft: rgba(69, 160, 107, 0.15);
+  --accent-line: rgba(69, 160, 107, 0.4);
+}
+html[data-theme='light'][data-accent='forest'] {
+  --accent: #1a7f37;
+  --accent-hover: #146c2e;
+  --accent-soft: rgba(26, 127, 55, 0.1);
+  --accent-line: rgba(26, 127, 55, 0.35);
+}
+
+html[data-accent='amber'] {
+  --accent: #d79a3c;
+  --accent-hover: #e6ae58;
+  --accent-soft: rgba(215, 154, 60, 0.15);
+  --accent-line: rgba(215, 154, 60, 0.4);
+}
+html[data-theme='light'][data-accent='amber'] {
+  --accent: #9a6700;
+  --accent-hover: #7d5300;
+  --accent-soft: rgba(154, 103, 0, 0.1);
+  --accent-line: rgba(154, 103, 0, 0.35);
+}
