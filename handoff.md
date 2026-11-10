@@ -1072,9 +1072,10 @@ read-only view instead of a responsive rewrite.
   non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
   now covers both the commit flow and the working-tree diff.
 
-Baseline after this round: 274 unit tests / 25 files, E2E 109/109.
+Baseline after this round: 281 unit tests / 26 files, E2E 109/109.
 2026-11-10 parity wave: Dashboard full-page view (open-PR counts, external open, remove UI,
 background fetch-all), graph CI dots, image diffs (/api/raw), commit history + 50/72 counter,
-amend prefill, discard-all, draft persistence. Remaining functional gaps are tracked in
-pr-helper-git's PARITY.md (conflict 3-way editor etc.).
+amend prefill, discard-all, draft persistence. The remaining conflict 3-way editor landed in
+the same round (`ConflictEditorModal` + `src/lib/diff/conflict.ts`), so no functional gaps
+remain in pr-helper-git's PARITY.md.
 Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README §Phone view).
