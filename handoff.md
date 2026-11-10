@@ -4,6 +4,13 @@ A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
 tower (pr-helper-like core). Runs entirely on loopback; this project's own
 repository is never pushed.
 
+## Release 0.2.1 (2026-11-10)
+
+`package.json` / `package-lock.json` are at **0.2.1**; `CHANGELOG.md` has the
+`[0.2.1]` section and a fresh `[Unreleased]`. The repository is tagged locally
+as `v0.2.1`. No remote is configured by design, so the tag is local-only until
+the owner chooses a remote.
+
 ## Release 0.2.0 (2026-11-10)
 
 `package.json` / `package-lock.json` are at **0.2.0**; `CHANGELOG.md` has the
