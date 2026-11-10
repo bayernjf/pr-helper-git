@@ -11,7 +11,25 @@ remote is configured and commits stay on the local `main` branch.
 - **Bilingual UI (English / 中文)** — switch language in Settings. UI copy stays English in the
   components and is translated at render time by `src/i18n.ts` (dictionary + counted-string rules).
 
+### Dashboard (full page)
+
+- **Third top-level view** (`Dashboard | Git | Pull Requests`): card grid of every registered repository
+  with branch chip, staged/unstaged/untracked pills, ↑ahead ↓behind, **open-PR count** (GitHub-hosted repos),
+  last-commit line and freshness bar; conflicted repos sort first, pinned next, then a persisted sort order
+  (name / recent / change count)
+- Right-click card menu: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove from list
+  (`POST /api/repos/open-external`, audited, registered repos only)
+- **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
+  30-second status auto-refresh
+
 ### Git client (GitKraken-like core)
+
+- **CI status dots on the commit graph** for open-PR head commits (check runs + statuses rolled up:
+  failure > pending > success, pulsing while pending)
+- **Image diffs** — HEAD vs working-tree previews side by side for 8 image extensions (`GET /api/raw`)
+- **Commit-message history** (last 10, click to backfill), 50/72 first-line counter, amend toggle
+  prefills the HEAD message, **Discard all** (unstaged reverted + untracked removed, with confirm)
+- **Commit-message draft** persisted per repository (survives repo switches and reloads, cleared on commit)
 
 - Register and switch between local repositories, or add a new one through a
   three-mode dialog: open an existing folder, clone a remote over a network

@@ -1073,4 +1073,8 @@ read-only view instead of a responsive rewrite.
   now covers both the commit flow and the working-tree diff.
 
 Baseline after this round: 274 unit tests / 25 files, E2E 109/109.
+2026-11-10 parity wave: Dashboard full-page view (open-PR counts, external open, remove UI,
+background fetch-all), graph CI dots, image diffs (/api/raw), commit history + 50/72 counter,
+amend prefill, discard-all, draft persistence. Remaining functional gaps are tracked in
+pr-helper-git's PARITY.md (conflict 3-way editor etc.).
 Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README §Phone view).
