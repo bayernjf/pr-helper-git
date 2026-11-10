@@ -87,7 +87,7 @@ const COLUMNS: Array<{ key: Column; label: string }> = [
 ];
 
 export default function PrBoard() {
-  const { pat, remote, refs, activeRepo, refresh } = useApp();
+  const { pat, hasServerPat, remote, refs, activeRepo, refresh } = useApp();
   const [pulls, setPulls] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export default function PrBoard() {
 
   // Fetch one page of PRs and attach the review summary for each open PR.
   const fetchPage = useCallback(async (pageNo: number): Promise<PullRequest[]> => {
-    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) return [];
+    if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) return [];
     const res = await githubProxy<PullRequest[]>(
       pat,
       `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=${PAGE_SIZE}&page=${pageNo}`,
@@ -125,7 +125,7 @@ export default function PrBoard() {
   }, [pat, remote]);
 
   const load = useCallback(async () => {
-    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) {
+    if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) {
       setPulls([]);
       setHasMore(false);
       setPage(1);
@@ -216,7 +216,7 @@ export default function PrBoard() {
     );
   }
 
-  if (!pat) {
+  if (!pat && !hasServerPat) {
     return (
       <div className="empty-state">
         <div className="empty-icon"><IconPullRequest width={28} height={28} /></div>

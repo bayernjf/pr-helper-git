@@ -382,6 +382,14 @@ BIS2=$(getq bisect --data-urlencode "repo=$REPO_A")
 check "bisect is cleared" "False" "$(echo "$BIS2" | json 'd["active"]')"
 check "bisect restored the branch" "main" "$(git -C "$REPO_A" rev-parse --abbrev-ref HEAD)"
 
+echo "=== E2E: Server-side PAT ==="
+check "pat status empty" "false" "$(curl -s "$BASE/api/pat/status?token=$TOKEN" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["hasServerPat"]).lower())')"
+check "pat store" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"pat":"github_pat_E2EPLACEHOLDER"}' "$BASE/api/pat?token=$TOKEN")"
+check "pat status stored" "true" "$(curl -s "$BASE/api/pat/status?token=$TOKEN" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["hasServerPat"]).lower())')"
+check "pat remove" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/api/pat?token=$TOKEN")"
+check "pat status cleared" "false" "$(curl -s "$BASE/api/pat/status?token=$TOKEN" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["hasServerPat"]).lower())')"
+check "pat store rejects empty" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"pat":""}' "$BASE/api/pat?token=$TOKEN")"
+
 echo "=== E2E: GitHub proxy guards ==="
 check "github proxy without PAT is 401" "401" "$(curl -s -o /dev/null -w '%{http_code}' -X POST \
   -H 'Content-Type: application/json' -d '{}' "$BASE/api/github?token=$TOKEN")"

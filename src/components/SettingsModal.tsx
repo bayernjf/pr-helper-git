@@ -11,8 +11,9 @@ import { getLocale, setLocale, t, tp, type Locale } from '../i18n';
 import { ACCENTS, type Accent, type ThemeMode } from '../lib/appearance';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { pat, setPat, toast, theme, accent, setTheme, setAccent } = useApp();
+  const { pat, setPat, hasServerPat, setServerPat, clearServerPat, toast, theme, accent, setTheme, setAccent } = useApp();
   const [value, setValue] = useState(pat);
+  const [serverPatValue, setServerPatValue] = useState('');
   const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
@@ -165,6 +166,53 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </a>
               .
             </div>
+          </div>
+
+          <h3 className="settings-section">{t("Server-side PAT")}</h3>
+          <div className="form-group">
+            <div className="hint">
+              {t("Alternative to the browser storage above: the token is kept in ~/.pr-helper-git2/config.json (0600 dir), never returned to this page, and injected into GitHub calls server-side when the browser sends none. Preferred when this machine is shared.")}
+            </div>
+            <div className="settings-row">
+              <input
+                type="password"
+                placeholder={hasServerPat ? t('A server-side PAT is stored') : 'github_pat_…'}
+                value={serverPatValue}
+                onChange={(e) => setServerPatValue(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn"
+                disabled={!serverPatValue.trim()}
+                onClick={async () => {
+                  try {
+                    await setServerPat(serverPatValue.trim());
+                    setServerPatValue('');
+                    toast(t('PAT stored server-side'), 'success');
+                  } catch (err: any) {
+                    toast(err?.message || 'store failed', 'error');
+                  }
+                }}
+              >
+                {t('Store on server')}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={!hasServerPat}
+                onClick={async () => {
+                  try {
+                    await clearServerPat();
+                    toast(t('Server-side PAT removed'), 'success');
+                  } catch (err: any) {
+                    toast(err?.message || 'remove failed', 'error');
+                  }
+                }}
+              >
+                {t('Remove')}
+              </button>
+            </div>
+            <div className="hint">{hasServerPat ? t('Status: stored') : t('Status: not stored')}</div>
           </div>
 
           <h3 className="settings-section">{t("Appearance")}</h3>

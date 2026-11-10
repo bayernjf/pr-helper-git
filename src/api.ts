@@ -106,6 +106,16 @@ export const openExternal = (repo: string, target: 'finder' | 'terminal' | 'edit
 export const rawFileUrl = (repo: string, path: string, ref = 'HEAD') =>
   `/api/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`;
 
+// Server-side PAT storage: the token lives in ~/.pr-helper-git2/config.json
+// (0600 dir) and never round-trips to the browser. Proxy routes inject it
+// server-side when the client sends no x-github-pat header.
+export const getPatStatus = () =>
+  request<{ hasServerPat: boolean }>(`/api/pat/status`);
+export const storeServerPat = (pat: string) =>
+  post('/api/pat', { pat }) as Promise<{ hasServerPat: boolean }>;
+export const deleteServerPat = () =>
+  request<{ hasServerPat: boolean }>(`/api/pat`, { method: 'DELETE' });
+
 export const removeRepo = (repo: string) =>
   post('/api/repos/remove', { repo }) as Promise<{ repos: string[] }>;
 

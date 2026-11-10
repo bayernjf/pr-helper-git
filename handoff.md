@@ -1112,3 +1112,33 @@ Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README �
 labels/reviewers/line-comments/draft-ready/protection-read) is **blocked on a user-provided PAT** —
 all PR capabilities remain validated at route/offline level only (PARITY.md known limitation).
 Record the validation outcome here once it runs.
+
+## Lessons inherited from pr-helper-git (pre-archive, 2026-11-11)
+
+Engineering knowledge worth keeping now that pr-helper-git is archived:
+
+1. **bash nested quotes shred JSON**: payloads written as `-d "{\"a\":…}"` inside
+   `$( )` lose content to brace expansion (server receives fragments → invalid
+   JSON). Build payloads with `printf … |` at runtime (see both e2e scripts).
+2. **`REBASE_HEAD` is NOT a live-rebase signal** — an aborted rebase leaves the
+   file behind. Detect a live rebase via the `rebase-merge`/`rebase-apply`
+   directories only. Same class of bug: a conflicted single-commit revert
+   writes `REVERT_HEAD` (pr-helper-git exposes it as `status.reverting`).
+3. **Check `engines` when installing test deps**: `jsdom@31` requires Node
+   ≥22.22 while `jsdom@26` requires ≥18 — on a Node 20 machine 7 test files
+   silently failed to load, making suite counts look right but run less. And
+   on Node ≥26, Node's experimental `globalThis.localStorage` (undefined
+   without `--localstorage-file`) SHADOWS jsdom's inside vitest — fixed by
+   `src/test-setup.ts` (in-memory polyfill via `test.setupFiles`).
+4. **Multi-instance config safety**: web + desktop run side by side. git2's
+   store reads the file on every call + writes via tmp+rename (keep this
+   style); pr-helper-git needed mtime invalidation to avoid one instance
+   erasing the other's settings.
+5. **Server-side PAT model** (adopted this round): the token may live in
+   `~/.pr-helper-git2/config.json` and is injected into the GitHub proxy
+   context server-side; the browser never sees it. pr-helper-git's original
+   design — worth keeping as the default for shared machines.
+6. **Desktop shell engineering** (archived in `docs/archive/pr-helper-git-desktop/`):
+   `--port=0` + machine-readable port line handshake, tray open/quit, dock
+   reopen, child server killed on exit, `find_node()` multi-path discovery,
+   fatal-error osascript dialog.

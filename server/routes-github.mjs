@@ -2,7 +2,7 @@
 // is never persisted, and only an allowlist of repo/pull-request endpoints
 // can be reached.
 import { git } from './git.mjs';
-import { appendAudit, listRepos } from './store.mjs';
+import { appendAudit, listRepos, loadConfig } from './store.mjs';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_TIMEOUT_MS = 20_000;
@@ -64,6 +64,13 @@ export function parseRemoteUrl(rawUrl) {
 }
 
 export async function handleGithubRoute({ method, pathname, query, body, headers }) {
+  // Server-side PAT fallback: when the browser sends no PAT (server-stored
+  // mode) inject the stored token into the context so every downstream route
+  // keeps reading the same header. The value never leaves the server.
+  if (!String(headers['x-github-pat'] || '').trim()) {
+    const stored = (await loadConfig()).github?.token;
+    if (stored) headers['x-github-pat'] = stored;
+  }
   if (pathname === '/api/remote' && method === 'GET') {
     const repo = typeof query.get('repo') === 'string' ? query.get('repo') : '';
     // Only registered repositories may be inspected, matching every other

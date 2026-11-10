@@ -487,6 +487,33 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     return { status: 200, raw: bytes, contentType: IMAGE_TYPES[ext] };
   }
 
+  // Server-side GitHub PAT storage (parity with pr-helper-git's model):
+  // the browser may keep no PAT at all — routes-github injects the stored
+  // token into the proxy context. The value never round-trips to clients;
+  // only its existence is reported.
+  if (pathname === '/api/pat' && method === 'POST') {
+    const pat = typeof body.pat === 'string' ? body.pat.trim() : '';
+    if (!pat || pat.length > 255) return fail(400, 'invalid PAT');
+    const config = await loadConfig();
+    config.github = { token: pat };
+    await saveConfig(config);
+    await appendAudit({ ok: true, action: 'pat.store' });
+    return ok({ hasServerPat: true });
+  }
+
+  if (pathname === '/api/pat' && method === 'DELETE') {
+    const config = await loadConfig();
+    delete config.github;
+    await saveConfig(config);
+    await appendAudit({ ok: true, action: 'pat.remove' });
+    return ok({ hasServerPat: false });
+  }
+
+  if (pathname === '/api/pat/status' && method === 'GET') {
+    const config = await loadConfig();
+    return ok({ hasServerPat: Boolean(config.github?.token) });
+  }
+
   if (pathname === '/api/repos/remove' && method === 'POST') {
     const target = typeof body.repo === 'string' ? body.repo : null;
     if (!target) return fail(400, 'invalid repository path');

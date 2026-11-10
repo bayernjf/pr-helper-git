@@ -2,12 +2,14 @@
 // SSE-driven auto refresh and a helper that runs write actions then refreshes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  getRefs,
+import { getRefs,
   getRemote,
   getRepos,
   getStatus,
   getLog,
+  getPatStatus,
+  storeServerPat,
+  deleteServerPat,
 } from './api';
 import type {
   Commit,
@@ -43,6 +45,7 @@ interface AppData {
   theme: Theme;
   accent: Accent;
   pat: string;
+  hasServerPat: boolean;
   busy: boolean;
   repoLoading: boolean;
   logLimit: number;
@@ -53,6 +56,8 @@ interface AppData {
   setLogFilters: (filters: LogFilters) => void;
   toast: (message: string, kind?: ToastKind) => void;
   setPat: (value: string) => void;
+  setServerPat: (value: string) => Promise<{ hasServerPat: boolean }>;
+  clearServerPat: () => Promise<{ hasServerPat: boolean }>;
   setLogScope: (scope: 'all' | 'current') => void;
   selectRepo: (path: string) => void;
   selectCommit: (hash: string | null) => void;
@@ -83,6 +88,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => getThemeMode());
   const [accent, setAccentState] = useState<Accent>(() => getAccent());
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
+  const [hasServerPat, setHasServerPat] = useState(false);
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
@@ -130,6 +136,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCommits(logRes.commits);
     setRefs(refsRes.refs);
     setRemote(remoteRes.remote);
+    // Server-side PAT availability gates the PR views alongside the
+    // browser-local PAT (server-stored mode keeps no PAT in the browser).
+    getPatStatus().then((s) => setHasServerPat(s.hasServerPat)).catch(() => undefined);
     return true;
   }, []);
 
@@ -228,6 +237,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const setPat = useCallback((value: string) => {
     setPatState(value);
     localStorage.setItem(PAT_KEY, value);
+  }, []);
+  const setServerPat = useCallback(async (value: string) => {
+    const result = await storeServerPat(value);
+    setHasServerPat(result.hasServerPat);
+    // Server-stored mode: the browser copy is no longer needed.
+    localStorage.removeItem(PAT_KEY);
+    setPatState('');
+    return result;
+  }, []);
+  const clearServerPat = useCallback(async () => {
+    const result = await deleteServerPat();
+    setHasServerPat(false);
+    return result;
   }, []);
 
   // Persist the active view so a reload restores it.
@@ -337,6 +359,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       theme,
       accent,
       pat,
+      hasServerPat,
       busy,
       repoLoading,
       logLimit,
@@ -345,6 +368,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       logFilters,
       toast,
       setPat,
+      setServerPat,
+      clearServerPat,
       setLogScope,
       setLogPath,
       setLogFilters,

@@ -318,6 +318,17 @@ export default function DashboardPage() {
                   {prs !== null && prs !== undefined && prs > 0 && (
                     <span className="dash-pill pr" title={t('Open pull requests')}>PR {prs}</span>
                   )}
+                  {(() => {
+                    // Parity with pr-helper-git: repos dormant for 90+ days get
+                    // a visible stale badge so abandoned work stands out.
+                    const at = r.lastCommit?.at ? Date.parse(r.lastCommit.at) : 0;
+                    const days = at ? Math.floor((Date.now() - at) / 86_400_000) : null;
+                    return days !== null && days > 90 ? (
+                      <span className="dash-pill stale" title={t('No commits in {n} days').replace('{n}', String(days))}>
+                        {t('stale')} · {days}d
+                      </span>
+                    ) : null;
+                  })()}
                   <span className="spacer" />
                   <button
                     type="button"

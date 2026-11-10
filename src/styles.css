@@ -3509,3 +3509,18 @@ pre.diff {
 .conflict-region-sides .chosen { background: var(--accent-soft); }
 .conflict-editor-result .field-label { margin-top: 0; }
 .conflict-editor-result textarea { min-height: 220px; font-family: var(--mono); font-size: var(--fs-body); resize: vertical; }
+
+
+/* ---------- dashboard stale chip + diff font cycle ---------- */
+.dash-pill.stale { background: var(--hover); color: var(--muted); }
+.diff-toolbar-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--fs-body); font-family: inherit;
+  cursor: pointer;
+}
+.diff-toolbar-btn:hover { background: var(--hover); }

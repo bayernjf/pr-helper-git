@@ -156,6 +156,11 @@ export default function DiffView({
   staged?: boolean;
 }) {
   const { runAction } = useApp();
+  const FONT_SIZES = [12, 13, 14];
+  const [fontIdx, setFontIdx] = useState(() => {
+    const saved = Number(localStorage.getItem('git2-diff-font'));
+    return FONT_SIZES.indexOf(saved) === -1 ? 0 : FONT_SIZES.indexOf(saved);
+  });
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
   const [pending, setPending] = useState<{ index: number; kind: string } | null>(null);
   // hunk index -> selected body line indexes (0 is the first line after @@).
@@ -271,9 +276,22 @@ export default function DiffView({
       <div className="diff-toolbar">
         <span className="file-name">{result.path}</span>
         <Toggle mode={mode} setMode={setMode} />
+        <button
+          type="button"
+          className="diff-toolbar-btn"
+          title={t('Cycle diff font size')}
+          aria-label={t('Cycle diff font size')}
+          onClick={() => {
+            const next = (fontIdx + 1) % FONT_SIZES.length;
+            setFontIdx(next);
+            localStorage.setItem('git2-diff-font', String(FONT_SIZES[next]));
+          }}
+        >
+          A{FONT_SIZES[fontIdx]}
+        </button>
       </div>
       {mode === 'unified' ? (
-        <pre className="diff">
+        <pre className="diff" style={{ fontSize: FONT_SIZES[fontIdx] + 'px' }}>
           {rows.map((row, i) => {
             if (row.kind === 'hunk') {
               hunkCounter += 1;
