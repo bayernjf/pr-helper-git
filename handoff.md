@@ -1142,3 +1142,26 @@ Engineering knowledge worth keeping now that pr-helper-git is archived:
    `--port=0` + machine-readable port line handshake, tray open/quit, dock
    reopen, child server killed on exit, `find_node()` multi-path discovery,
    fatal-error osascript dialog.
+
+## pr-helper-git 本地清理待办（未到期，按约定保留反悔期）
+
+背景：pr-helper-git 已于 2026-11-10 推 GitHub（私有、归档只读）并完成资产迁移，
+本地目录按 A6 约定保留一个发布周期。以下两项**到期后执行**，不要提前：
+
+- [ ] **删除空壳目录 `/Users/jiangfeng/000mycodes/pr-helper-git/`**
+  - 现状：仅含 README-ARCHIVED.md（1KB），无任何代码
+  - 前置条件：**确认没有会话/进程把工作目录锚定在该路径**（删除会使锚定它的
+    进程无法启动；本轮就是因此保留的占位）。下个会话开工时先检查一次即可删
+- [ ] **删除完整副本 `/Users/jiangfeng/000mycodes/pr-helper-git-archive/`**
+  - 现状：完整工作副本（含 .git，HEAD=18413da，工作树干净；node_modules/dist/
+    src-tauri/target 已清，剩 4.3M 纯源码+历史）
+  - 前置条件：一个发布周期（自 v0.6.1 起）无反悔需求；删除前跑最后一次
+    `bash /Users/jiangfeng/000mycodes-backups/pr-helper-backup.sh` 已无意义
+    （脚本只备份 git2）——改用核验 GitHub 归档可达 + 旧 bundle（见下）
+  - 双保险（删除后依然在）：GitHub 归档仓 + `000mycodes-backups/pr-helper-git/`
+    下的 bundle
+- [ ] （顺带）**清理旧 bundle**：`000mycodes-backups/pr-helper-git/` 下 10 个
+  bundle 是逐次备份的累积，删除上面两项时只保留最新一个
+  （`source-20261110-2008.bundle`，含最终状态 v0.6.1 + polyfill 修复），
+  其余可删
+- 永久保留、无需动作：GitHub 归档仓（bayernjf/pr-helper-git，PRIVATE+ARCHIVED）
