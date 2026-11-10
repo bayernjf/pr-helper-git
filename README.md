@@ -139,8 +139,12 @@ remote is configured and commits stay on the local `main` branch.
   overwrite an existing name from the create-tag dialog.
 - Resolve conflicts from a panel opened in the merge, rebase or revert banner:
   every unmerged path lists View, Use current (`checkout --ours`), Use incoming
-  (`checkout --theirs`) and Mark resolved (`git add -A`), with the remaining
-  count updated after each choice. No three-way editor is provided.
+  (`checkout --theirs`), Editor and Mark resolved (`git add -A`), with the
+  remaining count updated after each choice. Editor opens the three-way merge
+  editor (`ConflictEditorModal` + `src/lib/diff/conflict.ts`): conflict markers
+  are parsed into regions, each region can take ours / theirs / both, the
+  assembled result is editable, and saving uses the mtime optimistic lock and
+  stages the file.
 - Delete a tag directly on the shared remote (`push --delete`) behind a
   confirmation, while the local tag is left untouched.
 - Revert a merge commit from the graph: a dialog asks which parent is the
@@ -357,10 +361,11 @@ it publicly. The one-time token in the URL is still the only credential.
 ### Deliberately out of scope
 
 Worktrees, adding or updating submodules (status is read-only), creating GPG
-signatures (verification is supported), a three-way merge editor, GitHub App
-OAuth, webhooks, a database, web push and deployment gates.
+signatures (verification is supported), GitHub App OAuth, webhooks, a
+database, web push and deployment gates.
 Conflicts are handled per file from the in-app panel (Use current / Use
-incoming / Mark resolved), not by editing conflict markers in place.
+incoming / Mark resolved) plus the three-way merge editor for
+region-by-region resolution.
 
 ## Quick start
 

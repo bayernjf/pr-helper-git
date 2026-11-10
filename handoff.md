@@ -102,11 +102,10 @@ new features target the browser UI and are not adapted to the native shell.
   PAT is stored only in the browser and proxied through the local server.
 - Hardening: nosniff on every response, strict CSP and no-referrer on the
   HTML entry, no-store for HTML, immutable long caching for hashed assets.
-- Explicitly out of scope: interactive rebase, cherry-pick, submodules,
-  worktrees, GPG signing, GitHub App, webhooks, a database, web push, deploy
-  gates, AI generation, and a three-way merge editor. Conflict handling stops
-  at the per-file panel (Use current / Use incoming / Mark resolved), which
-  deliberately does not edit conflict markers in place.
+- Explicitly out of scope (historical — interactive rebase, cherry-pick,
+  AI generation and the three-way merge editor listed here have all been
+  implemented since): submodules, worktrees, GPG signing, GitHub App,
+  webhooks, a database, web push and deploy gates.
 
 ## TODO
 
@@ -865,7 +864,7 @@ new features target the browser UI and are not adapted to the native shell.
   (soft reset), both in the commit-graph context menu.
 - Fixed `parseGrepLines`: `git grep -n -z` records are `path\0line\0text\n`, so splitting on NUL
   in triples misaligned every match after the first. Now parsed record-by-record.
-- Tests: 196 (15 files). Remaining parity backlog: `../pr-helper-git/PARITY.md`.
+- Tests: 196 (15 files) (historical baseline). Remaining parity backlog at the time: `../pr-helper-git/PARITY.md` — now closed (0 functional gaps).
 
 ### 2026-11-08 repository panel round
 
@@ -1108,3 +1107,8 @@ amend prefill, discard-all, draft persistence. The remaining conflict 3-way edit
 the same round (`ConflictEditorModal` + `src/lib/diff/conflict.ts`), so no functional gaps
 remain in pr-helper-git's PARITY.md.
 Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README §Phone view).
+
+2026-11-10: PR real-network validation (list/detail/create/merge/close-reopen/comments/reviews/
+labels/reviewers/line-comments/draft-ready/protection-read) is **blocked on a user-provided PAT** —
+all PR capabilities remain validated at route/offline level only (PARITY.md known limitation).
+Record the validation outcome here once it runs.
