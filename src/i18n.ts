@@ -34,6 +34,20 @@ export function useLocale(): Locale {
 
 /** English source string → Chinese. */
 export const ZH: Record<string, string> = {
+  'Merge editor': '三路合并编辑器',
+  'This file cannot be merged in the editor (masked, binary or too large).': '此文件无法在编辑器中合并（已掩码/二进制/过大）。',
+  'No conflict markers left in this file — mark it resolved instead.': '该文件已无冲突标记 — 请直接标记为已解决。',
+  '{count} conflict region(s) — pick a side per region, then fine-tune the assembled result below.': '{count} 个冲突区域 — 逐块选择保留侧，然后在下方微调合并结果。',
+  'Region': '区域',
+  'Current side': '当前侧',
+  'Incoming side': '传入侧',
+  'Both': '两侧',
+  'Assembled result (editable)': '合并结果（可编辑）',
+  'saved and staged': '已保存并暂存',
+  'The file changed on disk — reopening with the latest content.': '文件已在磁盘上被修改 — 已重新载入最新内容。',
+  'Save and stage': '保存并暂存',
+  'Open the three-way merge editor': '打开三路合并编辑器',
+  'Editor': '编辑器',
   'Auto fetch (10 min)': '自动 Fetch（10 分钟）',
   'Change count': '变更数',
   'Conflicts first': '冲突优先',

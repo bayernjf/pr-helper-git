@@ -3,7 +3,8 @@ import { resolveConflict } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
-import { IconX } from './icons';
+import ConflictEditorModal from './ConflictEditorModal';
+import { IconEdit, IconX } from './icons';
 import { t } from '../i18n';
 
 // Minimal conflict helper: list the unmerged paths, let the user take one side
@@ -19,6 +20,7 @@ export default function ResolveConflictsModal({
   const { status, runAction } = useApp();
   const [pending, setPending] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   useEscape(onClose);
 
   const conflicts = status?.files.filter((f) => f.area === 'unmerged') ?? [];
@@ -56,6 +58,14 @@ export default function ResolveConflictsModal({
                     View
                   </button>
                   <div className="conflict-actions">
+                    <button
+                      type="button"
+                      className="btn"
+                      title={t('Open the three-way merge editor')}
+                      onClick={() => setEditing(file.path)}
+                    >
+                      <IconEdit width={13} height={13} /> {t('Editor')}
+                    </button>
                     <button
                       type="button"
                       className="btn"
@@ -103,6 +113,14 @@ export default function ResolveConflictsModal({
           repo={repo}
           filePath={viewing}
           onClose={() => setViewing(null)}
+        />
+      )}
+      {editing && (
+        <ConflictEditorModal
+          repo={repo}
+          path={editing}
+          onClose={() => setEditing(null)}
+          onResolved={() => setEditing(null)}
         />
       )}
     </>

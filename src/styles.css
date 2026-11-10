@@ -3486,3 +3486,18 @@ pre.diff {
   padding: 4px;
   animation: pop-in 0.12s ease;
 }
+
+
+/* ---------- three-way conflict editor ---------- */
+.conflict-editor-body { display: flex; flex-direction: column; gap: 12px; }
+.conflict-editor-path { font-family: var(--mono); font-size: var(--fs-meta); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+.conflict-editor-note { font-size: var(--fs-body); color: var(--muted); }
+.conflict-region { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.conflict-region-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-elevated); font-size: var(--fs-body); color: var(--muted); }
+.conflict-region-head .spacer { flex: 1; }
+.conflict-region-sides { display: flex; }
+.conflict-region-sides .side { flex: 1; min-width: 0; margin: 0; padding: 8px 10px; font-size: var(--fs-body); font-family: var(--mono); white-space: pre-wrap; word-break: break-word; }
+.conflict-region-sides .ours { border-right: 1px solid var(--border); }
+.conflict-region-sides .chosen { background: var(--accent-soft); }
+.conflict-editor-result .field-label { margin-top: 0; }
+.conflict-editor-result textarea { min-height: 220px; font-family: var(--mono); font-size: var(--fs-body); resize: vertical; }
