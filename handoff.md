@@ -17,7 +17,7 @@ Light-theme legacy tokens now alias the shared design tokens. `routes-git.mjs`
 is now a 100-line dispatcher (repo guard + AI routes) over `routes-git-helpers`,
 `routes-git-meta`, `routes-git-read` and `routes-git-write`; the write module
 itself fans out to worktree / refs / history / files / network / stash. Unit suite is
-331 tests / 33 files; E2E is 144 checks and is now part of CI. Server
+335 tests / 34 files; E2E is 144 checks and is now part of CI. Server
 `checkJs` is gated by `npm run typecheck:server` (`tsconfig.server.json`).
 
 ## Release 0.2.2 (2026-11-11)
@@ -1129,7 +1129,7 @@ read-only view instead of a responsive rewrite.
   now covers both the commit flow and the working-tree diff.
 
 Baseline at 0.2.1: 287 unit tests / 27 files, E2E 115/115.
-Current working-tree baseline: 331 / 33, E2E 144/144 (0.2.2 release was 287 / 27).
+Current working-tree baseline: 335 / 34, E2E 144/144 (0.2.2 release was 287 / 27).
 2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
 and four accent presets (violet/ocean/forest/amber), applied before first paint and
 persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.
@@ -1231,7 +1231,7 @@ grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
     新增「工作区」选项、base/head 交换按钮、未跟踪文件计数与分组；任一侧为
     工作区时自动落到「文件」页（提交页按构造为空）。
   - 闸门（`fnm exec --using=22.23.1`）：lint 0、typecheck:server 0、
-    **331 单测 / 33 文件**、build ok、**E2E 144/144**。浏览器实测：dev 42/42、
+    **335 单测 / 34 文件**、build ok、**E2E 144/144**。浏览器实测：dev 42/42、
     **生产构建** 42/42（0 console error / 0 失败请求）、中文 15/15；
     1280×900 / 1280×620 / 1280×450 / 390×844 / 390×500 / 390×420 六种视口下
     弹层均无裁切、截断提示始终可见。
@@ -1243,13 +1243,16 @@ grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
     页面复测可复现（HEAD 748px vs 当前 693px），源头是 toolbar 的
     `.btn-group`/`.segmented`，`styles.css` 已注明其横向滚动是设计意图。
 - **显示名：现阶段用 `PR Helper Git`（去掉「2」）**。用户 2026-11-11 决定
-  （原话「pr-helper-git吧」「现阶段就用这个」）。只改两处**用户可见**面：
-  `index.html:7` 的 `<title>`（浏览器标签 / 手机加到主屏时的名字，`/m` 手机视图
-  共用同一个 shell）与 `server/main.mjs:304-305` 的启动横幅。
-  - **刻意不动**：`package.json` 的 `name`、数据目录 `~/.pr-helper-git2`、
-    cookie `git2_token`、`GIT2_*` 环境变量、`git2-prefs` 等 localStorage 键、
-    团队导出文件名。这些是标识符不是显示名，改它们要带数据迁移，零功能收益。
-    设置页里出现的 `~/.pr-helper-git2/config.json` 是真实路径，必须保持原样。
+  （原话「pr-helper-git吧」「现阶段就用这个」）。`index.html:7` 的 `<title>`
+  （浏览器标签 / 手机加到主屏时的名字，`/m` 手机视图共用同一个 shell）与
+  `server/main.mjs:304-305` 的启动横幅均已改名。
+  - **2026-11-12 扩展为运行时标识符改名**：`package.json` name、数据目录
+    `~/.pr-helper-git`、localStorage `pr-helper-git:*` 命名空间、cookie
+    `pr_helper_git_token`、环境变量 `PR_HELPER_GIT_*`、Tauri bundle id 均已切换，
+    并带一次性迁移。
+  - **兼容读取**：旧 cookie `git2_token` / 旧 header `x-git2-token` / 旧环境变量
+    `GIT2_*` 仍可读；旧 localStorage 键在首次加载时复制到新键后删除；旧数据目录
+    在新目录不存在时于首次启动 rename。设置页显示的是迁移后的真实路径。
   - **GitHub 仓库名同日一并改了**（用户明确要求）：归档仓
     `bayernjf/pr-helper-git` → **`bayernjf/pr-helper-git-archive`**，产品仓
     `bayernjf/pr-helper-git2` → **`bayernjf/pr-helper-git`**。归档仓是

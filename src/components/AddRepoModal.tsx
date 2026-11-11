@@ -4,6 +4,7 @@ import { addRepo, cloneRepo, initRepo } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { t } from '../i18n';
+import { STORAGE_KEYS } from '../lib/storage-keys';
 import {
   IconDownload,
   IconFolder,
@@ -13,7 +14,7 @@ import {
 
 type Mode = 'open' | 'clone' | 'init';
 
-const PARENT_KEY = 'git2-clone-parent';
+const PARENT_KEY = STORAGE_KEYS.cloneParent;
 
 // Start from the last directory the user cloned into, then fall back to the
 // parent of the repository already open. Never hard-code a machine-specific

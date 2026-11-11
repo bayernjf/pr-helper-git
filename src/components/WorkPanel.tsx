@@ -56,7 +56,7 @@ export default function WorkPanel() {
   const [message, setMessage] = useState(() =>
     activeRepo ? localStorage.getItem(STORAGE_KEYS.draft(activeRepo)) || '' : '');
   const [historyOpen, setHistoryOpen] = useState(false);
-  const historyKey = 'git2-commit-history';
+  const historyKey = STORAGE_KEYS.commitHistory;
   const loadHistory = (): string[] => {
     try {
       const raw = localStorage.getItem(historyKey);
@@ -269,7 +269,7 @@ export default function WorkPanel() {
       if (result !== null) {
         saveHistory(text);
         setMessage('');
-        localStorage.removeItem(STORAGE_KEYS.draft(activeRepo));
+        localStorage.removeItem(STORAGE_KEYS.draft(activeRepo!));
         setAmend(false);
       }
       return;
@@ -279,7 +279,7 @@ export default function WorkPanel() {
     if (result !== null) {
       saveHistory(text);
       setMessage('');
-      localStorage.removeItem(STORAGE_KEYS.draft(activeRepo));
+      localStorage.removeItem(STORAGE_KEYS.draft(activeRepo!));
       setAllowEmpty(false);
     }
   }

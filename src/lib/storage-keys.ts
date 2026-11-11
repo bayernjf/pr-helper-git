@@ -15,6 +15,10 @@ export const STORAGE_KEYS = {
   prefs: `${PREFIX}:prefs`,
   dashboardSort: `${PREFIX}:dashboard-sort`,
   dashboardAutofetch: `${PREFIX}:dashboard-autofetch`,
+  activeRepo: `${PREFIX}:active-repo`,
+  pat: `${PREFIX}:pat`,
+  commitHistory: `${PREFIX}:commit-history`,
+  cloneParent: `${PREFIX}:clone-parent`,
 } as const;
 
 // Map of legacy key -> new key (or null for repo-prefixed dynamic keys).
@@ -24,6 +28,10 @@ const LEGACY_PREFS = 'git2-prefs';
 const LEGACY_DRAFT_PREFIX = 'git2-draft:';
 const LEGACY_DASHBOARD_SORT = 'git2-dashboard-sort';
 const LEGACY_DASHBOARD_AUTOFETCH = 'git2-dashboard-autofetch';
+const LEGACY_ACTIVE_REPO = 'git2-active-repo';
+const LEGACY_PAT = 'git2-pat';
+const LEGACY_COMMIT_HISTORY = 'git2-commit-history';
+const LEGACY_CLONE_PARENT = 'git2-clone-parent';
 const MIGRATION_FLAG = `${PREFIX}:storage-migrated`;
 
 function migrateKey(oldKey: string, newKey: string) {
@@ -50,6 +58,10 @@ export function migrateStorage() {
     migrateKey(LEGACY_PREFS, STORAGE_KEYS.prefs);
     migrateKey(LEGACY_DASHBOARD_SORT, STORAGE_KEYS.dashboardSort);
     migrateKey(LEGACY_DASHBOARD_AUTOFETCH, STORAGE_KEYS.dashboardAutofetch);
+    migrateKey(LEGACY_ACTIVE_REPO, STORAGE_KEYS.activeRepo);
+    migrateKey(LEGACY_PAT, STORAGE_KEYS.pat);
+    migrateKey(LEGACY_COMMIT_HISTORY, STORAGE_KEYS.commitHistory);
+    migrateKey(LEGACY_CLONE_PARENT, STORAGE_KEYS.cloneParent);
 
     // Dynamic draft keys: iterate all keys, rename matching ones.
     const toMove: Array<[string, string]> = [];

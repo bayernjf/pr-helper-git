@@ -133,15 +133,16 @@ const server = http.createServer(async (req, res) => {
         // The token is regenerated on every launch, so a stale cookie is never
         // accepted; a lifetime beyond a day only avoids forcing a relaunch in
         // long-running sessions (the desktop shell can stay open for days).
-        'set-cookie': `git2_token=${given}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`,
+        'set-cookie': `pr_helper_git_token=${given}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`,
       });
       return res.end();
     }
 
     if (pathname.startsWith('/api/')) {
       const presented = url.searchParams.get('token')
+        || req.headers['x-pr-helper-git-token']
         || req.headers['x-git2-token']
-        || (req.headers.cookie || '').match(/(?:^|;\s*)git2_token=([^;]+)/)?.[1]
+        || (req.headers.cookie || '').match(/(?:^|;\s*)(?:pr_helper_git_token|git2_token)=([^;]+)/)?.[1]
         || (req.headers.authorization || '');
       const identity = await resolveToken(presented, TOKEN);
       if (!identity) return sendJson(res, 401, { error: 'unauthorized' });

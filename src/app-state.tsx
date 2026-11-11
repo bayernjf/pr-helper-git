@@ -22,13 +22,14 @@ import type {
 } from './types';
 import { useToast, type ToastKind } from './components/ui';
 import { getPref, setPref } from './lib/prefs';
+import { STORAGE_KEYS } from './lib/storage-keys';
 import { applyAppearance, getAccent, getThemeMode, type Accent, type ThemeMode } from './lib/appearance';
 import { t as translateText } from './i18n';
 
 type View = 'git' | 'pr' | 'dashboard';
 export type Theme = ThemeMode;
-const ACTIVE_KEY = 'git2-active-repo';
-const PAT_KEY = 'git2-pat';
+const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
+const PAT_KEY = STORAGE_KEYS.pat;
 export const LOG_PAGE_SIZE = 200;
 export const LOG_MAX = 1000;
 
