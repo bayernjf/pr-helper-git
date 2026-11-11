@@ -488,7 +488,11 @@ server/
   git.mjs            git runner and pure output parsers
   store.mjs          registry persistence and audit log
   watcher.mjs        recursive file watcher and SSE broadcast hub
-  routes-git.mjs     Git read/write API
+  routes-git.mjs     Git API dispatcher: repo guard, AI routes, module fan-out
+  routes-git-helpers.mjs  Shared validation, repo brief, sensitive-path and rebase helpers
+  routes-git-meta.mjs     Health, audit, storage, repo registry, PAT, users, team endpoints
+  routes-git-read.mjs     Read-only history/status/diff/grep/config endpoints
+  routes-git-write.mjs    Stage/commit/branch/merge/rebase/filesystem write endpoints
   routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
 src/
   app-state.tsx      central data/state provider

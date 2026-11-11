@@ -11,7 +11,9 @@ server-PAT inheritance for members, sensitive-path guards on stage/commit/
 move/remove/clean/stash/AI, 0700/0600 data permissions, serialized config
 writes with corruption backup, cloned-URL audit sanitization, watcher
 reconciliation after registry changes, and a dev-mode non-loopback bind guard.
-Light-theme legacy tokens now alias the shared design tokens. Unit suite is
+Light-theme legacy tokens now alias the shared design tokens. `routes-git.mjs`
+is now a 100-line dispatcher (repo guard + AI routes) over `routes-git-helpers`,
+`routes-git-meta`, `routes-git-read` and `routes-git-write`. Unit suite is
 307 tests / 31 files; E2E remains 136 checks and is now part of CI.
 
 ## Release 0.2.2 (2026-11-11)
