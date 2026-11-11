@@ -9,7 +9,7 @@ export function edgePath(x0: number, y0: number, x1: number, y1: number): string
   return `M ${x0} ${y0} C ${x0} ${y0 + bend}, ${x1} ${y1 - bend}, ${x1} ${y1}`;
 }
 
-function classify(ref: Ref): 'head' | 'branch' | 'remote' | 'tag' {
+function classify(ref: Ref): 'branch' | 'remote' | 'tag' {
   if (ref.name.startsWith('refs/tags/')) return 'tag';
   if (ref.name.startsWith('refs/remotes/')) return 'remote';
   return 'branch';

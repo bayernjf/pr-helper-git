@@ -155,14 +155,14 @@ export function MergeBanners({
           <div className="banner-actions">
             {unmergedCount > 0 && (
               <button type="button" className="btn" onClick={onResolve}>
-                Resolve conflicts ({unmergedCount})
+                {t('Resolve conflicts')} ({unmergedCount})
               </button>
             )}
             <button type="button" className="btn btn-primary" onClick={onContinueRebase}>
-              Continue rebase
+              {t('Continue rebase')}
             </button>
             <button type="button" className="btn btn-danger" onClick={onAbortRebase}>
-              Abort rebase
+              {t('Abort rebase')}
             </button>
           </div>
         </div>
@@ -170,19 +170,19 @@ export function MergeBanners({
       {revertInProgress && (
         <div className="merge-banner revert-banner">
           <span className="merge-banner-msg">
-            Revert in progress{unmergedCount ? ` — ${unmergedCount} conflicting file${unmergedCount === 1 ? '' : 's'} to resolve` : ''}
+            {t('Revert in progress')}{unmergedCount ? ` — ${unmergedCount} conflicting file${unmergedCount === 1 ? '' : 's'} to resolve` : ''}
           </span>
           <div className="banner-actions">
             {unmergedCount > 0 && (
               <button type="button" className="btn" onClick={onResolve}>
-                Resolve conflicts ({unmergedCount})
+                {t('Resolve conflicts')} ({unmergedCount})
               </button>
             )}
             <button type="button" className="btn btn-primary" onClick={onContinueRevert}>
-              Continue revert
+              {t('Continue revert')}
             </button>
             <button type="button" className="btn btn-danger" onClick={onAbortRevert}>
-              Abort revert
+              {t('Abort revert')}
             </button>
           </div>
         </div>
@@ -193,11 +193,11 @@ export function MergeBanners({
           <div className="banner-actions">
             {unmergedCount > 0 && (
               <button type="button" className="btn" onClick={onResolve}>
-                Resolve conflicts ({unmergedCount})
+                {t('Resolve conflicts')} ({unmergedCount})
               </button>
             )}
             <button type="button" className="btn btn-danger" onClick={onAbortMerge}>
-              Abort merge
+              {t('Abort merge')}
             </button>
           </div>
         </div>

@@ -38,7 +38,7 @@ const LANE_COLORS = [
   '#7ee787',
 ];
 
-export function laneColor(lane: number): string {
+function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length];
 }
 
@@ -227,21 +227,21 @@ export default function CommitGraph() {
     : undefined;
 
   const menuItems: MenuItem[] = [
-    { id: 'copy', label: 'Copy full hash', icon: <IconCopy width={15} height={15} /> },
+    { id: 'copy', label: t('Copy full hash'), icon: <IconCopy width={15} height={15} /> },
     { separator: true },
-    { id: 'reset-soft', label: 'Reset branch (soft)' },
-    { id: 'reset-mixed', label: 'Reset branch (mixed)' },
-    { id: 'reset-hard', label: 'Reset branch (hard)', danger: true },
+    { id: 'reset-soft', label: t('Reset branch (soft)') },
+    { id: 'reset-mixed', label: t('Reset branch (mixed)') },
+    { id: 'reset-hard', label: t('Reset branch (hard)'), danger: true },
     { separator: true },
-    { id: 'revert', label: 'Revert commit (new commit)', icon: <IconRevert width={15} height={15} /> },
-    { id: 'cherry-pick', label: 'Cherry-pick onto current branch' },
-    { id: 'rebase-i', label: 'Interactive rebase from here' },
+    { id: 'revert', label: t('Revert commit (new commit)'), icon: <IconRevert width={15} height={15} /> },
+    { id: 'cherry-pick', label: t('Cherry-pick onto current branch') },
+    { id: 'rebase-i', label: t('Interactive rebase from here') },
     ...(menu && headHash && menu.hash === headHash
-      ? [{ id: 'undo', label: 'Undo last commit (keep changes staged)' }]
+      ? [{ id: 'undo', label: t('Undo last commit (keep changes staged)') }]
       : []),
     { separator: true },
-    { id: 'branch', label: 'Create branch here', icon: <IconBranch width={15} height={15} /> },
-    { id: 'tag', label: 'Create tag here', icon: <IconTag width={15} height={15} /> },
+    { id: 'branch', label: t('Create branch here'), icon: <IconBranch width={15} height={15} /> },
+    { id: 'tag', label: t('Create tag here'), icon: <IconTag width={15} height={15} /> },
   ];
 
   async function handleReset(mode: 'soft' | 'mixed' | 'hard') {

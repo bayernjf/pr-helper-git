@@ -373,7 +373,7 @@ export function CommentsSection({
 
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
 
-export const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
+const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
   merge: { name: 'Merge commit', desc: 'Preserve all commits and add a merge commit' },
   squash: { name: 'Squash and merge', desc: 'Combine all commits into one new commit' },
   rebase: { name: 'Rebase and merge', desc: 'Replay commits onto the base without a merge commit' },
@@ -437,9 +437,9 @@ export function MergeSection({
               : option === 'squash' ? <IconRocket width={17} height={17} />
               : <IconCheck width={17} height={17} />}
             <span>
-              <span className="merge-name">{MERGE_INFO[option].name}</span>
+              <span className="merge-name">{t(MERGE_INFO[option].name)}</span>
               <span className="merge-desc" style={{ display: 'block' }}>
-                {MERGE_INFO[option].desc}
+                {t(MERGE_INFO[option].desc)}
               </span>
             </span>
           </button>

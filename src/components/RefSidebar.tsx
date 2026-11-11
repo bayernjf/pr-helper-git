@@ -245,41 +245,41 @@ export default function RefSidebar() {
       const isCurrent = menu.name === currentBranch;
       const isPinned = pinned.includes(menu.name);
       return [
-        { id: 'checkout', label: 'Checkout', icon: <IconDownload width={15} height={15} />, disabled: isCurrent },
-        { id: 'rename', label: 'Rename', icon: <IconEdit width={15} height={15} />, disabled: !isCurrent },
-        { id: isPinned ? 'unpin' : 'pin', label: isPinned ? 'Unpin' : 'Pin to top', icon: <IconPin width={15} height={15} /> },
+        { id: 'checkout', label: t('Checkout'), icon: <IconDownload width={15} height={15} />, disabled: isCurrent },
+        { id: 'rename', label: t('Rename'), icon: <IconEdit width={15} height={15} />, disabled: !isCurrent },
+        { id: isPinned ? 'unpin' : 'pin', label: isPinned ? t('Unpin') : t('Pin to top'), icon: <IconPin width={15} height={15} /> },
         { separator: true },
-        { id: 'merge', label: 'Merge into current', icon: <IconMerge width={15} height={15} />, disabled: isCurrent },
-        { id: 'push', label: 'Push to origin', icon: <IconUpload width={15} height={15} /> },
-        { id: 'set-upstream', label: 'Set upstream…', icon: <IconBranch width={15} height={15} /> },
+        { id: 'merge', label: t('Merge into current'), icon: <IconMerge width={15} height={15} />, disabled: isCurrent },
+        { id: 'push', label: t('Push to origin'), icon: <IconUpload width={15} height={15} /> },
+        { id: 'set-upstream', label: t('Set upstream…'), icon: <IconBranch width={15} height={15} /> },
         { separator: true },
-        { id: 'delete', label: 'Delete', icon: <IconTrash width={15} height={15} />, danger: true, disabled: isCurrent },
+        { id: 'delete', label: t('Delete'), icon: <IconTrash width={15} height={15} />, danger: true, disabled: isCurrent },
       ];
     }
     if (menu.kind === 'remote') {
       return [
-        { id: 'checkout', label: 'Checkout as tracking branch', icon: <IconDownload width={15} height={15} /> },
+        { id: 'checkout', label: t('Checkout as tracking branch'), icon: <IconDownload width={15} height={15} /> },
         { separator: true },
-        { id: 'delete-remote', label: 'Delete remote branch', icon: <IconTrash width={15} height={15} />, danger: true },
+        { id: 'delete-remote', label: t('Delete remote branch'), icon: <IconTrash width={15} height={15} />, danger: true },
       ];
     }
     if (menu.kind === 'tag') {
       return [
-        { id: 'tag-details', label: 'View details', icon: <IconEye width={15} height={15} /> },
-        { id: 'checkout', label: 'Checkout (detached)', icon: <IconDownload width={15} height={15} /> },
-        { id: 'push-tag', label: 'Push tag to origin', icon: <IconUpload width={15} height={15} /> },
-        { id: 'delete-remote-tag', label: 'Delete remote tag', icon: <IconTrash width={15} height={15} />, danger: true },
+        { id: 'tag-details', label: t('View details'), icon: <IconEye width={15} height={15} /> },
+        { id: 'checkout', label: t('Checkout (detached)'), icon: <IconDownload width={15} height={15} /> },
+        { id: 'push-tag', label: t('Push tag to origin'), icon: <IconUpload width={15} height={15} /> },
+        { id: 'delete-remote-tag', label: t('Delete remote tag'), icon: <IconTrash width={15} height={15} />, danger: true },
         { separator: true },
-        { id: 'delete-tag', label: 'Delete tag', icon: <IconTrash width={15} height={15} />, danger: true },
+        { id: 'delete-tag', label: t('Delete tag'), icon: <IconTrash width={15} height={15} />, danger: true },
       ];
     }
     return [
-      { id: 'view', label: 'View changes', icon: <IconEye width={15} height={15} /> },
+      { id: 'view', label: t('View changes'), icon: <IconEye width={15} height={15} /> },
       { separator: true },
-      { id: 'apply', label: 'Apply', icon: <IconDownload width={15} height={15} /> },
-      { id: 'pop', label: 'Pop (apply and drop)', icon: <IconMerge width={15} height={15} /> },
+      { id: 'apply', label: t('Apply'), icon: <IconDownload width={15} height={15} /> },
+      { id: 'pop', label: t('Pop (apply and drop)'), icon: <IconMerge width={15} height={15} /> },
       { separator: true },
-      { id: 'drop', label: 'Drop', icon: <IconTrash width={15} height={15} />, danger: true },
+      { id: 'drop', label: t('Drop'), icon: <IconTrash width={15} height={15} />, danger: true },
     ];
   }, [menu, currentBranch, pinned]);
 

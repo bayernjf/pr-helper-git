@@ -82,8 +82,8 @@ export default function MergeModal({ sourceRef, currentBranch, onClose }: Props)
                   onChange={() => setStrategy(option.value)}
                 />
                 <span className="merge-option-text">
-                  <span className="merge-option-title">{option.title}</span>
-                  <span className="merge-option-hint">{option.hint}</span>
+                  <span className="merge-option-title">{t(option.title)}</span>
+                  <span className="merge-option-hint">{t(option.hint)}</span>
                 </span>
               </label>
             ))}
@@ -92,7 +92,7 @@ export default function MergeModal({ sourceRef, currentBranch, onClose }: Props)
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>
-            {busy ? 'Merging…' : 'Merge branches'}
+            {busy ? t('Merging…') : t('Merge branches')}
           </button>
         </div>
       </div>

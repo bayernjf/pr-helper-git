@@ -16,7 +16,7 @@ import {
 } from './icons';
 import { t } from '../i18n';
 
-export function statusLabel(file: StatusFile): string {
+function statusLabel(file: StatusFile): string {
   if (file.area === 'untracked') return 'U';
   if (file.area === 'unmerged') return '!';
   return file.status.trim() || 'M';

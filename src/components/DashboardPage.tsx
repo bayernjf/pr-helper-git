@@ -52,7 +52,6 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; repo: RepoBrief } | null>(null);
   const lastFetchAll = useRef(Date.now());
-  const prTimerFatal = useRef(false);
 
   // 30s status refresh while the dashboard is visible.
   useEffect(() => {
@@ -85,7 +84,7 @@ export default function DashboardPage() {
 
   // Open-PR counts: only for GitHub-hosted repos, only when a PAT exists.
   useEffect(() => {
-    if ((!pat && !hasServerPat) || prTimerFatal.current || repos.length === 0) {
+    if ((!pat && !hasServerPat) || repos.length === 0) {
       setPrCounts({});
       return;
     }

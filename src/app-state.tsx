@@ -30,7 +30,7 @@ type View = 'git' | 'pr' | 'dashboard';
 export type Theme = ThemeMode;
 const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
 const PAT_KEY = STORAGE_KEYS.pat;
-export const LOG_PAGE_SIZE = 200;
+const LOG_PAGE_SIZE = 200;
 export const LOG_MAX = 1000;
 
 interface AppData {
