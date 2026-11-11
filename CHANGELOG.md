@@ -17,10 +17,11 @@
 - `/api/repos` 的逐仓 brief 改为最多 4 个并发，避免注册表很大时一次拉起数百个 git 进程。
 - light theme 的 legacy surface token 改为真正 alias 到 `design/tokens.css`，不再被 `styles.css` 的硬编码暗色 `:root` 覆盖。
 - 设置页对 member 隐藏 server PAT / AI / 服务端数据维护区，并说明浏览器 PAT 仍可用。
-- README / 设置页文案：E2E 136、单测 301/29、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
+- README / 设置页文案：E2E 136、单测 307/31、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
 
 ### 测试
 - 新增 admin 权限、成员 PAT 不继承、敏感文件 stage/commit/clean、数据目录权限、URL 脱敏、AI endpoint 变更清 key、watcher reconcile、主题 token alias 的测试；CI 增加 `npm run e2e`。
+- 新增 `appearance` 偏好/alias 测试与 `SettingsModal` admin/member 分区测试（6 条），并起隔离实例目检 light theme 主界面、设置弹窗与 Git 工作区。
 
 ## [0.2.2] - 2026-11-11
 
