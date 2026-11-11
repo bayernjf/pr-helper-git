@@ -1576,3 +1576,82 @@ describe('bisect wizard', () => {
     expect(reset.status).toBe(400);
   });
 });
+
+describe('compare against the working tree and arbitrary commits', () => {
+  let cmpDir;
+  let baseSha;
+
+  beforeAll(async () => {
+    cmpDir = path.join(tmpRoot, 'compare-worktree');
+    await fsp.mkdir(cmpDir);
+    git(['init', '-b', 'main'], cmpDir);
+    git(['config', 'user.email', 'tester@example.com'], cmpDir);
+    git(['config', 'user.name', 'Tester'], cmpDir);
+    await fsp.writeFile(path.join(cmpDir, 'tracked.txt'), 'one\n', 'utf8');
+    git(['add', '.'], cmpDir);
+    git(['commit', '-m', 'base'], cmpDir);
+    baseSha = git(['rev-parse', 'HEAD'], cmpDir).trim();
+    await fsp.writeFile(path.join(cmpDir, 'second.txt'), 'two\n', 'utf8');
+    git(['add', '.'], cmpDir);
+    git(['commit', '-m', 'second'], cmpDir);
+
+    // Dirty the tree: a modification, a staged addition and an untracked file.
+    // The staged addition is what makes the two diff directions distinguishable.
+    await fsp.writeFile(path.join(cmpDir, 'tracked.txt'), 'one changed\n', 'utf8');
+    await fsp.writeFile(path.join(cmpDir, 'staged-add.txt'), 'added\n', 'utf8');
+    git(['add', 'staged-add.txt'], cmpDir);
+    await fsp.writeFile(path.join(cmpDir, 'untracked.txt'), 'junk\n', 'utf8');
+
+    expect((await post('/api/repos/add', { repo: cmpDir })).status).toBe(200);
+  });
+
+  const cmp = (base, head) => get(`/api/compare?repo=${q(cmpDir)}&base=${q(base)}&head=${q(head)}`);
+  const fileNamed = (json, name) => json.files.find((f) => f.path === name);
+
+  it('accepts a bare commit SHA as a compare side', async () => {
+    const r = await cmp(baseSha, 'main');
+    expect(r.status).toBe(200);
+    expect(r.json.ahead).toHaveLength(1);
+    expect(r.json.ahead[0].subject).toBe('second');
+    expect(r.json.behind).toHaveLength(0);
+    expect(fileNamed(r.json, 'second.txt')).toMatchObject({ status: 'A', additions: 1, deletions: 0 });
+    expect(r.json.untracked).toEqual([]);
+  });
+
+  it('compares a commit against the working tree', async () => {
+    const r = await cmp(baseSha, ':worktree');
+    expect(r.status).toBe(200);
+    // The worktree owns no commits, so HEAD stands in for it in the ranges.
+    expect(r.json.ahead).toHaveLength(1);
+    expect(r.json.behind).toHaveLength(0);
+    expect(fileNamed(r.json, 'tracked.txt')).toMatchObject({ status: 'M', additions: 1, deletions: 1 });
+    expect(fileNamed(r.json, 'staged-add.txt')).toMatchObject({ status: 'A', additions: 1, deletions: 0 });
+    expect(r.json.untracked).toEqual(['untracked.txt']);
+  });
+
+  it('reverses the diff when the working tree is the base side', async () => {
+    const r = await cmp(':worktree', baseSha);
+    expect(r.status).toBe(200);
+    expect(r.json.ahead).toHaveLength(0);
+    expect(r.json.behind).toHaveLength(1);
+    expect(fileNamed(r.json, 'staged-add.txt')).toMatchObject({ status: 'D', additions: 0, deletions: 1 });
+    expect(r.json.untracked).toEqual(['untracked.txt']);
+  });
+
+  it('compares HEAD against the working tree without rejecting equal tips', async () => {
+    const r = await cmp('HEAD', ':worktree');
+    expect(r.status).toBe(200);
+    expect(r.json.ahead).toEqual([]);
+    expect(r.json.behind).toEqual([]);
+    expect(fileNamed(r.json, 'tracked.txt')).toMatchObject({ status: 'M' });
+    expect(fileNamed(r.json, 'staged-add.txt')).toMatchObject({ status: 'A' });
+    expect(r.json.untracked).toEqual(['untracked.txt']);
+  });
+
+  it('still rejects identical, option-like and malformed sides', async () => {
+    expect((await cmp(':worktree', ':worktree')).status).toBe(400);
+    expect((await cmp(':worktree', '--help')).status).toBe(400);
+    expect((await cmp(':worktree-ish', 'main')).status).toBe(400);
+    expect((await cmp('main..main', ':worktree')).status).toBe(400);
+  });
+});

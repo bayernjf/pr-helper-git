@@ -1989,6 +1989,17 @@ pre.diff {
 
 /* ---------- reflog ---------- */
 .modal-wide { width: 720px; max-width: 92vw; }
+/* A stable frame: results scroll inside it, so switching between an empty and a
+   long comparison does not resize the dialog, and the picker popup always
+   has room below the row instead of being clipped by the modal's scroll box. */
+.modal-compare {
+  display: flex;
+  flex-direction: column;
+  height: min(640px, calc(100vh - 48px));
+}
+.modal-compare .modal-header,
+.modal-compare .compare-picker { flex-shrink: 0; }
+.modal-compare .modal-body { flex: 1; min-height: 0; overflow-y: auto; }
 .modal-body.no-pad { padding: 0; }
 .reflog-list { max-height: 60vh; overflow: auto; }
 .reflog-item {
@@ -2165,24 +2176,56 @@ pre.diff {
 
 /* ---------- Batch 7: compare modal, sidebar filter, whitespace toggle ---------- */
 .compare-picker {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 10px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-soft);
 }
-.compare-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+/* The popup spans the whole picker row rather than one field: a field-wide
+   popup would be too narrow for commit subjects, and a wider one anchored to a
+   field would overflow the modal's scroll box and drag its header out of view. */
+.compare-picker .ref-picker { position: static; }
+.compare-picker .ref-picker-menu {
+  left: 18px;
+  right: 18px;
+  min-width: 0;
+  /* Short viewports shrink the popup instead of letting it run past the modal. */
+  max-height: clamp(120px, calc(100vh - 320px), 280px);
+}
+.compare-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .compare-field label { font-size: var(--fs-meta); color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-.compare-field select {
-  width: 100%;
+.compare-swap {
+  flex-shrink: 0;
+  margin-bottom: 1px;
+  padding: 6px 9px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text);
-  padding: 8px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
   font-size: var(--fs-ui);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
-.compare-arrow { color: var(--faint); font-size: var(--fs-title); padding-bottom: 8px; }
+.compare-swap:hover:not(:disabled) { background: var(--hover); border-color: var(--border-strong); color: var(--accent); }
+.compare-swap:disabled { opacity: 0.45; cursor: default; }
+.compare-note {
+  margin: 0 2px 10px;
+  padding: 8px 10px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+@media (max-width: 680px) {
+  .compare-picker { flex-wrap: wrap; }
+  .compare-field { flex: 1 1 100%; }
+  .compare-swap { order: 3; }
+  .compare-picker .btn-primary { order: 4; flex: 1; }
+}
 .compare-summary {
   display: flex;
   gap: 18px;
@@ -3394,6 +3437,46 @@ pre.diff {
 .dropdown-item.selected { color: var(--accent); font-weight: 600; }
 .dropdown-item.selected.active { background: var(--accent-soft); }
 .dropdown-empty { padding: 8px 10px; color: var(--faint); font-size: var(--fs-body); }
+
+/* Combobox variant: the trigger is an input so a raw commit SHA can be typed. */
+.ref-picker { display: block; width: 100%; }
+.ref-picker-control { position: relative; display: block; }
+.ref-picker-input {
+  display: block;
+  width: 100%;
+  max-width: none;
+  padding-right: 24px;
+  cursor: text;
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+}
+.ref-picker-input::placeholder { color: var(--faint); font-family: var(--font); }
+.ref-picker-input:focus { outline: none; border-color: var(--accent); background: var(--bg-elevated); }
+.ref-picker-caret { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.ref-picker-group {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  padding: 6px 10px 3px;
+  background: var(--ctx-bg);
+  color: var(--faint);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ref-picker-item { display: flex; align-items: baseline; gap: 10px; }
+.ref-picker-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-picker-hint { flex-shrink: 0; color: var(--faint); font-size: var(--fs-meta); font-family: var(--mono); }
+.ref-picker-more {
+  position: sticky;
+  bottom: -4px;
+  padding: 6px 10px;
+  background: var(--ctx-bg);
+  border-top: 1px solid var(--border-soft);
+  color: var(--faint);
+  font-size: var(--fs-meta);
+}
 
 
 /* ---------- Dashboard page ---------- */

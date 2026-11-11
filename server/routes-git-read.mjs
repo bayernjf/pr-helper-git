@@ -58,6 +58,7 @@ import {
 } from './ai.mjs';
 import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
 import {
+  COMPARE_WORKTREE,
   CONFIG_SPEC_BY_KEY,
   CONFIG_SPECS,
   CONFIG_VALUE_MAX,
@@ -88,6 +89,7 @@ import {
   sensitiveChanges,
   sensitiveFail,
   unmergedPaths,
+  validateCompareRef,
   validateDateValue,
   validateFilterValue,
   validateRefSpec,
@@ -647,17 +649,30 @@ export async function handleGitRead({ method, pathname, query, body, identity },
   }
 
   if (pathname === '/api/compare' && method === 'GET') {
-    const base = validateRefSpec(query.get('base'));
-    const head = validateRefSpec(query.get('head'));
+    const base = validateCompareRef(query.get('base'));
+    const head = validateCompareRef(query.get('head'));
     if (!base || !head) return fail(400, 'invalid base or head ref');
     if (base === head) return fail(400, 'base and head must differ');
+    // The working tree owns no commits, so HEAD stands in for it in the log
+    // ranges: against HEAD the commit lists are empty but the file diff is real.
+    const logBase = base === COMPARE_WORKTREE ? 'HEAD' : base;
+    const logHead = head === COMPARE_WORKTREE ? 'HEAD' : head;
+    const sameTip = logBase === logHead;
+    const worktree = base === COMPARE_WORKTREE || head === COMPARE_WORKTREE;
+    // `git diff <ref>` compares that ref against the working tree; -R flips the
+    // direction so the working tree can serve as the base side too.
+    const diffRefs = worktree ? [base === COMPARE_WORKTREE ? head : base] : [base, head];
+    const diffReverse = base === COMPARE_WORKTREE ? ['-R'] : [];
     const pretty = '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e';
     try {
-      const [aheadRaw, behindRaw, nameStatus, numstat] = await Promise.all([
-        git(['log', `${base}..${head}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
-        git(['log', `${head}..${base}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
-        git(['diff', '--name-status', '-M', base, head], repo),
-        git(['diff', '--numstat', '-M', base, head], repo),
+      const [aheadRaw, behindRaw, nameStatus, numstat, untrackedRaw] = await Promise.all([
+        sameTip ? '' : git(['log', `${logBase}..${logHead}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
+        sameTip ? '' : git(['log', `${logHead}..${logBase}`, `--max-count=${LOG_LIMIT_MAX}`, pretty], repo),
+        git(['diff', '--name-status', '-M', ...diffReverse, ...diffRefs], repo),
+        git(['diff', '--numstat', '-M', ...diffReverse, ...diffRefs], repo),
+        // Untracked files are invisible to `git diff` yet are part of the working
+        // tree, so they are reported separately rather than implying a clean tree.
+        worktree ? git(['ls-files', '--others', '--exclude-standard', '-z'], repo) : '',
       ]);
       const stats = new Map();
       for (const line of numstat.split('\n')) {
@@ -691,6 +706,7 @@ export async function handleGitRead({ method, pathname, query, body, identity },
         ahead: parseLog(aheadRaw),
         behind: parseLog(behindRaw),
         files,
+        untracked: untrackedRaw.split('\0').filter(Boolean),
       });
     } catch (err) {
       return gitFail(err, 'compare failed');

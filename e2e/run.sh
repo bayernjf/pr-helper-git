@@ -260,6 +260,30 @@ contains "compare lists file" "cmp.txt" "$CMP"
 check "compare unknown ref is 400" "400" "$(getcode compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=main" --data-urlencode "head=nope-nope")"
 check "compare same ref is 400" "400" "$(getcode compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=main" --data-urlencode "head=main")"
 
+# A bare commit SHA is a valid side, not just a branch name.
+CMP_TIP=$(git -C "$REPO_A" rev-parse main)
+SHA_CMP=$(getq compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=$CMP_TIP" --data-urlencode "head=e2e-cmp")
+check "compare accepts a commit SHA" "1" "$(printf '%s' "$SHA_CMP" | json 'len(d["ahead"])')"
+
+# Working tree as a side: a staged addition is what distinguishes the two diff
+# directions (A forwards, D reversed); a plain edit stays M either way.
+echo "wt edit" >> "$REPO_A/file1.txt"
+echo "wt new" > "$REPO_A/wt-staged.txt"
+git -C "$REPO_A" add wt-staged.txt
+echo "wt junk" > "$REPO_A/wt-untracked.txt"
+WT=$(getq compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=main" --data-urlencode "head=:worktree")
+check "worktree compare has no commits" "0" "$(printf '%s' "$WT" | json 'len(d["ahead"]) + len(d["behind"])')"
+contains "worktree compare lists tracked edit" "file1.txt" "$WT"
+check "worktree compare adds staged file" "A" "$(printf '%s' "$WT" | json '[f["status"] for f in d["files"] if f["path"]=="wt-staged.txt"][0]')"
+check "worktree compare reports untracked" "1" "$(printf '%s' "$WT" | json 'len(d["untracked"])')"
+WT_REV=$(getq compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=:worktree" --data-urlencode "head=main")
+check "worktree as base flips direction" "D" "$(printf '%s' "$WT_REV" | json '[f["status"] for f in d["files"] if f["path"]=="wt-staged.txt"][0]')"
+check "worktree on both sides is 400" "400" "$(getcode compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=:worktree" --data-urlencode "head=:worktree")"
+check "worktree lookalike ref is 400" "400" "$(getcode compare --data-urlencode "repo=$REPO_A" --data-urlencode "base=:worktree-ish" --data-urlencode "head=main")"
+git -C "$REPO_A" reset -q -- wt-staged.txt
+rm -f "$REPO_A/wt-staged.txt" "$REPO_A/wt-untracked.txt"
+git -C "$REPO_A" checkout -q -- file1.txt
+
 REBASE_BASE=$(git -C "$REPO_A" rev-parse HEAD~2)
 PLAN=$(getq rebase/plan --data-urlencode "repo=$REPO_A" --data-urlencode "base=$REBASE_BASE")
 check "rebase plan has 2 commits" "2" "$(echo "$PLAN" | json 'len(d["commits"])')"

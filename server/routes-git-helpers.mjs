@@ -98,6 +98,15 @@ export function validateRefSpec(raw) {
   return validateRefName(v) ? v : null;
 }
 
+// Compare also accepts the working tree as one side. `:` is illegal in a git
+// ref name, so this pseudo-ref can never collide with a real branch or tag.
+export const COMPARE_WORKTREE = ':worktree';
+
+export function validateCompareRef(raw) {
+  if (typeof raw === 'string' && raw.trim() === COMPARE_WORKTREE) return COMPARE_WORKTREE;
+  return validateRefSpec(raw);
+}
+
 /** Resolve a path inside the repository's own git dir (BISECT_LOG, BISECT_START). */
 export async function gitDirPath(repo, name) {
   const rel = (await git(['rev-parse', '--git-path', name], repo)).trim();

@@ -113,7 +113,7 @@ export const openExternal = (repo: string, target: 'finder' | 'terminal' | 'edit
 export const rawFileUrl = (repo: string, path: string, ref = 'HEAD') =>
   `/api/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`;
 
-// Server-side PAT storage: the token lives in ~/.pr-helper-git2/config.json
+// Server-side PAT storage: the token lives in ~/.pr-helper-git/config.json
 // (0700 directory, 0600 file) and never round-trips to the browser. Proxy
 // routes inject it server-side for the owner only; members must send their own PAT.
 export const getPatStatus = () =>
@@ -496,6 +496,8 @@ export interface CompareResult {
   ahead: Commit[];
   behind: Commit[];
   files: CommitFile[];
+  // Populated only when a side is the working tree; `git diff` cannot see these.
+  untracked: string[];
 }
 
 export const getCompare = (repo: string, base: string, head: string) =>
