@@ -102,6 +102,12 @@ import { handleGitWriteNetwork } from './routes-git-write-network.mjs';
 import { handleGitWriteStash } from './routes-git-write-stash.mjs';
 
 export async function handleGitWrite({ method, pathname, query, body, identity }, repo) {
+  // Every write endpoint mutates the repository, so reject non-POST here in one
+  // place instead of repeating the guard across ~50 path branches (a GET could
+  // otherwise reach e.g. /api/merge/abort?repo=… because the sub-handlers only
+  // match on pathname).
+  if (method !== 'POST') return null;
+
   const worktree = await handleGitWriteWorktree({ method, pathname, query, body, identity }, repo);
   if (worktree) return worktree;
 

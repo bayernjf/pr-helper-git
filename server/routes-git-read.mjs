@@ -737,8 +737,5 @@ export async function handleGitRead({ method, pathname, query, body, identity },
     }
   }
 
-  if (method !== 'POST') return null;
-
-
   return null;
 }
