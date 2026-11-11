@@ -3,22 +3,30 @@ import { useEffect, useState } from 'react';
 import { checkoutPrHead, githubProxy, markReadyForReview, mergePull } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
-import { formatFullDate, formatRelative, shortHash } from '../lib/format';
+import { formatFullDate, shortHash } from '../lib/format';
 import type { CheckRun, PullRequest } from '../types';
 import {
-  IconCheck,
   IconExternal,
   IconFile,
-  IconMerge,
-  IconRocket,
   IconX,
 } from './icons';
 import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
-import { Dropdown } from './Dropdown';
+import {
+  ChecksSection,
+  CommentsSection,
+  CommitsSection,
+  DescriptionSection,
+  LabelsSection,
+  MergeSection,
+  ReviewersSection,
+  type MergeMethod,
+  type PrComment,
+  type PrCommit,
+  type ProtectionInfo,
+  type Reviewer,
+} from './PrDetailSections';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
-
-type MergeMethod = 'merge' | 'squash' | 'rebase';
 
 // Classic commit statuses (Jenkins, older CI) are separate from check runs.
 interface CommitStatus {
@@ -27,29 +35,9 @@ interface CommitStatus {
   target_url?: string;
 }
 
-interface ProtectionInfo {
-  protected: boolean | null;
-  requiredChecks: number;
-}
-
 // Conclusions that mean "this gate did not pass".
 const FAILED_STATES = new Set(['failure', 'error', 'timed_out', 'startup_failure', 'cancelled']);
 
-interface PrCommit {
-  sha: string;
-  commit: { message: string };
-}
-interface Reviewer {
-  login: string;
-  avatar_url: string;
-}
-interface PrComment {
-  id: number;
-  user: { login: string; avatar_url: string };
-  body: string;
-  created_at: string;
-  author_association: string;
-}
 type PullReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 interface PrReview {
   id: number;
@@ -59,12 +47,6 @@ interface PrReview {
   submitted_at: string | null;
   author_association: string;
 }
-
-const MERGE_INFO: Record<MergeMethod, { name: string; desc: string }> = {
-  merge: { name: 'Merge commit', desc: 'Preserve all commits and add a merge commit' },
-  squash: { name: 'Squash and merge', desc: 'Combine all commits into one new commit' },
-  rebase: { name: 'Rebase and merge', desc: 'Replay commits onto the base without a merge commit' },
-};
 
 export default function PrDetailModal({
   pr,
@@ -470,105 +452,28 @@ export default function PrDetailModal({
             {pr.head.label} → {pr.base.label} · {tp("opened by {user} on {date}", { user: pr.user.login, date: formatFullDate(pr.created_at) })}
           </div>
 
-          <div className="detail-section">
-            <span className="detail-label">{t("Labels")}</span>
-            <div className="pr-labels">
-              {labels.map((label) => (
-                <span className="pr-label" key={label.name}>
-                  <span className="pr-label-dot" style={{ background: `#${label.color || '888888'}` }} />
-                  {label.name}
-                  <button
-                    type="button"
-                    className="pr-label-remove"
-                    aria-label={tp("Remove label {name}", { name: label.name })}
-                    disabled={labelBusy}
-                    onClick={() => removeLabel(label.name)}
-                  >
-                    <IconX width={10} height={10} />
-                  </button>
-                </span>
-              ))}
-              {pr.state === 'open' && (
-                <Dropdown
-                  className="pr-label-add"
-                  aria-label={t("Add label")}
-                  disabled={labelBusy}
-                  value=""
-                  onChange={(picked) => {
-                    if (picked) void addLabel(picked);
-                  }}
-                  options={[
-                    { value: '', label: `+ ${t('Add label')}` },
-                    ...repoLabels
-                      .filter((l) => !labels.some((current) => current.name === l.name))
-                      .map((l) => ({ value: l.name, label: l.name })),
-                  ]}
-                />
-              )}
-            </div>
-          </div>
+          <LabelsSection
+            state={pr.state}
+            labels={labels}
+            repoLabels={repoLabels}
+            busy={labelBusy}
+            onAdd={(name) => void addLabel(name)}
+            onRemove={(name) => void removeLabel(name)}
+          />
 
-          <div className="detail-section">
-            <span className="detail-label">
-              {t("Description")}{pr.state === 'open' && !editingDescription && (
-                <button
-                  type="button"
-                  className="comment-tool-btn"
-                  style={{ marginLeft: 8 }}
-                  onClick={startEditDescription}
-                >
-                  {t("Edit")}</button>
-              )}
-            </span>
-            {editingDescription ? (
-              <div className="review-inline-composer">
-                <textarea
-                  value={descriptionDraft}
-                  autoFocus
-                  rows={4}
-                  aria-label={t("Pull request description")}
-                  onChange={(e) => setDescriptionDraft(e.target.value)}
-                />
-                <div className="review-composer-actions">
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setEditingDescription(false)}
-                    disabled={editWorking}
-                  >
-                    {t("Cancel")}</button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={submitEditDescription}
-                    disabled={editWorking}
-                  >
-                    {editWorking ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ) : pr.body ? (
-              <div className="pr-description">{pr.body}</div>
-            ) : (
-              <div className="detail-value muted">{t("No description provided.")}</div>
-            )}
-          </div>
+          <DescriptionSection
+            state={pr.state}
+            body={pr.body}
+            editing={editingDescription}
+            draft={descriptionDraft}
+            working={editWorking}
+            onStart={startEditDescription}
+            onDraft={setDescriptionDraft}
+            onCancel={() => setEditingDescription(false)}
+            onSave={() => void submitEditDescription()}
+          />
 
-          <div className="detail-section">
-            <span className="detail-label">
-              {tp("Commits ({count})", { count: prCommits.length })}
-            </span>
-            <div className="pr-detail-list">
-              {prCommits.map((c) => (
-                <div key={c.sha} className="pr-detail-item">
-                  <span className="hash">{shortHash(c.sha)}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {c.commit.message.split('\n')[0]}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <CommitsSection commits={prCommits} />
 
           <div className="detail-section">
             <span className="detail-label">
@@ -617,40 +522,13 @@ export default function PrDetailModal({
             </div>
           </div>
 
-          <div className="detail-section">
-            <span className="detail-label">{tp("Reviewers ({count})", { count: reviewers.length })}</span>
-            {reviewers.length === 0 ? (
-              <div className="detail-value muted">{t("No reviewers requested yet.")}</div>
-            ) : (
-              <div className="reviewer-list">
-                {reviewers.map((r) => (
-                  <span key={r.login} className="reviewer-chip">
-                    {r.avatar_url
-                      ? <img src={r.avatar_url} alt="" width={18} height={18} />
-                      : <span className="reviewer-avatar">{r.login.slice(0, 1).toUpperCase()}</span>}
-                    {r.login}
-                  </span>
-                ))}
-              </div>
-            )}
-            {pr.state === 'open' && (
-              <div className="reviewer-add">
-                <input
-                  value={reviewerInput}
-                  placeholder={t("GitHub username…")}
-                  aria-label={t("GitHub username")}
-                  onChange={(e) => setReviewerInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addReviewer();
-                    }
-                  }}
-                />
-                <button type="button" className="btn" onClick={addReviewer}>{t("Request")}</button>
-              </div>
-            )}
-          </div>
+          <ReviewersSection
+            canRequest={pr.state === 'open'}
+            reviewers={reviewers}
+            input={reviewerInput}
+            onInput={setReviewerInput}
+            onRequest={() => void addReviewer()}
+          />
 
           <div className="detail-section">
             <span className="detail-label">{tp("Reviews ({count})", { count: reviews.length })}</span>
@@ -712,177 +590,31 @@ export default function PrDetailModal({
             )}
           </div>
 
-          <div className="detail-section">
-            <span className="detail-label">
-              {t("Checks")}{failedChecks > 0 ? ` · ${failedChecks} failing` : ''}
-            </span>
-            {checks.length === 0 ? (
-              <div className="detail-value muted">{t("No check runs reported.")}</div>
-            ) : (
-              <div className="pr-detail-list">
-                {checks.map((c) => (
-                  <div key={c.id} className="pr-detail-item">
-                    <span style={{
-                      color: c.conclusion === 'success' ? 'var(--green)'
-                        : c.conclusion === null ? 'var(--yellow)' : 'var(--red)',
-                    }}>
-                      {c.conclusion === null ? <IconClock /> : c.conclusion === 'success' ? <IconCheck width={14} height={14} /> : <IconX width={14} height={14} />}
-                    </span>
-                    <span style={{ flex: 1 }}>{c.name}</span>
-                    <span className="detail-value muted">{c.conclusion || c.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ChecksSection checks={checks} failedChecks={failedChecks} />
 
-          <div className="detail-section">
-            <span className="detail-label">{tp("Comments ({count})", { count: comments.length })}</span>
-            {comments.length === 0 ? (
-              <div className="detail-value muted">{t("No comments yet.")}</div>
-            ) : (
-              <div className="comment-list">
-                {comments.map((c) => (
-                  <div key={c.id} className="comment-item">
-                    {c.user.avatar_url
-                      ? <img className="comment-avatar" src={c.user.avatar_url} alt="" width={24} height={24} />
-                      : <span className="detail-avatar">{c.user.login.slice(0, 1).toUpperCase()}</span>}
-                    <div className="comment-body">
-                      <div className="comment-head">
-                        <span className="comment-user">{c.user.login}</span>
-                        <span className="detail-value muted">{formatRelative(c.created_at)}</span>
-                        {editingId !== c.id && (
-                          <span className="comment-tools">
-                            <button
-                              type="button"
-                              className="comment-tool-btn"
-                              title={t("Edit comment")}
-                              onClick={() => startEditComment(c)}
-                              disabled={editWorking}
-                            >
-                              {t("Edit")}</button>
-                            <button
-                              type="button"
-                              className="comment-tool-btn danger"
-                              title={t("Delete comment")}
-                              onClick={() => deleteComment(c)}
-                              disabled={editWorking}
-                            >
-                              {t("Delete")}</button>
-                          </span>
-                        )}
-                      </div>
-                      {editingId === c.id ? (
-                        <div className="comment-edit">
-                          <textarea
-                            value={editBody}
-                            autoFocus
-                            onChange={(e) => setEditBody(e.target.value)}
-                            aria-label={t("Edit comment body")}
-                          />
-                          <div className="comment-edit-actions">
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={cancelEditComment}
-                              disabled={editWorking}
-                            >
-                              {t("Cancel")}</button>
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              onClick={() => submitEditComment(c)}
-                              disabled={editWorking}
-                            >
-                              {editWorking ? 'Saving…' : 'Save'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="comment-text">{c.body}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="comment-compose">
-              <textarea
-                value={commentBody}
-                placeholder={t("Write a comment…")}
-                rows={2}
-                aria-label={t("Comment body")}
-                onChange={(e) => setCommentBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    e.preventDefault();
-                    postComment();
-                  }
-                }}
-              />
-              <div className="comment-compose-side">
-                <span className="hint">{t("Cmd/Ctrl+Enter to post")}</span>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={posting || !commentBody.trim()}
-                  onClick={postComment}
-                >
-                  {posting ? 'Posting…' : 'Comment'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <CommentsSection
+            comments={comments}
+            editingId={editingId}
+            editBody={editBody}
+            editWorking={editWorking}
+            commentBody={commentBody}
+            posting={posting}
+            onStartEdit={startEditComment}
+            onEditBody={setEditBody}
+            onCancelEdit={cancelEditComment}
+            onSaveEdit={(comment) => void submitEditComment(comment)}
+            onDelete={(comment) => void deleteComment(comment)}
+            onCommentBody={setCommentBody}
+            onPost={() => void postComment()}
+          />
 
-          {pr.state === 'open' && (
-            <div className="detail-section">
-              <span className="detail-label">{t("Merge method")}</span>
-              {(!pr.merged && !pr.merged_at) && (failedChecks > 0 || protection?.protected === false || (protection?.protected === true && protection.requiredChecks > 0)) && (
-                <div className="ci-gate">
-                  {failedChecks > 0 && (
-                    <div className="ci-gate-row danger">
-                      <IconX width={14} height={14} />
-                      <span>
-                        {failedChecks} failing check{failedChecks === 1 ? '' : 's'} on {shortHash(pr.head.sha)} — GitHub will reject the merge if these are required.
-                      </span>
-                    </div>
-                  )}
-                  {protection?.protected === false && (
-                    <div className="ci-gate-row">
-                      <span>
-                        Branch <strong>{pr.base.ref}</strong> has no protection rules — direct pushes and force-pushes are allowed. Consider enabling branch protection on GitHub.
-                      </span>
-                    </div>
-                  )}
-                  {protection?.protected === true && protection.requiredChecks > 0 && (
-                    <div className="ci-gate-row muted">
-                      {protection.requiredChecks} required status check{protection.requiredChecks === 1 ? '' : 's'} on {pr.base.ref}.
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="merge-options">
-                {(Object.keys(MERGE_INFO) as MergeMethod[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`merge-option${method === m ? ' active' : ''}`}
-                    onClick={() => setMethod(m)}
-                  >
-                    {m === 'merge' ? <IconMerge width={17} height={17} />
-                      : m === 'squash' ? <IconRocket width={17} height={17} />
-                      : <IconCheck width={17} height={17} />}
-                    <span>
-                      <span className="merge-name">{MERGE_INFO[m].name}</span>
-                      <span className="merge-desc" style={{ display: 'block' }}>
-                        {MERGE_INFO[m].desc}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <MergeSection
+            pr={pr}
+            failedChecks={failedChecks}
+            protection={protection}
+            method={method}
+            onMethod={setMethod}
+          />
         </div>
 
         <div className="modal-footer">
@@ -926,8 +658,4 @@ export default function PrDetailModal({
       </div>
     </div>
   );
-}
-
-function IconClock() {
-  return <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />;
 }

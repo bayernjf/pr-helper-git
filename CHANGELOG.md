@@ -25,6 +25,7 @@
 - `routes-git-write.mjs` 再拆成 124 行写调度器 + `worktree` / `refs` / `history` / `files` / `network` / `stash` 六个领域模块，单文件最大从 1318 行降到 496 行。
 
 ### 测试
+- `PrDetailModal` 拆出 `PrDetailSections`（标签/描述/提交/审查人/检查/评论/合并方式），932→661 行；`CommitGraph` 的 CI 状态轮询抽成 `useCiBySha` hook，688→642 行。
 - 前端 54 处 `catch (err: any)` 改为 `unknown` + 统一 `errorMessage/errorDetail/errorStatus` 助手，`src/api.ts` 的响应体从 `any` 改为 `unknown` 并显式收窄；新增 4 条错误助手测试。
 - 前端大组件抽出 `RefSidebarParts`（组头/行/重命名弹窗）与 `WorkPanelTree`（文件树行/分组），`RefSidebar` 819→716 行、`WorkPanel` 747→559 行。
 - 新增 `tsconfig.server.json` 与 `npm run typecheck:server`：对 `server/**/*.mjs`（排除测试文件）启用 `checkJs`，CI 与 `npm run lint` 并列执行。
