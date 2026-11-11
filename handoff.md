@@ -1221,11 +1221,12 @@ Engineering knowledge worth keeping now that the old `pr-helper-git` is archived
 10. **`parsePorcelainV2` has two field layouts**: git 2.51 separates ordinary
     fields with spaces but uses a tab before the rename path — handle both.
 
-### 继承的产品约束与暂缓项（2026-11-11 从 pr-helper-git 的 ZCode 项目记忆迁入）
+### 继承的产品约束与暂缓项（2026-11-11 已从 ZCode 项目记忆迁入）
 
-来源：`~/.zcode/cli/memories/projects/pr-helper-git-29beae1193885890/`（6 条记忆，
-已于 2026-11-11 删除）。以下是其中仍适用、且本仓库此前未记录的内容；迁移前已逐项
-grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
+以下约束于 2026-11-11 自 pr-helper-git 旧项目的 ZCode 记忆
+（`~/.zcode/cli/memories/projects/pr-helper-git-29beae1193885890/`，6 条，当日已
+删除）迁入，现为本仓库的正式约束。迁入时已逐项 grep 确认 README / handoff /
+CHANGELOG / docs 对这些主题为 0 命中，无重复记录。
 
 - **产品定位**：本地自用工具，**不上生产**（用户 2026-11-10 明确）。手机端只在
   **局域网**内访问，不做公网 / Tailscale / 反代组网。
