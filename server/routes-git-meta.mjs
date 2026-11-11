@@ -167,7 +167,9 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
-    const target = typeof body.repo === 'string' ? body.repo : null;
+    // Normalise like /api/repos/add so a trailing slash or relative segment in
+    // the client's stored path still matches the registered repo.
+    const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
     if (!target) return fail(400, 'invalid repository path');
     const repos = await removeRepo(target);
     stopWatching(target);

@@ -73,5 +73,12 @@ export const ALLOWLIST = [
 
 export function isAllowed(method, path) {
   if (typeof path !== 'string' || !path.startsWith('/') || path.includes('..')) return false;
+  // GitHub decodes the URL before routing, so a percent-encoded dot segment
+  // (%2e%2e) would bypass the literal check above and be normalized to "..".
+  try {
+    if (decodeURIComponent(path).includes('..')) return false;
+  } catch {
+    return false;
+  }
   return ALLOWLIST.some((entry) => entry.method === method && entry.regex.test(path));
 }

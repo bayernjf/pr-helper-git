@@ -150,7 +150,10 @@ export async function handleGitWriteWorktree({ method, pathname, query, body, id
   }
 
   if (pathname === '/api/stage-all') {
-    const action = body.action === 'unstage' ? 'unstage' : 'stage';
+    const action = body.action;
+    if (action !== 'stage' && action !== 'unstage') {
+      return fail(400, 'action must be "stage" or "unstage"');
+    }
     if (action === 'stage') {
       const sensitive = await sensitiveChanges(repo);
       if (sensitive.length) return sensitiveFail(sensitive, 'staged');
