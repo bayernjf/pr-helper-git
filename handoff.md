@@ -24,16 +24,18 @@ Runtime identifiers were renamed with one-shot migrations:
 - Tauri bundle id and download filename follow the new name.
 
 Verification: lint, `typecheck:server`, 336 unit tests / 34 files, production
-build, and E2E 144/144. CI run `43061133345` is green.
+build, and E2E 144/144. CI is green through rename commit `077f1af` (run `43061784626`).
 
 The desktop shell remains **frozen** (no unfreeze). The old Qoder session copy
 under the `pr-helper-git2` project key was archived to
 `000mycodes-backups/qoder-project-pr-helper-git2-20261112.tar.gz` and removed;
 the new session key has the equivalent 2,836-record transcript.
 
-Backups: `pr-helper-backup.sh` now targets the renamed checkout/data dir and
-redacts secret fields. The latest bundle is
-`000mycodes-backups/pr-helper-git/source-20261112-0044.bundle` (HEAD `5304c5f`).
+Backups: `pr-helper-backup.sh` now targets the renamed checkout/data dir,
+redacts secret fields, and pins `main`/`dev`/tags explicitly so the bundle HEAD
+does not depend on the currently checked-out branch. The latest
+`000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
+history; check `git bundle list-heads` for the exact main ref.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
