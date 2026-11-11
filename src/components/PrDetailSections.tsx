@@ -1,7 +1,8 @@
 import type { CheckRun, PullRequest } from '../types';
 import { Dropdown } from './Dropdown';
-import { IconCheck, IconMerge, IconRocket, IconX } from './icons';
+import { IconCheck, IconFile, IconMerge, IconRocket, IconX } from './icons';
 import { formatRelative, shortHash } from '../lib/format';
+import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
 import { t, tp } from '../i18n';
 
 export interface PrLabel {
@@ -444,6 +445,170 @@ export function MergeSection({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+export type PullReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+
+export interface PrReview {
+  id: number;
+  user: { login: string; avatar_url: string };
+  state: PullReviewEvent | 'DISMISSED' | 'PENDING';
+  body: string;
+  submitted_at: string | null;
+  author_association: string;
+}
+
+export function FilesSection({
+  files,
+  totalAdd,
+  totalDel,
+  expandedFile,
+  onToggleFile,
+  reviewComments,
+  headSha,
+  base,
+  canComment,
+  onPosted,
+  onChanged,
+  onDeleted,
+}: {
+  files: PrFile[];
+  totalAdd: number;
+  totalDel: number;
+  expandedFile: string | null;
+  onToggleFile: (filename: string) => void;
+  reviewComments: ReviewComment[];
+  headSha: string;
+  base: string;
+  canComment: boolean;
+  onPosted: (comment: ReviewComment) => void;
+  onChanged: (comment: ReviewComment) => void;
+  onDeleted: (id: number) => void;
+}) {
+  return (
+    <div className="detail-section">
+      <span className="detail-label">
+        {tp("Files changed ({count})", { count: files.length })}
+        <span className="changes-stats" style={{ marginLeft: 8, fontWeight: 600 }}>
+          <span className="add">+{totalAdd}</span>
+          <span className="del">-{totalDel}</span>
+        </span>
+      </span>
+      <div className="pr-detail-list">
+        {files.map((f) => (
+          <div key={f.filename} className="pr-file-block">
+            <div className="pr-detail-item">
+              <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {f.filename}
+              </span>
+              <span className="changes-stats">
+                <span className="add">+{f.additions}</span>
+                <span className="del">-{f.deletions}</span>
+              </span>
+              <button
+                type="button"
+                className="comment-tool-btn"
+                onClick={() => onToggleFile(f.filename)}
+              >
+                {expandedFile === f.filename ? 'Hide' : 'Review'}
+              </button>
+            </div>
+            {expandedFile === f.filename && (
+              <PrFileReview
+                file={f}
+                comments={reviewComments.filter((c) => c.path === f.filename)}
+                headSha={headSha}
+                base={base}
+                canComment={canComment}
+                onPosted={onPosted}
+                onChanged={onChanged}
+                onDeleted={onDeleted}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ReviewsSection({
+  reviews,
+  state,
+  reviewBody,
+  submittingReview,
+  onBody,
+  onSubmit,
+}: {
+  reviews: PrReview[];
+  state: string;
+  reviewBody: string;
+  submittingReview: boolean;
+  onBody: (value: string) => void;
+  onSubmit: (event: PullReviewEvent) => void;
+}) {
+  return (
+    <div className="detail-section">
+      <span className="detail-label">{tp("Reviews ({count})", { count: reviews.length })}</span>
+      {reviews.length === 0 ? (
+        <div className="detail-value muted">{t("No reviews submitted yet.")}</div>
+      ) : (
+        <div className="review-list">
+          {reviews.map((rv) => (
+            <div key={rv.id} className="pr-review-item">
+              {rv.user.avatar_url
+                ? <img src={rv.user.avatar_url} alt="" width={20} height={20} />
+                : <span className="detail-avatar">{rv.user.login.slice(0, 1).toUpperCase()}</span>}
+              <div className="pr-review-body">
+                <div className="comment-head">
+                  <span className="comment-user">{rv.user.login}</span>
+                  <span className={`review-state review-state-${rv.state.toLowerCase()}`}>
+                    {rv.state.replace(/_/g, ' ').toLowerCase()}
+                  </span>
+                </div>
+                {rv.body && <div className="comment-text">{rv.body}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {state === 'open' && (
+        <div className="review-compose">
+          <textarea
+            value={reviewBody}
+            placeholder={t("Review summary…")}
+            rows={2}
+            aria-label={t("Review summary")}
+            onChange={(e) => onBody(e.target.value)}
+          />
+          <div className="review-compose-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={submittingReview || !reviewBody.trim()}
+              onClick={() => onSubmit('COMMENT')}
+            >
+              {t("Comment")}</button>
+            <button
+              type="button"
+              className="btn"
+              disabled={submittingReview}
+              onClick={() => onSubmit('APPROVE')}
+            >
+              {t("Approve")}</button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={submittingReview}
+              onClick={() => onSubmit('REQUEST_CHANGES')}
+            >
+              {t("Request changes")}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

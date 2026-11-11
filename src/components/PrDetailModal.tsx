@@ -7,22 +7,25 @@ import { formatFullDate, shortHash } from '../lib/format';
 import type { CheckRun, PullRequest } from '../types';
 import {
   IconExternal,
-  IconFile,
   IconX,
 } from './icons';
-import PrFileReview, { type PrFile, type ReviewComment } from './PrFileReview';
+import type { PrFile, ReviewComment } from './PrFileReview';
 import {
   ChecksSection,
   CommentsSection,
   CommitsSection,
   DescriptionSection,
+  FilesSection,
   LabelsSection,
   MergeSection,
   ReviewersSection,
+  ReviewsSection,
   type MergeMethod,
   type PrComment,
   type PrCommit,
   type ProtectionInfo,
+  type PrReview,
+  type PullReviewEvent,
   type Reviewer,
 } from './PrDetailSections';
 import { useConfirm } from './ui';
@@ -37,16 +40,6 @@ interface CommitStatus {
 
 // Conclusions that mean "this gate did not pass".
 const FAILED_STATES = new Set(['failure', 'error', 'timed_out', 'startup_failure', 'cancelled']);
-
-type PullReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
-interface PrReview {
-  id: number;
-  user: { login: string; avatar_url: string };
-  state: PullReviewEvent | 'DISMISSED' | 'PENDING';
-  body: string;
-  submitted_at: string | null;
-  author_association: string;
-}
 
 export default function PrDetailModal({
   pr,
@@ -475,52 +468,22 @@ export default function PrDetailModal({
 
           <CommitsSection commits={prCommits} />
 
-          <div className="detail-section">
-            <span className="detail-label">
-              {tp("Files changed ({count})", { count: prFiles.length })}
-              <span className="changes-stats" style={{ marginLeft: 8, fontWeight: 600 }}>
-                <span className="add">+{totalAdd}</span>
-                <span className="del">-{totalDel}</span>
-              </span>
-            </span>
-            <div className="pr-detail-list">
-              {prFiles.map((f) => (
-                <div key={f.filename} className="pr-file-block">
-                  <div className="pr-detail-item">
-                    <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {f.filename}
-                    </span>
-                    <span className="changes-stats">
-                      <span className="add">+{f.additions}</span>
-                      <span className="del">-{f.deletions}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="comment-tool-btn"
-                      onClick={() => setExpandedFile((cur) => (cur === f.filename ? null : f.filename))}
-                    >
-                      {expandedFile === f.filename ? 'Hide' : 'Review'}
-                    </button>
-                  </div>
-                  {expandedFile === f.filename && (
-                    <PrFileReview
-                      file={f}
-                      comments={reviewComments.filter((c) => c.path === f.filename)}
-                      headSha={pr.head.sha}
-                      base={`${base}/pulls/${pr.number}`}
-                      canComment={pr.state === 'open'}
-                      onPosted={(c) => setReviewComments((prev) => [...prev, c])}
-                      onChanged={(c) => setReviewComments((prev) =>
-                        prev.map((item) => (item.id === c.id ? c : item)))}
-                      onDeleted={(id) => setReviewComments((prev) =>
-                        prev.filter((item) => item.id !== id))}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <FilesSection
+            files={prFiles}
+            totalAdd={totalAdd}
+            totalDel={totalDel}
+            expandedFile={expandedFile}
+            onToggleFile={(filename) => setExpandedFile((cur) => (cur === filename ? null : filename))}
+            reviewComments={reviewComments}
+            headSha={pr.head.sha}
+            base={`${base}/pulls/${pr.number}`}
+            canComment={pr.state === 'open'}
+            onPosted={(c) => setReviewComments((prev) => [...prev, c])}
+            onChanged={(c) => setReviewComments((prev) =>
+              prev.map((item) => (item.id === c.id ? c : item)))}
+            onDeleted={(id) => setReviewComments((prev) =>
+              prev.filter((item) => item.id !== id))}
+          />
 
           <ReviewersSection
             canRequest={pr.state === 'open'}
@@ -530,65 +493,14 @@ export default function PrDetailModal({
             onRequest={() => void addReviewer()}
           />
 
-          <div className="detail-section">
-            <span className="detail-label">{tp("Reviews ({count})", { count: reviews.length })}</span>
-            {reviews.length === 0 ? (
-              <div className="detail-value muted">{t("No reviews submitted yet.")}</div>
-            ) : (
-              <div className="review-list">
-                {reviews.map((rv) => (
-                  <div key={rv.id} className="pr-review-item">
-                    {rv.user.avatar_url
-                      ? <img src={rv.user.avatar_url} alt="" width={20} height={20} />
-                      : <span className="detail-avatar">{rv.user.login.slice(0, 1).toUpperCase()}</span>}
-                    <div className="pr-review-body">
-                      <div className="comment-head">
-                        <span className="comment-user">{rv.user.login}</span>
-                        <span className={`review-state review-state-${rv.state.toLowerCase()}`}>
-                          {rv.state.replace(/_/g, ' ').toLowerCase()}
-                        </span>
-                      </div>
-                      {rv.body && <div className="comment-text">{rv.body}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {pr.state === 'open' && (
-              <div className="review-compose">
-                <textarea
-                  value={reviewBody}
-                  placeholder={t("Review summary…")}
-                  rows={2}
-                  aria-label={t("Review summary")}
-                  onChange={(e) => setReviewBody(e.target.value)}
-                />
-                <div className="review-compose-actions">
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={submittingReview || !reviewBody.trim()}
-                    onClick={() => submitReview('COMMENT')}
-                  >
-                    {t("Comment")}</button>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={submittingReview}
-                    onClick={() => submitReview('APPROVE')}
-                  >
-                    {t("Approve")}</button>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    disabled={submittingReview}
-                    onClick={() => submitReview('REQUEST_CHANGES')}
-                  >
-                    {t("Request changes")}</button>
-                </div>
-              </div>
-            )}
-          </div>
+          <ReviewsSection
+            reviews={reviews}
+            state={pr.state}
+            reviewBody={reviewBody}
+            submittingReview={submittingReview}
+            onBody={setReviewBody}
+            onSubmit={(event) => void submitReview(event)}
+          />
 
           <ChecksSection checks={checks} failedChecks={failedChecks} />
 

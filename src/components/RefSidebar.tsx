@@ -29,7 +29,17 @@ import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
 import { ContextMenu, type MenuItem } from './context-menu';
-import { GroupHead, Row, RenameModal } from './RefSidebarParts';
+import {
+  GroupHead,
+  MergeBanners,
+  RenameModal,
+  Row,
+  StashViewModal,
+  TagViewModal,
+  UpstreamPickerModal,
+  submoduleColor,
+  submoduleLabel,
+} from './RefSidebarParts';
 import { Dropdown } from './Dropdown';
 import {
   IconBranch,
@@ -45,7 +55,6 @@ import {
   IconTag,
   IconTrash,
   IconUpload,
-  IconX,
 } from './icons';
 import MergeModal from './MergeModal';
 import NewBranchModal from './NewBranchModal';
@@ -56,24 +65,6 @@ import type { Ref } from '../types';
 import { t } from '../i18n';
 
 type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
-
-/** git submodule status prefix letters, mapped to display copy. */
-function submoduleLabel(state: string): string {
-  switch (state) {
-    case ' ': return t('Up to date');
-    case '-': return t('Not initialized');
-    case '+': return t('Modified');
-    case 'U': return t('Conflicted');
-    default: return t('Unknown');
-  }
-}
-
-function submoduleColor(state: string): string {
-  if (state === ' ') return 'var(--green)';
-  if (state === '-') return 'var(--text-dim)';
-  if (state === '+') return 'var(--amber)';
-  return 'var(--red)';
-}
 
 interface MenuState {
   x: number;
@@ -361,91 +352,18 @@ export default function RefSidebar() {
   return (
     <aside className="sidebar" style={sidebarStyle}>
       <button type="button" className="col-resize" {...sidebarSeparator} />
-      {rebaseInProgress && (
-        <div className="merge-banner rebase-banner">
-          <span className="merge-banner-msg">{t("Rebase in progress — resolve conflicts, then continue or abort")}</span>
-          <div className="banner-actions">
-            {unmergedCount > 0 && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setResolveOpen(true)}
-              >
-                Resolve conflicts ({unmergedCount})
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => runAction(continueRebase(activeRepo!), 'Rebase continued')}
-            >
-              Continue rebase
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => runAction(abortRebase(activeRepo!), 'Rebase aborted')}
-            >
-              Abort rebase
-            </button>
-          </div>
-        </div>
-      )}
-      {revertInProgress && (
-        <div className="merge-banner revert-banner">
-          <span className="merge-banner-msg">
-            Revert in progress{unmergedCount ? ` — ${unmergedCount} conflicting file${unmergedCount === 1 ? '' : 's'} to resolve` : ''}
-          </span>
-          <div className="banner-actions">
-            {unmergedCount > 0 && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setResolveOpen(true)}
-              >
-                Resolve conflicts ({unmergedCount})
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => runAction(continueRevert(activeRepo!), 'Revert continued')}
-            >
-              Continue revert
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => runAction(abortRevert(activeRepo!), 'Revert aborted')}
-            >
-              Abort revert
-            </button>
-          </div>
-        </div>
-      )}
-      {mergeInProgress && (
-        <div className="merge-banner">
-          <span className="merge-banner-msg">{t("Merge in progress — resolve conflicts or abort")}</span>
-          <div className="banner-actions">
-            {unmergedCount > 0 && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setResolveOpen(true)}
-              >
-                Resolve conflicts ({unmergedCount})
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => runAction(abortMerge(activeRepo!), 'Merge aborted')}
-            >
-              Abort merge
-            </button>
-          </div>
-        </div>
-      )}
+      <MergeBanners
+        rebaseInProgress={rebaseInProgress}
+        revertInProgress={revertInProgress}
+        mergeInProgress={mergeInProgress}
+        unmergedCount={unmergedCount}
+        onResolve={() => setResolveOpen(true)}
+        onContinueRebase={() => runAction(continueRebase(activeRepo!), 'Rebase continued')}
+        onAbortRebase={() => runAction(abortRebase(activeRepo!), 'Rebase aborted')}
+        onContinueRevert={() => runAction(continueRevert(activeRepo!), 'Revert continued')}
+        onAbortRevert={() => runAction(abortRevert(activeRepo!), 'Revert aborted')}
+        onAbortMerge={() => runAction(abortMerge(activeRepo!), 'Merge aborted')}
+      />
       <div className="sidebar-filter">
         <IconSearch width={13} height={13} />
         <input
@@ -607,107 +525,23 @@ export default function RefSidebar() {
       )}
 
       {stashView && (
-        <div className="modal-backdrop" onClick={() => setStashView(null)}>
-          <div
-            className="modal"
-            style={{ width: '86vw', height: '82vh', display: 'flex', flexDirection: 'column' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2>stash@{stashView.index} — {stashView.subject}</h2>
-              <button type="button" className="icon-btn" aria-label={t("Close stash")} title={t("Close")} onClick={() => setStashView(null)}>
-                <IconX />
-              </button>
-            </div>
-            <pre className="diff stash-diff" style={{ flex: 1, minHeight: 0, overflow: 'auto', margin: 0 }}>
-              {stashView.diff.split('\n').map((line, i) => (
-                <div
-                  key={i}
-                  className={`patch-line${
-                    line.startsWith('+++') || line.startsWith('---') ? ' patch-meta'
-                      : line.startsWith('+') ? ' patch-add'
-                        : line.startsWith('-') ? ' patch-del'
-                          : line.startsWith('@@') ? ' patch-hunk' : ''
-                  }`}
-                >
-                  {line || ' '}
-                </div>
-              ))}
-            </pre>
-          </div>
-        </div>
+        <StashViewModal view={stashView} onClose={() => setStashView(null)} />
       )}
 
       {tagView && (
-        <div className="modal-backdrop" onClick={() => setTagView(null)}>
-          <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{tagView.tag}</h2>
-              <button type="button" className="icon-btn" aria-label={t("Close tag")} title={t("Close")} onClick={() => setTagView(null)}>
-                <IconX />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="tag-detail-grid">
-                <span className="detail-label">{t("Tagger")}</span>
-                <span className="detail-value">{tagView.tagger}</span>
-                <span className="detail-label">{t("Email")}</span>
-                <span className="detail-value muted">{tagView.taggerEmail}</span>
-                <span className="detail-label">{t("Date")}</span>
-                <span className="detail-value muted">
-                  {new Date(tagView.time * 1000).toLocaleString()}
-                </span>
-                <span className="detail-label">{t("Target")}</span>
-                <span className="detail-value mono-small">{tagView.object}</span>
-              </div>
-              <div className="tag-message">
-                <div className="detail-label" style={{ marginBottom: 6 }}>{t("Message")}</div>
-                <div className="tag-subject">{tagView.subject}</div>
-                {tagView.body && <div className="tag-body muted">{tagView.body}</div>}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-primary" onClick={() => setTagView(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <TagViewModal tag={tagView} onClose={() => setTagView(null)} />
       )}
 
       {upstreamPicker && (
-        <div className="modal-backdrop" onClick={() => setUpstreamPicker(null)}>
-          <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Set upstream for {upstreamPicker}</h2>
-              <button type="button" className="icon-btn" aria-label={t("Close upstream picker")} title={t("Close")} onClick={() => setUpstreamPicker(null)}>
-                <IconX />
-              </button>
-            </div>
-            <div className="modal-body">
-              {groups.remote.length === 0 ? (
-                <div className="list-empty">{t("No remote tracking branches available.")}</div>
-              ) : (
-                <div className="pr-detail-list">
-                  {groups.remote.map((r) => (
-                    <button
-                      key={r.name}
-                      type="button"
-                      className="pr-detail-item"
-                      style={{ width: '100%', textAlign: 'left' }}
-                      onClick={() => runAction(
-                        setBranchUpstream(activeRepo!, r.shortName, upstreamPicker),
-                        `Upstream set to ${r.shortName}`,
-                      ).then((res) => { if (res !== null) setUpstreamPicker(null); })}
-                    >
-                      {r.shortName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <UpstreamPickerModal
+          branch={upstreamPicker}
+          remotes={groups.remote}
+          onPick={(remoteShortName) => runAction(
+            setBranchUpstream(activeRepo!, remoteShortName, upstreamPicker),
+            `Upstream set to ${remoteShortName}`,
+          ).then((res) => { if (res !== null) setUpstreamPicker(null); })}
+          onClose={() => setUpstreamPicker(null)}
+        />
       )}
       {resolveOpen && activeRepo && (
         <ResolveConflictsModal repo={activeRepo} onClose={() => setResolveOpen(false)} />

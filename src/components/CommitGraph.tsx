@@ -5,17 +5,15 @@ import { isGraphNavKey, nextCommitIndex, pageSizeForViewport } from '../lib/grap
 import { layoutGraph } from '../lib/graph-layout';
 import { formatRelative, shortHash } from '../lib/format';
 import { windowRange } from '../lib/virtual-range';
-import type { Ref } from '../types';
 import { ContextMenu, type MenuItem } from './context-menu';
+import { BatchBar, edgePath, GraphToolbar, RefBadges } from './CommitGraphParts';
 import RebaseModal from './RebaseModal';
 import {
   IconBranch,
   IconCommit,
   IconCopy,
   IconRevert,
-  IconSearch,
   IconTag,
-  IconX,
 } from './icons';
 import NewBranchModal from './NewBranchModal';
 import RevertMergeModal from './RevertMergeModal';
@@ -44,40 +42,6 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length];
 }
 
-function edgePath(x0: number, y0: number, x1: number, y1: number): string {
-  if (x0 === x1) return `M ${x0} ${y0} L ${x1} ${y1}`;
-  const bend = Math.max(12, (y1 - y0) * 0.42);
-  return `M ${x0} ${y0} C ${x0} ${y0 + bend}, ${x1} ${y1 - bend}, ${x1} ${y1}`;
-}
-
-function classify(ref: Ref): 'head' | 'branch' | 'remote' | 'tag' {
-  if (ref.name.startsWith('refs/tags/')) return 'tag';
-  if (ref.name.startsWith('refs/remotes/')) return 'remote';
-  return 'branch';
-}
-
-function RefBadges({ hash }: { hash: string }) {
-  const { refs, status } = useApp();
-  const matching = useMemo(() => refs.filter((r) => r.hash === hash), [refs, hash]);
-  const currentBranch = status?.branch;
-  const headRef = refs.find((r) => r.name === `refs/heads/${currentBranch}`);
-
-  const ordered = matching
-    .filter((r) => !r.name.startsWith('refs/stash'))
-    .sort((a, b) => classify(a).localeCompare(classify(b)));
-
-  return (
-    <span className="ref-badges">
-      {headRef?.hash === hash && <span className="ref-badge head">{t("HEAD")}</span>}
-      {ordered.map((ref) => (
-        <span key={ref.name} className={`ref-badge ${classify(ref)}`}>
-          {ref.shortName}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 interface MenuState {
   x: number;
   y: number;
@@ -89,6 +53,8 @@ export default function CommitGraph() {
     pat,
     remote,
     commits,
+    refs,
+    status,
     selectedHash,
     selectCommit,
     currentRepo,
@@ -402,77 +368,19 @@ export default function CommitGraph() {
 
   return (
     <div className="graph-scroll" ref={scrollRef} onScroll={measureRange}>
-      <div className="graph-toolbar">
-        <div className="graph-search">
-          <IconSearch width={14} height={14} />
-          <input
-            value={search}
-            placeholder={t("Filter commits by message, author or hash…")}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label={t("Clear commit filter")} title={t("Clear filter")} onClick={() => setSearch('')}>
-              <IconX width={12} height={12} />
-            </button>
-          )}
-        </div>
-        <span className="graph-search-count">
-          {tp("Showing {shown} of {total}", { shown: visibleCommits.length, total: commits.length })}
-        </span>
-        <div className="graph-path-filter">
-          <input
-            value={pathDraft}
-            placeholder={t("Filter by path…")}
-            title={t("Show only commits touching this path (git log -- path); Enter to apply")}
-            onChange={(e) => setPathDraft(e.target.value)}
-            onBlur={() => setLogPath(pathDraft.trim())}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setLogPath(pathDraft.trim());
-            }}
-          />
-          {pathDraft && (
-            <button
-              type="button"
-              className="icon-btn"
-              style={{ width: 22, height: 22 }}
-              aria-label={t("Clear path filter")}
-              title={t("Clear path filter")}
-              onClick={() => {
-                setPathDraft('');
-                setLogPath('');
-              }}
-            >
-              <IconX width={12} height={12} />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          className={`graph-filter-btn${filterCount ? ' active' : ''}`}
-          title={t("Filter history by author, message or date")}
-          onClick={() => setFilterModal(true)}
-        >
-          {t("Filters")}{filterCount ? ` (${filterCount})` : ''}
-        </button>
-        <span className="scope-toggle" role="group" aria-label={t("History scope")}>
-          <button
-            type="button"
-            className={logScope === 'all' ? 'active' : ''}
-            onClick={() => setLogScope('all')}
-            title={t("Show history across every branch")}
-          >
-            {t("All branches")}
-          </button>
-          <button
-            type="button"
-            className={logScope === 'current' ? 'active' : ''}
-            onClick={() => setLogScope('current')}
-            title={t("Follow only the current branch history")}
-          >
-            {t("Current branch")}
-          </button>
-        </span>
-      </div>
+      <GraphToolbar
+        search={search}
+        onSearch={setSearch}
+        shownCount={visibleCommits.length}
+        totalCount={commits.length}
+        pathDraft={pathDraft}
+        onPathDraft={setPathDraft}
+        onPathApply={setLogPath}
+        filterCount={filterCount}
+        onOpenFilter={() => setFilterModal(true)}
+        logScope={logScope}
+        onScopeChange={setLogScope}
+      />
 
       <div
         ref={graphRef}
@@ -556,7 +464,7 @@ export default function CommitGraph() {
                   aria-label={t(`CI ${ciBySha[commit.hash]}`)}
                 />
               )}
-              <RefBadges hash={commit.hash} />
+              <RefBadges hash={commit.hash} refs={refs} currentBranch={status?.branch} />
               <span className="graph-subject">{commit.subject}</span>
               <span className="graph-author">{commit.authorName}</span>
               <span className="graph-hash">{shortHash(commit.hash)}</span>
@@ -572,29 +480,12 @@ export default function CommitGraph() {
       )}
 
       {checked.size > 0 && (
-        <div className="batch-bar" role="group" aria-label={t("Batch actions for selected commits")}>
-          <span className="batch-count">{t(`${checked.size} selected`)}</span>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={checked.size < 2}
-            title={checked.size < 2 ? t('Select at least two commits') : t('Revert all selected commits')}
-            onClick={handleBatchRevert}
-          >
-            <IconRevert width={14} height={14} /> {t("Revert")}
-          </button>
-          <button type="button" className="btn" onClick={handleBatchCopy}>
-            <IconCopy width={14} height={14} /> {t("Copy SHAs")}
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            title={t("Clear selection")}
-            onClick={() => setChecked(new Set())}
-          >
-            <IconX width={14} height={14} />
-          </button>
-        </div>
+        <BatchBar
+          count={checked.size}
+          onRevert={handleBatchRevert}
+          onCopy={handleBatchCopy}
+          onClear={() => setChecked(new Set())}
+        />
       )}
 
       {canLoadMore && (
