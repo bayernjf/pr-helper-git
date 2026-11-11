@@ -13,12 +13,12 @@ import { handleGitRoute } from './routes-git.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import {
   addClient,
-  ensureWatching,
+  reconcileWatching,
   removeClient,
   stopAllWatching,
   watchedCount,
 } from './watcher.mjs';
-import { listRepos } from './store.mjs';
+import { ensureDataPermissions, listRepos } from './store.mjs';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIST_DIR = path.join(REPO_ROOT, 'dist');
@@ -42,6 +42,13 @@ if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
 
 const isDev = process.env.GIT2_DEV === '1';
 const isDesktop = process.env.GIT2_DESKTOP === '1';
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+if (isDev && !LOOPBACK_HOSTS.has(String(HOST).toLowerCase())
+  && process.env.GIT2_ALLOW_INSECURE_DEV_HOST !== '1') {
+  console.error('GIT2_DEV=1 fixes the token to "dev-token"; refusing to bind a non-loopback host.');
+  console.error('Use a random production token, or set GIT2_ALLOW_INSECURE_DEV_HOST=1 if you really intend this.');
+  process.exit(1);
+}
 const TOKEN = isDev ? 'dev-token' : randomToken();
 
 const MIME = {
@@ -281,11 +288,11 @@ const server = http.createServer(async (req, res) => {
 server.keepAliveTimeout = 60_000;
 server.headersTimeout = 65_000;
 
+await ensureDataPermissions();
+
 server.listen(PORT, HOST, async () => {
   const bound = server.address().port;
-  for (const repoPath of await listRepos()) {
-    ensureWatching(repoPath);
-  }
+  reconcileWatching(await listRepos());
   if (isDesktop) {
     // Machine-readable one-line readiness signal for a desktop shell so it
     // can learn the ephemeral port and token without parsing prose.

@@ -100,13 +100,21 @@ export function validateFolderName(raw) {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) ? name : false;
 }
 
-export function createTokenChecker(expected) {
-  const b = Buffer.from(String(expected));
-  return function tokenOk(given) {
-    if (!given) return false;
-    const a = Buffer.from(String(given).replace(/^Bearer\s+/i, '').trim());
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-  };
+// Audit entries must never receive credentials or query-string tokens from a
+// clone URL. Keep the host/path, drop userinfo and the query.
+export function sanitizeUrlForAudit(raw) {
+  const value = String(raw || '');
+  try {
+    const url = new URL(value);
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    // scp-like `user@host:path` has no password; still strip a query string.
+    return value.replace(/\/\/[^/@]+@/, '//***@').replace(/\?.*$/, '');
+  }
 }
 
 export function randomToken() {

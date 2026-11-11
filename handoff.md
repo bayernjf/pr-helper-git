@@ -4,6 +4,16 @@ A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
 tower (pr-helper-like core). Runs entirely on loopback; this project's own
 repository is never pushed.
 
+## Post-0.2.2 hardening (2026-11-11)
+
+Security pass after the code review: admin-only server PAT/AI settings, no
+server-PAT inheritance for members, sensitive-path guards on stage/commit/
+move/remove/clean/stash/AI, 0700/0600 data permissions, serialized config
+writes with corruption backup, cloned-URL audit sanitization, watcher
+reconciliation after registry changes, and a dev-mode non-loopback bind guard.
+Light-theme legacy tokens now alias the shared design tokens. Unit suite is
+301 tests / 29 files; E2E remains 136 checks and is now part of CI.
+
 ## Release 0.2.2 (2026-11-11)
 
 `package.json` / `package-lock.json` are at **0.2.2**; `CHANGELOG.md` has the
@@ -1107,7 +1117,7 @@ read-only view instead of a responsive rewrite.
   now covers both the commit flow and the working-tree diff.
 
 Baseline at 0.2.1: 287 unit tests / 27 files, E2E 115/115.
-Current 0.2.2 baseline: 287 / 27, E2E 136/136.
+Current working-tree baseline: 301 / 29, E2E 136/136 (0.2.2 release was 287 / 27).
 2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
 and four accent presets (violet/ocean/forest/amber), applied before first paint and
 persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.

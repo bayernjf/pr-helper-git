@@ -25,9 +25,50 @@ export function configPaths() {
   return { CONFIG_DIR, CONFIG_FILE, AUDIT_FILE };
 }
 
+// All config writes run through one promise chain. Each operation reads,
+// mutates and writes while holding the chain, so two concurrent requests can
+// no longer overwrite each other's changes.
+let writeChain = Promise.resolve();
+let tmpCounter = 0;
+
+function serializeWrite(task) {
+  const run = writeChain.then(task, task);
+  writeChain = run.catch(() => {});
+  return run;
+}
+
+async function ensureConfigDir() {
+  await fsp.mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
+  // `mode` only applies on creation; tighten an existing directory too.
+  await fsp.chmod(CONFIG_DIR, 0o700).catch(() => {});
+}
+
+async function writeConfigAtomic(config) {
+  await ensureConfigDir();
+  const tmp = `${CONFIG_FILE}.${process.pid}.${++tmpCounter}.tmp`;
+  await fsp.writeFile(tmp, JSON.stringify(config, null, 2), { mode: 0o600 });
+  await fsp.chmod(tmp, 0o600).catch(() => {});
+  await fsp.rename(tmp, CONFIG_FILE);
+  await fsp.chmod(CONFIG_FILE, 0o600).catch(() => {});
+}
+
+/** Tighten permissions on the data dir and existing files at startup. */
+export async function ensureDataPermissions() {
+  await ensureConfigDir();
+  for (const file of [CONFIG_FILE, AUDIT_FILE]) {
+    await fsp.chmod(file, 0o600).catch(() => {});
+  }
+}
+
 export async function loadConfig() {
+  let raw;
   try {
-    const raw = await fsp.readFile(CONFIG_FILE, 'utf8');
+    raw = await fsp.readFile(CONFIG_FILE, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return { repos: [], users: [] };
+    throw err;
+  }
+  try {
     const parsed = JSON.parse(raw);
     // Keep unknown top-level fields (users, ownerName, future settings) so a
     // repo add/remove never drops team identity data.
@@ -36,16 +77,29 @@ export async function loadConfig() {
       repos: Array.isArray(parsed.repos) ? parsed.repos : [],
       users: Array.isArray(parsed.users) ? parsed.users : [],
     };
-  } catch {
+  } catch (err) {
+    // Never silently replace a corrupt config with an empty one: move it aside
+    // first so the user can recover PAT/AI/user data by hand.
+    const backup = `${CONFIG_FILE}.corrupt-${Date.now()}`;
+    await fsp.rename(CONFIG_FILE, backup).catch(() => {});
+    console.error(`config parse failed; moved to ${backup}: ${err.message}`);
     return { repos: [], users: [] };
   }
 }
 
-export async function saveConfig(config) {
-  await fsp.mkdir(CONFIG_DIR, { recursive: true });
-  const tmp = `${CONFIG_FILE}.tmp`;
-  await fsp.writeFile(tmp, JSON.stringify(config, null, 2));
-  await fsp.rename(tmp, CONFIG_FILE);
+/**
+ * Read-modify-write under the write chain. A mutator may return
+ * `{ value, persist: false }` to skip the write (validation failures).
+ */
+export async function updateConfig(mutator) {
+  return serializeWrite(async () => {
+    const config = await loadConfig();
+    const outcome = await mutator(config);
+    if (!outcome || outcome.persist !== false) await writeConfigAtomic(config);
+    return outcome && Object.prototype.hasOwnProperty.call(outcome, 'value')
+      ? outcome.value
+      : outcome;
+  });
 }
 
 export async function listRepos() {
@@ -53,40 +107,44 @@ export async function listRepos() {
 }
 
 export async function addRepo(absPath) {
-  const config = await loadConfig();
-  if (config.repos.includes(absPath)) return config.repos;
-  config.repos.push(absPath);
-  config.repos.sort();
-  await saveConfig(config);
-  return config.repos;
+  return updateConfig((config) => {
+    if (config.repos.includes(absPath)) return config.repos;
+    config.repos.push(absPath);
+    config.repos.sort();
+    return config.repos;
+  });
 }
 
 export async function removeRepo(absPath) {
-  const config = await loadConfig();
-  config.repos = config.repos.filter((p) => p !== absPath);
-  await saveConfig(config);
-  return config.repos;
+  return updateConfig((config) => {
+    config.repos = config.repos.filter((p) => p !== absPath);
+    return config.repos;
+  });
 }
 
 /** Drop registry entries whose paths no longer exist or are no longer Git. */
 export async function pruneRepos() {
-  const config = await loadConfig();
-  const alive = [];
-  let removed = 0;
-  for (const repo of config.repos) {
-    try {
-      const st = await fsp.stat(path.join(repo, '.git'));
-      if (st.isFile() || st.isDirectory()) alive.push(repo);
-      else removed += 1;
-    } catch {
-      removed += 1;
+  return updateConfig(async (config) => {
+    const alive = [];
+    const removedPaths = [];
+    for (const repo of config.repos) {
+      try {
+        const st = await fsp.stat(path.join(repo, '.git'));
+        if (st.isFile() || st.isDirectory()) alive.push(repo);
+        else removedPaths.push(repo);
+      } catch {
+        removedPaths.push(repo);
+      }
     }
-  }
-  if (removed > 0) {
+    if (!removedPaths.length) {
+      return {
+        persist: false,
+        value: { removed: 0, total: alive.length, removedPaths, repos: alive },
+      };
+    }
     config.repos = alive;
-    await saveConfig(config);
-  }
-  return { removed, total: alive.length };
+    return { value: { removed: removedPaths.length, total: alive.length, removedPaths, repos: alive } };
+  });
 }
 
 export async function appendAudit(entry) {
@@ -100,8 +158,9 @@ export async function appendAudit(entry) {
     ...entry,
   })}\n`;
   try {
-    await fsp.mkdir(CONFIG_DIR, { recursive: true });
-    await fsp.appendFile(AUDIT_FILE, line);
+    await ensureConfigDir();
+    await fsp.appendFile(AUDIT_FILE, line, { mode: 0o600 });
+    await fsp.chmod(AUDIT_FILE, 0o600).catch(() => {});
     const stat = await fsp.stat(AUDIT_FILE);
     if (stat.size > AUDIT_ROTATE_BYTES) await rotateAudit();
   } catch (err) {
@@ -144,9 +203,11 @@ export async function rotateAudit() {
     bytes += lineBytes;
   }
   picked.reverse();
-  const tmp = `${AUDIT_FILE}.rotate-${process.pid}`;
-  await fsp.writeFile(tmp, picked.length ? `${picked.join('\n')}\n` : '');
+  const tmp = `${AUDIT_FILE}.rotate-${process.pid}-${++tmpCounter}`;
+  await fsp.writeFile(tmp, picked.length ? `${picked.join('\n')}\n` : '', { mode: 0o600 });
+  await fsp.chmod(tmp, 0o600).catch(() => {});
   await fsp.rename(tmp, AUDIT_FILE);
+  await fsp.chmod(AUDIT_FILE, 0o600).catch(() => {});
 }
 
 // Read the JSONL audit trail. Malformed lines are skipped rather than failing

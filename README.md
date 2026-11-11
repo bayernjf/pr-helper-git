@@ -1,6 +1,6 @@
 # PR Helper Git2
 
-A local, loopback-only Git workbench that combines the core experience of a
+A local-first Git workbench, bound to loopback by default, that combines the core experience of a
 graphical Git client (GitKraken-like) with a lightweight pull-request control
 tower (pr-helper-like). No cloud service is required and nothing is pushed to
 GitHub by the application setup. This repository itself is local-only: no
@@ -428,18 +428,27 @@ Security**.
 
 ## Security model
 
-- The server binds to `127.0.0.1` only. In production it generates a random
+- The server binds `127.0.0.1` by default. Setting `GIT2_HOST` to a LAN/Tailscale
+  address is an explicit opt-in (see “Mobile / phone view”); in development
+  (`GIT2_DEV=1`) a non-loopback bind is refused unless
+  `GIT2_ALLOW_INSECURE_DEV_HOST=1` is set, because the dev token is fixed.
+  In production it generates a random
   per-process token that is exchanged for an HttpOnly, SameSite=Strict cookie.
   That token is the owner (admin) identity. Member tokens are random 192-bit
   values stored only as SHA-256 hashes in `config.json`; they are accepted
   through the same `?token=` bootstrap URL and can be revoked from the Team
   panel without restarting the server.
+- Server-side settings require the owner: storing/removing the server PAT and
+  changing/testing the AI endpoint/key are admin-only. A member without their
+  own `x-github-pat` never inherits the server-stored PAT. The data directory
+  is `0700` and `config.json`/`audit.log` are `0600`.
 - Git is invoked with `execFile` and fixed argv arrays — user input is never
   passed to a shell. Repo-relative paths are normalized and checked with
   `realpath` so symlinks cannot escape the repository root.
 - Sensitive files (`.env`, `.env.*`, `id_rsa*`, `*.key`, `*.pem`, `*.p12`,
-  `*.pfx`) have their diffs masked and cannot be discarded or edited from the
-  UI, and the save endpoint rejects them independently.
+  `*.pfx`) have their diffs masked and are blocked from discard/edit/save as
+  well as staging, commit, move, remove, `clean`, untracked stash and AI
+  commit-message generation. The path check is independent of the UI.
 - GitHub calls go through a method/path allowlist. A PAT can be stored
   server-side (`/api/pat`) and injected into the proxy; the value never
   round-trips to the browser. A request-scoped `x-github-pat` header remains
@@ -448,8 +457,9 @@ Security**.
   rotation.
 - The AI key lives in `~/.pr-helper-git2/config.json` on the server and is
   never echoed back: the config endpoint returns only `hasKey`, so a compromised
-  browser session cannot read the credential. Only the base URL is validated as
-  an http(s) URL before a request is made to it.
+  browser session cannot read the credential. The base URL must be a valid
+  http(s) URL without embedded credentials; plain `http://` is accepted only
+  for localhost model servers, and a changed base URL clears the stored key.
 - Request bodies are capped at 256 KB; an oversized request receives a 413
   response with `Connection: close` before its socket is torn down, so the
   client never sees a bare connection reset. Keep-alive timeouts are tuned
@@ -495,10 +505,10 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (287 tests, 27 files)
+npm test           # Vitest unit + route-level HTTP tests (301 tests, 29 files)
 npm run lint       # tsc --noEmit
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (115 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (136 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not

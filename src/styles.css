@@ -21,21 +21,6 @@
 }
 
 :root {
-  --bg: #121217;
-  --panel: #1a1a21;
-  --panel-2: #20202a;
-  /* Elevated surface for inputs, selects and code blocks sitting on a panel. */
-  --bg-elevated: #20202a;
-  --hover: #282833;
-  --active: #2f2f3c;
-  --border-soft: #24242e;
-  --muted: #9b9baa;
-  --faint: #6a6a78;
-  --yellow: #d99c3f;
-  --btn-border-hover: #3a3a48;
-  --deep-bg: #0f0f14;
-  --ctx-bg: #23232d;
-  --ctx-border: #363644;
   --toolbar-gradient: linear-gradient(180deg, #1d1d26, #18181f);
   --badge-branch-bg: rgba(79, 156, 249, 0.18);
   --badge-branch-text: #7db8ff;

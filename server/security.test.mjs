@@ -6,6 +6,7 @@ import {
   isSensitivePath,
   normalizeRepoPath,
   resolveInside,
+  sanitizeUrlForAudit,
   validateCloneUrl,
   validateFolderName,
   validateRefName,
@@ -115,5 +116,19 @@ describe('validateFolderName', () => {
     expect(validateFolderName('..')).toBe(false);
     expect(validateFolderName('.hidden')).toBe(false);
     expect(validateFolderName('')).toBe(false);
+  });
+});
+
+describe('sanitizeUrlForAudit', () => {
+  it('strips userinfo, query and fragment from an https URL', () => {
+    expect(sanitizeUrlForAudit('https://user:pass@github.com/org/repo.git?token=x#frag'))
+      .toBe('https://github.com/org/repo.git');
+  });
+
+  it('keeps scp-like URLs but masks userinfo and drops the query', () => {
+    expect(sanitizeUrlForAudit('git@github.com:org/repo.git?token=x'))
+      .toBe('git@github.com:org/repo.git');
+    expect(sanitizeUrlForAudit('ssh://git@github.com/org/repo.git?token=x'))
+      .toBe('ssh://github.com/org/repo.git');
   });
 });

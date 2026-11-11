@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isNoise } from './watcher.mjs';
+import fsp from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  isNoise,
+  reconcileWatching,
+  stopAllWatching,
+  watchedCount,
+} from './watcher.mjs';
 
 describe('isNoise', () => {
   it('ignores transient lock files at any depth', () => {
@@ -33,5 +41,22 @@ describe('isNoise', () => {
   it('handles empty or missing filenames', () => {
     expect(isNoise('')).toBe(false);
     expect(isNoise(undefined)).toBe(false);
+  });
+});
+
+describe('reconcileWatching', () => {
+  it('adds missing watchers and removes paths no longer registered', async () => {
+    const a = await fsp.mkdtemp(path.join(os.tmpdir(), 'git2-watch-a-'));
+    const b = await fsp.mkdtemp(path.join(os.tmpdir(), 'git2-watch-b-'));
+    try {
+      reconcileWatching([a, b]);
+      expect(watchedCount()).toBe(2);
+      reconcileWatching([a]);
+      expect(watchedCount()).toBe(1);
+    } finally {
+      stopAllWatching();
+      await fsp.rm(a, { recursive: true, force: true });
+      await fsp.rm(b, { recursive: true, force: true });
+    }
   });
 });

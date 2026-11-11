@@ -2,7 +2,7 @@
 // Ported from pr-helper-git: the credentials live on the server (config.json)
 // and never travel to the browser — the client only ever sees a boolean.
 import { git } from './git.mjs';
-import { loadConfig, saveConfig } from './store.mjs';
+import { loadConfig, updateConfig } from './store.mjs';
 
 // Characters of diff context handed to the model; a huge staged diff is
 // truncated instead of being rejected outright.
@@ -13,10 +13,12 @@ export function chatCompletionsUrl(baseUrl) {
   return `${String(baseUrl || '').replace(/\/+$/, '')}/chat/completions`;
 }
 
-/** Merge a patch into the stored AI config. A blank apiKey keeps the current one. */
+/** Merge a patch into the stored AI config. A blank apiKey keeps the current one, unless the base URL changes: a key must never silently follow the request to a new endpoint. */
 export function normalizeAiConfig(raw, current = {}) {
+  const currentBase = typeof current.baseUrl === 'string' ? current.baseUrl : '';
+  const previousBase = currentBase.replace(/\/+$/, '');
   const out = {
-    baseUrl: typeof current.baseUrl === 'string' ? current.baseUrl : '',
+    baseUrl: previousBase,
     apiKey: typeof current.apiKey === 'string' ? current.apiKey : '',
     model: typeof current.model === 'string' ? current.model : '',
   };
@@ -25,15 +27,38 @@ export function normalizeAiConfig(raw, current = {}) {
   if (typeof raw.model === 'string') out.model = raw.model.trim();
   if (typeof raw.apiKey === 'string' && raw.apiKey.trim()) out.apiKey = raw.apiKey.trim();
   if (raw.clearKey === true) out.apiKey = '';
+  // Clearing the key on an endpoint change prevents a member (or a mistaken
+  // admin edit) from redirecting the stored credential to an attacker.
+  if (!String(raw.apiKey || '').trim() && raw.clearKey !== true && out.baseUrl !== previousBase) {
+    out.apiKey = '';
+  }
   return out;
 }
 
 /** Validation for values that came from the client, not from disk. */
 export function validateAiConfig(ai) {
-  if (ai.baseUrl && !/^https?:\/\//i.test(ai.baseUrl)) {
-    return 'base URL must start with http:// or https://';
+  if (ai.baseUrl) {
+    let url;
+    try {
+      url = new URL(ai.baseUrl);
+    } catch {
+      return 'base URL is not a valid URL';
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return 'base URL must start with http:// or https://';
+    }
+    if (url.username || url.password) {
+      return 'base URL must not contain credentials';
+    }
+    // Plain HTTP is only acceptable for a model server on this machine (Ollama,
+    // LM Studio, ...). A remote endpoint must use TLS so the API key is not
+    // sent in cleartext and the URL cannot be used for a casual SSRF hop.
+    if (url.protocol === 'http:'
+      && !['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname.toLowerCase())) {
+      return 'base URL must use https:// unless it points at localhost';
+    }
+    if (ai.baseUrl.length > 500) return 'base URL is too long';
   }
-  if (ai.baseUrl && ai.baseUrl.length > 500) return 'base URL is too long';
   if (ai.model.length > 200) return 'model name is too long';
   if (ai.apiKey.length > 4000) return 'API key is too long';
   return null;
@@ -49,14 +74,14 @@ export async function loadAiConfig() {
 }
 
 export async function saveAiConfig(ai) {
-  const config = await loadConfig();
-  config.ai = {
-    baseUrl: ai.baseUrl,
-    apiKey: ai.apiKey,
-    model: ai.model,
-  };
-  await saveConfig(config);
-  return config.ai;
+  return updateConfig((config) => {
+    config.ai = {
+      baseUrl: ai.baseUrl,
+      apiKey: ai.apiKey,
+      model: ai.model,
+    };
+    return config.ai;
+  });
 }
 
 /** The client-visible shape: never includes the key itself. */

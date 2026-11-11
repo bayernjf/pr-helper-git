@@ -24,9 +24,14 @@ describe('normalizeAiConfig', () => {
     expect(out).toEqual({ baseUrl: 'https://x.test/v1', model: 'gpt', apiKey: 'key' });
   });
 
-  it('keeps the stored key when the patch is blank', () => {
-    const out = normalizeAiConfig({ baseUrl: 'https://x.test/v1' }, { baseUrl: '', apiKey: 'secret', model: 'm' });
+  it('keeps the stored key when only the model changes', () => {
+    const out = normalizeAiConfig({ model: 'm2' }, { baseUrl: 'https://x.test/v1', apiKey: 'secret', model: 'm' });
     expect(out.apiKey).toBe('secret');
+  });
+
+  it('clears the stored key when the base URL changes without a new key', () => {
+    const out = normalizeAiConfig({ baseUrl: 'https://evil.test/v1' }, { baseUrl: 'https://x.test/v1', apiKey: 'secret' });
+    expect(out.apiKey).toBe('');
   });
 
   it('clears the key only on an explicit clearKey', () => {
@@ -39,6 +44,12 @@ describe('validateAiConfig', () => {
   it('rejects a non-http base URL', () => {
     expect(validateAiConfig({ baseUrl: 'ftp://x', apiKey: '', model: 'm' })).toMatch(/http/i);
     expect(validateAiConfig({ baseUrl: 'https://x.test/v1', apiKey: '', model: 'm' })).toBeNull();
+  });
+
+  it('rejects credentials in the URL and remote plain HTTP', () => {
+    expect(validateAiConfig({ baseUrl: 'https://user:pass@x.test/v1', apiKey: '', model: 'm' })).toMatch(/credentials/i);
+    expect(validateAiConfig({ baseUrl: 'http://x.test/v1', apiKey: '', model: 'm' })).toMatch(/https/i);
+    expect(validateAiConfig({ baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'm' })).toBeNull();
   });
 });
 

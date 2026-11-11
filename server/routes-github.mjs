@@ -63,11 +63,13 @@ export function parseRemoteUrl(rawUrl) {
   return { url, isGithub: true, owner: match[1], repo: match[2] };
 }
 
-export async function handleGithubRoute({ method, pathname, query, body, headers }) {
+export async function handleGithubRoute({ method, pathname, query, body, headers, identity }) {
   // Server-side PAT fallback: when the browser sends no PAT (server-stored
   // mode) inject the stored token into the context so every downstream route
   // keeps reading the same header. The value never leaves the server.
-  if (!String(headers['x-github-pat'] || '').trim()) {
+  // The stored credential is instance-wide, so only the owner (admin) may use
+  // it implicitly; members must present their own PAT header.
+  if (identity?.role === 'admin' && !String(headers['x-github-pat'] || '').trim()) {
     const stored = (await loadConfig()).github?.token;
     if (stored) headers['x-github-pat'] = stored;
   }

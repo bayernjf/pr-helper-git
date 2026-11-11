@@ -25,6 +25,7 @@ import {
   isSensitivePath,
   normalizeRepoPath,
   resolveInside,
+  sanitizeUrlForAudit,
   validateCloneUrl,
   validateFolderName,
   validateRefName,
@@ -39,7 +40,7 @@ import {
   readAudit,
   removeRepo,
   rotateAudit,
-  saveConfig,
+  updateConfig,
 } from './store.mjs';
 import { createUser, listUsers, removeUser } from './identity.mjs';
 import {
@@ -56,7 +57,7 @@ import {
   stagedDiff,
   validateAiConfig,
 } from './ai.mjs';
-import { ensureWatching, stopWatching } from './watcher.mjs';
+import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
 
 const DIFF_LINE_LIMIT = 2000;
 const SAVE_MAX_BYTES = 1024 * 1024; // matches the 1 MB file viewer cap
@@ -130,6 +131,56 @@ async function readBisectState(repo) {
 }
 
 const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
+
+const isAdmin = (identity) => Boolean(identity && identity.role === 'admin');
+
+// Enumerate paths that a bulk write would touch. NUL-separated output keeps
+// paths with spaces/newlines intact.
+async function changedPaths(repo, { stagedOnly = false } = {}) {
+  const commands = stagedOnly
+    ? [['diff', '--cached', '--name-only', '-z']]
+    : [
+      ['diff', '--name-only', '-z'],
+      ['diff', '--cached', '--name-only', '-z'],
+      ['ls-files', '--others', '--exclude-standard', '-z'],
+    ];
+  const paths = [];
+  for (const argv of commands) {
+    const raw = await git(argv, repo).catch((err) => {
+      if (err && err.code === 1) return '';
+      throw err;
+    });
+    for (const p of raw.split('\0')) if (p) paths.push(p);
+  }
+  return [...new Set(paths)];
+}
+
+async function sensitiveChanges(repo, options = {}) {
+  return (await changedPaths(repo, options)).filter(isSensitivePath);
+}
+
+function sensitiveFail(paths, action) {
+  return fail(
+    409,
+    `sensitive files cannot be ${action}; unstage or add them to .gitignore first`,
+    paths.join(', '),
+  );
+}
+
+// Bound fan-out for per-repo git work: the registry allows hundreds of repos,
+// and each brief spawns at least two git processes.
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 function gitFail(err, fallback) {
   return fail(400, fallback, err.stderr || err.message);
@@ -432,6 +483,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   if (pathname === '/api/maintenance/prune-repos' && method === 'POST') {
     if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
     const result = await pruneRepos();
+    reconcileWatching(result.repos);
     await appendAudit({ action: 'repos-prune', removed: result.removed });
     return ok({ ok: true, ...result });
   }
@@ -440,7 +492,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
 
   if (pathname === '/api/repos' && method === 'GET') {
     const repos = await listRepos();
-    const briefs = await Promise.all(repos.map(repoBrief));
+    const briefs = await mapLimit(repos, 4, repoBrief);
     return ok({ collectedAt: new Date().toISOString(), repos: briefs });
   }
 
@@ -492,19 +544,21 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   // token into the proxy context. The value never round-trips to clients;
   // only its existence is reported.
   if (pathname === '/api/pat' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const pat = typeof body.pat === 'string' ? body.pat.trim() : '';
     if (!pat || pat.length > 255) return fail(400, 'invalid PAT');
-    const config = await loadConfig();
-    config.github = { token: pat };
-    await saveConfig(config);
+    await updateConfig((config) => {
+      config.github = { token: pat };
+    });
     await appendAudit({ ok: true, action: 'pat.store' });
     return ok({ hasServerPat: true });
   }
 
   if (pathname === '/api/pat' && method === 'DELETE') {
-    const config = await loadConfig();
-    delete config.github;
-    await saveConfig(config);
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
+    await updateConfig((config) => {
+      delete config.github;
+    });
     await appendAudit({ ok: true, action: 'pat.remove' });
     return ok({ hasServerPat: false });
   }
@@ -600,7 +654,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     }
     const repos = await addRepo(target);
     ensureWatching(target);
-    await appendAudit({ ok: true, action: 'repo-clone', repo: target, url });
+    await appendAudit({ ok: true, action: 'repo-clone', repo: target, url: sanitizeUrlForAudit(url) });
     return ok({ repos, path: target });
   }
 
@@ -734,13 +788,15 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
         } catch { /* not a Git working tree; skip */ }
       }
       if (!accepted.length) return fail(400, 'no valid repositories in the file');
-      const config = await loadConfig();
-      config.repos = body.mode === 'merge'
-        ? [...new Set([...config.repos, ...accepted])].sort()
-        : [...new Set(accepted)].sort();
-      await saveConfig(config);
-      await appendAudit({ ok: true, action: 'team-config-import', repos: config.repos.length });
-      return ok({ ok: true, repos: config.repos, imported: accepted.length });
+      const imported = await updateConfig((config) => {
+        config.repos = body.mode === 'merge'
+          ? [...new Set([...config.repos, ...accepted])].sort()
+          : [...new Set(accepted)].sort();
+        return config.repos;
+      });
+      reconcileWatching(imported);
+      await appendAudit({ ok: true, action: 'team-config-import', repos: imported.length });
+      return ok({ ok: true, repos: imported, imported: accepted.length });
     }
     return fail(405, 'method not allowed');
   }
@@ -750,6 +806,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   if (pathname === '/api/ai/config') {
     if (method === 'GET') return ok(publicAiConfig(await loadAiConfig()));
     if (method === 'POST') {
+      if (!isAdmin(identity)) return fail(403, 'admin access required');
       const current = await loadAiConfig();
       const next = normalizeAiConfig(body, current);
       const error = validateAiConfig(next);
@@ -763,6 +820,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
 
   if (pathname === '/api/ai/test') {
     if (method !== 'POST') return fail(405, 'method not allowed');
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const ai = await loadAiConfig();
     if (!isAiConfigured(ai)) return fail(400, 'AI is not configured');
     try {
@@ -790,6 +848,8 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     if (method !== 'POST') return fail(405, 'method not allowed');
     const ai = await loadAiConfig();
     if (!isAiConfigured(ai)) return fail(400, 'AI is not configured');
+    const sensitive = await sensitiveChanges(repo, { stagedOnly: true });
+    if (sensitive.length) return sensitiveFail(sensitive, 'sent to the AI provider');
     let diff;
     try {
       diff = await stagedDiff(repo);
@@ -1469,6 +1529,9 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     if (!action) return fail(400, 'action must be "stage" or "unstage"');
     const rel = normalizeRepoPath(body.file);
     if (!rel) return fail(400, 'invalid file path');
+    if (action === 'stage' && isSensitivePath(rel)) {
+      return fail(403, 'sensitive files cannot be staged from the UI');
+    }
     const resolved = await resolveInside(repo, rel);
     if (!resolved) return fail(403, 'path escapes repo root');
     const argv = action === 'stage'
@@ -1493,6 +1556,9 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     if (!action) return fail(400, 'action must be "stage" or "unstage"');
     const rel = normalizeRepoPath(body.file);
     if (!rel) return fail(400, 'invalid file path');
+    if (action === 'stage' && isSensitivePath(rel)) {
+      return fail(403, 'sensitive files cannot be staged from the UI');
+    }
     const resolved = await resolveInside(repo, rel);
     if (!resolved) return fail(403, 'path escapes repo root');
     const hunkIndex = Number(body.hunk);
@@ -1530,6 +1596,9 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     if (!action) return fail(400, 'action must be "stage" or "unstage"');
     const rel = normalizeRepoPath(body.file);
     if (!rel) return fail(400, 'invalid file path');
+    if (action === 'stage' && isSensitivePath(rel)) {
+      return fail(403, 'sensitive files cannot be staged from the UI');
+    }
     const resolved = await resolveInside(repo, rel);
     if (!resolved) return fail(403, 'path escapes repo root');
     const hunkIndex = Number(body.hunk);
@@ -1597,6 +1666,10 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
 
   if (pathname === '/api/stage-all') {
     const action = body.action === 'unstage' ? 'unstage' : 'stage';
+    if (action === 'stage') {
+      const sensitive = await sensitiveChanges(repo);
+      if (sensitive.length) return sensitiveFail(sensitive, 'staged');
+    }
     let argv;
     if (action === 'stage') {
       argv = ['add', '--all'];
@@ -1627,6 +1700,8 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     if (message.startsWith('-') || message.includes('\0')) return fail(400, 'invalid commit message');
     const allowEmpty = body.allowEmpty === true;
     try {
+      const sensitive = await sensitiveChanges(repo, { stagedOnly: true });
+      if (sensitive.length) return sensitiveFail(sensitive, 'committed');
       const staged = await git(['diff', '--cached', '--name-only'], repo);
       // A merge resolved to "ours" leaves an index identical to HEAD; the commit
       // still has to go through to record MERGE_HEAD, so only block staged-less
@@ -2441,6 +2516,9 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     const to = normalizeRepoPath(typeof body.to === 'string' ? body.to : '');
     if (!from || !to) return fail(400, 'invalid source or destination path');
     if (from === to) return fail(400, 'destination equals source');
+    if (isSensitivePath(from) || isSensitivePath(to)) {
+      return fail(403, 'sensitive files cannot be moved from the UI');
+    }
     try {
       // "--" terminates options so a repository file whose name starts with
       // "-" is treated as a path, never as a git flag.
@@ -2456,6 +2534,7 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
   if (pathname === '/api/rm') {
     const target = normalizeRepoPath(typeof body.file === 'string' ? body.file : '');
     if (!target) return fail(400, 'invalid file path');
+    if (isSensitivePath(target)) return fail(403, 'sensitive files cannot be removed from the UI');
     const force = body.force === true;
     try {
       // git rm only works on tracked files. A fully untracked file is removed
@@ -2519,18 +2598,21 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
 
   if (pathname === '/api/clean') {
     // Never pass -x/-X: ignored files (e.g. .env, keys) must stay untouched.
+    let preview;
+    try {
+      const out = await git(['clean', '-nd'], repo);
+      preview = out.split('\n')
+        .filter((l) => l.startsWith('Would remove '))
+        .map((l) => l.slice('Would remove '.length));
+    } catch (err) {
+      return gitFail(err, 'git clean dry-run failed');
+    }
+    const sensitive = preview.filter(isSensitivePath);
     if (body.dryRun === true) {
-      try {
-        const out = await git(['clean', '-nd'], repo);
-        const paths = out.split('\n')
-          .filter((l) => l.startsWith('Would remove '))
-          .map((l) => l.slice('Would remove '.length));
-        return ok({ dryRun: true, paths });
-      } catch (err) {
-        return gitFail(err, 'git clean dry-run failed');
-      }
+      return ok({ dryRun: true, paths: preview, sensitive });
     }
     if (body.confirm !== true) return fail(400, 'clean requires confirmation');
+    if (sensitive.length) return sensitiveFail(sensitive, 'cleaned');
     try {
       const out = await git(['clean', '-fd'], repo);
       await appendAudit({ ok: true, action: 'clean', repo });
@@ -2618,6 +2700,10 @@ export async function handleGitRoute({ method, pathname, query, body, identity }
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (message.length > 200) return fail(400, 'stash message too long');
     const includeUntracked = body.includeUntracked === true;
+    if (includeUntracked) {
+      const sensitive = await sensitiveChanges(repo);
+      if (sensitive.length) return sensitiveFail(sensitive, 'stashed with untracked files');
+    }
     const argv = ['stash', 'push'];
     if (includeUntracked) argv.push('-u');
     if (message) argv.push('-m', message);

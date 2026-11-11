@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### 安全
+- **服务端设置只归 owner**：`POST/DELETE /api/pat`、`POST /api/ai/config`、`POST /api/ai/test` 增加 admin 闸门；成员不再隐式继承服务端 PAT，必须自带 `x-github-pat`。
+- **AI 密钥不跟随新端点**：修改 `baseUrl` 而未同时提交新 key 时清空旧 key；base URL 必须是合法 http(s)、不允许内嵌凭据，非 localhost 的 `http://` 强制改用 https。
+- **敏感文件写入闸门**：stage / stage-hunk / stage-lines / stage-all / commit / mv / rm / clean / stash(-u) / AI commit-message 统一拒绝 `.env`、私钥、证书等路径；`clean` 先 dry-run 收集 preview 再实删，并在发现敏感路径时 409。
+- **数据目录权限**：`~/.pr-helper-git2` 收紧为 `0700`，`config.json` / `audit.log` 为 `0600`；配置写入改为串行化 + 唯一临时文件 + rename，解析失败时保留 `.corrupt-*` 备份而不是静默清空。
+- **审计脱敏**：clone URL 写入审计前移除 username/password、query 和 fragment。
+- **开发模式防误绑**：`GIT2_DEV=1` 且绑定非 loopback 地址时拒绝启动，除非显式设置 `GIT2_ALLOW_INSECURE_DEV_HOST=1`。
+
+### 修复
+- watcher 与仓库注册表保持一致：`prune-repos` / 团队配置导入后停止多余 watcher、补齐缺失 watcher。
+- `/api/repos` 的逐仓 brief 改为最多 4 个并发，避免注册表很大时一次拉起数百个 git 进程。
+- light theme 的 legacy surface token 改为真正 alias 到 `design/tokens.css`，不再被 `styles.css` 的硬编码暗色 `:root` 覆盖。
+- 设置页对 member 隐藏 server PAT / AI / 服务端数据维护区，并说明浏览器 PAT 仍可用。
+- README / 设置页文案：E2E 136、单测 301/29、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
+
+### 测试
+- 新增 admin 权限、成员 PAT 不继承、敏感文件 stage/commit/clean、数据目录权限、URL 脱敏、AI endpoint 变更清 key、watcher reconcile、主题 token alias 的测试；CI 增加 `npm run e2e`。
+
 ## [0.2.2] - 2026-11-11
 
 ### 新增

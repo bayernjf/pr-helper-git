@@ -63,6 +63,15 @@ export function stopWatching(repoPath) {
   timers.delete(repoPath);
 }
 
+/** Make the watcher set exactly match the current registry. */
+export function reconcileWatching(repoPaths) {
+  const wanted = new Set(repoPaths || []);
+  for (const repoPath of [...watchers.keys()]) {
+    if (!wanted.has(repoPath)) stopWatching(repoPath);
+  }
+  for (const repoPath of wanted) ensureWatching(repoPath);
+}
+
 export function stopAllWatching() {
   for (const watcher of watchers.values()) watcher.close();
   watchers.clear();

@@ -984,6 +984,25 @@ describe('team identity', () => {
     const forbidden = await api('/api/users', { headers: { 'x-git2-token': created.json.token } });
     expect(forbidden.status).toBe(403);
 
+    const forbiddenPat = await api('/api/pat', {
+      method: 'POST',
+      headers: { 'x-git2-token': created.json.token },
+      body: JSON.stringify({ pat: 'ghp_member_should_not_store' }),
+    });
+    expect(forbiddenPat.status).toBe(403);
+    const forbiddenAi = await api('/api/ai/config', {
+      method: 'POST',
+      headers: { 'x-git2-token': created.json.token },
+      body: JSON.stringify({ baseUrl: 'https://evil.test/v1', model: 'm', apiKey: 'k' }),
+    });
+    expect(forbiddenAi.status).toBe(403);
+    const forbiddenAiTest = await api('/api/ai/test', {
+      method: 'POST',
+      headers: { 'x-git2-token': created.json.token },
+      body: JSON.stringify({}),
+    });
+    expect(forbiddenAiTest.status).toBe(403);
+
     const dup = await post('/api/users', { name: 'alice', role: 'member' });
     expect(dup.status).toBe(400);
     const badName = await post('/api/users', { name: 'bad name!', role: 'member' });
@@ -1032,6 +1051,24 @@ describe('team identity', () => {
     expect(rejected.status).toBe(400);
   });
 
+  it('does not inject the server-side PAT into a member request', async () => {
+    const stored = await post('/api/pat', { pat: 'ghp_owner_only' });
+    expect(stored.status).toBe(200);
+    expect(stored.json.hasServerPat).toBe(true);
+
+    const memberGithub = await api('/api/github', {
+      method: 'POST',
+      headers: { 'x-git2-token': memberToken[0] },
+      body: JSON.stringify({ method: 'GET', path: '/user' }),
+    });
+    expect(memberGithub.status).toBe(401);
+    expect(memberGithub.json.error).toMatch(/token/i);
+
+    const cleared = await api('/api/pat', { method: 'DELETE' });
+    expect(cleared.status).toBe(200);
+    expect(cleared.json.hasServerPat).toBe(false);
+  });
+
   it('revokes a member token', async () => {
     const removed = await api('/api/users', {
       method: 'DELETE',
@@ -1041,6 +1078,41 @@ describe('team identity', () => {
     expect(removed.status).toBe(200);
     const me = await api('/api/me', { headers: { 'x-git2-token': memberToken[0] } });
     expect(me.status).toBe(401);
+  });
+});
+
+describe('sensitive path write guards', () => {
+  const envRel = '.env';
+
+  it('blocks stage, commit, rm and clean for a sensitive path', async () => {
+    await writeFile(envRel, 'SECRET=1\n');
+    try {
+      const stage = await post('/api/stage', { repo: repoDir, file: envRel, action: 'stage' });
+      expect(stage.status).toBe(403);
+      const stageHunk = await post('/api/stage-hunk', {
+        repo: repoDir, file: envRel, hunk: 0, action: 'stage',
+      });
+      expect(stageHunk.status).toBe(403);
+      const stageAll = await post('/api/stage-all', { repo: repoDir, action: 'stage' });
+      expect(stageAll.status).toBe(409);
+      expect(stageAll.json.detail).toContain(envRel);
+
+      const rm = await post('/api/rm', { repo: repoDir, file: envRel });
+      expect(rm.status).toBe(403);
+
+      const dry = await post('/api/clean', { repo: repoDir, dryRun: true });
+      expect(dry.status).toBe(200);
+      expect(dry.json.sensitive).toContain(envRel);
+      const real = await post('/api/clean', { repo: repoDir, confirm: true });
+      expect(real.status).toBe(409);
+
+      git(['add', '-f', envRel], repoDir);
+      const commit = await post('/api/commit', { repo: repoDir, message: 'should not commit' });
+      expect(commit.status).toBe(409);
+    } finally {
+      git(['restore', '--staged', '--', envRel], repoDir, true);
+      await fsp.rm(path.join(repoDir, envRel), { force: true });
+    }
   });
 });
 
@@ -1222,6 +1294,15 @@ describe('audit log endpoint and retention', () => {
 });
 
 describe('data maintenance endpoints', () => {
+  it('keeps the data directory private', async () => {
+    const dir = await fsp.stat(homeDir);
+    expect(dir.mode & 0o777).toBe(0o700);
+    for (const name of ['config.json', 'audit.log']) {
+      const st = await fsp.stat(path.join(homeDir, name));
+      expect(st.mode & 0o777).toBe(0o600);
+    }
+  });
+
   it('reports the data directory and its file sizes', async () => {
     const r = await get('/api/storage');
     expect(r.status).toBe(200);
@@ -1251,6 +1332,7 @@ describe('data maintenance endpoints', () => {
     expect(r.status).toBe(200);
     expect(r.json.removed).toBe(1);
     expect(r.json.total).toBe(config.repos.length - 1);
+    expect(r.json.removedPaths).toContain(stale);
 
     const after = JSON.parse(await fsp.readFile(configFile, 'utf8'));
     expect(after.repos).not.toContain(stale);

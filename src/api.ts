@@ -107,8 +107,8 @@ export const rawFileUrl = (repo: string, path: string, ref = 'HEAD') =>
   `/api/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`;
 
 // Server-side PAT storage: the token lives in ~/.pr-helper-git2/config.json
-// (0600 dir) and never round-trips to the browser. Proxy routes inject it
-// server-side when the client sends no x-github-pat header.
+// (0700 directory, 0600 file) and never round-trips to the browser. Proxy
+// routes inject it server-side for the owner only; members must send their own PAT.
 export const getPatStatus = () =>
   request<{ hasServerPat: boolean }>(`/api/pat/status`);
 export const storeServerPat = (pat: string) =>

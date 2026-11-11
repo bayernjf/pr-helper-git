@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  getAiConfig, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos, type StorageInfo,
+  getAiConfig, getMe, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos, type StorageInfo,
 } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -22,20 +22,28 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [configured, setConfigured] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   useEscape(onClose);
 
   // The key itself is never returned, so the field starts empty and a blank
   // value means "keep the stored key".
   useEffect(() => {
-    getAiConfig()
-      .then((cfg) => {
-        setBaseUrl(cfg.baseUrl);
-        setModel(cfg.model);
-        setHasKey(cfg.hasKey);
-        setConfigured(cfg.configured);
+    getMe()
+      .then((me) => {
+        const admin = me.role === 'admin';
+        setIsAdmin(admin);
+        if (!admin) return;
+        getAiConfig()
+          .then((cfg) => {
+            setBaseUrl(cfg.baseUrl);
+            setModel(cfg.model);
+            setHasKey(cfg.hasKey);
+            setConfigured(cfg.configured);
+          })
+          .catch(() => { /* settings are optional */ });
+        getStorage().then(setStorage).catch(() => { /* maintenance is optional */ });
       })
-      .catch(() => { /* settings are optional */ });
-    getStorage().then(setStorage).catch(() => { /* maintenance is optional */ });
+      .catch(() => { /* keep the conservative member view */ });
   }, []);
 
   async function saveAi(event: React.MouseEvent) {
@@ -160,7 +168,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setValue(e.target.value)}
             />
             <div className="hint">
-              {t("Stored in this browser only and proxied via the loopback server; never written to disk. Create one at")}{' '}
+              {t("Stored in this browser's localStorage and proxied via the loopback server; it is not written into the server data directory. Create one at")}{' '}
               <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">
                 github.com/settings/tokens
               </a>
@@ -168,10 +176,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
+          {!isAdmin && (
+            <div className="hint" style={{ marginTop: 12 }}>
+              {t('Server-side PAT and AI settings are managed by the owner. Your browser PAT above still works for GitHub calls.')}
+            </div>
+          )}
+
+          {isAdmin && (
+            <>
           <h3 className="settings-section">{t("Server-side PAT")}</h3>
           <div className="form-group">
             <div className="hint">
-              {t("Alternative to the browser storage above: the token is kept in ~/.pr-helper-git2/config.json (0600 dir), never returned to this page, and injected into GitHub calls server-side when the browser sends none. Preferred when this machine is shared.")}
+              {t("Alternative to the browser storage above: the token is kept in ~/.pr-helper-git2/config.json (0700 dir / 0600 files), never returned to this page, and injected into GitHub calls server-side when the browser sends none. Preferred when this machine is shared.")}
             </div>
             <div className="settings-row">
               <input
@@ -214,6 +230,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
             <div className="hint">{hasServerPat ? t('Status: stored') : t('Status: not stored')}</div>
           </div>
+            </>
+          )}
 
           <h3 className="settings-section">{t("Appearance")}</h3>
           <div className="form-group">
@@ -259,6 +277,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
+          {isAdmin && (
+            <>
           <h3 className="settings-section">{t("Server data")}</h3>
           <div className="hint" style={{ marginBottom: 10 }}>
             {storage ? (
@@ -331,6 +351,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {configured ? t('Configured') : t('Not configured yet')}
             </span>
           </div>
+            </>
+          )}
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Cancel")}</button>
