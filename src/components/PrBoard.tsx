@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
@@ -140,9 +141,9 @@ export default function PrBoard() {
       setPulls(list);
       setPage(1);
       setHasMore(list.length >= PAGE_SIZE);
-    } catch (err: any) {
+    } catch (err) {
       if (seq !== loadSeq.current) return;
-      setError(err.detail ? `${err.message}: ${err.detail}` : err.message);
+      setError(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err));
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
@@ -165,9 +166,9 @@ export default function PrBoard() {
       });
       setPage(nextPage);
       setHasMore(list.length >= PAGE_SIZE);
-    } catch (err: any) {
+    } catch (err) {
       if (seq !== loadSeq.current) return;
-      setError(err.detail ? `${err.message}: ${err.detail}` : err.message);
+      setError(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err));
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }

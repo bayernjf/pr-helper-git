@@ -30,14 +30,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (err) {
     throw new ApiError(0, 'network error — is the local server running?', String(err));
   }
-  let payload: any = null;
+  let payload: unknown = null;
   try {
     payload = await response.json();
   } catch {
     /* non-JSON response */
   }
   if (!response.ok) {
-    throw new ApiError(response.status, payload?.error || `HTTP ${response.status}`, payload?.detail);
+    const body = payload && typeof payload === 'object'
+      ? payload as { error?: unknown; detail?: unknown }
+      : {};
+    throw new ApiError(
+      response.status,
+      typeof body.error === 'string' ? body.error : `HTTP ${response.status}`,
+      typeof body.detail === 'string' ? body.detail : undefined,
+    );
   }
   return payload as T;
 }

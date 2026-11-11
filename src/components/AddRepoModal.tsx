@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useState } from 'react';
 import { addRepo, cloneRepo, initRepo } from '../api';
 import { useApp } from '../app-state';
@@ -90,8 +91,8 @@ export default function AddRepoModal({ onClose }: { onClose: () => void }) {
         rememberParent();
         await adopt(res.path);
       }
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setSaving(false);
     }

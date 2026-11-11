@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { githubProxy } from '../api';
 import { useApp } from '../app-state';
@@ -153,8 +154,8 @@ export default function PrFileReview({
       onPosted(res.data);
       resetComposer();
       toast(t("Review comment added"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setPosting(false);
     }
@@ -387,8 +388,8 @@ function ReviewCommentCard({
       }
       setMode('view');
       setDraft('');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setBusy(false);
     }
@@ -405,8 +406,8 @@ function ReviewCommentCard({
       await githubProxy(pat, singleCommentPath, 'DELETE');
       onDeleted(comment.id);
       toast(t("Review comment deleted"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setBusy(false);
     }

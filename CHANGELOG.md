@@ -17,7 +17,7 @@
 - `/api/repos` 的逐仓 brief 改为最多 4 个并发，避免注册表很大时一次拉起数百个 git 进程。
 - light theme 的 legacy surface token 改为真正 alias 到 `design/tokens.css`，不再被 `styles.css` 的硬编码暗色 `:root` 覆盖。
 - 设置页对 member 隐藏 server PAT / AI / 服务端数据维护区，并说明浏览器 PAT 仍可用。
-- README / 设置页文案：E2E 136、单测 307/31、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
+- README / 设置页文案：E2E 136、单测 311/32、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
 
 ### 重构
 - `routes-git.mjs` 从 2743 行拆成 100 行调度器 + `routes-git-helpers.mjs`（共享校验/仓库摘要/敏感路径/rebase helper）、`routes-git-meta.mjs`（health/audit/storage/registry/PAT/users/team）、`routes-git-read.mjs`（只读仓库接口）、`routes-git-write.mjs`（写操作接口）；`repo` 守卫和 GitHub fallthrough 保持在调度器里，避免改变路由顺序。
@@ -25,6 +25,7 @@
 - `routes-git-write.mjs` 再拆成 124 行写调度器 + `worktree` / `refs` / `history` / `files` / `network` / `stash` 六个领域模块，单文件最大从 1318 行降到 496 行。
 
 ### 测试
+- 前端 54 处 `catch (err: any)` 改为 `unknown` + 统一 `errorMessage/errorDetail/errorStatus` 助手，`src/api.ts` 的响应体从 `any` 改为 `unknown` 并显式收窄；新增 4 条错误助手测试。
 - 前端大组件抽出 `RefSidebarParts`（组头/行/重命名弹窗）与 `WorkPanelTree`（文件树行/分组），`RefSidebar` 819→716 行、`WorkPanel` 747→559 行。
 - 新增 `tsconfig.server.json` 与 `npm run typecheck:server`：对 `server/**/*.mjs`（排除测试文件）启用 `checkJs`，CI 与 `npm run lint` 并列执行。
 - 新增 admin 权限、成员 PAT 不继承、敏感文件 stage/commit/clean、数据目录权限、URL 脱敏、AI endpoint 变更清 key、watcher reconcile、主题 token alias 的测试；CI 增加 `npm run e2e`。

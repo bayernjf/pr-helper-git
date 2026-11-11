@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 // Team panel: who is signed in, the member list (admin only), one-time member
 // tokens, and export/import of the team configuration (repository registry).
 import { useEffect, useRef, useState } from 'react';
@@ -40,8 +41,8 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
         setOwner(team.owner);
         setUsers(team.users);
       }
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     }
   }
 
@@ -58,8 +59,8 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
       setCopied(false);
       await load();
       toast(`Created ${res.user.name}`, 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setBusy(false);
     }
@@ -72,8 +73,8 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
       await removeTeamUser(member);
       await load();
       toast(`Removed ${member}`, 'success');
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
       setBusy(false);
     }
@@ -94,8 +95,8 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
       a.download = 'pr-helper-git2-team.json';
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     }
   }
 
@@ -110,8 +111,8 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
       });
       await refresh();
       toast(t(`Imported ${res.imported} repositories`), 'success');
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';

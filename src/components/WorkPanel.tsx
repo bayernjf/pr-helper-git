@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   amendCommit,
@@ -92,8 +93,8 @@ export default function WorkPanel() {
     try {
       const res = await generateCommitMessage(activeRepo);
       setMessage(res.message);
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setGenerating(false);
     }
@@ -254,8 +255,8 @@ export default function WorkPanel() {
       if (!proceed) return;
       const result = await cleanForce(activeRepo!);
       toast(`Removed ${result.removed.length} item${result.removed.length === 1 ? '' : 's'}`, 'success');
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     }
   }
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 // Bisect wizard: wraps git bisect start / good|bad / reset. Every action goes
 // through the server so audit logging and repo registration checks apply.
 import { useEffect, useState } from 'react';
@@ -28,7 +29,7 @@ export default function BisectModal({ onClose }: { onClose: () => void }) {
     let cancelled = false;
     getBisectState(activeRepo)
       .then((res) => { if (!cancelled) setState(res); })
-      .catch((err) => { if (!cancelled) toast(err.message, 'error'); });
+      .catch((err) => { if (!cancelled) toast(errorMessage(err), 'error'); });
     return () => { cancelled = true; };
   }, [activeRepo, toast]);
 
@@ -46,8 +47,8 @@ export default function BisectModal({ onClose }: { onClose: () => void }) {
       setState(res.state);
       setMessage(res.message);
       refresh();
-    } catch (err: any) {
-      toast(err?.message || 'bisect action failed', 'error');
+    } catch (err) {
+      toast(errorMessage(err) || 'bisect action failed', 'error');
     } finally {
       setBusy(false);
     }

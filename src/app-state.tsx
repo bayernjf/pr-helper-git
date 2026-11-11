@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from './lib/errors';
 // Central application state: registry, active repo data, view switching,
 // SSE-driven auto refresh and a helper that runs write actions then refreshes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -160,7 +161,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setRepoLoading(true);
     loadRepoData(repoPath, LOG_PAGE_SIZE, 'all', '')
       .catch((err) => {
-        toastApi.error(err.message || 'failed to load repository');
+        toastApi.error(errorMessage(err) || 'failed to load repository');
       })
       .finally(() => setRepoLoading(false));
   }, [loadRepoData, toastApi]);
@@ -193,7 +194,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setLogLimit(nextLimit);
       }
     } catch (err) {
-      toastApi.error((err as any)?.message || 'failed to load more history');
+      toastApi.error(errorMessage(err) || 'failed to load more history');
     } finally {
       setRepoLoading(false);
     }
@@ -206,7 +207,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const remembered = localStorage.getItem(ACTIVE_KEY);
       const target = list.find((r) => r.path === remembered) || list[0];
       if (target) selectRepo(target.path);
-    })().catch((err) => toastApi.error(err.message));
+    })().catch((err) => toastApi.error(errorMessage(err)));
   }, [refreshRepos, selectRepo, toastApi]);
 
   // Keep the latest reload parameters in a ref so the EventSource can be
@@ -286,7 +287,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, scope, logPath, logFilters)
       .catch((err) => {
-        toastApi.error((err as any)?.message || 'failed to change history scope');
+        toastApi.error(errorMessage(err) || 'failed to change history scope');
       })
       .finally(() => setRepoLoading(false));
   }, [activeRepo, loadRepoData, logLimit, logPath, logFilters, toastApi]);
@@ -297,7 +298,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, pathFilter, logFilters)
       .catch((err) => {
-        toastApi.error((err as any)?.message || 'failed to apply path filter');
+        toastApi.error(errorMessage(err) || 'failed to apply path filter');
       })
       .finally(() => setRepoLoading(false));
   }, [activeRepo, loadRepoData, logLimit, logScope, logFilters, toastApi]);
@@ -315,7 +316,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, logPath, next)
       .catch((err) => {
-        toastApi.error((err as any)?.message || 'failed to apply history filters');
+        toastApi.error(errorMessage(err) || 'failed to apply history filters');
       })
       .finally(() => setRepoLoading(false));
   }, [activeRepo, loadRepoData, logLimit, logScope, logPath, toastApi]);
@@ -328,14 +329,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       await refresh();
       if (successMessage) toastApi.notify(successMessage, 'success');
       return result;
-    } catch (err: any) {
+    } catch (err) {
       // A failed write can still change the repository (conflicted merge,
       // revert or rebase), so reload before reporting the error; otherwise
       // the operation banner and unmerged files would not appear.
       try { await refresh(); } catch { /* surfaced by the original error */ }
-      const message = err?.detail
-        ? `${translateText(err?.message || 'action failed')}: ${err.detail}`
-        : translateText(err?.message || 'action failed');
+      const message = errorDetail(err)
+        ? `${translateText(errorMessage(err) || 'action failed')}: ${errorDetail(err)}`
+        : translateText(errorMessage(err) || 'action failed');
       toastApi.error(message);
       return null;
     } finally {

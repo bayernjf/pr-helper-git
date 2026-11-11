@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { searchAllGrep, type GrepRepoResult } from '../api';
 import { useApp } from '../app-state';
@@ -32,8 +33,8 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
       const res = await searchAllGrep(term, { ignoreCase, glob: glob.trim() || undefined });
       setResults(res.results);
       setSearched(true);
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
       setLoading(false);
     }

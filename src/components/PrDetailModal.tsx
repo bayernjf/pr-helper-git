@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail, errorStatus } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { checkoutPrHead, githubProxy, markReadyForReview, mergePull } from '../api';
 import { useApp } from '../app-state';
@@ -179,7 +180,7 @@ export default function PrDetailModal({
         `${base}/branches/${encodeURIComponent(pr.base.ref)}/protection`,
       )
         .then((r) => ({ protected: true, requiredChecks: r.data.required_status_checks?.contexts?.length || 0 }))
-        .catch((err: { status?: number }) => ({ protected: err?.status === 404 ? false : null, requiredChecks: 0 })),
+        .catch((err: { status?: number }) => ({ protected: errorStatus(err) === 404 ? false : null, requiredChecks: 0 })),
       githubProxy<{ statuses: CommitStatus[] }>(pat, `${base}/commits/${pr.head.sha}/status`),
     ])
       .then((settled) => {
@@ -234,8 +235,8 @@ export default function PrDetailModal({
       await mergePull(activeRepo!, pr.number, method, pat);
       toast(t("Pull request merged"), 'success');
       onChanged();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       // Reset even on success: the modal stays open and the footer buttons
       // would otherwise remain disabled after the action completed.
@@ -254,8 +255,8 @@ export default function PrDetailModal({
       const res = await checkoutPrHead(activeRepo, pr.number);
       toast(`Created branch ${res.branch} at ${shortHash(res.sha)}`, 'success');
       await refresh();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setPrBranchBusy(false);
     }
@@ -267,8 +268,8 @@ export default function PrDetailModal({
       await markReadyForReview(activeRepo!, pr.number, pat);
       toast(t("Pull request is now ready for review"), 'success');
       onChanged();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }
@@ -294,8 +295,8 @@ export default function PrDetailModal({
       setReviewers((prev) => [...prev, { login: username, avatar_url: '' }]);
       setReviewerInput('');
       toast(t("Reviewer requested"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     }
   }
 
@@ -313,8 +314,8 @@ export default function PrDetailModal({
       setComments((prev) => [...prev, res.data]);
       setCommentBody('');
       toast(t("Comment added"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setPosting(false);
     }
@@ -348,8 +349,8 @@ export default function PrDetailModal({
       setEditingId(null);
       setEditBody('');
       toast(t("Comment updated"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setEditWorking(false);
     }
@@ -370,8 +371,8 @@ export default function PrDetailModal({
       );
       setComments((prev) => prev.filter((item) => item.id !== c.id));
       toast(t("Comment deleted"), 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setEditWorking(false);
     }
@@ -396,8 +397,8 @@ export default function PrDetailModal({
       setEditingDescription(false);
       toast(t("Description updated"), 'success');
       onChanged();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setEditWorking(false);
     }
@@ -423,8 +424,8 @@ export default function PrDetailModal({
       setReviewBody('');
       toast(t("Review submitted"), 'success');
       onChanged();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -442,8 +443,8 @@ export default function PrDetailModal({
       await githubProxy(pat, `${base}/pulls/${pr.number}`, 'PATCH', { state });
       toast(state === 'closed' ? 'Pull request closed' : 'Pull request reopened', 'success');
       onChanged();
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }

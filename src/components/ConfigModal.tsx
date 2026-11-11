@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -40,7 +41,7 @@ export default function ConfigModal({ onClose }: Props) {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) setError(errorMessage(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -67,8 +68,8 @@ export default function ConfigModal({ onClose }: Props) {
       }
       const res = await getConfig(activeRepo);
       applyEntries(res.entries);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }

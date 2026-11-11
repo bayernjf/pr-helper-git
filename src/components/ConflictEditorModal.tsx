@@ -1,3 +1,4 @@
+import { errorMessage, errorStatus } from '../lib/errors';
 // Three-way conflict merge editor (parity with pr-helper-git's merge editor):
 // parse the working file's conflict markers into regions, decide per region
 // (ours / theirs / both), edit the assembled result, then save (mtime
@@ -54,9 +55,9 @@ export default function ConflictEditorModal({
         setDecisions(parsed.filter((s) => s.type === 'conflict').map(() => 'ours' as RegionDecision));
         setMtime(file.mtimeMs);
         setLoading(false);
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return;
-        setError(err?.message || String(err));
+        setError(errorMessage(err) || String(err));
         setLoading(false);
       }
     })();
@@ -88,10 +89,10 @@ export default function ConflictEditorModal({
       toast(`${path} ${t('saved and staged')}`, 'success');
       onResolved?.();
       onClose();
-    } catch (err: any) {
-      const message = err?.message || String(err);
+    } catch (err) {
+      const message = errorMessage(err) || String(err);
       toast(message, 'error');
-      if (err?.status === 409 || /mtime|changed/i.test(message)) {
+      if (errorStatus(err) === 409 || /mtime|changed/i.test(message)) {
         toast(t('The file changed on disk — reopening with the latest content.'), 'info');
         // Reload the freshest content; markers may already be gone.
         try {

@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCompare, type CompareResult } from '../api';
 import { useApp } from '../app-state';
@@ -41,9 +42,9 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
       const res = await getCompare(activeRepo, b, h);
       if (seq !== seqRef.current) return;
       setResult(res);
-    } catch (err: any) {
+    } catch (err) {
       if (seq !== seqRef.current) return;
-      setError(err.message);
+      setError(errorMessage(err));
       setResult(null);
     } finally {
       if (seq === seqRef.current) setLoading(false);

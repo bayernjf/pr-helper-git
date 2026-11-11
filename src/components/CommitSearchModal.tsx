@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 // Search the whole commit history (every reachable ref), not just the loaded
 // graph page. A bare query matches the message; `author:` and `path:` narrow it
 // to an author or to commits touching a path. Selecting a result jumps the
@@ -49,8 +50,8 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
       const res = await searchCommits(activeRepo, q);
       setCommits(res.commits);
       setSearched({ mode: res.mode, term: res.query });
-    } catch (err: any) {
-      toast(err?.message || 'search failed', 'error');
+    } catch (err) {
+      toast(errorMessage(err) || 'search failed', 'error');
     } finally {
       setLoading(false);
     }

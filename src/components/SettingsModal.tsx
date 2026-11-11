@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import {
   getAiConfig, getMe, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos, type StorageInfo,
@@ -59,8 +60,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       setConfigured(cfg.configured);
       setApiKey('');
       toast(cfg.configured ? 'AI settings saved' : 'AI settings saved (incomplete)', 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setSavingAi(false);
     }
@@ -73,8 +74,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       setHasKey(cfg.hasKey);
       setConfigured(cfg.configured);
       toast(t("API key removed"), 'info');
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
       setSavingAi(false);
     }
@@ -85,8 +86,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     try {
       const res = await testAi();
       toast(`AI responded: ${res.reply.slice(0, 60)}`, 'success');
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setTesting(false);
     }
@@ -106,8 +107,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       await rotateAudit();
       toast(t('Audit log compacted'), 'success');
       setStorage(await getStorage());
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     }
   }
 
@@ -123,8 +124,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       const result = await pruneRepos();
       toast(tp('Removed {n} stale entries', { n: result.removed }), 'success');
       setStorage(await getStorage());
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     }
   }
 
@@ -205,8 +206,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     await setServerPat(serverPatValue.trim());
                     setServerPatValue('');
                     toast(t('PAT stored server-side'), 'success');
-                  } catch (err: any) {
-                    toast(err?.message || 'store failed', 'error');
+                  } catch (err) {
+                    toast(errorMessage(err) || 'store failed', 'error');
                   }
                 }}
               >
@@ -220,8 +221,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   try {
                     await clearServerPat();
                     toast(t('Server-side PAT removed'), 'success');
-                  } catch (err: any) {
-                    toast(err?.message || 'remove failed', 'error');
+                  } catch (err) {
+                    toast(errorMessage(err) || 'remove failed', 'error');
                   }
                 }}
               >

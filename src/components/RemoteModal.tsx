@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useCallback, useEffect, useState } from 'react';
 import {
   addRemote,
@@ -43,8 +44,8 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
       setUrl('');
       toast(t("Remote added"), 'success');
       reload();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }
@@ -61,8 +62,8 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
       await removeRemote(activeRepo!, entry.name);
       toast(t("Remote removed"), 'success');
       reload();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }
@@ -78,8 +79,8 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
       toast(t("Remote URL updated"), 'success');
       setEditing(null);
       reload();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }
@@ -98,8 +99,8 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
       toast(t("Remote renamed"), 'success');
       setRenaming(null);
       reload();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setWorking(false);
     }

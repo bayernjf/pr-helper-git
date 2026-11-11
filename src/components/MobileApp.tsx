@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 // Read-only phone layout, served at /m (or /?mobile=1). No staging, commit or
 // push controls: the point is checking a repository from a phone, so everything
 // here is big, single-column and read-only.
@@ -54,8 +55,8 @@ export default function MobileApp() {
       if (chosen && chosen !== repo) setRepo(chosen);
       if (!chosen) setError(t('No repositories yet.'));
       return chosen;
-    } catch (err: any) {
-      setError(err?.message || String(err));
+    } catch (err) {
+      setError(errorMessage(err) || String(err));
       return '';
     }
   }
@@ -77,10 +78,10 @@ export default function MobileApp() {
         const match = logRes.commits.find((c) => c.hash === wantedCommit || c.hash.startsWith(wantedCommit));
         if (match) await openCommit(match, target);
       }
-    } catch (err: any) {
+    } catch (err) {
       setCommits([]);
       setStatus(null);
-      setError(err?.message || String(err));
+      setError(errorMessage(err) || String(err));
     } finally {
       setLoading(false);
     }
@@ -148,8 +149,8 @@ export default function MobileApp() {
     try {
       const res = await getCommitDiff(repo, detail.commit.hash, file.path);
       setDiff({ file: file.path, text: res.diff, masked: res.masked });
-    } catch (err: any) {
-      setDiff({ file: file.path, text: err?.message || String(err), masked: false });
+    } catch (err) {
+      setDiff({ file: file.path, text: errorMessage(err) || String(err), masked: false });
     }
   }
 
@@ -158,8 +159,8 @@ export default function MobileApp() {
     try {
       const res = await getDiff(repo, file.path, file.area === 'staged');
       setWork({ file, text: res.diff, masked: res.masked });
-    } catch (err: any) {
-      setWork({ file, text: err?.message || String(err), masked: false });
+    } catch (err) {
+      setWork({ file, text: errorMessage(err) || String(err), masked: false });
     }
   }
 

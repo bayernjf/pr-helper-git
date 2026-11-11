@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   abortMerge,
@@ -315,8 +316,8 @@ export default function RefSidebar() {
         try {
           const res = await getTagShow(activeRepo, name);
           setTagView(res.tag);
-        } catch (err: any) {
-          toast(err.message, 'error');
+        } catch (err) {
+          toast(errorMessage(err), 'error');
         }
       } else if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
       else if (id === 'push-tag') await runAction(pushTag(activeRepo, name), `Pushed tag ${name}`);
@@ -336,8 +337,8 @@ export default function RefSidebar() {
         try {
           const res = await getStashShow(activeRepo, idx);
           setStashView({ index: idx, subject: name, diff: res.diff });
-        } catch (err: any) {
-          toast(err.message, 'error');
+        } catch (err) {
+          toast(errorMessage(err), 'error');
         }
       } else if (id === 'apply') await runAction(stashApply(activeRepo, idx, false), 'Stash applied');
       else if (id === 'pop') await runAction(stashApply(activeRepo, idx, true), 'Stash popped');

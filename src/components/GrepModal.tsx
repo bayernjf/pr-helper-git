@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 import { useMemo, useRef, useState } from 'react';
 import { searchGrep, type GrepMatch } from '../api';
 import { useApp } from '../app-state';
@@ -39,8 +40,8 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
       if (seq !== seqRef.current) return;
       setMatches(res.matches);
       setSearched(true);
-    } catch (err: any) {
-      if (seq === seqRef.current) toast(err.message, 'error');
+    } catch (err) {
+      if (seq === seqRef.current) toast(errorMessage(err), 'error');
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }

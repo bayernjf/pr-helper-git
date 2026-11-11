@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { githubProxy, generatePrDescription } from '../api';
 import { useApp } from '../app-state';
@@ -28,8 +29,8 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
       const res = await generatePrDescription(activeRepo, head, base);
       if (!title.trim() && res.title) setTitle(res.title);
       if (res.body) setBody(res.body);
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
     } finally {
       setGenerating(false);
     }
@@ -69,8 +70,8 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
       );
       toast(t("Pull request created"), 'success');
       onCreated();
-    } catch (err: any) {
-      toast(err.detail ? `${err.message}: ${err.detail}` : err.message, 'error');
+    } catch (err) {
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
       setSaving(false);
     }
   }

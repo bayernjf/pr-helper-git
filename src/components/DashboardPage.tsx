@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 // Dashboard — a full-page, at-a-glance status view of every registered
 // repository (parity with pr-helper-git's dashboard page):
 //   card grid with branch/↑↓/WIP counts/open-PR count/last commit,
@@ -135,14 +136,14 @@ export default function DashboardPage() {
       await removeRepo(path);
       await refresh().catch(() => undefined);
       toast(t('{name} removed').replace('{name}', name), 'success');
-    } catch (err: any) {
-      toast(err?.message || 'remove failed', 'error');
+    } catch (err) {
+      toast(errorMessage(err) || 'remove failed', 'error');
     }
   }
 
   function external(path: string, target: 'finder' | 'terminal' | 'editor') {
     openExternal(path, target)
-      .catch((err: any) => toast(err?.message || 'open failed', 'error'));
+      .catch((err) => toast(errorMessage(err) || 'open failed', 'error'));
   }
 
   const sorted = useMemo(() => {

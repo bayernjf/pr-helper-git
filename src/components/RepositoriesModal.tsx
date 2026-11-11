@@ -1,3 +1,4 @@
+import { errorMessage } from '../lib/errors';
 // Multi-repository panel: every registered repository in one filterable list,
 // showing its location, working-tree changes, ahead/behind and current branch.
 // A row opens that repository; checkboxes enable batch fetch and batch pull.
@@ -175,8 +176,8 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
       setPullReport({ okCount: res.okCount, failures });
       if (res.failCount === 0) toast(t(`Pulled ${res.okCount} repositories`), 'success');
       else toast(`Pulled ${res.okCount}, ${res.failCount} failed`, 'error');
-    } catch (err: any) {
-      toast(err?.message || 'batch pull failed', 'error');
+    } catch (err) {
+      toast(errorMessage(err) || 'batch pull failed', 'error');
     } finally {
       setBatchBusy(false);
       setSelected(new Set());

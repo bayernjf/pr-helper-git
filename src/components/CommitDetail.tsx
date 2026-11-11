@@ -1,3 +1,4 @@
+import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
 import { getCommitDiff, getCommitFiles, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
 import { useApp } from '../app-state';
@@ -106,10 +107,10 @@ export default function CommitDetail() {
     try {
       const result = await getCommitDiff(activeRepo, commit.hash, file.path, ws);
       if (seq === patchSeq.current) setPatch(result);
-    } catch (err: any) {
+    } catch (err) {
       if (seq !== patchSeq.current) return;
       setPatch(null);
-      toast(err?.detail ? `${err.message}: ${err.detail}` : err?.message || 'cannot load patch', 'error');
+      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err) || 'cannot load patch', 'error');
     }
   }
 

@@ -515,7 +515,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (307 tests, 31 files)
+npm test           # Vitest unit + route-level HTTP tests (311 tests, 32 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

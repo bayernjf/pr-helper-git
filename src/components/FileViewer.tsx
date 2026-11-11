@@ -1,3 +1,4 @@
+import { errorStatus } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
@@ -96,7 +97,7 @@ export default function FileViewer({
       // Reload the blob so line numbers and the watcher-driven view stay in sync.
       setFile(await getFile(repo, filePath));
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
+      if (err instanceof ApiError && errorStatus(err) === 409) {
         toast(t("File changed on disk — reload the latest version before saving"), 'error');
         // Refresh the underlying blob so the user can compare against the
         // new content; the draft is kept so their edits are not destroyed.
