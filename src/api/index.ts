@@ -39,6 +39,7 @@ export {
   getBisectState,
   getBlame,
   getCommitDetail,
+  getCommitInfo,
   getCommitDiff,
   getCommitFiles,
   getCommitSignature,

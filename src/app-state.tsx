@@ -294,6 +294,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [activeRepo, loadRepoData, logLimit, logPath, logFilters, toastApi]);
 
   const setLogPath = useCallback((pathFilter: string) => {
+    // Blur and Enter both apply the path; skip the reload when the value did
+    // not actually change so the two events do not trigger duplicate requests.
+    if (pathFilter === logPath) return;
     setLogPathState(pathFilter);
     if (!activeRepo) return;
     setRepoLoading(true);
@@ -302,7 +305,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         toastApi.error(errorMessage(err) || 'failed to apply path filter');
       })
       .finally(() => setRepoLoading(false));
-  }, [activeRepo, loadRepoData, logLimit, logScope, logFilters, toastApi]);
+  }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters, toastApi]);
 
   // Apply server-side history filters. Empty fields are dropped so an empty
   // filter object restores the unfiltered commit list.

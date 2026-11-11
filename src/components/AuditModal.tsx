@@ -78,37 +78,37 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
           <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body no-pad">
-          {loading ? (
-            <div className="list-empty">{t("Loading audit trail…")}</div>
-          ) : (
-            <div className="audit-list">
-              {/* Filters stay visible even when nothing matches, otherwise a
-                  zero-result filter would hide the control needed to undo it. */}
-              <div className="audit-filters">
-                <input
-                  type="text"
-                  value={textFilter}
-                  placeholder={t("Filter by action or summary…")}
-                  spellCheck={false}
-                  onChange={(e) => setTextFilter(e.target.value)}
-                />
-                <Dropdown
-                value={outcome}
-                onChange={(v) => setOutcome(v as OutcomeFilter)}
-                options={[
-                  { value: 'all', label: t('All outcomes') },
-                  { value: 'ok', label: t('Success only') },
-                  { value: 'fail', label: t('Failures only') },
-                ]}
+          <div className="audit-list">
+            {/* Filters stay visible while loading and even when nothing matches,
+                otherwise a request or a zero-result filter would hide the
+                control needed to undo it. */}
+            <div className="audit-filters">
+              <input
+                type="text"
+                value={textFilter}
+                placeholder={t("Filter by action or summary…")}
+                spellCheck={false}
+                onChange={(e) => setTextFilter(e.target.value)}
               />
+              <Dropdown
+              value={outcome}
+              onChange={(v) => setOutcome(v as OutcomeFilter)}
+              options={[
+                { value: 'all', label: t('All outcomes') },
+                { value: 'ok', label: t('Success only') },
+                { value: 'fail', label: t('Failures only') },
+              ]}
+            />
+            </div>
+            {loading ? (
+              <div className="list-empty">{t("Loading audit trail…")}</div>
+            ) : total === 0 ? (
+              <div className="list-empty">
+                {filtersActive
+                  ? t('No entries match the current filters.')
+                  : t('No audit entries recorded yet.')}
               </div>
-              {total === 0 ? (
-                <div className="list-empty">
-                  {filtersActive
-                    ? t('No entries match the current filters.')
-                    : t('No audit entries recorded yet.')}
-                </div>
-              ) : (
+            ) : (
                 <>
                   <div className="audit-meta">
                     {tp('Showing {shown} of {total} matching entries, newest first.', { shown: entries.length, total })}
@@ -133,10 +133,9 @@ export default function AuditModal({ onClose }: { onClose: () => void }) {
                       </div>
                     );
                   })}
-                </>
-              )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>{t("Close")}</button>

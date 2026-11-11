@@ -284,20 +284,6 @@ export default function WorkPanel() {
     }
   }
 
-  // Cmd/Ctrl+Enter submits the form without needing the button focused.
-  const submitRef = useRef<() => void>(() => {});
-  submitRef.current = handleSubmit;
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault();
-        submitRef.current();
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   const renderTree = (list: TreeNode[], area: FileArea, allowDiscard: boolean) =>
     flattenTree(list, collapsed).map((node) => (
       <TreeRow
@@ -445,6 +431,14 @@ export default function WorkPanel() {
             onChange={(e) => {
               setMessage(e.target.value);
               if (activeRepo) localStorage.setItem(STORAGE_KEYS.draft(activeRepo), e.target.value);
+            }}
+            onKeyDown={(e) => {
+              // Scope Cmd/Ctrl+Enter to this textarea only, so editors and other
+              // dialogs that also handle the shortcut do not submit behind them.
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+              }
             }}
           />
           <span className="commit-count" aria-hidden="true">{countLine(message)}</span>

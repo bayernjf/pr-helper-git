@@ -123,7 +123,7 @@ export default function PrBoard() {
         }
       }),
     );
-  }, [pat, remote]);
+  }, [pat, hasServerPat, remote]);
 
   const load = useCallback(async () => {
     if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) {
@@ -147,7 +147,7 @@ export default function PrBoard() {
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [pat, remote, fetchPage]);
+  }, [pat, hasServerPat, remote, fetchPage]);
 
   // Append the next page; GitHub numbers PRs so a number-based merge keeps the
   // list stable even if a PR is edited between requests.

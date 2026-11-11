@@ -14,13 +14,14 @@ interface GithubRemote {
  */
 export function useCiBySha(
   pat: string | null,
+  hasServerPat: boolean,
   remote: GithubRemote | null,
   currentRepo: string | null,
 ): Record<string, string> {
   const [ciBySha, setCiBySha] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!pat || !remote?.isGithub || !remote.owner || !remote.repo) {
+    if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) {
       setCiBySha({});
       return;
     }
@@ -29,7 +30,7 @@ export function useCiBySha(
       try {
         const base = `/repos/${remote.owner}/${remote.repo}`;
         const pulls = await githubProxy<Array<{ number: number; head: { sha: string } }>>(
-          pat,
+          pat || '',
           `${base}/pulls?state=open&per_page=100`,
         );
         const heads = (Array.isArray(pulls.data) ? pulls.data : []).slice(0, 10).map((p) => p.head.sha);
@@ -37,11 +38,11 @@ export function useCiBySha(
         await Promise.allSettled(heads.map(async (sha) => {
           try {
             const runs = await githubProxy<{ check_runs?: Array<{ state?: string; conclusion?: string }> }>(
-              pat,
+              pat || '',
               `${base}/commits/${sha}/check-runs`,
             );
             const statuses = await githubProxy<Array<{ state?: string }>>(
-              pat,
+              pat || '',
               `${base}/commits/${sha}/statuses`,
             );
             const list = [
@@ -61,7 +62,7 @@ export function useCiBySha(
     return () => {
       alive = false;
     };
-  }, [pat, remote, currentRepo]);
+  }, [pat, hasServerPat, remote, currentRepo]);
 
   return ciBySha;
 }

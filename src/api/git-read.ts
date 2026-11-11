@@ -162,6 +162,11 @@ export const getCommitDetail = (repo: string, sha: string) =>
     `/api/commit?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,
   );
 
+export const getCommitInfo = (repo: string, sha: string) =>
+  request<{ commit: Commit }>(
+    `/api/commit-info?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`,
+  );
+
 export const getRemote = (repo: string) =>
   request<{ remote: RemoteInfo | null }>(`/api/remote?repo=${encodeURIComponent(repo)}`);
 
