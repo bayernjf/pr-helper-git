@@ -6,6 +6,35 @@ pushes nothing. This repository, however, **is** on GitHub as the public
 `bayernjf/pr-helper-git` (renamed from `pr-helper-git2` on 2026-11-11); treat
 every committed file as world-readable.
 
+
+## Rename completion (2026-11-12)
+
+The product repository is now `bayernjf/pr-helper-git` (PUBLIC, default branch
+`main`); the old repository of the same name is `bayernjf/pr-helper-git-archive`
+(PRIVATE, archived). The local checkout is `/Users/jiangfeng/000mycodes/pr-helper-git`
+and pushes to `git@github.com:bayernjf/pr-helper-git.git`.
+
+Runtime identifiers were renamed with one-shot migrations:
+- data dir `~/.pr-helper-git2` -> `~/.pr-helper-git` (rename on first boot when
+  the new dir is absent); current real dir is 0700, files 0600;
+- localStorage namespace `pr-helper-git:*`, including pinned, draft, diff font,
+  prefs, dashboard, active repo, browser PAT, commit history and clone parent;
+- auth cookie `git2_token` -> `pr_helper_git_token`, with legacy cookie/header
+  fallback; env vars `GIT2_*` remain readable as fallbacks;
+- Tauri bundle id and download filename follow the new name.
+
+Verification: lint, `typecheck:server`, 335 unit tests / 34 files, production
+build, and E2E 144/144. CI run `43061133345` is green.
+
+The desktop shell remains **frozen** (no unfreeze). The old Qoder session copy
+under the `pr-helper-git2` project key was archived to
+`000mycodes-backups/qoder-project-pr-helper-git2-20261112.tar.gz` and removed;
+the new session key has the equivalent 2,836-record transcript.
+
+Backups: `pr-helper-backup.sh` now targets the renamed checkout/data dir and
+redacts secret fields. The latest bundle is
+`000mycodes-backups/pr-helper-git/source-20261112-0044.bundle` (HEAD `5304c5f`).
+
 ## Post-0.2.2 hardening (2026-11-11)
 
 Security pass after the code review: admin-only server PAT/AI settings, no
@@ -1151,7 +1180,7 @@ Record the validation outcome here once it runs.
 
 ## Lessons inherited from pr-helper-git (pre-archive, 2026-11-11)
 
-Engineering knowledge worth keeping now that pr-helper-git is archived:
+Engineering knowledge worth keeping now that the old `pr-helper-git` is archived as `pr-helper-git-archive`:
 
 1. **bash nested quotes shred JSON**: payloads written as `-d "{\"a\":…}"` inside
    `$( )` lose content to brace expansion (server receives fragments → invalid
