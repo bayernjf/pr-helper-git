@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const appName = 'PR Helper Git2';
+const appName = 'PR Helper Git';
 const outApp = path.join(root, 'dist', `${appName}.app`);
 const contents = path.join(outApp, 'Contents');
 const macosDir = path.join(contents, 'MacOS');

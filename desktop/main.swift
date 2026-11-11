@@ -1,4 +1,4 @@
-// Native macOS shell for PR Helper Git2. It hosts the existing web client in
+// Native macOS shell for PR Helper Git. It hosts the existing web client in
 // a WKWebView and manages the lifetime of the bundled Node.js loopback server.
 // No third-party runtime is bundled: WKWebView and Swift are part of macOS,
 // and the already-installed Node.js binary is located at well-known paths.
@@ -201,10 +201,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             defer: false,
         )
         window.center()
-        window.title = "PR Helper Git2"
+        window.title = "PR Helper Git"
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
-        window.setFrameAutosaveName("PR Helper Git2 Main Window")
+        window.setFrameAutosaveName("PR Helper Git Main Window")
         window.contentView = webView
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
@@ -218,7 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     ) {
         if keyPath == #keyPath(WKWebView.title) {
             let title = webView.title ?? ""
-            window.title = title.isEmpty ? "PR Helper Git2" : title
+            window.title = title.isEmpty ? "PR Helper Git" : title
         }
     }
 

@@ -402,10 +402,10 @@ runtime. It uses the system `WKWebView` (no embedded Chromium) and a
 the machine.
 
 ```bash
-npm run desktop   # builds dist/PR Helper Git2.app
+npm run desktop   # builds dist/PR Helper Git.app
 ```
 
-Double-click the app (or run `open "dist/PR Helper Git2.app"`). The shell:
+Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
 
 - resolves Node.js at the common install locations (Homebrew under
   `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched

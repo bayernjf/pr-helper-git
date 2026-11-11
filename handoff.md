@@ -144,7 +144,7 @@ new features target the browser UI and are not adapted to the native shell.
 - Desktop (macOS, zero third-party runtime) — **frozen, not developed**: a
   `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
   `scripts/desktop-build.mjs` via `npm run desktop` into
-  `dist/PR Helper Git2.app` (~1.2 MB). It locates the system Node.js at
+  `dist/PR Helper Git.app` (~1.2 MB). It locates the system Node.js at
   well-known paths, spawns the server on an ephemeral port, parses the
   `GIT2_READY` machine-readable line, loads the one-time token URL and
   terminates the server on window close. The bundle ships a generated
@@ -363,7 +363,7 @@ new features target the browser UI and are not adapted to the native shell.
   Everything below is local: `git remote -v` is empty, so the commits have
   never been pushed anywhere. This project is intentionally local-only for
   now; do not add a remote or push unless the user explicitly asks. Desktop
-  packaging is frozen per the web-only decision; `dist/PR Helper Git2.app`
+  packaging is frozen per the web-only decision; `dist/PR Helper Git.app`
   predates the latest web features.
   **(Superseded 2026-11-11: a remote now exists — the public
   `bayernjf/pr-helper-git`. The "no remote" statement above is a 2026-11-08
