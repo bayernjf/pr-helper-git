@@ -1,8 +1,10 @@
 // Persistent local state: registered repository list and the audit trail.
 // Nothing leaves this machine; the config lives under ~/.pr-helper-git2.
 import fsp from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import readline from 'node:readline';
 import { currentActor } from './actor.mjs';
 
 // The home override exists so tests can run against an isolated registry and
@@ -230,32 +232,40 @@ function auditHaystack(entry) {
 //   q       case-insensitive substring over action/summary fields
 //   outcome 'all' (default) | 'ok' | 'fail'
 export async function readAudit(limit = 200, filters = {}) {
-  let raw;
+  const needle = typeof filters.q === 'string' ? filters.q.trim().toLowerCase() : '';
+  const outcome = filters.outcome === 'ok' || filters.outcome === 'fail' ? filters.outcome : 'all';
+  const bounded = Math.max(1, Math.min(1000, Number(limit) || 200));
+  const matched = [];
+  let total = 0;
+  let input;
+  let lines;
   try {
-    raw = await fsp.readFile(AUDIT_FILE, 'utf8');
+    input = createReadStream(AUDIT_FILE, { encoding: 'utf8' });
+    lines = readline.createInterface({ input, crlfDelay: Infinity });
+    for await (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let entry;
+      try {
+        entry = JSON.parse(trimmed);
+      } catch {
+        continue; // ignore corrupt lines
+      }
+      if (outcome === 'ok' && entry.ok === false) continue;
+      if (outcome === 'fail' && entry.ok !== false) continue;
+      if (needle && !auditHaystack(entry).includes(needle)) continue;
+      total += 1;
+      matched.push(entry);
+      // Keep only the newest bounded window while scanning; `total` still
+      // reflects every match because filters apply to the whole file.
+      if (matched.length > bounded) matched.shift();
+    }
   } catch (err) {
     if (err.code === 'ENOENT') return { entries: [], total: 0 };
     throw err;
+  } finally {
+    lines?.close();
+    input?.destroy();
   }
-  const parsed = [];
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      parsed.push(JSON.parse(trimmed));
-    } catch {
-      /* ignore corrupt lines */
-    }
-  }
-  const needle = typeof filters.q === 'string' ? filters.q.trim().toLowerCase() : '';
-  const outcome = filters.outcome === 'ok' || filters.outcome === 'fail' ? filters.outcome : 'all';
-  const matched = parsed.filter((entry) => {
-    if (outcome === 'ok' && entry.ok === false) return false;
-    if (outcome === 'fail' && entry.ok !== false) return false;
-    if (!needle) return true;
-    return auditHaystack(entry).includes(needle);
-  });
-  const total = matched.length;
-  const bounded = Math.max(1, Math.min(1000, Number(limit) || 200));
-  return { entries: matched.slice(-bounded).reverse(), total };
+  return { entries: matched.reverse(), total };
 }

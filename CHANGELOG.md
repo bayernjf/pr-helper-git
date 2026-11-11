@@ -21,6 +21,7 @@
 
 ### 重构
 - `routes-git.mjs` 从 2743 行拆成 100 行调度器 + `routes-git-helpers.mjs`（共享校验/仓库摘要/敏感路径/rebase helper）、`routes-git-meta.mjs`（health/audit/storage/registry/PAT/users/team）、`routes-git-read.mjs`（只读仓库接口）、`routes-git-write.mjs`（写操作接口）；`repo` 守卫和 GitHub fallthrough 保持在调度器里，避免改变路由顺序。
+- `readAudit` 从“整文件读入 + 全量 parse”改为 `readline` 流式扫描 + 只保留最新 `limit` 条窗口；`total` 仍统计全文件匹配数，内存不再随审计文件增长。
 
 ### 测试
 - 新增 admin 权限、成员 PAT 不继承、敏感文件 stage/commit/clean、数据目录权限、URL 脱敏、AI endpoint 变更清 key、watcher reconcile、主题 token alias 的测试；CI 增加 `npm run e2e`。
