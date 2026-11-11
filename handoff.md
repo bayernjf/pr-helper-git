@@ -4,6 +4,17 @@ A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
 tower (pr-helper-like core). Runs entirely on loopback; this project's own
 repository is never pushed.
 
+## Release 0.2.2 (2026-11-11)
+
+`package.json` / `package-lock.json` are at **0.2.2**; `CHANGELOG.md` has the
+`[0.2.2]` section and a fresh `[Unreleased]`. The repository is tagged locally
+as `v0.2.2`. No remote is configured by design, so the tag is local-only until
+the owner chooses a remote.
+
+Scope: server-side PAT storage; destructive-scenario E2E coverage (115 -> 136);
+this repository is now the sole primary implementation, with `pr-helper-git`
+archived.
+
 ## Release 0.2.1 (2026-11-10)
 
 `package.json` / `package-lock.json` are at **0.2.1**; `CHANGELOG.md` has the
@@ -99,7 +110,9 @@ new features target the browser UI and are not adapted to the native shell.
   (merge/squash/rebase), close/reopen, line-level review comments
   (inline composer on diff lines, RIGHT/LEFT side, outdated-comment group,
   threaded replies and edit/delete), and an editable PR description.
-  PAT is stored only in the browser and proxied through the local server.
+  PAT can be stored server-side (`/api/pat`, `hasServerPat`; the value never
+  round-trips to clients) and injected into the GitHub proxy; a request-scoped
+  `x-github-pat` header remains supported as a fallback.
 - Hardening: nosniff on every response, strict CSP and no-referrer on the
   HTML entry, no-store for HTML, immutable long caching for hashed assets.
 - Explicitly out of scope (historical — interactive rebase, cherry-pick,
@@ -1093,7 +1106,8 @@ read-only view instead of a responsive rewrite.
   non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
   now covers both the commit flow and the working-tree diff.
 
-Baseline after this round: 287 unit tests / 27 files, E2E 115/115.
+Baseline at 0.2.1: 287 unit tests / 27 files, E2E 115/115.
+Current 0.2.2 baseline: 287 / 27, E2E 136/136.
 2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
 and four accent presets (violet/ocean/forest/amber), applied before first paint and
 persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.

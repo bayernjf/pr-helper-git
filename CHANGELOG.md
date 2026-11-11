@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-11
+
+### 新增
+- **服务端 PAT 存储**：新增 `POST /api/pat`、`DELETE /api/pat`、`GET /api/pat/status`，PAT 可保存在服务端 `config.json`，浏览器不再必须持有；GitHub 代理在请求未带 `x-github-pat` 时注入服务端 token，只回传 `hasServerPat`，不回传 token 原文。
+- **PAT 设置入口**：设置页新增 GitHub PAT 状态、保存与清除；token 不写入仓库、不回显到浏览器，也不写进日志。
+
+### 测试
+- **E2E 扩到 136 项**：吸收 git 侧的 destructive-scenario 覆盖（hard reset、force-with-lease、rebase/merge 冲突、clean、commit.template、allow-empty 等），从 115 增至 136，全部通过。
+- **jsdom localStorage polyfill**：修复 Node >= 22 下测试环境的 localStorage 缺失，单测保持 287 / 27 文件。
+
+### 变更
+- **git 归档 / 单一主实现**：`pr-helper-git` 归档为 GitHub PRIVATE+ARCHIVED，本地保留 `pr-helper-git-archive` 与最终 bundle；设计 token 源、PARITY 台账、Tauri 桌面壳配置迁入本仓库。
+- **文档校准**：README / handoff 更新 PAT 存储口径、E2E 基线、three-way merge 状态与 PR 实网验收 blocked 说明。
+
+### 补记（0.2.0 已上线，原 CHANGELOG 漏记）
+- Dashboard 整页化（`Dashboard | Git | Pull Requests` 三视图、open-PR 数、冲突/置顶/排序、后台 fetch-all、30s 刷新）。
+- 提交图 CI 状态点、图片 diff、提交信息历史 / 50/72 计数 / amend 预填 / Discard All / 草稿持久化。
+
 ## [0.2.1] - 2026-11-10
 
 ### 新增

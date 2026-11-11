@@ -335,9 +335,11 @@ remote is configured and commits stay on the local `main` branch.
   edited inline on open pull requests via `PATCH pulls/:n`, with an empty
   state when no description exists.
 - Draft conversion and merging run through GitHub GraphQL (the REST merge
-  endpoint is unavailable in some environments); the GitHub personal access
-  token is stored only in the browser and sent through the local proxy, never
-  written to disk.
+  endpoint is unavailable in some environments). The GitHub personal access
+  token can be stored server-side through `/api/pat` and never round-trips to
+  the browser; a request-scoped `x-github-pat` header remains supported as a
+  fallback. In server-side mode the token lives in
+  `~/.pr-helper-git2/config.json`, never in the repository or a log.
 
 ### Phone view (`/m`)
 
@@ -438,8 +440,10 @@ Security**.
 - Sensitive files (`.env`, `.env.*`, `id_rsa*`, `*.key`, `*.pem`, `*.p12`,
   `*.pfx`) have their diffs masked and cannot be discarded or edited from the
   UI, and the save endpoint rejects them independently.
-- GitHub calls go through a method/path allowlist; the PAT travels in a request
-  header and is never persisted. All write actions are appended to an audit log
+- GitHub calls go through a method/path allowlist. A PAT can be stored
+  server-side (`/api/pat`) and injected into the proxy; the value never
+  round-trips to the browser. A request-scoped `x-github-pat` header remains
+  supported as a fallback. All write actions are appended to an audit log
   under `~/.pr-helper-git2/audit.log`, which is size-bounded by automatic
   rotation.
 - The AI key lives in `~/.pr-helper-git2/config.json` on the server and is
