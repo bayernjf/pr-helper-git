@@ -292,8 +292,8 @@ done
 echo ""
 echo "=== E2E: Hunk and line staging ==="
 # Two edited regions in a 12-line file → two hunks.
-sed -i '' 's/^line 2$/LINE TWO/' "$REPO_C/hunks.txt"
-sed -i '' 's/^line 10$/LINE TEN/' "$REPO_C/hunks.txt"
+perl -pi -e 's/^line 2$/LINE TWO/' "$REPO_C/hunks.txt"
+perl -pi -e 's/^line 10$/LINE TEN/' "$REPO_C/hunks.txt"
 check "stage-hunk 0" "200" "$(post stage-hunk "$(printf '{"repo":"%s","file":"hunks.txt","hunk":0,"action":"stage"}' "$REPO_C")")"
 contains "stage-hunk marks file staged" "hunks.txt" "$(getq status --data-urlencode "repo=$REPO_C")"
 check "stage-hunk out of range is 400" "400" "$(post stage-hunk "$(printf '{"repo":"%s","file":"hunks.txt","hunk":99,"action":"stage"}' "$REPO_C")")"
