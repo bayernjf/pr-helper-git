@@ -492,7 +492,13 @@ server/
   routes-git-helpers.mjs  Shared validation, repo brief, sensitive-path and rebase helpers
   routes-git-meta.mjs     Health, audit, storage, repo registry, PAT, users, team endpoints
   routes-git-read.mjs     Read-only history/status/diff/grep/config endpoints
-  routes-git-write.mjs    Stage/commit/branch/merge/rebase/filesystem write endpoints
+  routes-git-write.mjs    Write dispatcher: worktree, refs, history, files, network, stash
+  routes-git-write-worktree.mjs  Stage/commit/checkout/PR checkout/amend
+  routes-git-write-refs.mjs      Branch, tag and remote writes
+  routes-git-write-history.mjs   Merge, rebase, bisect, reset, cherry-pick, revert
+  routes-git-write-files.mjs     Conflict resolve, ignore, mv, rm, save, clean
+  routes-git-write-network.mjs   Tag push, fetch, pull, push
+  routes-git-write-stash.mjs     Stash create/apply/drop
   routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
 src/
   app-state.tsx      central data/state provider

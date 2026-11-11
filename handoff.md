@@ -13,7 +13,8 @@ writes with corruption backup, cloned-URL audit sanitization, watcher
 reconciliation after registry changes, and a dev-mode non-loopback bind guard.
 Light-theme legacy tokens now alias the shared design tokens. `routes-git.mjs`
 is now a 100-line dispatcher (repo guard + AI routes) over `routes-git-helpers`,
-`routes-git-meta`, `routes-git-read` and `routes-git-write`. Unit suite is
+`routes-git-meta`, `routes-git-read` and `routes-git-write`; the write module
+itself fans out to worktree / refs / history / files / network / stash. Unit suite is
 307 tests / 31 files; E2E remains 136 checks and is now part of CI.
 
 ## Release 0.2.2 (2026-11-11)
