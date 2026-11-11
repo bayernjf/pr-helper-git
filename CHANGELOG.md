@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### 新增
+- **对比可选任意提交**：对比弹窗的两侧改用新的 `RefPicker` 组合框，可搜索引用与已加载提交（主题 / hint 一起匹配），也可直接输入 7–40 位 SHA 选中尚未加载的提交；候选超过 80 条时截断并给出常驻提示，方向键 / Enter / Esc 可用（Esc 先关候选列表，再关弹窗）。
+- **对比可选工作区**：新增「工作区」一侧（服务端 `:worktree` 伪引用），把未提交改动与任意引用对比；作基线时 diff 方向自动反转，未跟踪文件单独计数并列出（不计入 diff），任一侧为工作区时自动落到「文件」页。两侧同时为工作区会被拒绝。
+- **对比弹窗交换基线 / 头部**：新增交换按钮；弹窗改为固定高度框架，结果在内部滚动，空对比与长提交列表之间切换不再改变弹窗尺寸。
+
+### 变更
+- **显示名去掉「2」**：浏览器标签与启动横幅改为 `PR Helper Git`（`/m` 手机视图共用同一 shell，一并生效）。
+- **运行时标识符同步改名（2026-11-12）**：包名 `pr-helper-git2` → `pr-helper-git`；数据目录 `~/.pr-helper-git2` → `~/.pr-helper-git`（首次启动自动 rename）；localStorage 键 `pr-helper-git2-pinned` / `git2-draft:*` / `git2-diff-font` / `git2-prefs` / `git2-dashboard-*` 统一改为 `pr-helper-git:*` 命名空间（首次加载自动迁移）；环境变量 `GIT2_*` → `PR_HELPER_GIT_*`（旧名 `GIT2_HOST` / `GIT2_DEV` / `GIT2_DESKTOP` / `GIT2_ALLOW_INSECURE_DEV_HOST` 仍兼容读取）；User-Agent 与 Tauri bundle id 同步更新。
+- **GitHub 仓库改名**：产品仓 `bayernjf/pr-helper-git2` → `bayernjf/pr-helper-git`；原同名归档仓先改名为 `bayernjf/pr-helper-git-archive`（PRIVATE + ARCHIVED 不变）。旧 URL 由 GitHub 重定向；本地 `origin` 已于 2026-11-12 切到新 URL。
+
 ### 安全
 - **服务端设置只归 owner**：`POST/DELETE /api/pat`、`POST /api/ai/config`、`POST /api/ai/test` 增加 admin 闸门；成员不再隐式继承服务端 PAT，必须自带 `x-github-pat`。
 - **AI 密钥不跟随新端点**：修改 `baseUrl` 而未同时提交新 key 时清空旧 key；base URL 必须是合法 http(s)、不允许内嵌凭据，非 localhost 的 `http://` 强制改用 https。
@@ -17,7 +27,7 @@
 - `/api/repos` 的逐仓 brief 改为最多 4 个并发，避免注册表很大时一次拉起数百个 git 进程。
 - light theme 的 legacy surface token 改为真正 alias 到 `design/tokens.css`，不再被 `styles.css` 的硬编码暗色 `:root` 覆盖。
 - 设置页对 member 隐藏 server PAT / AI / 服务端数据维护区，并说明浏览器 PAT 仍可用。
-- README / 设置页文案：E2E 136、单测 311/32、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
+- README / 设置页文案：E2E 144、单测 331/33、数据目录 0700/0600、PAT localStorage 口径、敏感文件覆盖范围、`GIT2_HOST` 与默认 loopback 的关系。
 
 ### 重构
 - `routes-git.mjs` 从 2743 行拆成 100 行调度器 + `routes-git-helpers.mjs`（共享校验/仓库摘要/敏感路径/rebase helper）、`routes-git-meta.mjs`（health/audit/storage/registry/PAT/users/team）、`routes-git-read.mjs`（只读仓库接口）、`routes-git-write.mjs`（写操作接口）；`repo` 守卫和 GitHub fallthrough 保持在调度器里，避免改变路由顺序。
@@ -31,6 +41,7 @@
 - 新增 `tsconfig.server.json` 与 `npm run typecheck:server`：对 `server/**/*.mjs`（排除测试文件）启用 `checkJs`，CI 与 `npm run lint` 并列执行。
 - 新增 admin 权限、成员 PAT 不继承、敏感文件 stage/commit/clean、数据目录权限、URL 脱敏、AI endpoint 变更清 key、watcher reconcile、主题 token alias 的测试；CI 增加 `npm run e2e`。
 - 新增 `appearance` 偏好/alias 测试与 `SettingsModal` admin/member 分区测试（6 条），并起隔离实例目检 light theme 主界面、设置弹窗与 Git 工作区。
+- 对比补完：新增 `CompareModal.test.tsx`（15 条，覆盖未加载 SHA、80 行截断、Esc 分层关闭、方向键、工作区选项与自动切页、交换、未跟踪计数）与 5 条服务端工作区/SHA 路由测试；E2E +8 项（SHA 对比、工作区两个方向、未跟踪计数、两侧工作区与 `:worktree-ish` 的 400）。单测 311/32 → **331/33**，E2E 136 → **144**。
 
 ## [0.2.2] - 2026-11-11
 

@@ -31,22 +31,29 @@ const BODY_LIMIT_BY_PATH = new Map([['/api/save', SAVE_BODY_BYTES]]);
 const args = process.argv.slice(2);
 const portArg = args.find((a) => a.startsWith('--port='));
 const PORT = portArg ? Number(portArg.split('=')[1]) : 4789;
-// Loopback by default. Set GIT2_HOST=0.0.0.0 (or a LAN address) only when the
+// Loopback by default. Set PR_HELPER_GIT_HOST=0.0.0.0 (or GIT2_HOST for legacy) (or a LAN address) only when the
 // port sits behind a private network such as Tailscale; the token is the only
 // credential, so never expose this on a public interface.
-const HOST = process.env.GIT2_HOST || '127.0.0.1';
+// Env var resolution: prefer the new PR_HELPER_GIT_* name, fall back to the
+// pre-rename GIT2_* name so existing user shells / launchd jobs keep working.
+function env(newName, legacyName) {
+  if (process.env[newName] !== undefined) return process.env[newName];
+  return process.env[legacyName];
+}
+
+const HOST = env('PR_HELPER_GIT_HOST', 'GIT2_HOST') || '127.0.0.1';
 if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
   console.error(`Invalid --port value: ${portArg}`);
   process.exit(1);
 }
 
-const isDev = process.env.GIT2_DEV === '1';
-const isDesktop = process.env.GIT2_DESKTOP === '1';
+const isDev = env('PR_HELPER_GIT_DEV', 'GIT2_DEV') === '1';
+const isDesktop = env('PR_HELPER_GIT_DESKTOP', 'GIT2_DESKTOP') === '1';
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 if (isDev && !LOOPBACK_HOSTS.has(String(HOST).toLowerCase())
-  && process.env.GIT2_ALLOW_INSECURE_DEV_HOST !== '1') {
-  console.error('GIT2_DEV=1 fixes the token to "dev-token"; refusing to bind a non-loopback host.');
-  console.error('Use a random production token, or set GIT2_ALLOW_INSECURE_DEV_HOST=1 if you really intend this.');
+  && env('PR_HELPER_GIT_ALLOW_INSECURE_DEV_HOST', 'GIT2_ALLOW_INSECURE_DEV_HOST') !== '1') {
+  console.error('PR_HELPER_GIT_DEV=1 fixes the token to "dev-token"; refusing to bind a non-loopback host.');
+  console.error('Use a random production token, or set PR_HELPER_GIT_ALLOW_INSECURE_DEV_HOST=1 if you really intend this.');
   process.exit(1);
 }
 const TOKEN = isDev ? 'dev-token' : randomToken();
@@ -297,12 +304,12 @@ server.listen(PORT, HOST, async () => {
   if (isDesktop) {
     // Machine-readable one-line readiness signal for a desktop shell so it
     // can learn the ephemeral port and token without parsing prose.
-    console.log(`GIT2_READY ${JSON.stringify({ port: bound, token: TOKEN })}`);
+    console.log(`PR_HELPER_GIT_READY ${JSON.stringify({ port: bound, token: TOKEN })}`);
   } else if (isDev) {
     console.log(`API server (dev) → http://${HOST}:${bound}`);
   } else {
-    console.log(`PR Helper Git2 → http://${HOST}:${bound}/?token=${TOKEN}`);
-    console.log(`Phone view     → http://${HOST}:${bound}/m?token=${TOKEN}`);
+    console.log(`PR Helper Git → http://${HOST}:${bound}/?token=${TOKEN}`);
+    console.log(`Phone view    → http://${HOST}:${bound}/m?token=${TOKEN}`);
     if (HOST !== '127.0.0.1') {
       console.log(`WARNING: listening on ${HOST}; keep this port on a private network (Tailscale/SSH tunnel).`);
     }

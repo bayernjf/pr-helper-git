@@ -22,10 +22,10 @@ describe('appearance preferences', () => {
   });
 
   it('accepts only known theme and accent values', () => {
-    localStorage.setItem('git2-prefs', JSON.stringify({ theme: 'light', accent: 'ocean' }));
+    localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'light', accent: 'ocean' }));
     expect(getThemeMode()).toBe('light');
     expect(getAccent()).toBe('ocean');
-    localStorage.setItem('git2-prefs', JSON.stringify({ theme: 'bogus', accent: 'bogus' }));
+    localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'bogus', accent: 'bogus' }));
     expect(getThemeMode()).toBe('dark');
     expect(getAccent()).toBe('violet');
     expect(ACCENTS).toEqual(['violet', 'ocean', 'forest', 'amber']);

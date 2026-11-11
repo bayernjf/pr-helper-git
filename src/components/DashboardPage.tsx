@@ -17,11 +17,13 @@ import { IconBranch, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, Icon
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 
+import { STORAGE_KEYS } from '../lib/storage-keys';
+
 type SortKey = 'conflict' | 'name' | 'recent' | 'changes';
-const SORT_KEY = 'git2-dashboard-sort';
-const AUTO_FETCH_KEY = 'git2-dashboard-autofetch';
+const SORT_KEY = STORAGE_KEYS.dashboardSort;
+const AUTO_FETCH_KEY = STORAGE_KEYS.dashboardAutofetch;
 const AUTO_FETCH_MS = 10 * 60_000;
-const PIN_KEY = 'pr-helper-git2-pinned';
+const PIN_KEY = STORAGE_KEYS.pinned;
 
 function loadPinned(): string[] {
   try {

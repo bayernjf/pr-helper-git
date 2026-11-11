@@ -20,7 +20,7 @@ async function githubGraphql(pat, query, variables) {
       headers: {
         Authorization: `Bearer ${pat}`,
         'content-type': 'application/json',
-        'user-agent': 'pr-helper-git2',
+        'user-agent': 'pr-helper-git',
       },
       body: JSON.stringify({ query, variables }),
       signal: controller.signal,
@@ -207,7 +207,7 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${pat}`,
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'pr-helper-git2',
+        'User-Agent': 'pr-helper-git',
       },
       body: (ghMethod === 'GET' || ghMethod === 'DELETE')
         ? undefined

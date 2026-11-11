@@ -13,7 +13,9 @@ import { activityLevel, relativeAge, sortRepos, summarizeRepos } from '../lib/re
 import { IconBranch, IconPin, IconRefresh, IconSearch, IconX } from './icons';
 import { t, tp } from '../i18n';
 
-const PIN_KEY = 'pr-helper-git2-pinned';
+import { STORAGE_KEYS } from '../lib/storage-keys';
+
+const PIN_KEY = STORAGE_KEYS.pinned;
 
 function loadPinned(): string[] {
   try {

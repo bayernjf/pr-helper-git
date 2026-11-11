@@ -1,10 +1,11 @@
-# PR Helper Git2
+# PR Helper Git
 
 A local-first Git workbench, bound to loopback by default, that combines the core experience of a
 graphical Git client (GitKraken-like) with a lightweight pull-request control
 tower (pr-helper-like). No cloud service is required and nothing is pushed to
-GitHub by the application setup. This repository itself is local-only: no
-remote is configured and commits stay on the local `main` branch.
+GitHub by the application setup. This repository itself is hosted publicly at
+`bayernjf/pr-helper-git`, so treat every committed file as world-readable; the
+application never pushes it for you.
 
 ## Features
 
@@ -34,7 +35,7 @@ remote is configured and commits stay on the local `main` branch.
 - Register and switch between local repositories, or add a new one through a
   three-mode dialog: open an existing folder, clone a remote over a network
   transport, or initialise a brand-new repository. The list is persisted under
-  `~/.pr-helper-git2`.
+  `~/.pr-helper-git`.
 - Open repositories panel: a filterable list of every registered repository
   showing its location, working-tree change counts, ahead/behind and current
   branch, with an active marker. Click a row to open it, or select several rows
@@ -158,7 +159,7 @@ remote is configured and commits stay on the local `main` branch.
   **Generate with AI** button drafts a Conventional-Commits message from the
   staged diff, and the new-PR dialog drafts a title plus Markdown description
   from `target..source`. The base URL, model and key are configured in Settings
-  and stored server-side in `~/.pr-helper-git2/config.json`; the key is never
+  and stored server-side in `~/.pr-helper-git/config.json`; the key is never
   returned to the browser (the API only reports `hasKey`), and a test button
   verifies the endpoint before you rely on it.
 - Interactive rebase from any commit in the graph context menu: the dialog
@@ -339,7 +340,7 @@ remote is configured and commits stay on the local `main` branch.
   token can be stored server-side through `/api/pat` and never round-trips to
   the browser; a request-scoped `x-github-pat` header remains supported as a
   fallback. In server-side mode the token lives in
-  `~/.pr-helper-git2/config.json`, never in the repository or a log.
+  `~/.pr-helper-git/config.json`, never in the repository or a log.
 
 ### Phone view (`/m`)
 
@@ -453,9 +454,9 @@ Security**.
   server-side (`/api/pat`) and injected into the proxy; the value never
   round-trips to the browser. A request-scoped `x-github-pat` header remains
   supported as a fallback. All write actions are appended to an audit log
-  under `~/.pr-helper-git2/audit.log`, which is size-bounded by automatic
+  under `~/.pr-helper-git/audit.log`, which is size-bounded by automatic
   rotation.
-- The AI key lives in `~/.pr-helper-git2/config.json` on the server and is
+- The AI key lives in `~/.pr-helper-git/config.json` on the server and is
   never echoed back: the config endpoint returns only `hasKey`, so a compromised
   browser session cannot read the credential. The base URL must be a valid
   http(s) URL without embedded credentials; plain `http://` is accepted only
@@ -515,11 +516,11 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (311 tests, 32 files)
+npm test           # Vitest unit + route-level HTTP tests (331 tests, 33 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/
-npm run e2e        # E2E: real loopback server + curl assertions (136 checks)
+npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 ```
 
 `npm run desktop` still exists but is frozen with desktop development; it is not
@@ -527,7 +528,7 @@ part of the regular check loop.
 
 `npm run e2e` starts the server on port 18774 with `GIT2_DEV=1` (token
 `dev-token`) and `PR_HELPER_HOME` pointed at a throwaway directory, so it never
-reads or writes `~/.pr-helper-git2`. It builds the fixture repositories itself
+reads or writes `~/.pr-helper-git`. It builds the fixture repositories itself
 and covers auth, repository registration, status/log/refs reads, stage → commit
 → undo, hunk/line-precise staging, branch/tag/stash, grep, compare, reverts,
 merge conflicts (resolve → commit, abort), interactive rebase (drop, conflict →

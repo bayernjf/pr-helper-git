@@ -92,7 +92,7 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'pr-helper-git2-team.json';
+      a.download = 'pr-helper-git-team.json';
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {

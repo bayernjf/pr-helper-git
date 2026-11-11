@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { STORAGE_KEYS } from '../lib/storage-keys';
 import { discardHunk, stageHunk, stageLines } from '../api';
 import { useApp } from '../app-state';
 import {
@@ -158,7 +159,7 @@ export default function DiffView({
   const { runAction } = useApp();
   const FONT_SIZES = [12, 13, 14];
   const [fontIdx, setFontIdx] = useState(() => {
-    const saved = Number(localStorage.getItem('git2-diff-font'));
+    const saved = Number(localStorage.getItem(STORAGE_KEYS.diffFont));
     return FONT_SIZES.indexOf(saved) === -1 ? 0 : FONT_SIZES.indexOf(saved);
   });
   const [mode, setMode] = useState<'unified' | 'split'>('unified');
@@ -284,7 +285,7 @@ export default function DiffView({
           onClick={() => {
             const next = (fontIdx + 1) % FONT_SIZES.length;
             setFontIdx(next);
-            localStorage.setItem('git2-diff-font', String(FONT_SIZES[next]));
+            localStorage.setItem(STORAGE_KEYS.diffFont, String(FONT_SIZES[next]));
           }}
         >
           A{FONT_SIZES[fontIdx]}

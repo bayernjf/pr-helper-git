@@ -188,7 +188,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <h3 className="settings-section">{t("Server-side PAT")}</h3>
           <div className="form-group">
             <div className="hint">
-              {t("Alternative to the browser storage above: the token is kept in ~/.pr-helper-git2/config.json (0700 dir / 0600 files), never returned to this page, and injected into GitHub calls server-side when the browser sends none. Preferred when this machine is shared.")}
+              {t("Alternative to the browser storage above: the token is kept in ~/.pr-helper-git/config.json (0700 dir / 0600 files), never returned to this page, and injected into GitHub calls server-side when the browser sends none. Preferred when this machine is shared.")}
             </div>
             <div className="settings-row">
               <input
@@ -304,7 +304,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
           <h3 className="settings-section">{t("AI generation")}</h3>
           <div className="hint" style={{ marginBottom: 10 }}>
-            {t("Any OpenAI-compatible endpoint. The key is stored server-side in ~/.pr-helper-git2/config.json (never returned to this page) and is used to draft commit messages and pull-request descriptions.")}
+            {t("Any OpenAI-compatible endpoint. The key is stored server-side in ~/.pr-helper-git/config.json (never returned to this page) and is used to draft commit messages and pull-request descriptions.")}
           </div>
           <div className="form-group">
             <label htmlFor="ai-base">{t("Base URL")}</label>

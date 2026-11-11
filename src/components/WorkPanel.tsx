@@ -18,6 +18,7 @@ import { useApp } from '../app-state';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import { getPref, setPref, repoPref } from '../lib/prefs';
+import { STORAGE_KEYS } from '../lib/storage-keys';
 import DiffView from './DiffView';
 import { Group, TreeRow } from './WorkPanelTree';
 import { Dropdown } from './Dropdown';
@@ -53,7 +54,7 @@ export default function WorkPanel() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [message, setMessage] = useState(() =>
-    activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
+    activeRepo ? localStorage.getItem(STORAGE_KEYS.draft(activeRepo)) || '' : '');
   const [historyOpen, setHistoryOpen] = useState(false);
   const historyKey = 'git2-commit-history';
   const loadHistory = (): string[] => {
@@ -70,7 +71,7 @@ export default function WorkPanel() {
     localStorage.setItem(historyKey, JSON.stringify([text, ...list].slice(0, 10)));
   };
   useEffect(() => {
-    setMessage(activeRepo ? localStorage.getItem(`git2-draft:${activeRepo}`) || '' : '');
+    setMessage(activeRepo ? localStorage.getItem(STORAGE_KEYS.draft(activeRepo)) || '' : '');
   }, [activeRepo]);
   const [amend, setAmend] = useState(false);
   const [ignoreWs, setIgnoreWs] = useState(false);
@@ -268,7 +269,7 @@ export default function WorkPanel() {
       if (result !== null) {
         saveHistory(text);
         setMessage('');
-        localStorage.removeItem(`git2-draft:${activeRepo}`);
+        localStorage.removeItem(STORAGE_KEYS.draft(activeRepo));
         setAmend(false);
       }
       return;
@@ -278,7 +279,7 @@ export default function WorkPanel() {
     if (result !== null) {
       saveHistory(text);
       setMessage('');
-      localStorage.removeItem(`git2-draft:${activeRepo}`);
+      localStorage.removeItem(STORAGE_KEYS.draft(activeRepo));
       setAllowEmpty(false);
     }
   }
@@ -443,7 +444,7 @@ export default function WorkPanel() {
             value={message}
             onChange={(e) => {
               setMessage(e.target.value);
-              if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, e.target.value);
+              if (activeRepo) localStorage.setItem(STORAGE_KEYS.draft(activeRepo), e.target.value);
             }}
           />
           <span className="commit-count" aria-hidden="true">{countLine(message)}</span>
@@ -458,7 +459,7 @@ export default function WorkPanel() {
                   className="dropdown-item"
                   onClick={() => {
                     setMessage(msg);
-                    if (activeRepo) localStorage.setItem(`git2-draft:${activeRepo}`, msg);
+                    if (activeRepo) localStorage.setItem(STORAGE_KEYS.draft(activeRepo), msg);
                     setHistoryOpen(false);
                   }}
                 >

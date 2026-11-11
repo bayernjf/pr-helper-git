@@ -1,8 +1,10 @@
-# Handoff — pr-helper-git2
+# Handoff — pr-helper-git
 
 A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
-tower (pr-helper-like core). Runs entirely on loopback; this project's own
-repository is never pushed.
+tower (pr-helper-like core). The app itself runs entirely on loopback and
+pushes nothing. This repository, however, **is** on GitHub as the public
+`bayernjf/pr-helper-git` (renamed from `pr-helper-git2` on 2026-11-11); treat
+every committed file as world-readable.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
@@ -15,15 +17,16 @@ Light-theme legacy tokens now alias the shared design tokens. `routes-git.mjs`
 is now a 100-line dispatcher (repo guard + AI routes) over `routes-git-helpers`,
 `routes-git-meta`, `routes-git-read` and `routes-git-write`; the write module
 itself fans out to worktree / refs / history / files / network / stash. Unit suite is
-311 tests / 32 files; E2E remains 136 checks and is now part of CI. Server
+331 tests / 33 files; E2E is 144 checks and is now part of CI. Server
 `checkJs` is gated by `npm run typecheck:server` (`tsconfig.server.json`).
 
 ## Release 0.2.2 (2026-11-11)
 
 `package.json` / `package-lock.json` are at **0.2.2**; `CHANGELOG.md` has the
 `[0.2.2]` section and a fresh `[Unreleased]`. The repository is tagged locally
-as `v0.2.2`. No remote is configured by design, so the tag is local-only until
-the owner chooses a remote.
+as `v0.2.2`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
 
 Scope: server-side PAT storage; destructive-scenario E2E coverage (115 -> 136);
 this repository is now the sole primary implementation, with `pr-helper-git`
@@ -33,15 +36,17 @@ archived.
 
 `package.json` / `package-lock.json` are at **0.2.1**; `CHANGELOG.md` has the
 `[0.2.1]` section and a fresh `[Unreleased]`. The repository is tagged locally
-as `v0.2.1`. No remote is configured by design, so the tag is local-only until
-the owner chooses a remote.
+as `v0.2.1`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
 
 ## Release 0.2.0 (2026-11-10)
 
 `package.json` / `package-lock.json` are at **0.2.0**; `CHANGELOG.md` has the
 `[0.2.0]` section and a fresh `[Unreleased]`. The repository is tagged locally
-as `v0.2.0`. No remote is configured by design, so the tag is local-only until
-the owner chooses a remote.
+as `v0.2.0`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
 
 ## Interaction contract (2026-11-10)
 
@@ -329,6 +334,9 @@ new features target the browser UI and are not adapted to the native shell.
   now; do not add a remote or push unless the user explicitly asks. Desktop
   packaging is frozen per the web-only decision; `dist/PR Helper Git2.app`
   predates the latest web features.
+  **(Superseded 2026-11-11: a remote now exists — the public
+  `bayernjf/pr-helper-git`. The "no remote" statement above is a 2026-11-08
+  snapshot, not current state. The "do not push unless asked" rule stands.)**
 - Initial delivery: 16 atomic conventional commits on `main`; no git remote is
   configured and no push of this project was performed.
 - Enhancement phase adds the features above; commits remain atomic conventional
@@ -1121,7 +1129,7 @@ read-only view instead of a responsive rewrite.
   now covers both the commit flow and the working-tree diff.
 
 Baseline at 0.2.1: 287 unit tests / 27 files, E2E 115/115.
-Current working-tree baseline: 311 / 32, E2E 136/136 (0.2.2 release was 287 / 27).
+Current working-tree baseline: 331 / 33, E2E 144/144 (0.2.2 release was 287 / 27).
 2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
 and four accent presets (violet/ocean/forest/amber), applied before first paint and
 persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.
@@ -1212,7 +1220,56 @@ grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
   复核：branch vs branch **早已实现**（Toolbar「Compare two references」→
   `CompareModal.tsx` + `/api/compare`），且 `validateRefSpec` 本就接受 7–40 位
   hex，后端已支持任意 commit。真实缺口只有两个 UI 口子：选不到任意 commit、
-  没有「工作区」选项。用户 2026-11-11 批准补完这两个口子。
+  没有「工作区」选项。用户 2026-11-11 批准补完这两个口子，**当日已交付**：
+  - 服务端：`:worktree` 伪引用（`COMPARE_WORKTREE`，`:` 在 git ref 名里非法故不会
+    撞名）可作任意一侧；作 base 时 diff 反向（同一暂存新增从 `A` 变 `D`），两侧
+    同时为工作区或 `:worktree-ish` 一律 400；工作区侧没有自己的提交，两个提交
+    列表按 HEAD 算且为空；响应新增 `untracked`（`ls-files --others
+    --exclude-standard`，不计入 diff）。
+  - 客户端：新增 `RefPicker.tsx` 组合框，可搜引用 / 已加载提交的主题与 hint，
+    也可直接敲 7–40 位 SHA 选未加载的提交（列表上限 80 行 + sticky 截断提示）；
+    新增「工作区」选项、base/head 交换按钮、未跟踪文件计数与分组；任一侧为
+    工作区时自动落到「文件」页（提交页按构造为空）。
+  - 闸门（`fnm exec --using=22.23.1`）：lint 0、typecheck:server 0、
+    **331 单测 / 33 文件**、build ok、**E2E 144/144**。浏览器实测：dev 42/42、
+    **生产构建** 42/42（0 console error / 0 失败请求）、中文 15/15；
+    1280×900 / 1280×620 / 1280×450 / 390×844 / 390×500 / 390×420 六种视口下
+    弹层均无裁切、截断提示始终可见。
+  - 目检（不是数字）抓出两个真缺陷并已修：① 560px 宽的弹层撑破 `.modal` 的
+    滚动盒，聚焦输入框会把标题和 BASE 标签横向滚出视野 → 弹层改为锚定整个
+    picker 行；② 矮视口下弹层被裁 0.5px、截断提示要滚动才看得到 → `.modal-compare`
+    固定高度框架 + `clamp()` 弹层高度 + sticky 页脚。
+  - **未扩大范围**：390 宽下页面级横向溢出是既有现象，把 HEAD 的样式表换回实时
+    页面复测可复现（HEAD 748px vs 当前 693px），源头是 toolbar 的
+    `.btn-group`/`.segmented`，`styles.css` 已注明其横向滚动是设计意图。
+- **显示名：现阶段用 `PR Helper Git`（去掉「2」）**。用户 2026-11-11 决定
+  （原话「pr-helper-git吧」「现阶段就用这个」）。只改两处**用户可见**面：
+  `index.html:7` 的 `<title>`（浏览器标签 / 手机加到主屏时的名字，`/m` 手机视图
+  共用同一个 shell）与 `server/main.mjs:304-305` 的启动横幅。
+  - **刻意不动**：`package.json` 的 `name`、数据目录 `~/.pr-helper-git2`、
+    cookie `git2_token`、`GIT2_*` 环境变量、`git2-prefs` 等 localStorage 键、
+    团队导出文件名。这些是标识符不是显示名，改它们要带数据迁移，零功能收益。
+    设置页里出现的 `~/.pr-helper-git2/config.json` 是真实路径，必须保持原样。
+  - **GitHub 仓库名同日一并改了**（用户明确要求）：归档仓
+    `bayernjf/pr-helper-git` → **`bayernjf/pr-helper-git-archive`**，产品仓
+    `bayernjf/pr-helper-git2` → **`bayernjf/pr-helper-git`**。归档仓是
+    read-only，GitHub 拒绝直接改名（403），故按「解除归档 → 改名 → 立刻重新
+    归档」三步执行，可见性全程 PRIVATE，收尾已复验回到 archived=true。
+    复验：归档 main `18413da` + 5 tag 完好；产品 main `63e10c3` 未变；
+    新旧两个 URL 的 `git ls-remote` 都可达（GitHub 保留旧名重定向）。
+  - **本地 `origin` 已切到新 URL** `git@github.com:bayernjf/pr-helper-git.git`
+    （2026-11-12 切换并复验 `ls-remote`）；旧 URL 的重定向仍由 GitHub 保留。
+  - **产品仓是 PUBLIC**（`bayernjf/pr-helper-git`，2026-11-11 pushedAt 10:01Z）。
+    本文档与 README 里「local-only / no remote / never pushed」的旧说法**与事实
+    不符**，已就地更正；仓库是否转私有属用户决策，未擅自更改。
+  - **冻结的 desktop 壳未改**：`desktop/main.swift:204,221` 与
+    `scripts/desktop-build.mjs:12` 仍是旧显示名；desktop 已冻结、无法验证，
+    故不在本次范围。注意 `main.swift:207` 的 `setFrameAutosaveName` 是
+    **持久化键**不是显示名，改它会重置已保存的窗口位置。
+  - 验证：隔离实例 + headless Chromium **8/8**（标签名、served HTML、
+    390 宽 `/m`、设置页数据目录未变、0 console error / 0 失败请求）。
+    并做反向变异证明检查能红：把 `dist/index.html` 标题改回 Git2 后 4 条转红，
+    随后按 sha256 还原（`244ee7a9…`）并复测 8/8。
 
 ## pr-helper-git 本地清理（2026-11-11 全部执行，本地已归零）
 
@@ -1247,8 +1304,12 @@ grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
   归档仓中仍在。删前已核验：9 个旧 source bundle 的 71 个 ref 中 70 个被最新 bundle 覆盖
 - 旧审计 2071 条（2026-11-05→11-10）已无副本
 
-唯一恢复源：GitHub 归档仓 `bayernjf/pr-helper-git`（PRIVATE + ARCHIVED）。
+唯一恢复源：GitHub 归档仓 **`bayernjf/pr-helper-git-archive`**（PRIVATE + ARCHIVED）。
 2026-11-11 核验：main = `18413da`，5 个 tag 齐全（v0.3.0–v0.6.1，sha 与原最新 bundle 一致）。
+⚠️ 该仓 2026-11-11 由 `bayernjf/pr-helper-git` 改名而来（用户要求，为把
+`pr-helper-git` 这个名字让给产品仓）。**旧地址 `bayernjf/pr-helper-git` 现在指向
+公开的产品仓，不再是归档仓**——任何旧书签 / 旧记录里的归档地址都要换成
+`pr-helper-git-archive`。改名后已复验 main 与 5 个 tag 均完好。
 
 凭据处置（2026-11-11 用户决定：**不吊销**，此项已关闭）：
 
@@ -1264,5 +1325,6 @@ grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
       `gh`/环境变量回退；git 传输走 SSH（`git_protocol: ssh`），不受影响。
 
 保留、不属于 pr-helper-git：`pr-helper`、`pr-helper-landing`（独立活项目）、
-git2 现役测试仓（`git2-e2e-test`、`git2-init-check`、`Hello-World`）、
+git2 现役测试仓（`git-e2e-test`、`git-init-check`、`Hello-World`；前两个于
+2026-11-12 去掉「2」改名，GitHub 仓同步改名）、
 git2 内继承资产（`docs/archive/pr-helper-git-desktop/`、`docs/parity-archive.md`）。

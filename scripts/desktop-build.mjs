@@ -75,7 +75,7 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleDisplayName</key>
   <string>${appName}</string>
   <key>CFBundleIdentifier</key>
-  <string>local.pr-helper-git2</string>
+  <string>local.pr-helper-git</string>
   <key>CFBundleExecutable</key>
   <string>${appName}</string>
   <key>CFBundleIconFile</key>

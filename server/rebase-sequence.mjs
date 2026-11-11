@@ -5,7 +5,7 @@
 // reorder and relabel but never introduce a commit git did not put there.
 //
 // Environment:
-//   GIT2_REBASE_PLAN — JSON array of {hash, action}
+//   PR_HELPER_GIT_REBASE_PLAN — JSON array of {hash, action}
 // Exit 1 (with the reason on stderr) makes git abort the rebase, which is the
 // safe failure mode for a stale or malformed plan.
 
@@ -15,9 +15,9 @@ import { applyTodoPlan } from './rebase-todo.mjs';
 const todoFile = process.argv[2];
 let plan = [];
 try {
-  plan = JSON.parse(process.env.GIT2_REBASE_PLAN || '[]');
+  plan = JSON.parse(process.env.PR_HELPER_GIT_REBASE_PLAN || '[]');
 } catch {
-  process.stderr.write('invalid GIT2_REBASE_PLAN\n');
+  process.stderr.write('invalid PR_HELPER_GIT_REBASE_PLAN\n');
   process.exit(1);
 }
 

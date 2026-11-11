@@ -181,11 +181,11 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
         env: {
           GIT_SEQUENCE_EDITOR: shim('rebase-sequence.mjs'),
           GIT_EDITOR: shim('rebase-msg.mjs'),
-          GIT2_REBASE_PLAN: JSON.stringify(
+          PR_HELPER_GIT_REBASE_PLAN: JSON.stringify(
             verdict.plan.map((item) => ({ hash: item.hash, action: item.action })),
           ),
-          GIT2_REWORD_MSGS: JSON.stringify(rewords),
-          GIT2_REWORD_STATE: stateFile,
+          PR_HELPER_GIT_REWORD_MSGS: JSON.stringify(rewords),
+          PR_HELPER_GIT_REWORD_STATE: stateFile,
         },
         timeout: REBASE_TIMEOUT_MS,
       });

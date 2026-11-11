@@ -1,7 +1,10 @@
 // Small JSON-backed preference store in localStorage. A single object is kept
 // under one key so independent preferences do not collide; malformed stored
 // data falls back to defaults rather than crashing the app.
-const PREFS_KEY = 'git2-prefs';
+//
+// 2026-11-12: key renamed from `git2-prefs` to `pr-helper-git:prefs`; the
+// migration in src/lib/storage-keys.ts runs once on app boot.
+const PREFS_KEY = 'pr-helper-git:prefs';
 
 type Store = Record<string, unknown>;
 

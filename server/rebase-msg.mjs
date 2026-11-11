@@ -6,8 +6,8 @@
 // exits non-zero — failing here would leave the rebase stopped for no reason.
 //
 // Environment:
-//   GIT2_REWORD_MSGS  — JSON array of {subject, message} still to be applied
-//   GIT2_REWORD_STATE — file the consumed messages are written back to
+//   PR_HELPER_GIT_REWORD_MSGS  — JSON array of {subject, message} still to be applied
+//   PR_HELPER_GIT_REWORD_STATE — file the consumed messages are written back to
 
 import fs from 'node:fs';
 import { resolveRewordMessage } from './rebase-todo.mjs';
@@ -15,7 +15,7 @@ import { resolveRewordMessage } from './rebase-todo.mjs';
 const msgFile = process.argv[2];
 if (!msgFile || !fs.existsSync(msgFile)) process.exit(0);
 
-const stateFile = process.env.GIT2_REWORD_STATE;
+const stateFile = process.env.PR_HELPER_GIT_REWORD_STATE;
 let pending = [];
 if (stateFile) {
   try {
@@ -24,7 +24,7 @@ if (stateFile) {
 }
 if (!Array.isArray(pending) || pending.length === 0) {
   try {
-    pending = JSON.parse(process.env.GIT2_REWORD_MSGS || '[]');
+    pending = JSON.parse(process.env.PR_HELPER_GIT_REWORD_MSGS || '[]');
   } catch {
     pending = [];
   }

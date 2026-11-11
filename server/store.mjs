@@ -1,17 +1,41 @@
 // Persistent local state: registered repository list and the audit trail.
-// Nothing leaves this machine; the config lives under ~/.pr-helper-git2.
+// Nothing leaves this machine; the config lives under ~/.pr-helper-git.
+// Migration: 2026-11-12 renamed from ~/.pr-helper-git2; first boot renames the
+// old directory if the new one does not yet exist. PR_HELPER_HOME override wins.
 import fsp from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import { currentActor } from './actor.mjs';
 
-// The home override exists so tests can run against an isolated registry and
-// audit trail without touching the user's real ~/.pr-helper-git2 directory.
-const CONFIG_DIR = process.env.PR_HELPER_HOME
-  ? path.resolve(process.env.PR_HELPER_HOME)
-  : path.join(os.homedir(), '.pr-helper-git2');
+const LEGACY_DIRNAME = '.pr-helper-git2';
+const CURRENT_DIRNAME = '.pr-helper-git';
+
+function resolveConfigDir() {
+  if (process.env.PR_HELPER_HOME) return path.resolve(process.env.PR_HELPER_HOME);
+  return path.join(os.homedir(), CURRENT_DIRNAME);
+}
+
+// One-shot synchronous migration on module load: rename legacy -> current.
+// Synchronous so CONFIG_DIR stays a stable top-level constant and all existing
+// call sites keep working unchanged. Tests / PR_HELPER_HOME override skip this.
+function migrateLegacyDir() {
+  if (process.env.PR_HELPER_HOME) return;
+  const target = path.join(os.homedir(), CURRENT_DIRNAME);
+  const legacy = path.join(os.homedir(), LEGACY_DIRNAME);
+  if (existsSync(target)) return;
+  if (!existsSync(legacy)) return;
+  try {
+    renameSync(legacy, target);
+    console.info(`[store] migrated ${LEGACY_DIRNAME} -> ${CURRENT_DIRNAME}`);
+  } catch (err) {
+    console.warn(`[store] migration ${LEGACY_DIRNAME} -> ${CURRENT_DIRNAME} failed:`, err.message);
+  }
+}
+migrateLegacyDir();
+
+const CONFIG_DIR = resolveConfigDir();
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const AUDIT_FILE = path.join(CONFIG_DIR, 'audit.log');
 
