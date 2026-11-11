@@ -3,13 +3,11 @@
 // can be reached.
 import { git } from './git.mjs';
 import { appendAudit, listRepos, loadConfig } from './store.mjs';
+import { fail, ok } from './http.mjs';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_TIMEOUT_MS = 20_000;
 import { isAllowed } from './github-allowlist.mjs';
-
-const ok = (json, status = 200) => ({ status, json });
-const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
 
 // Minimal GitHub GraphQL caller used for the draft -> ready conversion, which
 // the REST endpoint silently ignores.

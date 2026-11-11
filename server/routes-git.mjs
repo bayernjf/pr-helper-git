@@ -19,6 +19,7 @@ import {
   splitFilePatch,
 } from './git.mjs';
 import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { fail, ok } from './http.mjs';
 import { buildCommitSearch } from './search-commits.mjs';
 import { validateRebasePlan } from './rebase-todo.mjs';
 import {
@@ -97,7 +98,6 @@ function validateRefSpec(raw) {
   return validateRefName(v) ? v : null;
 }
 
-const ok = (json) => ({ status: 200, json });
 /** Resolve a path inside the repository's own git dir (BISECT_LOG, BISECT_START). */
 async function gitDirPath(repo, name) {
   const rel = (await git(['rev-parse', '--git-path', name], repo)).trim();
@@ -129,8 +129,6 @@ async function readBisectState(repo) {
   const bad = (log.match(/^# bad:/gm) || []).length;
   return { active: true, start, current, log, decisions: { good, bad } };
 }
-
-const fail = (status, error, detail) => ({ status, json: { error, ...(detail ? { detail } : {}) } });
 
 const isAdmin = (identity) => Boolean(identity && identity.role === 'admin');
 

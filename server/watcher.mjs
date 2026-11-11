@@ -47,8 +47,11 @@ export function ensureWatching(repoPath) {
         broadcast(repoPath);
       }, DEBOUNCE_MS));
     });
-  } catch {
-    return; // platform without recursive watch; SSE simply stays quiet
+  } catch (err) {
+    // A platform without recursive watch should not take the API down, but a
+    // silent dead watcher is worse than a visible warning.
+    console.error(`watch unavailable for ${repoPath}: ${err.message}`);
+    return;
   }
   watcher.on('error', () => stopWatching(repoPath));
   watchers.set(repoPath, watcher);
