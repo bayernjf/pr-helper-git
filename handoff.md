@@ -1170,26 +1170,99 @@ Engineering knowledge worth keeping now that pr-helper-git is archived:
    `--port=0` + machine-readable port line handshake, tray open/quit, dock
    reopen, child server killed on exit, `find_node()` multi-path discovery,
    fatal-error osascript dialog.
+7. **`core.quotepath=off` is not enough**: git still C-quotes `"` and control
+   characters. pr-helper-git needed a dedicated `c-quote.mjs` decoder; check
+   git2's path parsing before assuming raw paths are safe.
+8. **Refresh fingerprints must include content, not counts**: file paths +
+   ahead/behind + remote/tags/stashes. Counts-only produced ghost WIP rows and
+   defeated auto-fetch; opening a repo must reset the cached fingerprint.
+9. **Removing an import requires checking transitive callers**: dropping `fs`
+   broke `isGitWorktree` (`fs.lstatSync`); a try/catch turned it into a silent
+   `false`, so every repo operation failed with "invalid repo path".
+10. **`parsePorcelainV2` has two field layouts**: git 2.51 separates ordinary
+    fields with spaces but uses a tab before the rename path — handle both.
 
-## pr-helper-git 本地清理待办（未到期，按约定保留反悔期）
+### 继承的产品约束与暂缓项（2026-11-11 从 pr-helper-git 的 ZCode 项目记忆迁入）
 
-背景：pr-helper-git 已于 2026-11-10 推 GitHub（私有、归档只读）并完成资产迁移，
-本地目录按 A6 约定保留一个发布周期。以下两项**到期后执行**，不要提前：
+来源：`~/.zcode/cli/memories/projects/pr-helper-git-29beae1193885890/`（6 条记忆，
+已于 2026-11-11 删除）。以下是其中仍适用、且本仓库此前未记录的内容；迁移前已逐项
+grep 确认 README / handoff / CHANGELOG / docs 对这些主题为 0 命中。
 
-- [ ] **删除空壳目录 `/Users/jiangfeng/000mycodes/pr-helper-git/`**
-  - 现状：仅含 README-ARCHIVED.md（1KB），无任何代码
-  - 前置条件：**确认没有会话/进程把工作目录锚定在该路径**（删除会使锚定它的
-    进程无法启动；本轮就是因此保留的占位）。下个会话开工时先检查一次即可删
-- [ ] **删除完整副本 `/Users/jiangfeng/000mycodes/pr-helper-git-archive/`**
-  - 现状：完整工作副本（含 .git，HEAD=18413da，工作树干净；node_modules/dist/
-    src-tauri/target 已清，剩 4.3M 纯源码+历史）
-  - 前置条件：一个发布周期（自 v0.6.1 起）无反悔需求；删除前跑最后一次
-    `bash /Users/jiangfeng/000mycodes-backups/pr-helper-backup.sh` 已无意义
-    （脚本只备份 git2）——改用核验 GitHub 归档可达 + 旧 bundle（见下）
-  - 双保险（删除后依然在）：GitHub 归档仓 + `000mycodes-backups/pr-helper-git/`
-    下的 bundle
-- [ ] （顺带）**清理旧 bundle**：`000mycodes-backups/pr-helper-git/` 下 10 个
-  bundle 是逐次备份的累积，删除上面两项时只保留最新一个
-  （`source-20261110-2008.bundle`，含最终状态 v0.6.1 + polyfill 修复），
-  其余可删
-- 永久保留、无需动作：GitHub 归档仓（bayernjf/pr-helper-git，PRIVATE+ARCHIVED）
+- **产品定位**：本地自用工具，**不上生产**（用户 2026-11-10 明确）。手机端只在
+  **局域网**内访问，不做公网 / Tailscale / 反代组网。
+- **由此不做的事**：TLS、公网反代、CSP 收紧等加固类工作与部署文档，除非用户要求；
+  局域网内明文 HTTP + token 可接受。这条直接影响权限矩阵与移动端验收的取舍。
+- **备份**：统一放 `/Users/jiangfeng/000mycodes-backups`，一键脚本
+  `bash pr-helper-backup.sh`（先 commit，bundle 不含未提交内容）。Docker 仅换机 /
+  NAS 场景需要，日常不用。
+- **设计 token**：编辑 `design/tokens.json` 后跑 **`node scripts/sync-tokens.mjs`**
+  （`TARGETS` 只写 git2）。⚠️ 旧记忆写的 `npm run tokens` 在本仓库**不存在**，
+  package.json 无该 script，已按脚本头部注释校正。
+- **用户决策偏好（跨项目）**：不要追求最简实现，以核心 / 基本功能做对为准，UI 要
+  设计得好看（2026-11-05 原话：「后续遇到要决策的点，不要追求最简单的实现方式，
+  以核心功能，基本功能为准，UI也要设计的好看点」）。
+- **迭代节奏（跨项目）**：用户会在建议收敛后继续说「继续」；照做并找出真实改进，
+  但确实枯竭时要诚实说明，不要镀金。
+- **暂缓功能**：图拖拽（branch→commit 的 checkout/merge/rebase、commit→branch
+  的 cherry-pick）**维持 park**。2026-11-11 复核：同等能力已由右键菜单覆盖
+  （`CommitGraph.tsx` menuItems 含 cherry-pick / interactive rebase from here，
+  `RefSidebar.tsx` menuItems 含 Checkout / Merge into current），拖拽只是换手势；
+  且图行已有单击选中 / 右键菜单 / 批量勾选三套手势，加拖拽有劫持风险。
+- **对比模式：原 park 记录已过期**（迁自旧项目，对 git2 不成立）。2026-11-11
+  复核：branch vs branch **早已实现**（Toolbar「Compare two references」→
+  `CompareModal.tsx` + `/api/compare`），且 `validateRefSpec` 本就接受 7–40 位
+  hex，后端已支持任意 commit。真实缺口只有两个 UI 口子：选不到任意 commit、
+  没有「工作区」选项。用户 2026-11-11 批准补完这两个口子。
+
+## pr-helper-git 本地清理（2026-11-11 全部执行，本地已归零）
+
+背景：pr-helper-git 于 2026-11-10 推 GitHub（PRIVATE + ARCHIVED）并完成资产迁移。
+原本地目录按 A6 约定保留一个发布周期（「到期后执行，不要提前」）；2026-11-11
+用户逐项明确批准提前清理，反悔期由用户覆盖。
+
+已删除（本地不再有任何 pr-helper-git 副本）：
+
+- [x] 完整副本 `pr-helper-git-archive/`（4.3M）。删前核验：dirty=0、未推送 commit=0、
+      `git ls-remote origin main` = `18413da` 与本地 HEAD 一致、
+      `source-20261111-0021.bundle` 试克隆还原 144 commit / 5 tag
+- [x] 空壳目录 `pr-helper-git/`（4.0K，仅 README-ARCHIVED.md）。删前以
+      `lsof -a -d cwd -Fn` 精确匹配确认无进程锚定，`lsof +D` 无打开文件
+- [x] 旧数据目录 `~/.pr-helper-git/`：`audit.log`（2071 条）、`repos.json`、
+      `settings.json`（含 40 字符 `ghp_` classic PAT，login `bayernjf`）及空目录本身。
+      前两者删前与备份副本 sha256 相同，且已核验不含凭据（68 处 40 位十六进制全部
+      落在 `commit`/`good`/`bad`/`shas[]` 等 git 对象字段）
+- [x] 旧实现的 4 个本地测试仓：`git-demo-playground`、`git-notes`、`git-sync-test`、
+      `git-clone-ui-test`（删前均 dirty=0）
+- [x] 冷备份目录 `000mycodes-backups/pr-helper-git/`（9.7M / 16 项：10 个 source
+      bundle、2 个测试仓 bundle、旧数据 3 副本、RESTORE.md）
+
+不可逆后果（用户在列明后果的选项下选择全删）：
+
+- `git-demo-playground`（19 commit，HEAD `a691fdd`）与 `git-notes`（3 commit，
+  HEAD `7de9549`）**无远端**，其唯一副本 testrepo bundle 已随备份目录删除，
+  22 个 commit 永久丢失。`git-sync-test` / `git-clone-ui-test` 的远端
+  `bayernjf/pr-helper-git-sync-test` 保留，可 re-clone
+- 旧 `v0.6.1` annotated tag 对象 `9726fd6`（该 tag 后移至 `efd54b8`）仅存在于
+  `source-20261110-2007.bundle`，已随之删除；其指向的 commit `951c7f4` 在 GitHub
+  归档仓中仍在。删前已核验：9 个旧 source bundle 的 71 个 ref 中 70 个被最新 bundle 覆盖
+- 旧审计 2071 条（2026-11-05→11-10）已无副本
+
+唯一恢复源：GitHub 归档仓 `bayernjf/pr-helper-git`（PRIVATE + ARCHIVED）。
+2026-11-11 核验：main = `18413da`，5 个 tag 齐全（v0.3.0–v0.6.1，sha 与原最新 bundle 一致）。
+
+凭据处置（2026-11-11 用户决定：**不吊销**，此项已关闭）：
+
+- [x] 旧 `settings.json` 里那串 40 字符 `ghp_` classic PAT：**本地副本已删，
+      GitHub 侧保留**。用户明确「这三个 token 是我要用的」。当天登录 GitHub
+      核到账号下共 3 串 classic token，全部在用：`GitHub CLI`、
+      `Visual Studio Code`、`job-agent GITHUB_TOKEN`。
+      本机 `gh auth token` 同样是 40 字符 `ghp_`，与旧项目那串特征一致，
+      且旧记忆记载其来源就是 `gh auth token`，因此**很可能是同一串**
+      （判别实验未做完，不下确定结论）。吊销会打断 gh CLI，故不做。
+      ⚠️ 后续会话不要再把这串当作「待吊销的泄漏凭据」去删除。
+      git2 不依赖它：服务端 `config.json` 无 `github.token`，代码里也没有
+      `gh`/环境变量回退；git 传输走 SSH（`git_protocol: ssh`），不受影响。
+
+保留、不属于 pr-helper-git：`pr-helper`、`pr-helper-landing`（独立活项目）、
+git2 现役测试仓（`git2-e2e-test`、`git2-init-check`、`Hello-World`）、
+git2 内继承资产（`docs/archive/pr-helper-git-desktop/`、`docs/parity-archive.md`）。

@@ -43,7 +43,7 @@
 - **jsdom localStorage polyfill**：修复 Node >= 22 下测试环境的 localStorage 缺失，单测保持 287 / 27 文件。
 
 ### 变更
-- **git 归档 / 单一主实现**：`pr-helper-git` 归档为 GitHub PRIVATE+ARCHIVED，本地保留 `pr-helper-git-archive` 与最终 bundle；设计 token 源、PARITY 台账、Tauri 桌面壳配置迁入本仓库。
+- **git 归档 / 单一主实现**：`pr-helper-git` 归档为 GitHub PRIVATE+ARCHIVED，本地保留 `pr-helper-git-archive` 与最终 bundle；设计 token 源、PARITY 台账、Tauri 桌面壳配置迁入本仓库。（后续：本地副本 `pr-helper-git-archive` 与全部本地 bundle 已于 2026-11-11 经用户批准删除，唯一恢复源为 GitHub 归档仓，见 handoff 清理台账）
 - **文档校准**：README / handoff 更新 PAT 存储口径、E2E 基线、three-way merge 状态与 PR 实网验收 blocked 说明。
 
 ### 补记（0.2.0 已上线，原 CHANGELOG 漏记）
