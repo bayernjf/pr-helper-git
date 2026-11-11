@@ -29,6 +29,9 @@ export function normalizeRepoPath(input) {
   for (const segment of input.split(/[\\/]+/)) {
     if (!segment || segment === '.') return null;
     if (segment === '..') return null;
+    // The .git directory holds credentials (remote URLs with embedded tokens)
+    // and hooks; the UI must never read or write inside it.
+    if (segment.toLowerCase() === '.git') return null;
     parts.push(segment);
   }
   return parts.length ? parts.join('/') : null;
@@ -119,4 +122,10 @@ export function sanitizeUrlForAudit(raw) {
 
 export function randomToken() {
   return crypto.randomBytes(24).toString('hex');
+}
+
+// Strip credentials from URLs embedded in arbitrary text. git stderr can echo
+// a remote URL whose userinfo carries a token; this must never reach the client.
+export function redactCredentials(text) {
+  return String(text || '').replace(/((?:https?|ssh|git):\/\/)[^/\s@]+@/gi, '$1***@');
 }

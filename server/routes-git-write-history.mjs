@@ -2,97 +2,12 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  buildHunkPatch,
-  cleanCommitMessage,
-  git,
-  numstatTarget,
-  parseBlame,
-  parseLog,
-  parsePorcelainV2,
-  parseRefs,
-  parseReflog,
-  parseSubmoduleStatus,
-  parseTagObject,
-  splitFilePatch,
-} from './git.mjs';
-import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { git }from './git.mjs'
 import { fail, ok } from './http.mjs';
-import { buildCommitSearch } from './search-commits.mjs';
 import { validateRebasePlan } from './rebase-todo.mjs';
-import {
-  isSensitivePath,
-  normalizeRepoPath,
-  resolveInside,
-  sanitizeUrlForAudit,
-  validateCloneUrl,
-  validateFolderName,
-  validateRefName,
-} from './security.mjs';
-import {
-  addRepo,
-  appendAudit,
-  configPaths,
-  listRepos,
-  loadConfig,
-  pruneRepos,
-  readAudit,
-  removeRepo,
-  rotateAudit,
-  updateConfig,
-} from './store.mjs';
-import { createUser, listUsers, removeUser } from './identity.mjs';
-import {
-  branchCommitSubjects,
-  buildCommitMessagePrompt,
-  buildPrDescriptionPrompt,
-  complete,
-  isAiConfigured,
-  loadAiConfig,
-  normalizeAiConfig,
-  parsePrGeneration,
-  publicAiConfig,
-  saveAiConfig,
-  stagedDiff,
-  validateAiConfig,
-} from './ai.mjs';
-import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
-import {
-  CONFIG_SPEC_BY_KEY,
-  CONFIG_SPECS,
-  CONFIG_VALUE_MAX,
-  DIFF_LINE_LIMIT,
-  FILE_MAX_BYTES,
-  LOG_LIMIT_DEFAULT,
-  LOG_LIMIT_MAX,
-  NETWORK_TIMEOUT_MS,
-  REBASE_TIMEOUT_MS,
-  SAVE_MAX_BYTES,
-  changedPaths,
-  detectRepoState,
-  findRegistered,
-  gitDirPath,
-  gitFail,
-  grepArgv,
-  isAdmin,
-  mapLimit,
-  normalizeGrepGlob,
-  normalizeRebaseBase,
-  parseConfigList,
-  parseGrepLines,
-  readBisectState,
-  rebaseCommits,
-  rebaseGuardrails,
-  repoBrief,
-  resolveParentDir,
-  sensitiveChanges,
-  sensitiveFail,
-  unmergedPaths,
-  validateDateValue,
-  validateFilterValue,
-  validateRefSpec,
-  validateStashIndex,
-} from './routes-git-helpers.mjs';
+import { validateRefName }from './security.mjs'
+import { appendAudit }from './store.mjs'
+import { REBASE_TIMEOUT_MS, detectRepoState, gitFail, normalizeRebaseBase, readBisectState, rebaseCommits, rebaseGuardrails, unmergedPaths }from './routes-git-helpers.mjs'
 
 export async function handleGitWriteHistory({ method, pathname, query, body, identity }, repo) {
   if (pathname === '/api/merge') {
@@ -168,7 +83,11 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
     }
 
     const serverDir = path.dirname(fileURLToPath(import.meta.url));
-    const shim = (name) => `'${process.execPath}' '${path.join(serverDir, name)}'`;
+    // GIT_SEQUENCE_EDITOR/GIT_EDITOR are parsed as shell commands, so quote each
+    // component in single quotes and escape any embedded single quote (an install
+    // path containing one would otherwise inject a command).
+    const shellQuote = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
+    const shim = (name) => `${shellQuote(process.execPath)} ${shellQuote(path.join(serverDir, name))}`;
     const rewords = verdict.plan
       .filter((item) => item.action === 'reword')
       .map((item) => ({ subject: item.subject, message: item.message }));
@@ -231,7 +150,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
   }
 
   if (pathname === '/api/bisect/start') {
-    if (method !== 'POST') return fail(405, 'method not allowed');
     const bad = typeof body.bad === 'string' && /^[0-9a-f]{7,40}$/.test(body.bad.trim())
       ? body.bad.trim()
       : null;
@@ -258,7 +176,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
   }
 
   if (pathname === '/api/bisect/mark') {
-    if (method !== 'POST') return fail(405, 'method not allowed');
     const verdict = body.verdict === 'good' || body.verdict === 'bad' ? body.verdict : null;
     if (!verdict) return fail(400, 'verdict must be good or bad');
     if (!(await readBisectState(repo)).active) return fail(400, 'no bisect in progress');
@@ -274,7 +191,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
   }
 
   if (pathname === '/api/bisect/reset') {
-    if (method !== 'POST') return fail(405, 'method not allowed');
     if (!(await readBisectState(repo)).active) return fail(400, 'no bisect in progress');
     try {
       const out = await git(['bisect', 'reset'], repo);
@@ -310,7 +226,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
 
   // Apply one commit from anywhere in the graph onto the current branch.
   if (pathname === '/api/cherry-pick') {
-    if (method !== 'POST') return fail(405, 'method not allowed');
     const sha = typeof body.sha === 'string' && /^[0-9a-f]{7,40}$/.test(body.sha.trim())
       ? body.sha.trim()
       : null;
@@ -342,7 +257,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
 
   // Undo the newest commit on the current branch, keeping its changes staged.
   if (pathname === '/api/undo-commit') {
-    if (method !== 'POST') return fail(405, 'method not allowed');
     try {
       await git(['reset', '--soft', 'HEAD~1'], repo);
       await appendAudit({ ok: true, action: 'commit-undo', repo });
@@ -486,11 +400,6 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
       return gitFail(err, 'git revert --abort failed');
     }
   }
-
-  // Take one side of a conflicted file and stage it. "ours" is the current
-  // branch, "theirs" the incoming side (rebase inverts these internally, so
-  // the UI labels them by side, not by branch); "mark" stages the file as-is
-  // after a manual edit.
 
   return null;
 }
