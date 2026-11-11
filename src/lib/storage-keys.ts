@@ -32,7 +32,9 @@ const LEGACY_ACTIVE_REPO = 'git2-active-repo';
 const LEGACY_PAT = 'git2-pat';
 const LEGACY_COMMIT_HISTORY = 'git2-commit-history';
 const LEGACY_CLONE_PARENT = 'git2-clone-parent';
-const MIGRATION_FLAG = `${PREFIX}:storage-migrated`;
+// Versioned flag: v1 ran without active-repo/PAT/history/clone-parent; v2
+// re-runs the idempotent per-key copy so those keys are not left behind.
+const MIGRATION_FLAG = `${PREFIX}:storage-migrated:v2`;
 
 function migrateKey(oldKey: string, newKey: string) {
   try {

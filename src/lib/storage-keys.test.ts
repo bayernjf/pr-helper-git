@@ -52,4 +52,14 @@ describe('legacy localStorage migration', () => {
     expect(localStorage.getItem(STORAGE_KEYS.pat)).toBeNull();
     expect(localStorage.getItem('git2-pat')).toBe('late value');
   });
+
+  it('re-runs after a v1 flag so newly covered keys migrate', () => {
+    localStorage.setItem('pr-helper-git:storage-migrated', '1');
+    localStorage.setItem('git2-pat', 'ghp_after_v1');
+
+    migrateStorage();
+
+    expect(localStorage.getItem(STORAGE_KEYS.pat)).toBe('ghp_after_v1');
+    expect(localStorage.getItem('git2-pat')).toBeNull();
+  });
 });
