@@ -28,9 +28,11 @@ export function parseHunk(hunkLines) {
   const countNew = match[4] === undefined ? 1 : Number(match[4]);
   let oldLn = startOld;
   let newLn = startNew;
+  /** @type {{kind: 'ctx'|'add'|'del', index: number, oldLn: number|null, newLn: number|null, text: string}[]} */
   const lines = [];
   let index = 0;
   for (const line of all.slice(1)) {
+    /** @type {'ctx'|'add'|'del'} */
     const kind = line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : 'ctx';
     if (line.startsWith('\\')) {
       // "\ No newline at end of file" — a meta marker without line numbers.

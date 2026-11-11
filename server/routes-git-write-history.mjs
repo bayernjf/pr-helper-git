@@ -160,7 +160,7 @@ export async function handleGitWriteHistory({ method, pathname, query, body, ide
       commits.map((c) => ({ hash: c.hash, subject: c.subject })),
       body.commands,
     );
-    if (verdict.error) return fail(400, verdict.error);
+    if ('error' in verdict) return fail(400, verdict.error);
 
     const state = await detectRepoState(repo);
     if (state.rebaseInProgress || state.mergeInProgress || state.revertInProgress) {

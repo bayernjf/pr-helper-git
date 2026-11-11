@@ -47,6 +47,11 @@ export async function listUsers() {
   };
 }
 
+/**
+ * @param {string} name
+ * @param {'member'|'admin'} role
+ * @returns {Promise<{error: string} | {user: {name: string, role: string, createdAt: string}, token: string}>}
+ */
 export async function createUser(name, role) {
   const cleanName = typeof name === 'string' ? name.trim() : '';
   if (!USER_NAME_RE.test(cleanName)) {
@@ -73,6 +78,10 @@ export async function createUser(name, role) {
   });
 }
 
+/**
+ * @param {string} name
+ * @returns {Promise<{error: string} | {name: string, role: string}>}
+ */
 export async function removeUser(name) {
   const cleanName = typeof name === 'string' ? name.trim() : '';
   if (!cleanName) return { error: 'missing user name' };

@@ -517,6 +517,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ```bash
 npm test           # Vitest unit + route-level HTTP tests (307 tests, 31 files)
 npm run lint       # tsc --noEmit
+npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/
 npm run e2e        # E2E: real loopback server + curl assertions (136 checks)
 ```

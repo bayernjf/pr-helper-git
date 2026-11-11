@@ -138,7 +138,11 @@ export function parsePrGeneration(text) {
   return { title, body: rest };
 }
 
-/** One non-streaming chat completion; returns the assistant text. */
+/**
+ * One non-streaming chat completion; returns the assistant text.
+ * @param {string} prompt
+ * @param {{signal?: AbortSignal, temperature?: number}} [options]
+ */
 export async function complete(prompt, { signal, temperature = 0.3 } = {}) {
   const ai = await loadAiConfig();
   if (!isAiConfigured(ai)) {

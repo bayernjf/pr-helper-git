@@ -27,11 +27,13 @@ async function githubGraphql(pat, query, variables) {
     });
     const payload = await response.json().catch(() => ({}));
     if (payload.errors) {
+      /** @type {Error & {status?: number}} */
       const error = new Error(payload.errors.map((e) => e.message).join('; '));
       error.status = response.status;
       throw error;
     }
     if (!response.ok) {
+      /** @type {Error & {status?: number}} */
       const error = new Error(`GraphQL request failed (${response.status})`);
       error.status = response.status;
       throw error;

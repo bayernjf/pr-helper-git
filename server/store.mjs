@@ -92,6 +92,8 @@ export async function loadConfig() {
 /**
  * Read-modify-write under the write chain. A mutator may return
  * `{ value, persist: false }` to skip the write (validation failures).
+ * @param {(config: any) => any} mutator
+ * @returns {Promise<any>}
  */
 export async function updateConfig(mutator) {
   return serializeWrite(async () => {
@@ -124,7 +126,10 @@ export async function removeRepo(absPath) {
   });
 }
 
-/** Drop registry entries whose paths no longer exist or are no longer Git. */
+/**
+ * Drop registry entries whose paths no longer exist or are no longer Git.
+ * @returns {Promise<{removed: number, total: number, removedPaths: string[], repos: string[]}>}
+ */
 export async function pruneRepos() {
   return updateConfig(async (config) => {
     const alive = [];

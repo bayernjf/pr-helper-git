@@ -291,7 +291,8 @@ server.headersTimeout = 65_000;
 await ensureDataPermissions();
 
 server.listen(PORT, HOST, async () => {
-  const bound = server.address().port;
+  const address = server.address();
+  const bound = typeof address === 'object' && address ? address.port : PORT;
   reconcileWatching(await listRepos());
   if (isDesktop) {
     // Machine-readable one-line readiness signal for a desktop shell so it

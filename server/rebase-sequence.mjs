@@ -27,7 +27,7 @@ if (!todoFile || !fs.existsSync(todoFile) || !Array.isArray(plan) || plan.length
 }
 
 const result = applyTodoPlan(fs.readFileSync(todoFile, 'utf8'), plan);
-if (result.error) {
+if ('error' in result) {
   process.stderr.write(`${result.error}\n`);
   process.exit(1);
 }

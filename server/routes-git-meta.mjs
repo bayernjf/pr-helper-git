@@ -419,14 +419,14 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
     if (method === 'GET') return ok(await listUsers());
     if (method === 'POST') {
       const created = await createUser(body.name, body.role || 'member');
-      if (created.error) return fail(400, created.error);
+      if ('error' in created) return fail(400, created.error);
       await appendAudit({ ok: true, action: 'user-create', target: created.user.name, role: created.user.role });
       // The plaintext token is returned once and never stored.
       return ok(created);
     }
     if (method === 'DELETE') {
       const removed = await removeUser(body.name);
-      if (removed.error) return fail(400, removed.error);
+      if ('error' in removed) return fail(400, removed.error);
       await appendAudit({ ok: true, action: 'user-remove', target: removed.name });
       return ok(removed);
     }

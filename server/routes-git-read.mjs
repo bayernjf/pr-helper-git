@@ -263,7 +263,8 @@ export async function handleGitRead({ method, pathname, query, body, identity },
     const built = buildCommitSearch(query.get('q') || '', {
       limit: Number(query.get('limit')) || undefined,
     });
-    if (built.error) return fail(400, built.error);
+    if (!built) return fail(400, 'missing query');
+    if ('error' in built) return fail(400, built.error);
     try {
       const raw = await git(built.args, repo);
       return ok({ commits: parseLog(raw), query: built.term, mode: built.mode });
