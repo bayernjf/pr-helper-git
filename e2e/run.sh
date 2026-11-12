@@ -390,9 +390,10 @@ cd "$DEMO/e2e-clone"
 git config user.email "e2e@test.com"; git config user.name "E2E"
 echo "from clone" > clone.txt
 git add . && git commit -qm "e2e: from clone" && git push -q origin main
+PULLED_SHA=$(git rev-parse HEAD)
 cd - >/dev/null
 check "pull brings the clone commit" "200" "$(post pull "$(printf '{"repo":"%s"}' "$REPO_A")")"
-contains "log shows pulled commit" "from clone" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")"
+contains "log shows pulled commit" "$PULLED_SHA" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "message=e2e: from clone" --data-urlencode "limit=1")"
 
 echo ""
 echo "=== E2E: Bisect ==="
