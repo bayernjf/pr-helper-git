@@ -5,7 +5,7 @@
 import AppKit
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var server: Process?
@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private var readyPort: Int?
     private var readyToken: String?
     private var isTerminating = false
+    private var pendingOpenPath: String?
+    private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
 
@@ -233,6 +235,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         )
         appMenuItem.submenu = appMenu
 
+        let fileMenuItem = NSMenuItem()
+        mainMenu.addItem(fileMenuItem)
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(
+            withTitle: "Open Repository…",
+            action: #selector(chooseRepository),
+            keyEquivalent: "o",
+        )
+        fileMenuItem.submenu = fileMenu
+
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
@@ -274,6 +286,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
     @objc private func reloadWebView() {
         webView?.reload()
+    }
+
+    @objc private func chooseRepository() {
+        let panel = NSOpenPanel()
+        panel.title = "Open Repository"
+        panel.message = "Choose a folder that contains a Git repository."
+        panel.prompt = "Open"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.openRepository(path: url.path)
+        }
+    }
+
+    private func openRepository(path: String) {
+        guard webView.url != nil else {
+            pendingOpenPath = path
+            return
+        }
+        sendOpenRepository(path: path)
+    }
+
+    private func sendOpenRepository(path: String) {
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: path,
+            options: [.fragmentsAllowed],
+        ), let json = String(data: data, encoding: .utf8) else { return }
+        let script = "window.__prHelperGitPendingOpenPath = \(json); window.dispatchEvent(new CustomEvent('git2:add-repo', { detail: { path: \(json) } }));"
+        webView.evaluateJavaScript(script) { _, error in
+            if let error = error {
+                NSLog("desktop open-repository bridge failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: Window
@@ -343,12 +391,83 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
+        if #available(macOS 11.3, *), navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
         if isLocalURL(url) || url.scheme == "about" {
             decisionHandler(.allow)
             return
         }
         NSWorkspace.shared.open(url)
         decisionHandler(.cancel)
+    }
+
+    @available(macOS 11.3, *)
+    func webView(
+        _ webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        didBecome download: WKDownload,
+    ) {
+        download.delegate = self
+    }
+
+    @available(macOS 11.3, *)
+    func download(
+        _ download: WKDownload,
+        decideDestinationUsing response: URLResponse,
+        suggestedFilename: String,
+        completionHandler: @escaping (URL?) -> Void,
+    ) {
+        let destination = availableDownloadURL(filename: suggestedFilename)
+        downloadDestinations[ObjectIdentifier(download)] = destination
+        completionHandler(destination)
+    }
+
+    @available(macOS 11.3, *)
+    func downloadDidFinish(_ download: WKDownload) {
+        guard let destination = downloadDestinations.removeValue(forKey: ObjectIdentifier(download)) else {
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([destination])
+    }
+
+    @available(macOS 11.3, *)
+    func download(
+        _ download: WKDownload,
+        didFailWithError error: Error,
+        resumeData: Data?,
+    ) {
+        downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Download failed"
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func availableDownloadURL(filename: String) -> URL {
+        let directory = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let safeName = (filename as NSString).lastPathComponent
+        let name = safeName.isEmpty ? "download" : safeName
+        let ext = (name as NSString).pathExtension
+        let base = (name as NSString).deletingPathExtension
+        var candidate = directory.appendingPathComponent(name)
+        var suffix = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            let next = ext.isEmpty ? "\(base)-\(suffix)" : "\(base)-\(suffix).\(ext)"
+            candidate = directory.appendingPathComponent(next)
+            suffix += 1
+        }
+        return candidate
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let path = pendingOpenPath else { return }
+        pendingOpenPath = nil
+        sendOpenRepository(path: path)
     }
 
     private func isLocalURL(_ url: URL) -> Bool {

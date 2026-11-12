@@ -18,6 +18,14 @@ import BisectModal from './BisectModal';
 import ReflogModal from './ReflogModal';
 import RemoteModal from './RemoteModal';
 import RepositoriesModal from './RepositoriesModal';
+
+declare global {
+  interface Window {
+    // The desktop shell may open a folder before React has attached its
+    // listener; this one-shot handoff survives that tiny startup window.
+    __prHelperGitPendingOpenPath?: string;
+  }
+}
 import SettingsModal from './SettingsModal';
 import ShortcutsHelp from './ShortcutsHelp';
 import StashModal from './StashModal';
@@ -60,6 +68,7 @@ export default function Toolbar() {
     runAction,
   } = useApp();
   const [showAdd, setShowAdd] = useState(false);
+  const [addRepoPath, setAddRepoPath] = useState('');
   const [showRepositories, setShowRepositories] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRemotes, setShowRemotes] = useState(false);
@@ -79,7 +88,14 @@ export default function Toolbar() {
 
   // The command palette opens these dialogs via lightweight custom events.
   useEffect(() => {
-    const openAdd = () => setShowAdd(true);
+    const openAdd = (event?: Event) => {
+      const detail = event instanceof CustomEvent
+        ? (event.detail as { path?: string } | undefined)
+        : undefined;
+      window.__prHelperGitPendingOpenPath = undefined;
+      setAddRepoPath(detail?.path ?? '');
+      setShowAdd(true);
+    };
     const openRepositories = () => setShowRepositories(true);
     const openSettings = () => setShowSettings(true);
     const openRemotes = () => setShowRemotes(true);
@@ -103,6 +119,16 @@ export default function Toolbar() {
     window.addEventListener('git2:search-commits', openCommitSearch);
     window.addEventListener('git2:audit', openAudit);
     window.addEventListener('git2:shortcuts', openShortcuts);
+
+    // A desktop folder pick can land before this effect runs. Consume it once
+    // after listeners are attached; later picks use the custom event.
+    const pendingOpenPath = window.__prHelperGitPendingOpenPath;
+    if (pendingOpenPath) {
+      window.__prHelperGitPendingOpenPath = undefined;
+      setAddRepoPath(pendingOpenPath);
+      setShowAdd(true);
+    }
+
     return () => {
       window.removeEventListener('git2:add-repo', openAdd);
       window.removeEventListener('git2:repositories', openRepositories);
@@ -392,7 +418,15 @@ export default function Toolbar() {
         <IconKeyboard />
       </button>
 
-      {showAdd && <AddRepoModal onClose={() => setShowAdd(false)} />}
+      {showAdd && (
+        <AddRepoModal
+          initialPath={addRepoPath}
+          onClose={() => {
+            setShowAdd(false);
+            setAddRepoPath('');
+          }}
+        />
+      )}
       {showRepositories && <RepositoriesModal onClose={() => setShowRepositories(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}

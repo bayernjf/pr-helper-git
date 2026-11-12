@@ -6,6 +6,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AppContext } from '../app-state';
 import type { RepoBrief } from '../types';
+import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
 import CommitGraph from './CommitGraph';
 import DiffView from './DiffView';
@@ -216,6 +217,16 @@ describe('Toolbar', () => {
     expect(html).toContain('main');
     // renderToString places comment nodes between the arrow and the number.
     expect(html).toMatch(/↑<!-- -->2/);
+  });
+});
+
+describe('AddRepoModal', () => {
+  it('prefills a path chosen by the desktop folder picker', () => {
+    const html = withApp(
+      <AddRepoModal onClose={() => {}} initialPath="/Users/me/code/alpha" />,
+    );
+    expect(html).toContain('Add a repository');
+    expect(html).toContain('value="/Users/me/code/alpha"');
   });
 });
 

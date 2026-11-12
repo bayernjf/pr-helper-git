@@ -43,13 +43,19 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ReactNode }> = [
   { id: 'init', label: 'Init', icon: <IconPlus width={14} height={14} /> },
 ];
 
-export default function AddRepoModal({ onClose }: { onClose: () => void }) {
+export default function AddRepoModal({
+  onClose,
+  initialPath = '',
+}: {
+  onClose: () => void;
+  initialPath?: string;
+}) {
   const { selectRepo, refreshRepos, toast, activeRepo } = useApp();
   useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');
   const [saving, setSaving] = useState(false);
 
-  const [localPath, setLocalPath] = useState('');
+  const [localPath, setLocalPath] = useState(initialPath);
   const [url, setUrl] = useState('');
   const [parentDir, setParentDir] = useState(() => initialParentDir(activeRepo));
   const [name, setName] = useState('');

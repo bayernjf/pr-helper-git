@@ -91,7 +91,7 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleVersion</key>
   <string>${buildNumber}</string>
   <key>LSMinimumSystemVersion</key>
-  <string>11.0</string>
+  <string>11.3</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSAppTransportSecurity</key>
