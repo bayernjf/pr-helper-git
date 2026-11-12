@@ -40,6 +40,12 @@ history; check `git bundle list-heads` for the exact main ref.
 
 ## Release 0.2.6 (2026-11-12)
 
+> **发布状态（2026-11-12 更新）**：draft 已 publish 为正式版（draft=false,
+> prerelease=false, `releases/latest` = v0.2.6 — 应用内 Check for Updates
+> 的"有更新"分支自此可实测）；dev 与 main 均在 0.2.6 + jsdom pin
+> （266c039，测试计数在 Node 20/26 漂移下稳定为 337/34）。
+
+
 `package.json` / `package-lock.json` are at **0.2.6**; `CHANGELOG.md` has the
 `[0.2.6]` section. `v0.2.6` is an annotated tag on this release commit.
 
