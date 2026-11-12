@@ -356,7 +356,8 @@ There is no staging, commit, push or rebase control in this view.
 `/m?repo=<path>&commit=<sha>` deep-links straight to one commit of one repository.
 
 The server binds `127.0.0.1` by default. For phone access set
-`GIT2_HOST=0.0.0.0` (or a specific LAN/Tailscale address) and restart, or keep
+`PR_HELPER_GIT_HOST=0.0.0.0` (or a specific LAN/Tailscale address; the legacy
+`GIT2_HOST` is still accepted) and restart, or keep
 the default and use an SSH port forward. Only do this on a private network
 (Tailscale/ZeroTier/WireGuard); never forward the port from a router or expose
 it publicly. The one-time token in the URL is still the only credential.
@@ -369,6 +370,12 @@ database, web push and deployment gates.
 Conflicts are handled per file from the in-app panel (Use current / Use
 incoming / Mark resolved) plus the three-way merge editor for
 region-by-region resolution.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, branch, commit, PR, release
+and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
+[docs/README.md](docs/README.md) maps the rest of the project documents.
 
 ## Quick start
 
@@ -410,8 +417,11 @@ Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
 - resolves Node.js at the common install locations (Homebrew under
   `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
   process inherits a minimal `PATH`;
-- spawns the bundled server on an ephemeral port with `GIT2_DESKTOP=1` and
-  reads the machine-readable `GIT2_READY {"port","token"}` line;
+- spawns the bundled server on an ephemeral port with the desktop flag
+  (the frozen shell still sets legacy `GIT2_DESKTOP=1`, which the server
+  accepts) and reads the machine-readable readiness line; the shell still
+  matches the legacy `GIT2_READY` prefix while the server now emits
+  `PR_HELPER_GIT_READY`;
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;
@@ -429,10 +439,12 @@ Security**.
 
 ## Security model
 
-- The server binds `127.0.0.1` by default. Setting `GIT2_HOST` to a LAN/Tailscale
-  address is an explicit opt-in (see “Mobile / phone view”); in development
-  (`GIT2_DEV=1`) a non-loopback bind is refused unless
-  `GIT2_ALLOW_INSECURE_DEV_HOST=1` is set, because the dev token is fixed.
+- The server binds `127.0.0.1` by default. Setting `PR_HELPER_GIT_HOST` (legacy
+  `GIT2_HOST`) to a LAN/Tailscale address is an explicit opt-in (see “Mobile /
+  phone view”); in development (`PR_HELPER_GIT_DEV=1`, legacy `GIT2_DEV`) a
+  non-loopback bind is refused unless
+  `PR_HELPER_GIT_ALLOW_INSECURE_DEV_HOST=1` (legacy
+  `GIT2_ALLOW_INSECURE_DEV_HOST`) is set, because the dev token is fixed.
   In production it generates a random
   per-process token that is exchanged for an HttpOnly, SameSite=Strict cookie.
   That token is the owner (admin) identity. Member tokens are random 192-bit
@@ -503,7 +515,8 @@ server/
   routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
 src/
   app-state.tsx      central data/state provider
-  api.ts             typed API client
+  api/               typed API client, split by domain (core, git-read,
+                     git-write, repos, github, team, ai)
   components/        UI components, inline SVG icons, context menu, modals
   hooks/             resize, escape, focus-trap and keyboard interaction hooks
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
@@ -526,9 +539,10 @@ npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 `npm run desktop` still exists but is frozen with desktop development; it is not
 part of the regular check loop.
 
-`npm run e2e` starts the server on port 18774 with `GIT2_DEV=1` (token
-`dev-token`) and `PR_HELPER_HOME` pointed at a throwaway directory, so it never
-reads or writes `~/.pr-helper-git`. It builds the fixture repositories itself
+`npm run e2e` starts the server on port 18774 with `PR_HELPER_GIT_DEV=1`
+(legacy `GIT2_DEV`; token `dev-token`) and `PR_HELPER_HOME` pointed at a
+throwaway directory, so it never reads or writes `~/.pr-helper-git`. It builds
+the fixture repositories itself
 and covers auth, repository registration, status/log/refs reads, stage → commit
 → undo, hunk/line-precise staging, branch/tag/stash, grep, compare, reverts,
 merge conflicts (resolve → commit, abort), interactive rebase (drop, conflict →
@@ -536,10 +550,9 @@ abort), push/pull against a bare remote, GitHub proxy guards and the audit
 trail. Flat 1:1 with `e2e/run.sh` in
 `pr-helper-git`.
 
-The same three steps are configured in the GitHub Actions workflow in
-`.github/workflows/ci.yml`. This repository intentionally has no remote, so the
-workflow does not run in practice; the local commands above are the source of
-truth until a remote is explicitly requested.
+The same core checks are configured in `.github/workflows/ci.yml` for pushes
+and pull requests targeting `main` and `dev`. CI runs on GitHub; the local
+commands above remain the source of truth for a local checkout.
 
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git

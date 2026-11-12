@@ -1,0 +1,159 @@
+# AGENTS.md
+
+Instructions for AI agents and automated contributors working in this repository.
+Read this before changing code, branches, docs, releases, or backups. If it
+conflicts with an explicit instruction from the user, the user's instruction
+wins; otherwise this file is the default contract.
+
+## Project
+
+`pr-helper-git` is a local-first Git and GitHub PR workbench:
+
+- React 19 + TypeScript client, built by Vite.
+- Node.js built-in `http` server, zero third-party runtime dependencies.
+- Single-user, loopback-first; no database, no container runtime.
+- Tier 1 in `bayjf/docs/PROJECT-TIER-CONVENTION.md` (not Tier 0/0.5).
+- Desktop shell is **frozen**; current product work targets the web UI.
+
+## Non-negotiables
+
+- Work only inside `/Users/jiangfeng/000mycodes/pr-helper-git` and the backup
+  root `/Users/jiangfeng/000mycodes-backups`.
+- Long-lived branches are `main` (production) and `dev` (work). Do not create
+  feature branches unless the user asks. Commit on `dev`; integrate through a
+  `dev -> main` PR.
+- Default to **local commits only**. Push only when the user explicitly asks.
+  When a push is requested, wait for the resulting CI run before calling the
+  task complete.
+- Keep the desktop shell frozen. Do not add desktop features, unfreeze
+  `desktop/`, or adapt new web features to it.
+- Do not reintroduce: containers, worktrees, submodule writes, GPG signing,
+  GitHub App OAuth, webhooks, a database, web push, or deployment gates.
+- Runtime names are `~/.pr-helper-git`, localStorage `pr-helper-git:*`,
+  cookie `pr_helper_git_token`, env `PR_HELPER_GIT_*`. Legacy `GIT2_*` names
+  remain as compatibility fallbacks; never remove them without a migration
+  and an explicit user decision.
+- Never print, log, or commit tokens, PATs, AI keys, cookie values, or
+  `config.json` contents. Backups must redact secret-shaped fields.
+
+## Layout
+
+```text
+src/                    React client
+  api/                  typed API client, split by domain
+  components/           UI components and modals
+  lib/                  pure helpers and storage keys
+server/                 Node HTTP server and Git/GitHub routes
+  main.mjs              entry, auth, static hosting, SSE
+  routes-git*.mjs       Git API dispatcher and domain modules
+  routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
+e2e/run.sh              curl-driven E2E against a throwaway server
+scripts/                dev launcher and desktop build (desktop is frozen)
+desktop/                frozen Swift WKWebView shell
+docs/                   long-lived reference docs
+handoff.md              delivery ledger, scope, release history, lessons
+CHANGELOG.md            user-visible changes per release
+```
+
+## Commands
+
+```bash
+npm ci                    # reproducible install (Node 22, see .nvmrc)
+npm run dev               # Vite :5173 + API :4789
+npm start                 # production-style single-port server
+
+npm run lint              # tsc --noEmit
+npm run typecheck:server  # checkJs over server/*.mjs
+npm test                  # Vitest unit + route tests
+npm run build             # production build into dist/
+npm run e2e               # real loopback server + curl assertions
+```
+
+Full gate before a release or a PR:
+
+```bash
+npm run lint && npm run typecheck:server && npm test && npm run build && npm run e2e
+```
+
+E2E uses port `18774`, token `dev-token`, and an isolated `PR_HELPER_HOME`;
+it never reads or writes `~/.pr-helper-git`.
+
+## Workflow
+
+1. Check state:
+
+   ```bash
+   git status -sb
+   git branch --show-current
+   git log --oneline -5
+   ```
+
+2. Work on `dev`. Read the relevant code before editing; keep the change scoped.
+3. Add or update tests when behaviour changes. Do not loosen an existing
+   assertion just to make a failure disappear.
+4. Run the full gate.
+5. Commit with a Conventional Commit message, for example:
+
+   ```text
+   fix(server): reject percent-encoded parent segments
+   refactor(ui): extract commit graph rows
+   test(e2e): assert the pulled commit by SHA
+   chore(release): 0.2.4
+   ```
+
+6. For integration, open a `dev -> main` PR, wait for checks, then merge.
+   Do not rewrite `main` history.
+
+## Release checklist
+
+1. `git checkout dev`, `git merge --ff-only origin/main`, clean tree.
+2. `npm version X.Y.Z --no-git-tag-version` (updates `package.json` and lock).
+3. Add a new `## [X.Y.Z] - YYYY-MM-DD` section at the top of `CHANGELOG.md`.
+4. Add a `## Release X.Y.Z` section to `handoff.md` with scope and gates.
+5. Run the full gate, then commit `chore(release): X.Y.Z` and push `dev`
+   (only with explicit push approval).
+6. Open and merge the release PR; confirm `main` and `dev` point at the same
+   merge commit.
+7. Create an **annotated** tag on the release commit, not on the merge commit:
+
+   ```bash
+   git tag -a vX.Y.Z <release-commit> -m "pr-helper-git vX.Y.Z — <summary>"
+   git push origin vX.Y.Z
+   ```
+
+8. Refresh the backup and verify the bundle heads include `main`, `dev`, and
+   the new tag:
+
+   ```bash
+   bash /Users/jiangfeng/000mycodes-backups/pr-helper-backup.sh
+   git bundle list-heads <latest.bundle> | grep -E 'refs/heads/(main|dev)|refs/tags/vX.Y.Z'
+   ```
+
+## Documentation duties
+
+- Behaviour, setup, security, or checks change: update `README.md`.
+- User-visible change or release: update `CHANGELOG.md`.
+- Release, major refactor, migration, or lesson learned: update `handoff.md`.
+- Process or agent contract change: update `AGENTS.md` / `CONTRIBUTING.md`.
+- Long-lived architecture/reference material: add it under `docs/` and link it
+  from `docs/README.md`.
+- Keep version numbers consistent across `package.json`, `package-lock.json`,
+  `CHANGELOG.md`, and `handoff.md`.
+
+## Verification baseline
+
+As of release `0.2.4` (2026-11-12):
+
+- unit/route tests: **336 tests / 34 files**
+- E2E: **144 passed / 0 failed**
+- build: passes
+- CI: `main` and `dev` both green; workflow listens to both branches
+
+Update these numbers when the baseline changes. Historical numbers in
+`handoff.md` are records, not the current baseline.
+
+## Known caveat
+
+The frozen desktop shell still uses the legacy `GIT2_DESKTOP` and
+`GIT2_READY` names. Do not change the shell as part of ordinary web work;
+handle it only when the user explicitly asks for desktop compatibility.

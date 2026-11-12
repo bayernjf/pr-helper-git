@@ -48,6 +48,21 @@ UI subcomponent extraction, review-found frontend fixes and remaining i18n
 coverage. Gates: lint, server typecheck, 336 unit tests / 34 files, build,
 E2E 144/144; CI covers both `main` and `dev`.
 
+## Documentation entry points (2026-11-12)
+
+Added `AGENTS.md` (agent contract: branches, local-push policy, frozen
+desktop, runtime identifiers, gates, release checklist, backup rules),
+`CONTRIBUTING.md` (human/agent workflow) and `docs/README.md` (document map).
+README now points to all three and corrects stale claims: the API client is
+`src/api/` rather than `src/api.ts`, the repository has a GitHub remote and
+CI runs on `main`/`dev`, and the documented environment variables use the
+`PR_HELPER_GIT_*` names with legacy `GIT2_*` aliases.
+
+Known caveat: the frozen desktop shell still matches the legacy `GIT2_READY`
+prefix, while the server now emits `PR_HELPER_GIT_READY`. The shell is left
+untouched under the desktop freeze; this needs an explicit compatibility
+decision if desktop use is revived.
+
 ## Post-0.2.2 hardening (2026-11-11)
 
 Security pass after the code review: admin-only server PAT/AI settings, no
