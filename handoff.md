@@ -109,10 +109,16 @@ current release.
   if the binary minos and `LSMinimumSystemVersion` disagree.
 - `npm run desktop` builds `build/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
+- GUI click-through on 2026-11-12: **File > Open Repository…** opened
+  `NSOpenPanel`, selected `/Users/jiangfeng/000mycodes/pr-helper-git`, and
+  prefilled that exact path in the existing Add repository modal. **Team >
+  Export team config** wrote `~/Downloads/pr-helper-git-team.json`; a second
+  export wrote `pr-helper-git-team-2.json` and Finder selected the new file.
+  The exported JSON contained the repository registry and members only, with
+  no tokens or GitHub PATs.
 
 Still open for desktop: a real signed/notarized release needs a Developer ID
-and Apple notary account; the native folder picker and WKDownload flow still
-need a click-through on an unlocked Mac.
+and Apple notary account.
 
 Desktop artifacts live under `build/` (not `dist/`), so `npm run build` (Vite)
 no longer wipes `PR Helper Git.app` or `release/`.
