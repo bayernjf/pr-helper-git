@@ -26,7 +26,8 @@ Runtime identifiers were renamed with one-shot migrations:
 Verification: lint, `typecheck:server`, 336 unit tests / 34 files, production
 build, and E2E 144/144. CI is green through rename commit `077f1af` (run `43061784626`).
 
-The desktop shell remains **frozen** (no unfreeze). The old Qoder session copy
+The desktop shell was **frozen** at the time of this rename; it was unfrozen
+later on the same day (see “Desktop unfrozen” below). The old Qoder session copy
 under the `pr-helper-git2` project key was archived to
 `000mycodes-backups/qoder-project-pr-helper-git2-20261112.tar.gz` and removed;
 the new session key has the equivalent 2,836-record transcript.
@@ -58,10 +59,30 @@ README now points to all three and corrects stale claims: the API client is
 CI runs on `main`/`dev`, and the documented environment variables use the
 `PR_HELPER_GIT_*` names with legacy `GIT2_*` aliases.
 
-Known caveat: the frozen desktop shell still matches the legacy `GIT2_READY`
-prefix, while the server now emits `PR_HELPER_GIT_READY`. The shell is left
-untouched under the desktop freeze; this needs an explicit compatibility
-decision if desktop use is revived.
+Known caveat at the time: the shell matched only the legacy `GIT2_READY`
+prefix while the server emitted `PR_HELPER_GIT_READY`. That mismatch was fixed
+in the following desktop-unfreeze pass; the shell now accepts both prefixes.
+
+## Desktop unfrozen (2026-11-12)
+
+The desktop shell is maintained again. Scope for the first pass: keep the
+Swift `WKWebView` shell (no Electron/Tauri), keep product behaviour in the
+React client and Node server, and make the current app build against the
+current release.
+
+- The shell now sets `PR_HELPER_GIT_DESKTOP=1` and the legacy
+  `GIT2_DESKTOP=1`, and accepts both `PR_HELPER_GIT_READY` and legacy
+  `GIT2_READY` readiness lines.
+- Added a standard macOS menu (About, Edit, Reload, Window), a 900×600 minimum
+  window size, and external-link handling: non-localhost URLs open in the
+  default browser instead of replacing the app view.
+- `scripts/desktop-build.mjs` now reads `CFBundleShortVersionString` from
+  `package.json` (0.2.4 at this point) instead of the stale `0.1.0` literal.
+- `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
+  bundled server and was smoke-tested on this machine.
+
+Still open for desktop: signed/notarized distribution, a macOS CI build job,
+and native file/folder picking if the web UI needs it.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
@@ -113,9 +134,10 @@ toasts last 3.6 s and carry a kind icon (`toast-info` / `toast-success` /
 `{ danger, confirmLabel }`, and use `btn-danger` only for destructive actions.
 Never call `window.confirm` — `DashboardPage` now uses `useConfirm()` too.
 
-**Current target: web only.** Since 2026-11 desktop development is paused:
-new features target the browser UI and are not adapted to the native shell.
-`desktop/main.swift` and `npm run desktop` are kept as-is but frozen.
+**Current target: web-first, desktop maintained.** Desktop was unfrozen on
+2026-11-12. The shell stays thin: features target the browser UI, while Swift
+owns only windowing, process lifetime and macOS integration. `desktop/main.swift`
+and `npm run desktop` are active again; see “Desktop unfrozen” at the top.
 
 ## Scope
 
@@ -167,17 +189,19 @@ new features target the browser UI and are not adapted to the native shell.
   min/max clamps, persisted widths, ARIA separator role), and
   prefers-reduced-motion support (animations and transitions collapse to a
   near-instant state change).
-- Desktop (macOS, zero third-party runtime) — **frozen, not developed**: a
-  `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
+- Desktop (macOS, zero third-party runtime) — **maintained since 2026-11-12**:
+  a `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
   `scripts/desktop-build.mjs` via `npm run desktop` into
-  `dist/PR Helper Git.app` (~1.2 MB). It locates the system Node.js at
-  well-known paths, spawns the server on an ephemeral port, parses the
-  `GIT2_READY` machine-readable line, loads the one-time token URL and
-  terminates the server on window close. The bundle ships a generated
+  `dist/PR Helper Git.app` (~1.4 MB). It locates the system Node.js at
+  well-known paths, spawns the server on an ephemeral port with both desktop
+  env names, accepts either readiness prefix, loads the one-time token URL,
+  opens external links in the default browser, provides a standard macOS menu,
+  and terminates the server on window close. The bundle ships a generated
   `AppIcon.icns` (rendered by `desktop/make-icon.swift`, then scaled and
   packaged with the system sips/iconutil tools) referenced through
-  `CFBundleIconFile`, and the window remembers its frame across launches via
-  `setFrameAutosaveName`. The checked-in `.app` predates later web features.
+  `CFBundleIconFile`; the window remembers its frame across launches via
+  `setFrameAutosaveName`, and `CFBundleShortVersionString` now follows
+  `package.json`.
 - pr-helper-like: PR board (open/merged/closed), per-user review state,
   create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
   requested reviewers (view and request), issue comments (view, compose,

@@ -83,6 +83,21 @@ Expected baseline at release `0.2.4`: **336 unit tests / 34 files**, **E2E
 E2E starts a real server on port `18774` with an isolated `PR_HELPER_HOME`; it
 never touches `~/.pr-helper-git`.
 
+## Desktop builds
+
+The macOS shell is part of the deliverable again, but it stays thin: features
+live in the web UI and server, while Swift owns windowing, process lifetime,
+the menu and external links.
+
+```bash
+npm run desktop
+```
+
+This is macOS-only and needs the Xcode command-line tools (`swiftc`, `sips`,
+`iconutil`) plus Node. It is not part of the default Linux CI loop; run it
+whenever `desktop/` or `scripts/desktop-build.mjs` changes, then confirm
+`CFBundleShortVersionString` in the bundle matches `package.json`.
+
 ## Pull requests
 
 1. Push `dev` only after explicit approval.

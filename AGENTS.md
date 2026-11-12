@@ -13,7 +13,9 @@ wins; otherwise this file is the default contract.
 - Node.js built-in `http` server, zero third-party runtime dependencies.
 - Single-user, loopback-first; no database, no container runtime.
 - Tier 1 in `bayjf/docs/PROJECT-TIER-CONVENTION.md` (not Tier 0/0.5).
-- Desktop shell is **frozen**; current product work targets the web UI.
+- Desktop shell is maintained again, but stays thin: product behaviour lives
+  in the React client and Node server; Swift owns only the window, process
+  lifetime and macOS integration.
 
 ## Non-negotiables
 
@@ -25,8 +27,10 @@ wins; otherwise this file is the default contract.
 - Default to **local commits only**. Push only when the user explicitly asks.
   When a push is requested, wait for the resulting CI run before calling the
   task complete.
-- Keep the desktop shell frozen. Do not add desktop features, unfreeze
-  `desktop/`, or adapt new web features to it.
+- Keep the desktop shell thin. Do not duplicate web features or business logic
+  in Swift; native work is limited to windowing, process lifetime, menus,
+  external-link handling and packaging. Do not add a second feature surface
+  that the web UI cannot exercise.
 - Do not reintroduce: containers, worktrees, submodule writes, GPG signing,
   GitHub App OAuth, webhooks, a database, web push, or deployment gates.
 - Runtime names are `~/.pr-helper-git`, localStorage `pr-helper-git:*`,
@@ -48,8 +52,8 @@ server/                 Node HTTP server and Git/GitHub routes
   routes-git*.mjs       Git API dispatcher and domain modules
   routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
 e2e/run.sh              curl-driven E2E against a throwaway server
-scripts/                dev launcher and desktop build (desktop is frozen)
-desktop/                frozen Swift WKWebView shell
+scripts/                dev launcher and desktop build
+desktop/                thin Swift WKWebView shell (no feature logic)
 docs/                   long-lived reference docs
 handoff.md              delivery ledger, scope, release history, lessons
 CHANGELOG.md            user-visible changes per release
@@ -66,6 +70,7 @@ npm run lint              # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm test                  # Vitest unit + route tests
 npm run build             # production build into dist/
+npm run desktop           # macOS-only: build dist/PR Helper Git.app
 npm run e2e               # real loopback server + curl assertions
 ```
 
@@ -73,6 +78,13 @@ Full gate before a release or a PR:
 
 ```bash
 npm run lint && npm run typecheck:server && npm test && npm run build && npm run e2e
+```
+
+Desktop gate (macOS only, when `desktop/` or the build script changes):
+
+```bash
+npm run desktop
+plutil -p "dist/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
 ```
 
 E2E uses port `18774`, token `dev-token`, and an isolated `PR_HELPER_HOME`;
@@ -152,8 +164,13 @@ As of release `0.2.4` (2026-11-12):
 Update these numbers when the baseline changes. Historical numbers in
 `handoff.md` are records, not the current baseline.
 
-## Known caveat
+## Desktop compatibility
 
-The frozen desktop shell still uses the legacy `GIT2_DESKTOP` and
-`GIT2_READY` names. Do not change the shell as part of ordinary web work;
-handle it only when the user explicitly asks for desktop compatibility.
+The shell sets `PR_HELPER_GIT_DESKTOP=1` and the legacy `GIT2_DESKTOP=1`, and
+accepts both `PR_HELPER_GIT_READY` and legacy `GIT2_READY`. The server still
+accepts the legacy environment name. Do not remove either side of this
+compatibility bridge without a migration and an explicit user decision.
+
+Desktop changes must keep the app a thin wrapper over the same web client and
+server. After changing `desktop/` or `scripts/desktop-build.mjs`, run
+`npm run desktop` and verify the bundle version matches `package.json`.

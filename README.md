@@ -397,11 +397,11 @@ Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
 be removed again on request.
 
-## Desktop app (macOS, frozen)
+## Desktop app (macOS)
 
-> Desktop development is paused. New features target the browser UI and are not
-> adapted to the native shell; the checked-in bundle predates them. Use
-> `npm run dev` / `npm start` for current behaviour.
+The desktop shell is maintained again. It is a thin native shell over the same
+React client and Node server: product behaviour stays in the web UI, while
+Swift owns only the window, process lifetime and macOS integration.
 
 A native macOS desktop build is available without bundling any third-party
 runtime. It uses the system `WKWebView` (no embedded Chromium) and a
@@ -418,13 +418,14 @@ Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
   `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
   process inherits a minimal `PATH`;
 - spawns the bundled server on an ephemeral port with the desktop flag
-  (the frozen shell still sets legacy `GIT2_DESKTOP=1`, which the server
-  accepts) and reads the machine-readable readiness line; the shell still
-  matches the legacy `GIT2_READY` prefix while the server now emits
-  `PR_HELPER_GIT_READY`;
+  (`PR_HELPER_GIT_DESKTOP=1`, plus legacy `GIT2_DESKTOP=1` for older bundled
+  servers) and reads the machine-readable readiness line; the shell accepts
+  both `PR_HELPER_GIT_READY` and legacy `GIT2_READY`;
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;
+- provides a standard macOS menu (About, Edit, Reload, Window) and sends
+  non-localhost links to the default browser instead of replacing the app view;
 - terminates the server when the window closes. On shutdown the server closes
   all keep-alive and SSE sockets immediately, and the shell force-kills the
   process after a bounded wait if it does not exit;
@@ -536,8 +537,8 @@ npm run build      # production build into dist/
 npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 ```
 
-`npm run desktop` still exists but is frozen with desktop development; it is not
-part of the regular check loop.
+`npm run desktop` is macOS-only. Run it after changing `desktop/` or
+`scripts/desktop-build.mjs`; it is not part of the default check loop.
 
 `npm run e2e` starts the server on port 18774 with `PR_HELPER_GIT_DEV=1`
 (legacy `GIT2_DEV`; token `dev-token`) and `PR_HELPER_HOME` pointed at a

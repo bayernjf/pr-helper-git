@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 新增
+- macOS 桌面端解冻：保留 Swift `WKWebView` 薄壳，不引入 Electron/Tauri；新增标准应用菜单（关于、编辑、刷新、窗口）、900×600 最小窗口，外部链接交给默认浏览器打开。
+
+### 修复
+- 桌面壳同时接受 `PR_HELPER_GIT_READY` 与旧 `GIT2_READY` 就绪前缀，并同时设置新旧 desktop 环境变量，修复改名后启动 20 秒超时的问题。
+- 桌面构建的 `CFBundleShortVersionString` 改为读取 `package.json`，不再硬编码 `0.1.0`。
+
 ## [0.2.4] - 2026-11-12
 
 ### 安全
