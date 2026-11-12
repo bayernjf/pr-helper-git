@@ -39,6 +39,19 @@ struct DownloadDestinationTest {
             fatalError("expected fallback name, got \(empty.lastPathComponent)")
         }
 
-        print("download destination tests OK")
+        guard isVersionNewer("0.2.6", than: "0.2.5") else {
+            fatalError("expected 0.2.6 to be newer than 0.2.5")
+        }
+        guard isVersionNewer("v0.3.0", than: "0.2.9") else {
+            fatalError("expected v0.3.0 to be newer than 0.2.9")
+        }
+        guard !isVersionNewer("v0.2.5", than: "0.2.5") else {
+            fatalError("expected equal versions not to be newer")
+        }
+        guard !isVersionNewer("0.2.5-rc1", than: "0.2.5") else {
+            fatalError("expected prerelease not to outrank the release")
+        }
+
+        print("download destination and update-check tests OK")
     }
 }

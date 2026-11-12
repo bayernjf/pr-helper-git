@@ -27,6 +27,27 @@ Without `APPLE_SIGNING_IDENTITY`, the script produces unsigned artifacts and
 prints a warning. The app is usable locally, but another Mac may require a
 one-time Gatekeeper approval under **System Settings → Privacy & Security**.
 
+## Bundling Node.js
+
+A local build uses the machine's Node.js. A distribution build should include
+the official runtime so the recipient does not need Node installed:
+
+```bash
+BUNDLE_NODE=1 npm run desktop:dist
+```
+
+`desktop-build.mjs` downloads the official
+`node-v<version>-darwin-<arch>.tar.gz` from `nodejs.org/dist`, verifies it
+against `SHASUMS256.txt`, caches it under `build/node-cache/`, and copies only
+`bin/node` and `LICENSE` into `Contents/Resources/runtime`. The default is
+Node `22.23.5`; override with `NODE_BUNDLE_VERSION` only when intentionally
+changing the runtime.
+
+The shell resolves `Contents/Resources/runtime/node` first and falls back to a
+system Node installation. `desktop:smoke` checks the runtime license, version
+(`>= 22`) and Mach-O format. The resulting app is about 114 MB instead of
+about 1.5 MB.
+
 ## Signed and notarized build
 
 Prerequisites:
@@ -66,12 +87,16 @@ What the script does:
 
 1. Builds the app and writes the version from `package.json` into
    `CFBundleShortVersionString`.
-2. Signs the app with hardened runtime and a timestamp.
-3. Verifies the signature with `codesign --verify --deep --strict`.
-4. Creates a zip, submits it to `notarytool`, staples the app, and recreates the
+2. If a bundled Node runtime is present, signs it first with
+   `desktop/node.entitlements` (JIT and unsigned executable memory), using
+   hardened runtime and a timestamp.
+3. Signs the outer app without `--deep`, so the nested Node signature and its
+   entitlements are preserved.
+4. Verifies the signature with `codesign --verify --deep --strict`.
+5. Creates a zip, submits it to `notarytool`, staples the app, and recreates the
    zip with the stapled app.
-5. Creates the dmg, submits it to `notarytool`, and staples the dmg.
-6. Writes `SHA256SUMS`.
+6. Creates the dmg, submits it to `notarytool`, and staples the dmg.
+7. Writes `SHA256SUMS`.
 
 If `APPLE_SIGNING_IDENTITY` is set but `APPLE_NOTARY_PROFILE` is not, the app is
 signed but not notarized; the script says so explicitly.
@@ -90,10 +115,10 @@ hdiutil verify "build/release/PR Helper Git-<version>-macos.dmg"
 (cd build/release && shasum -a 256 -c SHA256SUMS)
 ```
 
-The CI workflow runs `desktop:native-test`, an unsigned `desktop:dist` and
-`desktop:smoke` on a macOS runner, then checks `SHA256SUMS`. It does not have
-Apple signing credentials, so the signed/notarized path still needs one release
-run on a machine with the certificate and notary profile.
+The CI workflow runs `desktop:native-test`, `BUNDLE_NODE=1 desktop:dist` and
+`BUNDLE_NODE=1 desktop:smoke` on a macOS runner, then checks `SHA256SUMS`. It
+does not have Apple signing credentials, so the signed/notarized path still
+needs one release run on a machine with the certificate and notary profile.
 
 `LC_BUILD_VERSION minos` must read `11.3` to match `LSMinimumSystemVersion`.
 The build script passes an explicit `-target`/`MACOSX_DEPLOYMENT_TARGET`;
@@ -114,14 +139,18 @@ team password, or app-specific password. `dist/` is already ignored.
 
 ## Known limits
 
-- The app still uses the Node.js installed on the machine; a distributed build
-  does not bundle a Node runtime. A recipient must have Node 22 available at a
-  well-known path or the app reports that Node was not found.
-- Signing uses hardened runtime without extra entitlements. WKWebView content
-  runs in WebKit's own process; if a future macOS build reports a JIT failure
-  inside the app process, add `com.apple.security.cs.allow-jit` in a local
-  entitlements file and pass it to `codesign`.
-- The desktop shell has no auto-update mechanism. Distribute a new version and
-  let the user replace the app.
+- The default local app uses the Node.js installed on the machine. Distribution
+  builds can set `BUNDLE_NODE=1` to carry the official Node 22 runtime; a build
+  without it still reports that Node was not found if the recipient has no
+  supported installation.
+- Signing uses hardened runtime; when a bundled Node is present it also gets
+  JIT and unsigned-executable-memory entitlements. The outer app has no extra
+  entitlements because WKWebView content runs in WebKit's own process. If a
+  future macOS build reports a separate JIT failure in the app process, add
+  the relevant entitlement to the outer signing step.
+- The desktop shell has only a lightweight **Check for Updates…** action: it
+  reads the latest GitHub Release and offers the release page. It does not
+  download, replace, or roll back the app; a full auto-updater still needs a
+  stable feed, signing/notarization and a rollback plan.
 - Local unsigned builds and distribution builds can use different bundle ids;
   preferences are intentionally separate.

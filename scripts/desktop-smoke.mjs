@@ -32,6 +32,30 @@ await requireFile(path.join(contents, 'Resources', 'AppIcon.icns'), 'app icon');
 await requireFile(path.join(contents, 'Resources', 'app', 'server', 'main.mjs'), 'bundled server');
 await requireFile(path.join(contents, 'Resources', 'app', 'dist', 'index.html'), 'bundled client');
 
+const runtimeNode = path.join(contents, 'Resources', 'runtime', 'node');
+const runtimeLicense = path.join(contents, 'Resources', 'runtime', 'LICENSE');
+let bundledNode = process.env.BUNDLE_NODE === '1';
+if (!bundledNode) {
+  try {
+    await fsp.access(runtimeNode);
+    bundledNode = true;
+  } catch {
+    bundledNode = false;
+  }
+}
+if (bundledNode) {
+  await requireFile(runtimeNode, 'bundled Node runtime');
+  await requireFile(runtimeLicense, 'bundled Node license');
+  const nodeVersion = execFileSync(runtimeNode, ['--version'], { encoding: 'utf8' }).trim();
+  const major = Number(nodeVersion.replace(/^v/, '').split('.')[0]);
+  if (!Number.isInteger(major) || major < 22) {
+    fail(`bundled Node version is too old: ${nodeVersion}`);
+  }
+  const nodeFileInfo = execFileSync('/usr/bin/file', [runtimeNode], { encoding: 'utf8' });
+  if (!nodeFileInfo.includes('Mach-O')) fail(`bundled Node is not Mach-O: ${nodeFileInfo.trim()}`);
+  console.log(`[desktop-smoke] bundled Node OK: ${nodeVersion}`);
+}
+
 const info = JSON.parse(execFileSync('/usr/bin/plutil', ['-convert', 'json', '-o', '-', path.join(contents, 'Info.plist')], {
   encoding: 'utf8',
 }));

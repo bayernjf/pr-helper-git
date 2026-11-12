@@ -404,19 +404,24 @@ React client and Node server: product behaviour stays in the web UI, while
 Swift owns only the window, process lifetime and macOS integration.
 
 A native macOS desktop build is available without bundling any third-party
-runtime. It uses the system `WKWebView` (no embedded Chromium) and a
+runtime by default. It uses the system `WKWebView` (no embedded Chromium) and a
 `swiftc`-compiled native shell, and it reuses the Node.js already installed on
-the machine. Requires macOS 11.3 or later.
+the machine. For a distribution build, `BUNDLE_NODE=1` embeds the official
+Node.js runtime so the recipient does not need Node installed. Requires macOS
+11.3 or later.
 
 ```bash
-npm run desktop   # builds build/PR Helper Git.app
+npm run desktop              # builds build/PR Helper Git.app (uses system Node)
+BUNDLE_NODE=1 npm run desktop # same app with official Node 22 inside
 ```
 
 Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
 
-- resolves Node.js at the common install locations (Homebrew under
-  `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
-  process inherits a minimal `PATH`;
+- resolves Node.js from `Contents/Resources/runtime/node` first when the app
+  was built with `BUNDLE_NODE=1`, then falls back to the common system install
+  locations (Homebrew under `/opt/homebrew/bin/node`, then
+  `/usr/local/bin/node`) because a GUI-launched process inherits a minimal
+  `PATH`;
 - spawns the bundled server on an ephemeral port with the desktop flag
   (`PR_HELPER_GIT_DESKTOP=1`, plus legacy `GIT2_DESKTOP=1` for older bundled
   servers) and reads the machine-readable readiness line; the shell accepts
@@ -426,6 +431,9 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   preferences survive restarts;
 - provides standard macOS menus (app, File, Edit, View, Window) and sends
   non-localhost links to the default browser instead of replacing the app view;
+- **Check for Updates…** in the app menu reads GitHub `releases/latest` and
+  offers the release page when a newer version exists; it never downloads or
+  replaces the app automatically;
 - **File > Open Repository…** opens a native folder panel and pre-fills the
   existing add-repository dialog; no second registration path is introduced;
 - handles web downloads (for example the team config export) into
@@ -442,15 +450,27 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   `minos` matches `LSMinimumSystemVersion` instead of inheriting the build
   machine's newer SDK.
 
-The resulting bundle is about 1.5 MB. An unsigned, locally built app may
-need a one-time Gatekeeper approval under **System Settings → Privacy &
-Security**.
+The default bundle is about 1.5 MB. With `BUNDLE_NODE=1` the official Node
+runtime adds roughly 108 MB, for a total around 114 MB. An unsigned, locally
+built app may need a one-time Gatekeeper approval under **System Settings →
+Privacy & Security**.
 
 ### Distribution preparation
 
 `npm run desktop:dist` builds the app and writes a zip, a dmg and
 `SHA256SUMS` under `build/release/`. With no Apple credentials it produces
 unsigned local artifacts; that is enough for use on this machine.
+
+For a build that can run on a Mac without Node installed, bundle the official
+runtime:
+
+```bash
+BUNDLE_NODE=1 npm run desktop:dist
+```
+
+The runtime is downloaded from `nodejs.org`, checked against
+`SHASUMS256.txt`, and signed separately with JIT entitlements before the
+outer app is signed.
 
 For a signed, notarized build, set a stable distribution bundle id and the
 Developer ID identity, then point at a `notarytool` keychain profile:

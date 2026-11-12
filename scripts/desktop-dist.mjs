@@ -60,15 +60,30 @@ if (!skipBuild) {
 await fsp.mkdir(releaseDir, { recursive: true });
 
 if (identity) {
+  const runtimeNode = path.join(appPath, 'Contents', 'Resources', 'runtime', 'node');
+  if (fs.existsSync(runtimeNode)) {
+    log('signing bundled Node with JIT entitlements');
+    run('/usr/bin/codesign', [
+      '--force',
+      '--options', 'runtime',
+      '--timestamp',
+      '--entitlements', path.join(root, 'desktop/node.entitlements'),
+      '--sign', identity,
+      runtimeNode,
+    ]);
+  }
   log(`signing with ${identity}`);
-  run('/usr/bin/codesign', [
+  const signArgs = [
     '--force',
-    '--deep',
     '--options', 'runtime',
     '--timestamp',
     '--sign', identity,
-    appPath,
-  ]);
+  ];
+  // With a nested runtime, sign Node separately so its JIT entitlements are
+  // preserved; --deep would re-sign it without those entitlements.
+  if (!fs.existsSync(runtimeNode)) signArgs.push('--deep');
+  signArgs.push(appPath);
+  run('/usr/bin/codesign', signArgs);
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath]);
 } else {
   log('no APPLE_SIGNING_IDENTITY; producing unsigned local artifact');

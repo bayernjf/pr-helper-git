@@ -36,6 +36,6 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run desktop:native-test
-      - run: npm run desktop:dist
-      - run: npm run desktop:smoke
+      - run: BUNDLE_NODE=1 npm run desktop:dist
+      - run: BUNDLE_NODE=1 npm run desktop:smoke
       - run: cd build/release && shasum -a 256 -c SHA256SUMS

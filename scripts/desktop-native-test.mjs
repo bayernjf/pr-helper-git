@@ -12,6 +12,7 @@ try {
   const binary = path.join(work, 'download-destination-test');
   execFileSync('/usr/bin/swiftc', [
     path.join(root, 'desktop/DownloadDestination.swift'),
+    path.join(root, 'desktop/UpdateCheck.swift'),
     path.join(root, 'desktop/DownloadDestinationTest.swift'),
     '-o', binary,
   ], { stdio: 'inherit' });
