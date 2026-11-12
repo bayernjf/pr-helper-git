@@ -140,7 +140,11 @@ await buildIcon();
 log('compiling native shell (swiftc)…');
 execFileSync(
   '/usr/bin/swiftc',
-  [path.join(root, 'desktop/main.swift'), '-o', path.join(macosDir, appName)],
+  [
+    path.join(root, 'desktop/DownloadDestination.swift'),
+    path.join(root, 'desktop/main.swift'),
+    '-o', path.join(macosDir, appName),
+  ],
   { stdio: 'inherit' },
 );
 

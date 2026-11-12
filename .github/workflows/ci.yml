@@ -25,3 +25,17 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run e2e
+
+  desktop:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run desktop:native-test
+      - run: npm run desktop:dist
+      - run: npm run desktop:smoke
+      - run: cd dist/release && shasum -a 256 -c SHA256SUMS
