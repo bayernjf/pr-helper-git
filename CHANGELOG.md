@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-12
+
+### 新增
+- 桌面构建新增可选 Node 运行时捆绑：`BUNDLE_NODE=1 npm run desktop` 会下载官方 Node `22.23.5` macOS tarball，校验 `SHASUMS256.txt` 后缓存到 `build/node-cache`，只把 `bin/node` 和 `LICENSE` 放进 `Contents/Resources/runtime`；桌面壳优先启动 bundle 内 Node，找不到才回退系统 Node。
+- 桌面应用菜单新增 **Check for Updates…**：读取 GitHub `releases/latest`，按 `CFBundleShortVersionString` 比较 `tag_name`；有新版本时提供 **Open Release Page**，无 release 或网络失败时给出明确提示。只做检查与跳转，不自动下载或替换 app。
+- 新增 `desktop/node.entitlements`（JIT / unsigned executable memory）；`desktop-dist` 在签名构建中先单独签内置 Node，再签外层 app，避免 `--deep` 覆盖 Node 的运行时权限。
+- `desktop:smoke` 增加内置 Node 检查：存在 `runtime/node` 时校验 `runtime/LICENSE`、`--version`（major ≥ 22）和 Mach-O 格式。
+
+### 变更
+- macOS CI 改为用 `BUNDLE_NODE=1` 构建和冒烟，覆盖真正准备分发的带 Node 产物。
+- 桌面文档补充 Node 捆绑、缓存、体积、签名和更新检查的边界。
+
+### 测试
+- `desktop:native-test` 增加版本比较断言，输出 `download destination and update-check tests OK`。
+- 普通 `npm run desktop` / `desktop:smoke` 通过；`BUNDLE_NODE=1` 构建产出 Node `22.23.5` arm64，app 约 114 MB，`desktop:smoke` 输出 `bundled Node OK: v22.23.5`。
+- 真机启动带 Node 的 app 后，子进程命令行确认使用 `Contents/Resources/runtime/node`，而不是系统 Node。
+- 真机点击 **Check for Updates…** 已弹出 `No releases found`（当前仓库没有 published release）；`releases/latest` 的“有更新”分支待发布首个 release 后复验。
+
 ## [0.2.5] - 2026-11-12
 
 ### 新增

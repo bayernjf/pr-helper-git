@@ -71,9 +71,11 @@ npm run typecheck:server  # checkJs over server/*.mjs
 npm test                  # Vitest unit + route tests
 npm run build             # production build into dist/
 npm run desktop           # macOS-only: build build/PR Helper Git.app
+BUNDLE_NODE=1 npm run desktop # same app with official Node 22 inside
 npm run desktop:native-test # macOS-only: pure Swift download-path tests (no GUI)
 npm run desktop:smoke     # verify the assembled bundle without launching it
 npm run desktop:dist      # macOS-only: zip/dmg/checksums (signs when configured)
+BUNDLE_NODE=1 npm run desktop:dist # distribution artifacts with Node
 npm run e2e               # real loopback server + curl assertions
 ```
 
@@ -93,8 +95,12 @@ plutil -p "build/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVers
 otool -l "build/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
 ```
 
-The macOS CI job runs `desktop:native-test`, `desktop:dist` (unsigned) and
-`desktop:smoke`, then verifies `build/release/SHA256SUMS`.
+The macOS CI job runs `desktop:native-test`, `BUNDLE_NODE=1 desktop:dist`,
+`BUNDLE_NODE=1 desktop:smoke`, then verifies `build/release/SHA256SUMS`.
+
+Use `BUNDLE_NODE=1` for artifacts intended for another Mac. The default
+`npm run desktop` uses the host's Node installation and is enough for local
+development.
 
 Before publishing a desktop build, run `npm run desktop:dist` and verify the
 artifacts and checksums. Signing/notarization env vars and certificate setup
@@ -167,7 +173,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of release `0.2.5` (2026-11-12):
+As of release `0.2.6` (2026-11-12):
 
 - unit/route tests: **337 tests / 34 files**
 - E2E: **144 passed / 0 failed**

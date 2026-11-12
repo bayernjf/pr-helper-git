@@ -38,6 +38,33 @@ does not depend on the currently checked-out branch. The latest
 `000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
 history; check `git bundle list-heads` for the exact main ref.
 
+## Release 0.2.6 (2026-11-12)
+
+`package.json` / `package-lock.json` are at **0.2.6**; `CHANGELOG.md` has the
+`[0.2.6]` section. `v0.2.6` is an annotated tag on this release commit.
+
+Scope: optional bundling of the official Node `22.23.5` macOS runtime
+(`BUNDLE_NODE=1`), a lightweight **Check for Updates…** app-menu action backed
+by GitHub `releases/latest`, separate signing of the nested Node with JIT
+entitlements, a bundled-Node smoke check, and macOS CI exercising the bundled
+distribution path.
+
+Gates: lint, server typecheck, 337 unit tests / 34 files, build, E2E 144/144;
+`desktop:native-test`, `BUNDLE_NODE=1 desktop:dist`, `BUNDLE_NODE=1
+desktop:smoke` and `SHA256SUMS` verification. The app bundle reports
+`CFBundleShortVersionString = 0.2.6`, contains Node `22.23.5` arm64, and is
+about 114 MB. Launching it produced a server child process running from
+`Contents/Resources/runtime/node`, not the system Node.
+
+GUI: clicking **Check for Updates…** opened a native alert reading
+`No releases found`, because no GitHub Release was published yet. The
+“newer version” branch stays unverified until the first release exists.
+
+Artifacts under `build/release`: `PR Helper Git-0.2.6-macos.zip` (36 MB),
+`PR Helper Git-0.2.6-macos.dmg` (41 MB) and `SHA256SUMS`; all unsigned. No
+Developer ID certificate or notary profile was available, so the nested-Node
+signing path and notarization were not exercised.
+
 ## Release 0.2.5 (2026-11-12)
 
 `package.json` / `package-lock.json` are at **0.2.5**; `CHANGELOG.md` has the
