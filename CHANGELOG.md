@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-12
+
+### 安全
+- GitHub allowlist 拒绝 percent-encoded dot segments（`%2e%2e`），避免解码后绕过 `..` 检查。
+- 服务端路径与凭据处理加固：仓库路径、凭据输入和写操作统一校验；`/api/repos/remove` 与 `/api/repos/add` 一样归一化路径，尾随斜杠或相对段仍能匹配。
+- `/api/stage-all` 要求显式 `action: "stage" | "unstage"`，不再对缺失 action 的请求默认执行全量暂存。
+
+### 重构
+- `src/api.ts`（770 行）拆成 `api/core`、`api/git-read`、`api/git-write`、`api/repos`、`api/github`、`api/team`、`api/ai` 与统一入口 `api/index`。
+- 写路由统一要求 POST，删除重复 import 与死代码；`routes-git-*` 领域模块同步瘦身。
+- `RefSidebar`、`PrDetailSections`、`CommitGraph` 继续抽出子组件，前端大文件保持可维护区间。
+
+### 修复
+- 修复代码评审发现的前端交互问题；上下文菜单、横幅、合并策略选择器补齐中英文案。
+- E2E `stage-all` 改为发送显式 `action`，与服务端新契约一致。
+
+### 测试
+- lint、server typecheck、336 单测 / 34 文件、生产构建、E2E 144/144 全通过；CI 同时覆盖 `main` 与 `dev`。
+
 ## [0.2.3] - 2026-11-12
 
 ### 新增
