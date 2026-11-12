@@ -17,6 +17,7 @@ const resourcesDir = path.join(contents, 'Resources');
 const appDir = path.join(resourcesDir, 'app');
 const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
 const buildNumber = process.env.BUILD_NUMBER || '1';
+const bundleId = process.env.DESKTOP_BUNDLE_ID || 'local.pr-helper-git';
 
 const log = (msg) => console.log(`[desktop] ${msg}`);
 
@@ -77,7 +78,7 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleDisplayName</key>
   <string>${appName}</string>
   <key>CFBundleIdentifier</key>
-  <string>local.pr-helper-git</string>
+  <string>${bundleId}</string>
   <key>CFBundleExecutable</key>
   <string>${appName}</string>
   <key>CFBundleIconFile</key>
