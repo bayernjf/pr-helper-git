@@ -356,7 +356,8 @@ There is no staging, commit, push or rebase control in this view.
 `/m?repo=<path>&commit=<sha>` deep-links straight to one commit of one repository.
 
 The server binds `127.0.0.1` by default. For phone access set
-`GIT2_HOST=0.0.0.0` (or a specific LAN/Tailscale address) and restart, or keep
+`PR_HELPER_GIT_HOST=0.0.0.0` (or a specific LAN/Tailscale address; the legacy
+`GIT2_HOST` is still accepted) and restart, or keep
 the default and use an SSH port forward. Only do this on a private network
 (Tailscale/ZeroTier/WireGuard); never forward the port from a router or expose
 it publicly. The one-time token in the URL is still the only credential.
@@ -369,6 +370,12 @@ database, web push and deployment gates.
 Conflicts are handled per file from the in-app panel (Use current / Use
 incoming / Mark resolved) plus the three-way merge editor for
 region-by-region resolution.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, branch, commit, PR, release
+and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
+[docs/README.md](docs/README.md) maps the rest of the project documents.
 
 ## Quick start
 
@@ -390,49 +397,85 @@ Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
 be removed again on request.
 
-## Desktop app (macOS, frozen)
+## Desktop app (macOS)
 
-> Desktop development is paused. New features target the browser UI and are not
-> adapted to the native shell; the checked-in bundle predates them. Use
-> `npm run dev` / `npm start` for current behaviour.
+The desktop shell is maintained again. It is a thin native shell over the same
+React client and Node server: product behaviour stays in the web UI, while
+Swift owns only the window, process lifetime and macOS integration.
 
 A native macOS desktop build is available without bundling any third-party
 runtime. It uses the system `WKWebView` (no embedded Chromium) and a
 `swiftc`-compiled native shell, and it reuses the Node.js already installed on
-the machine.
+the machine. Requires macOS 11.3 or later.
 
 ```bash
-npm run desktop   # builds dist/PR Helper Git.app
+npm run desktop   # builds build/PR Helper Git.app
 ```
 
-Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
+Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
 
 - resolves Node.js at the common install locations (Homebrew under
   `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
   process inherits a minimal `PATH`;
-- spawns the bundled server on an ephemeral port with `GIT2_DESKTOP=1` and
-  reads the machine-readable `GIT2_READY {"port","token"}` line;
+- spawns the bundled server on an ephemeral port with the desktop flag
+  (`PR_HELPER_GIT_DESKTOP=1`, plus legacy `GIT2_DESKTOP=1` for older bundled
+  servers) and reads the machine-readable readiness line; the shell accepts
+  both `PR_HELPER_GIT_READY` and legacy `GIT2_READY`;
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;
+- provides standard macOS menus (app, File, Edit, View, Window) and sends
+  non-localhost links to the default browser instead of replacing the app view;
+- **File > Open Repository…** opens a native folder panel and pre-fills the
+  existing add-repository dialog; no second registration path is introduced;
+- handles web downloads (for example the team config export) into
+  `~/Downloads`, avoids overwriting an existing file, and reveals the result
+  in Finder;
 - terminates the server when the window closes. On shutdown the server closes
   all keep-alive and SSE sockets immediately, and the shell force-kills the
   process after a bounded wait if it does not exit;
 - ships a generated `AppIcon.icns` (rendered from `desktop/make-icon.swift`
   and packaged with the system sips/iconutil tools) referenced through
   `CFBundleIconFile`, and remembers the window position and size across
-  launches via `setFrameAutosaveName`, centering only on the first run.
+  launches via `setFrameAutosaveName`, centering only on the first run;
+- compiles with an explicit macOS 11.3 deployment target, so the binary's
+  `minos` matches `LSMinimumSystemVersion` instead of inheriting the build
+  machine's newer SDK.
 
-The resulting bundle is about 1.2 MB. An unsigned, locally built app may
+The resulting bundle is about 1.5 MB. An unsigned, locally built app may
 need a one-time Gatekeeper approval under **System Settings → Privacy &
 Security**.
 
+### Distribution preparation
+
+`npm run desktop:dist` builds the app and writes a zip, a dmg and
+`SHA256SUMS` under `build/release/`. With no Apple credentials it produces
+unsigned local artifacts; that is enough for use on this machine.
+
+For a signed, notarized build, set a stable distribution bundle id and the
+Developer ID identity, then point at a `notarytool` keychain profile:
+
+```bash
+DESKTOP_BUNDLE_ID=com.bayernjf.pr-helper-git \
+APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+APPLE_NOTARY_PROFILE=pr-helper-git \
+BUILD_NUMBER="$(git rev-list --count HEAD)" \
+npm run desktop:dist
+```
+
+Changing the bundle id creates a separate app container, so local preferences
+and the saved window frame do not carry over. See
+[`docs/desktop-distribution.md`](docs/desktop-distribution.md) for certificate
+setup, notarization, verification and publishing steps.
+
 ## Security model
 
-- The server binds `127.0.0.1` by default. Setting `GIT2_HOST` to a LAN/Tailscale
-  address is an explicit opt-in (see “Mobile / phone view”); in development
-  (`GIT2_DEV=1`) a non-loopback bind is refused unless
-  `GIT2_ALLOW_INSECURE_DEV_HOST=1` is set, because the dev token is fixed.
+- The server binds `127.0.0.1` by default. Setting `PR_HELPER_GIT_HOST` (legacy
+  `GIT2_HOST`) to a LAN/Tailscale address is an explicit opt-in (see “Mobile /
+  phone view”); in development (`PR_HELPER_GIT_DEV=1`, legacy `GIT2_DEV`) a
+  non-loopback bind is refused unless
+  `PR_HELPER_GIT_ALLOW_INSECURE_DEV_HOST=1` (legacy
+  `GIT2_ALLOW_INSECURE_DEV_HOST`) is set, because the dev token is fixed.
   In production it generates a random
   per-process token that is exchanged for an HttpOnly, SameSite=Strict cookie.
   That token is the owner (admin) identity. Member tokens are random 192-bit
@@ -503,32 +546,39 @@ server/
   routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
 src/
   app-state.tsx      central data/state provider
-  api.ts             typed API client
+  api/               typed API client, split by domain (core, git-read,
+                     git-write, repos, github, team, ai)
   components/        UI components, inline SVG icons, context menu, modals
   hooks/             resize, escape, focus-trap and keyboard interaction hooks
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
 scripts/dev.mjs      parallel Vite + API launcher
 scripts/desktop-build.mjs  Vite build + Swift compile into a macOS .app bundle
+scripts/desktop-dist.mjs  optional zip/dmg + signing/notarization pipeline
 desktop/main.swift   native WKWebView window and Node process supervision
+desktop/DownloadDestination.swift  pure download-name/collision logic
 desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ```
 
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (336 tests, 34 files)
+npm test           # Vitest unit + route-level HTTP tests (337 tests, 34 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/
+npm run desktop:native-test # macOS: pure Swift download-path tests (no GUI)
+npm run desktop:smoke      # macOS: verify the assembled app bundle
+npm run desktop:dist      # macOS zip/dmg + SHA256SUMS; signs when configured
 npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 ```
 
-`npm run desktop` still exists but is frozen with desktop development; it is not
-part of the regular check loop.
+`npm run desktop` is macOS-only. Run it after changing `desktop/` or
+`scripts/desktop-build.mjs`; it is not part of the default check loop.
 
-`npm run e2e` starts the server on port 18774 with `GIT2_DEV=1` (token
-`dev-token`) and `PR_HELPER_HOME` pointed at a throwaway directory, so it never
-reads or writes `~/.pr-helper-git`. It builds the fixture repositories itself
+`npm run e2e` starts the server on port 18774 with `PR_HELPER_GIT_DEV=1`
+(legacy `GIT2_DEV`; token `dev-token`) and `PR_HELPER_HOME` pointed at a
+throwaway directory, so it never reads or writes `~/.pr-helper-git`. It builds
+the fixture repositories itself
 and covers auth, repository registration, status/log/refs reads, stage → commit
 → undo, hunk/line-precise staging, branch/tag/stash, grep, compare, reverts,
 merge conflicts (resolve → commit, abort), interactive rebase (drop, conflict →
@@ -536,10 +586,9 @@ abort), push/pull against a bare remote, GitHub proxy guards and the audit
 trail. Flat 1:1 with `e2e/run.sh` in
 `pr-helper-git`.
 
-The same three steps are configured in the GitHub Actions workflow in
-`.github/workflows/ci.yml`. This repository intentionally has no remote, so the
-workflow does not run in practice; the local commands above are the source of
-truth until a remote is explicitly requested.
+The same core checks are configured in `.github/workflows/ci.yml` for pushes
+and pull requests targeting `main` and `dev`. CI runs on GitHub; the local
+commands above remain the source of truth for a local checkout.
 
 The route tests spawn a real server on an ephemeral port against a temporary
 Git repository and an isolated `PR_HELPER_HOME`, covering the read/write Git

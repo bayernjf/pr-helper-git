@@ -10,11 +10,16 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const appName = 'PR Helper Git';
-const outApp = path.join(root, 'dist', `${appName}.app`);
+// The .app lives under build/ (not dist/) so `vite build` — which empties its
+// outDir — cannot delete the assembled bundle.
+const outApp = path.join(root, 'build', `${appName}.app`);
 const contents = path.join(outApp, 'Contents');
 const macosDir = path.join(contents, 'MacOS');
 const resourcesDir = path.join(contents, 'Resources');
 const appDir = path.join(resourcesDir, 'app');
+const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
+const buildNumber = process.env.BUILD_NUMBER || '1';
+const bundleId = process.env.DESKTOP_BUNDLE_ID || 'local.pr-helper-git';
 
 const log = (msg) => console.log(`[desktop] ${msg}`);
 
@@ -75,7 +80,7 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleDisplayName</key>
   <string>${appName}</string>
   <key>CFBundleIdentifier</key>
-  <string>local.pr-helper-git</string>
+  <string>${bundleId}</string>
   <key>CFBundleExecutable</key>
   <string>${appName}</string>
   <key>CFBundleIconFile</key>
@@ -85,11 +90,11 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${pkg.version}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${buildNumber}</string>
   <key>LSMinimumSystemVersion</key>
-  <string>11.0</string>
+  <string>11.3</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSAppTransportSecurity</key>
@@ -135,10 +140,19 @@ await buildIcon();
 
 // 6. Compile the native shell into the bundle.
 log('compiling native shell (swiftc)…');
+const swiftArch = process.arch === 'arm64' ? 'arm64' : 'x86_64';
 execFileSync(
   '/usr/bin/swiftc',
-  [path.join(root, 'desktop/main.swift'), '-o', path.join(macosDir, appName)],
-  { stdio: 'inherit' },
+  [
+    path.join(root, 'desktop/DownloadDestination.swift'),
+    path.join(root, 'desktop/main.swift'),
+    '-target', `${swiftArch}-apple-macos11.3`,
+    '-o', path.join(macosDir, appName),
+  ],
+  {
+    stdio: 'inherit',
+    env: { ...process.env, MACOSX_DEPLOYMENT_TARGET: '11.3' },
+  },
 );
 
 log(`done → ${outApp}`);

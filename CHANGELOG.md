@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-12
+
+### 新增
+- macOS 桌面端解冻：保留 Swift `WKWebView` 薄壳，不引入 Electron/Tauri；新增标准应用菜单（关于、文件、编辑、刷新、窗口）、900×600 最小窗口，外部链接交给默认浏览器打开。
+- 桌面端 **File > Open Repository…** 使用原生目录选择器，选中路径预填现有“添加仓库”弹窗，不新增第二套注册流程。
+- 桌面端接住 Web 下载（如团队配置导出），文件落到 `~/Downloads`，重名自动加后缀，完成后在 Finder 中定位。
+- 新增 `npm run desktop:dist`：输出 zip、dmg 与 `SHA256SUMS`；设置 `APPLE_SIGNING_IDENTITY` 后用 hardened runtime 签名，设置 `APPLE_NOTARY_PROFILE` 后自动提交公证并 staple app/dmg。`DESKTOP_BUNDLE_ID` 可切换分发用 bundle id。
+- 新增 [`docs/desktop-distribution.md`](docs/desktop-distribution.md)，记录证书、公证、校验和发布步骤。
+- CI 新增 macOS job：跑纯 Swift 下载落盘测试、无签名 `desktop:dist`、bundle 冒烟和 `SHA256SUMS` 校验。
+- 修复桌面二进制部署目标：`swiftc` 现在显式按 macOS 11.3 编译，避免在较新 SDK 上打出 `minos 27.2` 而让旧 Mac 无法启动；`desktop:smoke` 会校验 `minos` 与 `LSMinimumSystemVersion` 一致。
+
+### 修复
+- 桌面壳同时接受 `PR_HELPER_GIT_READY` 与旧 `GIT2_READY` 就绪前缀，并同时设置新旧 desktop 环境变量，修复改名后启动 20 秒超时的问题。
+- 桌面构建的 `CFBundleShortVersionString` 改为读取 `package.json`，不再硬编码 `0.1.0`；最低系统版本调整为 macOS 11.3（下载代理所需）。
+
+### 测试
+- 新增 `AddRepoModal` 桌面选目录预填测试；lint、server typecheck、单测 **337 / 34 文件**、生产构建、E2E **144/144** 通过，`npm run desktop` 构建通过。
+- macOS 真机验收：原生目录选择器成功预填项目路径；团队配置连续导出生成 `pr-helper-git-team.json` 与 `pr-helper-git-team-2.json`，Finder 自动定位到最新文件。
+
 ## [0.2.4] - 2026-11-12
 
 ### 安全

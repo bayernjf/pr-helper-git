@@ -5,7 +5,7 @@
 import AppKit
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var server: Process?
@@ -13,8 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private var readyPort: Int?
     private var readyToken: String?
     private var isTerminating = false
+    private var pendingOpenPath: String?
+    private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
-    private let bufferQueue = DispatchQueue(label: "local.pr-helper-git2.stdout")
+    private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
 
     // MARK: Lifecycle
 
@@ -34,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         let appDir = (resourcePath as NSString).appendingPathComponent("app")
         let serverScript = (appDir as NSString).appendingPathComponent("server/main.mjs")
 
+        setupMenu()
         setupWindow()
         startServer(node: node, script: serverScript)
 
@@ -61,6 +64,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         true
     }
 
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         isTerminating = true
         guard let process = server, process.isRunning else { return }
@@ -83,6 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         process.executableURL = URL(fileURLWithPath: node)
         process.arguments = [script, "--port=0"]
         var env = ProcessInfo.processInfo.environment
+        env["PR_HELPER_GIT_DESKTOP"] = "1"
+        // Legacy alias for older bundled servers; the current server accepts both.
         env["GIT2_DESKTOP"] = "1"
         process.environment = env
 
@@ -130,8 +139,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             outputBuffer.removeSubrange(0..<newline.upperBound)
             guard let line = String(data: lineData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespaces) else { continue }
-            let prefix = "GIT2_READY "
-            guard line.hasPrefix(prefix) else { continue }
+            // Accept both the current and legacy readiness prefixes so the
+            // shell keeps working with old and new bundled servers.
+            let prefixes = ["PR_HELPER_GIT_READY ", "GIT2_READY "]
+            guard let prefix = prefixes.first(where: { line.hasPrefix($0) }) else { continue }
+            guard readyPort == nil else { continue }
             let payload = String(line.dropFirst(prefix.count))
             guard let data = payload.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -183,6 +195,135 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         return nil
     }
 
+    // MARK: Menu
+
+    private func setupMenu() {
+        let appName = "PR Helper Git"
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        let appMenu = NSMenu()
+        appMenu.addItem(
+            withTitle: "About \(appName)",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: "",
+        )
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Hide \(appName)",
+            action: #selector(NSApplication.hide(_:)),
+            keyEquivalent: "h",
+        )
+        let hideOthers = NSMenuItem(
+            title: "Hide Others",
+            action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h",
+        )
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(hideOthers)
+        appMenu.addItem(
+            withTitle: "Show All",
+            action: #selector(NSApplication.unhideAllApplications(_:)),
+            keyEquivalent: "",
+        )
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Quit \(appName)",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q",
+        )
+        appMenuItem.submenu = appMenu
+
+        let fileMenuItem = NSMenuItem()
+        mainMenu.addItem(fileMenuItem)
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(
+            withTitle: "Open Repository…",
+            action: #selector(chooseRepository),
+            keyEquivalent: "o",
+        )
+        fileMenuItem.submenu = fileMenu
+
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(redo)
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+
+        let viewMenuItem = NSMenuItem()
+        mainMenu.addItem(viewMenuItem)
+        let viewMenu = NSMenu(title: "View")
+        viewMenu.addItem(withTitle: "Reload", action: #selector(reloadWebView), keyEquivalent: "r")
+        viewMenuItem.submenu = viewMenu
+
+        let windowMenuItem = NSMenuItem()
+        mainMenu.addItem(windowMenuItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(
+            withTitle: "Minimize",
+            action: #selector(NSWindow.performMiniaturize(_:)),
+            keyEquivalent: "m",
+        )
+        windowMenu.addItem(
+            withTitle: "Zoom",
+            action: #selector(NSWindow.performZoom(_:)),
+            keyEquivalent: "",
+        )
+        windowMenuItem.submenu = windowMenu
+
+        NSApp.mainMenu = mainMenu
+        NSApp.windowsMenu = windowMenu
+    }
+
+    @objc private func reloadWebView() {
+        webView?.reload()
+    }
+
+    @objc private func chooseRepository() {
+        let panel = NSOpenPanel()
+        panel.title = "Open Repository"
+        panel.message = "Choose a folder that contains a Git repository."
+        panel.prompt = "Open"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.openRepository(path: url.path)
+        }
+    }
+
+    private func openRepository(path: String) {
+        guard webView.url != nil else {
+            pendingOpenPath = path
+            return
+        }
+        sendOpenRepository(path: path)
+    }
+
+    private func sendOpenRepository(path: String) {
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: path,
+            options: [.fragmentsAllowed],
+        ), let json = String(data: data, encoding: .utf8) else { return }
+        let script = "window.__prHelperGitPendingOpenPath = \(json); window.dispatchEvent(new CustomEvent('git2:add-repo', { detail: { path: \(json) } }));"
+        webView.evaluateJavaScript(script) { _, error in
+            if let error = error {
+                NSLog("desktop open-repository bridge failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: Window
 
     private func setupWindow() {
@@ -202,6 +343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         )
         window.center()
         window.title = "PR Helper Git"
+        window.minSize = NSSize(width: 900, height: 600)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
@@ -229,10 +371,94 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures,
     ) -> WKWebView? {
-        if let url = navigationAction.request.url {
+        guard let url = navigationAction.request.url else { return nil }
+        if isLocalURL(url) {
             webView.load(URLRequest(url: url))
+        } else {
+            // GitHub, docs and other external links belong in the user's browser,
+            // not in the app's single localhost window.
+            NSWorkspace.shared.open(url)
         }
         return nil
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void,
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+        if #available(macOS 11.3, *), navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
+        if isLocalURL(url) || url.scheme == "about" {
+            decisionHandler(.allow)
+            return
+        }
+        NSWorkspace.shared.open(url)
+        decisionHandler(.cancel)
+    }
+
+    @available(macOS 11.3, *)
+    func webView(
+        _ webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        didBecome download: WKDownload,
+    ) {
+        download.delegate = self
+    }
+
+    @available(macOS 11.3, *)
+    func download(
+        _ download: WKDownload,
+        decideDestinationUsing response: URLResponse,
+        suggestedFilename: String,
+        completionHandler: @escaping (URL?) -> Void,
+    ) {
+        let destination = availableDownloadURL(filename: suggestedFilename)
+        downloadDestinations[ObjectIdentifier(download)] = destination
+        completionHandler(destination)
+    }
+
+    @available(macOS 11.3, *)
+    func downloadDidFinish(_ download: WKDownload) {
+        guard let destination = downloadDestinations.removeValue(forKey: ObjectIdentifier(download)) else {
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([destination])
+    }
+
+    @available(macOS 11.3, *)
+    func download(
+        _ download: WKDownload,
+        didFailWithError error: Error,
+        resumeData: Data?,
+    ) {
+        downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Download failed"
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let path = pendingOpenPath else { return }
+        pendingOpenPath = nil
+        sendOpenRepository(path: path)
+    }
+
+    private func isLocalURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = url.host?.lowercased()
+        else { return false }
+        return host == "127.0.0.1" || host == "localhost"
     }
 
     // MARK: Errors

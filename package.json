@@ -1,7 +1,7 @@
 {
   "name": "pr-helper-git",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -12,6 +12,9 @@
     "start": "node server/main.mjs",
     "build": "vite build",
     "desktop": "node scripts/desktop-build.mjs",
+    "desktop:dist": "node scripts/desktop-dist.mjs",
+    "desktop:smoke": "node scripts/desktop-smoke.mjs",
+    "desktop:native-test": "node scripts/desktop-native-test.mjs",
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "typecheck:server": "tsc -p tsconfig.server.json",
