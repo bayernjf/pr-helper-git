@@ -94,9 +94,18 @@ npm run desktop
 ```
 
 This is macOS-only and needs the Xcode command-line tools (`swiftc`, `sips`,
-`iconutil`) plus Node. It is not part of the default Linux CI loop; run it
-whenever `desktop/` or `scripts/desktop-build.mjs` changes, then confirm
-`CFBundleShortVersionString` in the bundle matches `package.json`.
+`iconutil`) plus Node. It is not part of the default Linux CI loop; the CI
+workflow has a macOS job that runs the native test, builds the bundle and runs
+the smoke check. Run these locally whenever `desktop/` or the build scripts
+change:
+
+```bash
+npm run desktop:native-test
+npm run desktop
+npm run desktop:smoke
+```
+
+Then confirm `CFBundleShortVersionString` in the bundle matches `package.json`.
 
 For a distributable artifact:
 

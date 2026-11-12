@@ -552,6 +552,7 @@ scripts/dev.mjs      parallel Vite + API launcher
 scripts/desktop-build.mjs  Vite build + Swift compile into a macOS .app bundle
 scripts/desktop-dist.mjs  optional zip/dmg + signing/notarization pipeline
 desktop/main.swift   native WKWebView window and Node process supervision
+desktop/DownloadDestination.swift  pure download-name/collision logic
 desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ```
 
@@ -562,6 +563,8 @@ npm test           # Vitest unit + route-level HTTP tests (337 tests, 34 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/
+npm run desktop:native-test # macOS: pure Swift download-path tests (no GUI)
+npm run desktop:smoke      # macOS: verify the assembled app bundle
 npm run desktop:dist      # macOS zip/dmg + SHA256SUMS; signs when configured
 npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 ```

@@ -79,6 +79,8 @@ signed but not notarized; the script says so explicitly.
 ## Verify before publishing
 
 ```bash
+npm run desktop:native-test
+npm run desktop:smoke
 codesign --verify --deep --strict --verbose=2 "dist/PR Helper Git.app"
 xcrun stapler validate "dist/PR Helper Git.app"
 spctl -a -vv "dist/PR Helper Git.app"
@@ -87,8 +89,10 @@ hdiutil verify "dist/release/PR Helper Git-<version>-macos.dmg"
 (cd dist/release && shasum -a 256 -c SHA256SUMS)
 ```
 
-`spctl` needs the notarized app; it will reject an unsigned or unstapled build.
-It may also require network access for the first assessment.
+The CI workflow runs `desktop:native-test`, an unsigned `desktop:dist` and
+`desktop:smoke` on a macOS runner, then checks `SHA256SUMS`. It does not have
+Apple signing credentials, so the signed/notarized path still needs one release
+run on a machine with the certificate and notary profile.
 
 ## Publishing
 

@@ -71,6 +71,8 @@ npm run typecheck:server  # checkJs over server/*.mjs
 npm test                  # Vitest unit + route tests
 npm run build             # production build into dist/
 npm run desktop           # macOS-only: build dist/PR Helper Git.app
+npm run desktop:native-test # macOS-only: pure Swift download-path tests (no GUI)
+npm run desktop:smoke     # verify the assembled bundle without launching it
 npm run desktop:dist      # macOS-only: zip/dmg/checksums (signs when configured)
 npm run e2e               # real loopback server + curl assertions
 ```
@@ -84,9 +86,14 @@ npm run lint && npm run typecheck:server && npm test && npm run build && npm run
 Desktop gate (macOS only, when `desktop/` or the build script changes):
 
 ```bash
+npm run desktop:native-test
 npm run desktop
+npm run desktop:smoke
 plutil -p "dist/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
 ```
+
+The macOS CI job runs `desktop:native-test`, `desktop:dist` (unsigned) and
+`desktop:smoke`, then verifies `dist/release/SHA256SUMS`.
 
 Before publishing a desktop build, run `npm run desktop:dist` and verify the
 artifacts and checksums. Signing/notarization env vars and certificate setup
@@ -164,7 +171,7 @@ As of release `0.2.4` (2026-11-12):
 - unit/route tests: **337 tests / 34 files**
 - E2E: **144 passed / 0 failed**
 - build: passes
-- CI: `main` and `dev` both green; workflow listens to both branches
+- CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs
 
 Update these numbers when the baseline changes. Historical numbers in
 `handoff.md` are records, not the current baseline.

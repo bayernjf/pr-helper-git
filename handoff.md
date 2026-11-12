@@ -95,12 +95,20 @@ current release.
   for distribution.
 - Added `docs/desktop-distribution.md` for certificate setup, `notarytool`
   keychain profiles, verification and manual publishing.
+- Extracted download destination naming into `desktop/DownloadDestination.swift`
+  and added a headless Swift test for collisions, extensionless names,
+  path-traversal input and the empty-name fallback.
+- Added `desktop:smoke`, which verifies Info.plist version/bundle id, minimum
+  system, icon, bundled client/server and the Mach-O executable without
+  launching the GUI.
+- CI now has a macOS job: native download test, unsigned `desktop:dist`,
+  bundle smoke, and `SHA256SUMS` verification.
 - `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
 
-Still open for desktop: signed/notarized distribution needs a real Developer ID
-and Apple notary account; the macOS CI build job and automated smoke script are
-not added yet.
+Still open for desktop: a real signed/notarized release needs a Developer ID
+and Apple notary account; the native folder picker and WKDownload flow still
+need a click-through on an unlocked Mac.
 
 ## Post-0.2.2 hardening (2026-11-11)
 

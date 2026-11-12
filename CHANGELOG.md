@@ -10,6 +10,7 @@
 - 桌面端接住 Web 下载（如团队配置导出），文件落到 `~/Downloads`，重名自动加后缀，完成后在 Finder 中定位。
 - 新增 `npm run desktop:dist`：输出 zip、dmg 与 `SHA256SUMS`；设置 `APPLE_SIGNING_IDENTITY` 后用 hardened runtime 签名，设置 `APPLE_NOTARY_PROFILE` 后自动提交公证并 staple app/dmg。`DESKTOP_BUNDLE_ID` 可切换分发用 bundle id。
 - 新增 [`docs/desktop-distribution.md`](docs/desktop-distribution.md)，记录证书、公证、校验和发布步骤。
+- CI 新增 macOS job：跑纯 Swift 下载落盘测试、无签名 `desktop:dist`、bundle 冒烟和 `SHA256SUMS` 校验。
 
 ### 修复
 - 桌面壳同时接受 `PR_HELPER_GIT_READY` 与旧 `GIT2_READY` 就绪前缀，并同时设置新旧 desktop 环境变量，修复改名后启动 20 秒超时的问题。
