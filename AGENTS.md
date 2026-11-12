@@ -156,7 +156,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of release `0.2.4` (2026-11-12):
 
-- unit/route tests: **336 tests / 34 files**
+- unit/route tests: **337 tests / 34 files**
 - E2E: **144 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow listens to both branches
@@ -172,5 +172,7 @@ accepts the legacy environment name. Do not remove either side of this
 compatibility bridge without a migration and an explicit user decision.
 
 Desktop changes must keep the app a thin wrapper over the same web client and
-server. After changing `desktop/` or `scripts/desktop-build.mjs`, run
+server. Native work may add windowing, menus, folder pickers, downloads and
+external-link handling, but registration/feature flows stay in the web UI.
+After changing `desktop/` or `scripts/desktop-build.mjs`, run
 `npm run desktop` and verify the bundle version matches `package.json`.

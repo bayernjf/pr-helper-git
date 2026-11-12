@@ -73,16 +73,26 @@ current release.
 - The shell now sets `PR_HELPER_GIT_DESKTOP=1` and the legacy
   `GIT2_DESKTOP=1`, and accepts both `PR_HELPER_GIT_READY` and legacy
   `GIT2_READY` readiness lines.
-- Added a standard macOS menu (About, Edit, Reload, Window), a 900×600 minimum
-  window size, and external-link handling: non-localhost URLs open in the
-  default browser instead of replacing the app view.
+- Added standard macOS menus (app, File, Edit, View, Window), a 900×600
+  minimum window size, and external-link handling: non-localhost URLs open in
+  the default browser instead of replacing the app view.
+- Added **File > Open Repository…**: `NSOpenPanel` selects a folder and sends
+  the path through the existing `git2:add-repo` event, so the web modal keeps
+  owning registration rather than a second native flow.
+- Added `WKDownloadDelegate`: web downloads (team config export and similar)
+  land in `~/Downloads`, get a numeric suffix on name collisions, and reveal
+  in Finder when finished. Minimum system is macOS 11.3 for this API.
 - `scripts/desktop-build.mjs` now reads `CFBundleShortVersionString` from
   `package.json` (0.2.4 at this point) instead of the stale `0.1.0` literal.
+- Added a server-render test for the desktop folder-picker prefill; unit
+  baseline moved from 336 to **337 tests / 34 files**. Full gate: lint, server
+  typecheck, 337 unit tests, build, E2E 144/144; desktop build and startup
+  smoke also pass.
 - `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
 
 Still open for desktop: signed/notarized distribution, a macOS CI build job,
-and native file/folder picking if the web UI needs it.
+and an automated desktop smoke script.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
@@ -192,10 +202,10 @@ and `npm run desktop` are active again; see “Desktop unfrozen” at the top.
 - Desktop (macOS, zero third-party runtime) — **maintained since 2026-11-12**:
   a `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
   `scripts/desktop-build.mjs` via `npm run desktop` into
-  `dist/PR Helper Git.app` (~1.4 MB). It locates the system Node.js at
+  `dist/PR Helper Git.app` (~1.5 MB). It locates the system Node.js at
   well-known paths, spawns the server on an ephemeral port with both desktop
   env names, accepts either readiness prefix, loads the one-time token URL,
-  opens external links in the default browser, provides a standard macOS menu,
+  opens external links in the default browser, provides standard macOS menus,
   and terminates the server on window close. The bundle ships a generated
   `AppIcon.icns` (rendered by `desktop/make-icon.swift`, then scaled and
   packaged with the system sips/iconutil tools) referenced through

@@ -406,7 +406,7 @@ Swift owns only the window, process lifetime and macOS integration.
 A native macOS desktop build is available without bundling any third-party
 runtime. It uses the system `WKWebView` (no embedded Chromium) and a
 `swiftc`-compiled native shell, and it reuses the Node.js already installed on
-the machine.
+the machine. Requires macOS 11.3 or later.
 
 ```bash
 npm run desktop   # builds dist/PR Helper Git.app
@@ -424,8 +424,13 @@ Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;
-- provides a standard macOS menu (About, Edit, Reload, Window) and sends
+- provides standard macOS menus (app, File, Edit, View, Window) and sends
   non-localhost links to the default browser instead of replacing the app view;
+- **File > Open Repository…** opens a native folder panel and pre-fills the
+  existing add-repository dialog; no second registration path is introduced;
+- handles web downloads (for example the team config export) into
+  `~/Downloads`, avoids overwriting an existing file, and reveals the result
+  in Finder;
 - terminates the server when the window closes. On shutdown the server closes
   all keep-alive and SSE sockets immediately, and the shell force-kills the
   process after a bounded wait if it does not exit;
@@ -434,7 +439,7 @@ Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
   `CFBundleIconFile`, and remembers the window position and size across
   launches via `setFrameAutosaveName`, centering only on the first run.
 
-The resulting bundle is about 1.2 MB. An unsigned, locally built app may
+The resulting bundle is about 1.5 MB. An unsigned, locally built app may
 need a one-time Gatekeeper approval under **System Settings → Privacy &
 Security**.
 
@@ -530,7 +535,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (336 tests, 34 files)
+npm test           # Vitest unit + route-level HTTP tests (337 tests, 34 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

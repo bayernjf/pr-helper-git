@@ -5,11 +5,16 @@
 ## [Unreleased]
 
 ### 新增
-- macOS 桌面端解冻：保留 Swift `WKWebView` 薄壳，不引入 Electron/Tauri；新增标准应用菜单（关于、编辑、刷新、窗口）、900×600 最小窗口，外部链接交给默认浏览器打开。
+- macOS 桌面端解冻：保留 Swift `WKWebView` 薄壳，不引入 Electron/Tauri；新增标准应用菜单（关于、文件、编辑、刷新、窗口）、900×600 最小窗口，外部链接交给默认浏览器打开。
+- 桌面端 **File > Open Repository…** 使用原生目录选择器，选中路径预填现有“添加仓库”弹窗，不新增第二套注册流程。
+- 桌面端接住 Web 下载（如团队配置导出），文件落到 `~/Downloads`，重名自动加后缀，完成后在 Finder 中定位。
 
 ### 修复
 - 桌面壳同时接受 `PR_HELPER_GIT_READY` 与旧 `GIT2_READY` 就绪前缀，并同时设置新旧 desktop 环境变量，修复改名后启动 20 秒超时的问题。
-- 桌面构建的 `CFBundleShortVersionString` 改为读取 `package.json`，不再硬编码 `0.1.0`。
+- 桌面构建的 `CFBundleShortVersionString` 改为读取 `package.json`，不再硬编码 `0.1.0`；最低系统版本调整为 macOS 11.3（下载代理所需）。
+
+### 测试
+- 新增 `AddRepoModal` 桌面选目录预填测试；lint、server typecheck、单测 **337 / 34 文件**、生产构建、E2E **144/144** 通过，`npm run desktop` 构建通过。
 
 ## [0.2.4] - 2026-11-12
 

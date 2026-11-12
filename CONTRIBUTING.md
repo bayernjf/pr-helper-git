@@ -76,7 +76,7 @@ npm run build
 npm run e2e
 ```
 
-Expected baseline at release `0.2.4`: **336 unit tests / 34 files**, **E2E
+Expected baseline at release `0.2.4`: **337 unit tests / 34 files**, **E2E
 144/144**, build passes. If your change moves the baseline, update
 `README.md`, `AGENTS.md`, and the relevant release notes.
 
