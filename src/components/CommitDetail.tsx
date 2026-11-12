@@ -1,11 +1,11 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
-import { getCommitDiff, getCommitFiles, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
+import { getCommitDiff, getCommitFiles, getCommitInfo, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
 import { formatFullDate, shortHash } from '../lib/format';
-import type { DiffResult } from '../types';
+import type { Commit, DiffResult } from '../types';
 import DiffView from './DiffView';
 import FileViewer from './FileViewer';
 import { IconCopy, IconEye, IconFile, IconX } from './icons';
@@ -36,7 +36,22 @@ function statusColor(status: string): string {
 
 export default function CommitDetail() {
   const { commits, selectedHash, selectCommit, activeRepo, toast } = useApp();
-  const commit = commits.find((c) => c.hash === selectedHash);
+  // Whole-history search can select a commit outside the loaded log window;
+  // fall back to an on-demand lookup so the detail pane is not blank.
+  const [extraCommit, setExtraCommit] = useState<Commit | null>(null);
+  const commit = commits.find((c) => c.hash === selectedHash)
+    ?? (extraCommit?.hash === selectedHash ? extraCommit : null);
+
+  useEffect(() => {
+    if (!activeRepo || !selectedHash) return;
+    if (commits.some((c) => c.hash === selectedHash)) return;
+    let alive = true;
+    getCommitInfo(activeRepo, selectedHash)
+      .then((res) => { if (alive) setExtraCommit(res.commit); })
+      .catch(() => { if (alive) setExtraCommit(null); });
+    return () => { alive = false; };
+  }, [activeRepo, selectedHash, commits]);
+
   const [files, setFiles] = useState<CommitFile[]>([]);
   const [signature, setSignature] = useState<CommitSignature | null>(null);
   const [patch, setPatch] = useState<DiffResult | null>(null);

@@ -3,62 +3,10 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import {
-  buildHunkPatch,
-  cleanCommitMessage,
-  git,
-  numstatTarget,
-  parseBlame,
-  parseLog,
-  parsePorcelainV2,
-  parseRefs,
-  parseReflog,
-  parseSubmoduleStatus,
-  parseTagObject,
-  splitFilePatch,
-} from './git.mjs';
-import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
-import { fail, ok } from './http.mjs';
-import { buildCommitSearch } from './search-commits.mjs';
-import { validateRebasePlan } from './rebase-todo.mjs';
-import {
-  isSensitivePath,
-  normalizeRepoPath,
-  resolveInside,
-  sanitizeUrlForAudit,
-  validateCloneUrl,
-  validateFolderName,
-  validateRefName,
-} from './security.mjs';
-import {
-  addRepo,
-  appendAudit,
-  configPaths,
-  listRepos,
-  loadConfig,
-  pruneRepos,
-  readAudit,
-  removeRepo,
-  rotateAudit,
-  updateConfig,
-} from './store.mjs';
-import { createUser, listUsers, removeUser } from './identity.mjs';
-import {
-  branchCommitSubjects,
-  buildCommitMessagePrompt,
-  buildPrDescriptionPrompt,
-  complete,
-  isAiConfigured,
-  loadAiConfig,
-  normalizeAiConfig,
-  parsePrGeneration,
-  publicAiConfig,
-  saveAiConfig,
-  stagedDiff,
-  validateAiConfig,
-} from './ai.mjs';
-import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
+import { git, parseLog, parsePorcelainV2 }from './git.mjs'
+import { fail }from './http.mjs'
+import { isSensitivePath, redactCredentials, validateRefName }from './security.mjs'
+import { listRepos }from './store.mjs'
 
 export const DIFF_LINE_LIMIT = 2000;
 export const SAVE_MAX_BYTES = 1024 * 1024; // matches the 1 MB file viewer cap
@@ -190,7 +138,7 @@ export async function mapLimit(items, limit, fn) {
 }
 
 export function gitFail(err, fallback) {
-  return fail(400, fallback, err.stderr || err.message);
+  return fail(400, fallback, redactCredentials(err.stderr || err.message));
 }
 
 // Parse NUL-separated `git grep -n -z` output into path/line/text records.

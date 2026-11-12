@@ -1,98 +1,11 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import {
-  buildHunkPatch,
-  cleanCommitMessage,
-  git,
-  numstatTarget,
-  parseBlame,
-  parseLog,
-  parsePorcelainV2,
-  parseRefs,
-  parseReflog,
-  parseSubmoduleStatus,
-  parseTagObject,
-  splitFilePatch,
-} from './git.mjs';
-import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { cleanCommitMessage, git }from './git.mjs'
 import { fail, ok } from './http.mjs';
-import { buildCommitSearch } from './search-commits.mjs';
-import { validateRebasePlan } from './rebase-todo.mjs';
-import {
-  isSensitivePath,
-  normalizeRepoPath,
-  resolveInside,
-  sanitizeUrlForAudit,
-  validateCloneUrl,
-  validateFolderName,
-  validateRefName,
-} from './security.mjs';
-import {
-  addRepo,
-  appendAudit,
-  configPaths,
-  listRepos,
-  loadConfig,
-  pruneRepos,
-  readAudit,
-  removeRepo,
-  rotateAudit,
-  updateConfig,
-} from './store.mjs';
-import { createUser, listUsers, removeUser } from './identity.mjs';
-import {
-  branchCommitSubjects,
-  buildCommitMessagePrompt,
-  buildPrDescriptionPrompt,
-  complete,
-  isAiConfigured,
-  loadAiConfig,
-  normalizeAiConfig,
-  parsePrGeneration,
-  publicAiConfig,
-  saveAiConfig,
-  stagedDiff,
-  validateAiConfig,
-} from './ai.mjs';
-import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
-import {
-  CONFIG_SPEC_BY_KEY,
-  CONFIG_SPECS,
-  CONFIG_VALUE_MAX,
-  DIFF_LINE_LIMIT,
-  FILE_MAX_BYTES,
-  LOG_LIMIT_DEFAULT,
-  LOG_LIMIT_MAX,
-  NETWORK_TIMEOUT_MS,
-  REBASE_TIMEOUT_MS,
-  SAVE_MAX_BYTES,
-  changedPaths,
-  detectRepoState,
-  findRegistered,
-  gitDirPath,
-  gitFail,
-  grepArgv,
-  isAdmin,
-  mapLimit,
-  normalizeGrepGlob,
-  normalizeRebaseBase,
-  parseConfigList,
-  parseGrepLines,
-  readBisectState,
-  rebaseCommits,
-  rebaseGuardrails,
-  repoBrief,
-  resolveParentDir,
-  sensitiveChanges,
-  sensitiveFail,
-  unmergedPaths,
-  validateDateValue,
-  validateFilterValue,
-  validateRefSpec,
-  validateStashIndex,
-} from './routes-git-helpers.mjs';
+import { validateCloneUrl, validateRefName }from './security.mjs'
+import { appendAudit }from './store.mjs'
+import { NETWORK_TIMEOUT_MS, gitFail, sensitiveChanges, sensitiveFail }from './routes-git-helpers.mjs'
 
 export async function handleGitWriteRefs({ method, pathname, query, body, identity }, repo) {
   if (pathname === '/api/branch/create') {
@@ -253,6 +166,10 @@ export async function handleGitWriteRefs({ method, pathname, query, body, identi
       return fail(400, 'invalid amend message');
     }
     try {
+      // Amend rewrites HEAD, so refuse to fold staged sensitive files into it,
+      // matching the /api/commit guard.
+      const sensitive = await sensitiveChanges(repo, { stagedOnly: true });
+      if (sensitive.length) return sensitiveFail(sensitive, 'amended');
       await git(['commit', '--amend', '-F', '-'], repo, { input: `${message}\n` });
       const sha = (await git(['rev-parse', 'HEAD'], repo)).trim();
       await appendAudit({ ok: true, action: 'amend', repo, commit: sha });

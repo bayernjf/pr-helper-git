@@ -75,6 +75,9 @@ export default function PrDetailModal({
   const [editWorking, setEditWorking] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  // Local copy of the description so edits do not mutate the `pr` prop; the
+  // parent refreshes it in place via onChanged().
+  const [description, setDescription] = useState(pr.body);
   const [labels, setLabels] = useState(pr.labels || []);
   const [repoLabels, setRepoLabels] = useState<Array<{ name: string; color?: string }>>([]);
   const [labelBusy, setLabelBusy] = useState(false);
@@ -354,7 +357,7 @@ export default function PrDetailModal({
   }
 
   function startEditDescription() {
-    setDescriptionDraft(pr.body || '');
+    setDescriptionDraft(description || '');
     setEditingDescription(true);
   }
 
@@ -368,7 +371,7 @@ export default function PrDetailModal({
         'PATCH',
         { body },
       );
-      pr.body = res.data.body;
+      setDescription(res.data.body);
       setEditingDescription(false);
       toast(t("Description updated"), 'success');
       onChanged();
@@ -456,7 +459,7 @@ export default function PrDetailModal({
 
           <DescriptionSection
             state={pr.state}
-            body={pr.body}
+            body={description}
             editing={editingDescription}
             draft={descriptionDraft}
             working={editWorking}

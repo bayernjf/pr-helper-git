@@ -38,7 +38,7 @@ const LANE_COLORS = [
   '#7ee787',
 ];
 
-export function laneColor(lane: number): string {
+function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length];
 }
 
@@ -51,6 +51,7 @@ interface MenuState {
 export default function CommitGraph() {
   const {
     pat,
+    hasServerPat,
     remote,
     commits,
     refs,
@@ -84,7 +85,7 @@ export default function CommitGraph() {
   // Batch selection belongs to one repository; drop it when switching repos.
   useEffect(() => { setChecked(new Set()); }, [currentRepo]);
 
-  const ciBySha = useCiBySha(pat, remote, currentRepo);
+  const ciBySha = useCiBySha(pat, hasServerPat, remote, currentRepo);
 
   function toggleChecked(hash: string) {
     setChecked((prev) => {
@@ -218,22 +219,29 @@ export default function CommitGraph() {
     [edges, range],
   );
 
+  // "Undo last commit" resets HEAD~1, so it is only valid when the right-clicked
+  // commit is the current HEAD. With logScope='all' the list top (commits[0]) can
+  // be another branch's tip, so derive HEAD from the current branch's ref.
+  const headHash = status?.branch
+    ? refs.find((r) => r.name === `refs/heads/${status.branch}`)?.hash
+    : undefined;
+
   const menuItems: MenuItem[] = [
-    { id: 'copy', label: 'Copy full hash', icon: <IconCopy width={15} height={15} /> },
+    { id: 'copy', label: t('Copy full hash'), icon: <IconCopy width={15} height={15} /> },
     { separator: true },
-    { id: 'reset-soft', label: 'Reset branch (soft)' },
-    { id: 'reset-mixed', label: 'Reset branch (mixed)' },
-    { id: 'reset-hard', label: 'Reset branch (hard)', danger: true },
+    { id: 'reset-soft', label: t('Reset branch (soft)') },
+    { id: 'reset-mixed', label: t('Reset branch (mixed)') },
+    { id: 'reset-hard', label: t('Reset branch (hard)'), danger: true },
     { separator: true },
-    { id: 'revert', label: 'Revert commit (new commit)', icon: <IconRevert width={15} height={15} /> },
-    { id: 'cherry-pick', label: 'Cherry-pick onto current branch' },
-    { id: 'rebase-i', label: 'Interactive rebase from here' },
-    ...(menu && commits[0] && menu.hash === commits[0].hash
-      ? [{ id: 'undo', label: 'Undo last commit (keep changes staged)' }]
+    { id: 'revert', label: t('Revert commit (new commit)'), icon: <IconRevert width={15} height={15} /> },
+    { id: 'cherry-pick', label: t('Cherry-pick onto current branch') },
+    { id: 'rebase-i', label: t('Interactive rebase from here') },
+    ...(menu && headHash && menu.hash === headHash
+      ? [{ id: 'undo', label: t('Undo last commit (keep changes staged)') }]
       : []),
     { separator: true },
-    { id: 'branch', label: 'Create branch here', icon: <IconBranch width={15} height={15} /> },
-    { id: 'tag', label: 'Create tag here', icon: <IconTag width={15} height={15} /> },
+    { id: 'branch', label: t('Create branch here'), icon: <IconBranch width={15} height={15} /> },
+    { id: 'tag', label: t('Create tag here'), icon: <IconTag width={15} height={15} /> },
   ];
 
   async function handleReset(mode: 'soft' | 'mixed' | 'hard') {
@@ -354,7 +362,11 @@ export default function CommitGraph() {
     );
   }
 
-  if (!commits.length) {
+  // When a server-side filter (author/message/date/path) or the local search
+  // yields zero commits, still render the toolbar so the user can clear the
+  // filter instead of being stuck on the empty state.
+  const hasActiveFilter = filterCount > 0 || !!logPath || !!search;
+  if (!commits.length && !hasActiveFilter) {
     return (
       <div className="graph-scroll">
         <div className="empty-state">

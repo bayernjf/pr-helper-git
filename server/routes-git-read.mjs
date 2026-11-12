@@ -1,100 +1,12 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import {
-  buildHunkPatch,
-  cleanCommitMessage,
-  git,
-  numstatTarget,
-  parseBlame,
-  parseLog,
-  parsePorcelainV2,
-  parseRefs,
-  parseReflog,
-  parseSubmoduleStatus,
-  parseTagObject,
-  splitFilePatch,
-} from './git.mjs';
-import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { git, numstatTarget, parseBlame, parseLog, parsePorcelainV2, parseRefs, parseReflog, parseSubmoduleStatus, parseTagObject }from './git.mjs'
 import { fail, ok } from './http.mjs';
 import { buildCommitSearch } from './search-commits.mjs';
-import { validateRebasePlan } from './rebase-todo.mjs';
-import {
-  isSensitivePath,
-  normalizeRepoPath,
-  resolveInside,
-  sanitizeUrlForAudit,
-  validateCloneUrl,
-  validateFolderName,
-  validateRefName,
-} from './security.mjs';
-import {
-  addRepo,
-  appendAudit,
-  configPaths,
-  listRepos,
-  loadConfig,
-  pruneRepos,
-  readAudit,
-  removeRepo,
-  rotateAudit,
-  updateConfig,
-} from './store.mjs';
-import { createUser, listUsers, removeUser } from './identity.mjs';
-import {
-  branchCommitSubjects,
-  buildCommitMessagePrompt,
-  buildPrDescriptionPrompt,
-  complete,
-  isAiConfigured,
-  loadAiConfig,
-  normalizeAiConfig,
-  parsePrGeneration,
-  publicAiConfig,
-  saveAiConfig,
-  stagedDiff,
-  validateAiConfig,
-} from './ai.mjs';
-import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
-import {
-  COMPARE_WORKTREE,
-  CONFIG_SPEC_BY_KEY,
-  CONFIG_SPECS,
-  CONFIG_VALUE_MAX,
-  DIFF_LINE_LIMIT,
-  FILE_MAX_BYTES,
-  LOG_LIMIT_DEFAULT,
-  LOG_LIMIT_MAX,
-  NETWORK_TIMEOUT_MS,
-  REBASE_TIMEOUT_MS,
-  SAVE_MAX_BYTES,
-  changedPaths,
-  detectRepoState,
-  findRegistered,
-  gitDirPath,
-  gitFail,
-  grepArgv,
-  isAdmin,
-  mapLimit,
-  normalizeGrepGlob,
-  normalizeRebaseBase,
-  parseConfigList,
-  parseGrepLines,
-  readBisectState,
-  rebaseCommits,
-  rebaseGuardrails,
-  repoBrief,
-  resolveParentDir,
-  sensitiveChanges,
-  sensitiveFail,
-  unmergedPaths,
-  validateCompareRef,
-  validateDateValue,
-  validateFilterValue,
-  validateRefSpec,
-  validateStashIndex,
-} from './routes-git-helpers.mjs';
+import { isSensitivePath, normalizeRepoPath, resolveInside, validateRefName }from './security.mjs'
+import { appendAudit }from './store.mjs'
+import { COMPARE_WORKTREE, CONFIG_SPEC_BY_KEY, CONFIG_SPECS, CONFIG_VALUE_MAX, DIFF_LINE_LIMIT, FILE_MAX_BYTES, LOG_LIMIT_DEFAULT, LOG_LIMIT_MAX, SAVE_MAX_BYTES, detectRepoState, gitFail, grepArgv, normalizeGrepGlob, normalizeRebaseBase, parseConfigList, parseGrepLines, readBisectState, rebaseCommits, rebaseGuardrails, validateCompareRef, validateDateValue, validateFilterValue, validateRefSpec, validateStashIndex }from './routes-git-helpers.mjs'
 
 export async function handleGitRead({ method, pathname, query, body, identity }, repo) {
   // ---------- reads ----------
@@ -125,6 +37,10 @@ export async function handleGitRead({ method, pathname, query, body, identity },
     // (a common global template in the home directory) are read directly.
     let resolved;
     if (path.isAbsolute(configuredPath)) {
+      // A configured template must never point at a key/secret file.
+      if (isSensitivePath(configuredPath)) {
+        return fail(403, 'sensitive files cannot be used as a commit template');
+      }
       resolved = path.resolve(configuredPath);
     } else {
       resolved = await resolveInside(repo, configuredPath);
@@ -444,6 +360,25 @@ export async function handleGitRead({ method, pathname, query, body, identity },
       return ok({ sha, detail });
     } catch (err) {
       return gitFail(err, 'git show failed');
+    }
+  }
+
+  // Structured single-commit lookup, used when a commit selected via whole-
+  // history search is outside the loaded log window (the graph only loads the
+  // most recent page).
+  if (pathname === '/api/commit-info' && method === 'GET') {
+    const sha = typeof query.get('sha') === 'string' ? query.get('sha').trim() : '';
+    if (!/^[0-9a-f]{7,40}$/.test(sha)) return fail(400, 'invalid commit sha');
+    try {
+      const raw = await git(
+        ['log', '-1', '--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%cI%x1f%s%x1f%b%x1e', sha],
+        repo,
+      );
+      const [commit] = parseLog(raw);
+      if (!commit) return fail(404, 'commit not found');
+      return ok({ commit });
+    } catch (err) {
+      return gitFail(err, 'git log failed');
     }
   }
 

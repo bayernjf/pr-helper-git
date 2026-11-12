@@ -224,7 +224,7 @@ check "undo HEAD keeps staged" "200" "$(post undo-commit "$(printf '{"repo":"%s"
 UNDO_STATUS=$(getq status --data-urlencode "repo=$REPO_A")
 contains "undo left staged file" "file1.txt" "$UNDO_STATUS"
 contains "undo removed commit from history" "commit 3" "$(getq log --data-urlencode "repo=$REPO_A" --data-urlencode "limit=1")"
-check "stage-all" "200" "$(post stage-all "$(printf '{"repo":"%s"}' "$REPO_A")")"
+check "stage-all" "200" "$(post stage-all "$(printf '{"repo":"%s","action":"stage"}' "$REPO_A")")"
 check "re-commit" "200" "$(post commit "$(printf '{"repo":"%s","message":"e2e: staged change"}' "$REPO_A")")"
 
 echo ""

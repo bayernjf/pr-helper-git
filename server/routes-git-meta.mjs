@@ -1,34 +1,9 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import {
-  buildHunkPatch,
-  cleanCommitMessage,
-  git,
-  numstatTarget,
-  parseBlame,
-  parseLog,
-  parsePorcelainV2,
-  parseRefs,
-  parseReflog,
-  parseSubmoduleStatus,
-  parseTagObject,
-  splitFilePatch,
-} from './git.mjs';
-import { buildLineSelectionPatch, MAX_SELECTED_LINES, parseHunk } from './patch-lines.mjs';
+import { git }from './git.mjs'
 import { fail, ok } from './http.mjs';
-import { buildCommitSearch } from './search-commits.mjs';
-import { validateRebasePlan } from './rebase-todo.mjs';
-import {
-  isSensitivePath,
-  normalizeRepoPath,
-  resolveInside,
-  sanitizeUrlForAudit,
-  validateCloneUrl,
-  validateFolderName,
-  validateRefName,
-} from './security.mjs';
+import { normalizeRepoPath, resolveInside, sanitizeUrlForAudit, validateCloneUrl, validateFolderName }from './security.mjs'
 import {
   addRepo,
   appendAudit,
@@ -42,59 +17,9 @@ import {
   updateConfig,
 } from './store.mjs';
 import { createUser, listUsers, removeUser } from './identity.mjs';
-import {
-  branchCommitSubjects,
-  buildCommitMessagePrompt,
-  buildPrDescriptionPrompt,
-  complete,
-  isAiConfigured,
-  loadAiConfig,
-  normalizeAiConfig,
-  parsePrGeneration,
-  publicAiConfig,
-  saveAiConfig,
-  stagedDiff,
-  validateAiConfig,
-} from './ai.mjs';
+import { complete, isAiConfigured, loadAiConfig, normalizeAiConfig, publicAiConfig, saveAiConfig, validateAiConfig }from './ai.mjs'
 import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
-import {
-  CONFIG_SPEC_BY_KEY,
-  CONFIG_SPECS,
-  CONFIG_VALUE_MAX,
-  DIFF_LINE_LIMIT,
-  FILE_MAX_BYTES,
-  LOG_LIMIT_DEFAULT,
-  LOG_LIMIT_MAX,
-  NETWORK_TIMEOUT_MS,
-  REBASE_TIMEOUT_MS,
-  SAVE_MAX_BYTES,
-  changedPaths,
-  detectRepoState,
-  findRegistered,
-  gitDirPath,
-  gitFail,
-  grepArgv,
-  isAdmin,
-  mapLimit,
-  normalizeGrepGlob,
-  normalizeRebaseBase,
-  parseConfigList,
-  parseGrepLines,
-  readBisectState,
-  rebaseCommits,
-  rebaseGuardrails,
-  repoBrief,
-  resolveParentDir,
-  sensitiveChanges,
-  sensitiveFail,
-  unmergedPaths,
-  validateDateValue,
-  validateFilterValue,
-  validateRefSpec,
-  validateStashIndex,
-} from './routes-git-helpers.mjs';
-
-export { parseGrepLines };
+import { NETWORK_TIMEOUT_MS, gitFail, grepArgv, isAdmin, mapLimit, normalizeGrepGlob, parseGrepLines, repoBrief, resolveParentDir }from './routes-git-helpers.mjs'
 
 export async function handleGitMeta({ method, pathname, query, body, identity }) {
   if (pathname === '/api/health' && method === 'GET') {
@@ -242,7 +167,9 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
-    const target = typeof body.repo === 'string' ? body.repo : null;
+    // Normalise like /api/repos/add so a trailing slash or relative segment in
+    // the client's stored path still matches the registered repo.
+    const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
     if (!target) return fail(400, 'invalid repository path');
     const repos = await removeRepo(target);
     stopWatching(target);

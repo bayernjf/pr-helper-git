@@ -41,7 +41,7 @@ function parentDir(p: string) {
 }
 
 export default function DashboardPage() {
-  const { repos, activeRepo, selectRepo, refresh, pat, toast } = useApp();
+  const { repos, activeRepo, selectRepo, refresh, pat, hasServerPat, toast } = useApp();
   const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem(SORT_KEY) as SortKey) || 'conflict');
@@ -52,7 +52,6 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; repo: RepoBrief } | null>(null);
   const lastFetchAll = useRef(Date.now());
-  const prTimerFatal = useRef(false);
 
   // 30s status refresh while the dashboard is visible.
   useEffect(() => {
@@ -85,7 +84,7 @@ export default function DashboardPage() {
 
   // Open-PR counts: only for GitHub-hosted repos, only when a PAT exists.
   useEffect(() => {
-    if (!pat || prTimerFatal.current || repos.length === 0) {
+    if ((!pat && !hasServerPat) || repos.length === 0) {
       setPrCounts({});
       return;
     }
@@ -116,7 +115,7 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [pat, repos]);
+  }, [pat, hasServerPat, repos]);
 
   function togglePin(path: string) {
     setPinned((prev) => {

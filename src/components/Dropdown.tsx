@@ -55,6 +55,12 @@ export function Dropdown({
     menuRef.current?.querySelector('.dropdown-item.active')?.scrollIntoView({ block: 'nearest' });
   }, [open, active]);
 
+  // Move focus into the menu when it opens so Arrow/Enter reach onMenuKey;
+  // otherwise the trigger keeps focus and keyboard navigation is dead.
+  useEffect(() => {
+    if (open) menuRef.current?.focus();
+  }, [open]);
+
   const commit = (option: DropdownOption) => {
     setOpen(false);
     if (option.value !== value) onChange(option.value);
