@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- test: pin `jsdom` to exact 26.1.0 — the host Node drifts between 20.x and
+  26.x and jsdom 31 only loads on Node ≥22.22 (undici import crash under
+  Node 20); the Node ≥22 `localStorage` shadowing is handled by
+  `src/test-setup.ts`
+
 ## [0.2.6] - 2026-11-12
 
 ### 新增

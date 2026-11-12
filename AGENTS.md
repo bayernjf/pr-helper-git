@@ -180,6 +180,13 @@ As of release `0.2.6` (2026-11-12):
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs
 
+`jsdom` is pinned to exact `26.1.0` (do not `npm update` across majors): the
+host's Node drifts between 20.x and 26.x, jsdom 31 requires Node ≥22.22 and
+crashes at import under Node 20 (undici), while Node ≥22 also shadows jsdom's
+`window.localStorage` with an undefined experimental global — both handled by
+this pin plus `src/test-setup.ts`. If the reported test-file count suddenly
+drops by ~6, check these two before anything else.
+
 Update these numbers when the baseline changes. Historical numbers in
 `handoff.md` are records, not the current baseline.
 
