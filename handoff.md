@@ -37,6 +37,17 @@ does not depend on the currently checked-out branch. The latest
 `000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
 history; check `git bundle list-heads` for the exact main ref.
 
+## Release 0.2.4 (2026-11-12)
+
+`package.json` / `package-lock.json` are at **0.2.4**; `CHANGELOG.md` has the
+`[0.2.4]` section. `v0.2.4` is an annotated tag on this release commit.
+
+Scope: server path/credential/allowlist hardening, explicit `stage-all`
+action, POST-only write routes, the `src/api.ts` per-domain split, further
+UI subcomponent extraction, review-found frontend fixes and remaining i18n
+coverage. Gates: lint, server typecheck, 336 unit tests / 34 files, build,
+E2E 144/144; CI covers both `main` and `dev`.
+
 ## Post-0.2.2 hardening (2026-11-11)
 
 Security pass after the code review: admin-only server PAT/AI settings, no
