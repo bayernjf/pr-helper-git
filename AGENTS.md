@@ -167,7 +167,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of release `0.2.4` (2026-11-12):
+As of release `0.2.5` (2026-11-12):
 
 - unit/route tests: **337 tests / 34 files**
 - E2E: **144 passed / 0 failed**

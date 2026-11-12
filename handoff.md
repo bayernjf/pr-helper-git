@@ -38,6 +38,26 @@ does not depend on the currently checked-out branch. The latest
 `000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
 history; check `git bundle list-heads` for the exact main ref.
 
+## Release 0.2.5 (2026-11-12)
+
+`package.json` / `package-lock.json` are at **0.2.5**; `CHANGELOG.md` has the
+`[0.2.5]` section. `v0.2.5` is an annotated tag on this release commit.
+
+Scope: desktop shell unfreeze (Swift `WKWebView`, no Electron/Tauri), native
+folder picker feeding the existing Add repository modal, `WKDownload`
+handling into `~/Downloads` with collision suffixes and Finder reveal, the
+`desktop:dist` zip/dmg/`SHA256SUMS` pipeline with signing/notarization hooks,
+the macOS 11.3 deployment target fix, desktop artifacts moved under `build/`,
+macOS CI and headless download/bundle tests, and the distribution/handoff
+documentation. Gates: lint, server typecheck, 337 unit tests / 34 files,
+build, E2E 144/144; `desktop:native-test`, `desktop:dist`, `desktop:smoke`
+and `SHA256SUMS` verification. GUI click-through verified the folder picker
+prefill, first export, `-2` collision suffix and Finder reveal.
+
+The local `build/release` artifacts are unsigned; no Developer ID
+certificate or notary profile was available, so signing/notarization was not
+exercised.
+
 ## Release 0.2.4 (2026-11-12)
 
 `package.json` / `package-lock.json` are at **0.2.4**; `CHANGELOG.md` has the

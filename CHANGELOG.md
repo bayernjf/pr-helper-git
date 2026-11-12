@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-12
+
 ### 新增
 - macOS 桌面端解冻：保留 Swift `WKWebView` 薄壳，不引入 Electron/Tauri；新增标准应用菜单（关于、文件、编辑、刷新、窗口）、900×600 最小窗口，外部链接交给默认浏览器打开。
 - 桌面端 **File > Open Repository…** 使用原生目录选择器，选中路径预填现有“添加仓库”弹窗，不新增第二套注册流程。
@@ -19,6 +21,7 @@
 
 ### 测试
 - 新增 `AddRepoModal` 桌面选目录预填测试；lint、server typecheck、单测 **337 / 34 文件**、生产构建、E2E **144/144** 通过，`npm run desktop` 构建通过。
+- macOS 真机验收：原生目录选择器成功预填项目路径；团队配置连续导出生成 `pr-helper-git-team.json` 与 `pr-helper-git-team-2.json`，Finder 自动定位到最新文件。
 
 ## [0.2.4] - 2026-11-12
 
