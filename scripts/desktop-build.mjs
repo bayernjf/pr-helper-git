@@ -138,14 +138,19 @@ await buildIcon();
 
 // 6. Compile the native shell into the bundle.
 log('compiling native shell (swiftc)…');
+const swiftArch = process.arch === 'arm64' ? 'arm64' : 'x86_64';
 execFileSync(
   '/usr/bin/swiftc',
   [
     path.join(root, 'desktop/DownloadDestination.swift'),
     path.join(root, 'desktop/main.swift'),
+    '-target', `${swiftArch}-apple-macos11.3`,
     '-o', path.join(macosDir, appName),
   ],
-  { stdio: 'inherit' },
+  {
+    stdio: 'inherit',
+    env: { ...process.env, MACOSX_DEPLOYMENT_TARGET: '11.3' },
+  },
 );
 
 log(`done → ${outApp}`);

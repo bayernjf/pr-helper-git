@@ -48,6 +48,14 @@ if (info.LSMinimumSystemVersion !== '11.3') {
 const fileInfo = execFileSync('/usr/bin/file', [path.join(contents, 'MacOS', appName)], { encoding: 'utf8' });
 if (!fileInfo.includes('Mach-O')) fail(`native executable is not Mach-O: ${fileInfo.trim()}`);
 
+const loadCommands = execFileSync('/usr/bin/otool', ['-l', path.join(contents, 'MacOS', appName)], {
+  encoding: 'utf8',
+});
+const minos = /minos\s+([0-9.]+)/.exec(loadCommands)?.[1];
+if (minos !== info.LSMinimumSystemVersion) {
+  fail(`binary minos ${minos ?? 'missing'} does not match LSMinimumSystemVersion ${info.LSMinimumSystemVersion}`);
+}
+
 execFileSync(process.execPath, ['--check', path.join(contents, 'Resources', 'app', 'server', 'main.mjs')], {
   stdio: 'inherit',
 });

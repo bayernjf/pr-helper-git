@@ -437,7 +437,10 @@ Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
 - ships a generated `AppIcon.icns` (rendered from `desktop/make-icon.swift`
   and packaged with the system sips/iconutil tools) referenced through
   `CFBundleIconFile`, and remembers the window position and size across
-  launches via `setFrameAutosaveName`, centering only on the first run.
+  launches via `setFrameAutosaveName`, centering only on the first run;
+- compiles with an explicit macOS 11.3 deployment target, so the binary's
+  `minos` matches `LSMinimumSystemVersion` instead of inheriting the build
+  machine's newer SDK.
 
 The resulting bundle is about 1.5 MB. An unsigned, locally built app may
 need a one-time Gatekeeper approval under **System Settings → Privacy &

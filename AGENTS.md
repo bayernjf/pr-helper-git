@@ -90,6 +90,7 @@ npm run desktop:native-test
 npm run desktop
 npm run desktop:smoke
 plutil -p "dist/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
+otool -l "dist/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
 ```
 
 The macOS CI job runs `desktop:native-test`, `desktop:dist` (unsigned) and

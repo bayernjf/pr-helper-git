@@ -82,6 +82,7 @@ signed but not notarized; the script says so explicitly.
 npm run desktop:native-test
 npm run desktop:smoke
 codesign --verify --deep --strict --verbose=2 "dist/PR Helper Git.app"
+otool -l "dist/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
 xcrun stapler validate "dist/PR Helper Git.app"
 spctl -a -vv "dist/PR Helper Git.app"
 unzip -t "dist/release/PR Helper Git-<version>-macos.zip"
@@ -93,6 +94,10 @@ The CI workflow runs `desktop:native-test`, an unsigned `desktop:dist` and
 `desktop:smoke` on a macOS runner, then checks `SHA256SUMS`. It does not have
 Apple signing credentials, so the signed/notarized path still needs one release
 run on a machine with the certificate and notary profile.
+
+`LC_BUILD_VERSION minos` must read `11.3` to match `LSMinimumSystemVersion`.
+The build script passes an explicit `-target`/`MACOSX_DEPLOYMENT_TARGET`;
+without it, Swift on a newer macOS can stamp a much newer minos into the binary.
 
 ## Publishing
 

@@ -103,12 +103,21 @@ current release.
   launching the GUI.
 - CI now has a macOS job: native download test, unsigned `desktop:dist`,
   bundle smoke, and `SHA256SUMS` verification.
+- Fixed the deployment target stamp: Swift compiled against the current SDK
+  was producing `minos 27.2` while Info.plist promised 11.3. The build now
+  passes `-target` and `MACOSX_DEPLOYMENT_TARGET=11.3`; `desktop:smoke` fails
+  if the binary minos and `LSMinimumSystemVersion` disagree.
 - `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
 
 Still open for desktop: a real signed/notarized release needs a Developer ID
 and Apple notary account; the native folder picker and WKDownload flow still
 need a click-through on an unlocked Mac.
+
+Known desktop packaging footgun: `npm run build` (Vite) empties `dist/`, which
+also removes `dist/PR Helper Git.app` and `dist/release/`. Run `desktop` or
+`desktop:dist` after a web build; a future fix should move desktop artifacts to
+a directory Vite does not own.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
