@@ -24,7 +24,7 @@ Runtime identifiers were renamed with one-shot migrations:
 - Tauri bundle id and download filename follow the new name.
 
 Verification: lint, `typecheck:server`, 336 unit tests / 34 files, production
-build, and E2E 144/144. CI is green through rename commit `077f1af` (run `43061784626`).
+build, and E2E 144/144. CI is green through release commit `72e206a` (run `43253045248`, test + desktop).
 
 The desktop shell was **frozen** at the time of this rename; it was unfrozen
 later on the same day (see “Desktop unfrozen” below). The old Qoder session copy
