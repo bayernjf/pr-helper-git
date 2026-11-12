@@ -15,6 +15,8 @@ const contents = path.join(outApp, 'Contents');
 const macosDir = path.join(contents, 'MacOS');
 const resourcesDir = path.join(contents, 'Resources');
 const appDir = path.join(resourcesDir, 'app');
+const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
+const buildNumber = process.env.BUILD_NUMBER || '1';
 
 const log = (msg) => console.log(`[desktop] ${msg}`);
 
@@ -85,9 +87,9 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${pkg.version}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${buildNumber}</string>
   <key>LSMinimumSystemVersion</key>
   <string>11.0</string>
   <key>NSHighResolutionCapable</key>

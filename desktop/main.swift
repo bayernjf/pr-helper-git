@@ -14,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private var readyToken: String?
     private var isTerminating = false
     private var outputBuffer = Data()
-    private let bufferQueue = DispatchQueue(label: "local.pr-helper-git2.stdout")
+    private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
 
     // MARK: Lifecycle
 
@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         let appDir = (resourcePath as NSString).appendingPathComponent("app")
         let serverScript = (appDir as NSString).appendingPathComponent("server/main.mjs")
 
+        setupMenu()
         setupWindow()
         startServer(node: node, script: serverScript)
 
@@ -61,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         true
     }
 
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         isTerminating = true
         guard let process = server, process.isRunning else { return }
@@ -83,6 +88,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         process.executableURL = URL(fileURLWithPath: node)
         process.arguments = [script, "--port=0"]
         var env = ProcessInfo.processInfo.environment
+        env["PR_HELPER_GIT_DESKTOP"] = "1"
+        // Legacy alias for older bundled servers; the current server accepts both.
         env["GIT2_DESKTOP"] = "1"
         process.environment = env
 
@@ -130,8 +137,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             outputBuffer.removeSubrange(0..<newline.upperBound)
             guard let line = String(data: lineData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespaces) else { continue }
-            let prefix = "GIT2_READY "
-            guard line.hasPrefix(prefix) else { continue }
+            // Accept both the current and legacy readiness prefixes so the
+            // shell keeps working with old and new bundled servers.
+            let prefixes = ["PR_HELPER_GIT_READY ", "GIT2_READY "]
+            guard let prefix = prefixes.first(where: { line.hasPrefix($0) }) else { continue }
+            guard readyPort == nil else { continue }
             let payload = String(line.dropFirst(prefix.count))
             guard let data = payload.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -183,6 +193,89 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         return nil
     }
 
+    // MARK: Menu
+
+    private func setupMenu() {
+        let appName = "PR Helper Git"
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        let appMenu = NSMenu()
+        appMenu.addItem(
+            withTitle: "About \(appName)",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: "",
+        )
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Hide \(appName)",
+            action: #selector(NSApplication.hide(_:)),
+            keyEquivalent: "h",
+        )
+        let hideOthers = NSMenuItem(
+            title: "Hide Others",
+            action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h",
+        )
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(hideOthers)
+        appMenu.addItem(
+            withTitle: "Show All",
+            action: #selector(NSApplication.unhideAllApplications(_:)),
+            keyEquivalent: "",
+        )
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Quit \(appName)",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q",
+        )
+        appMenuItem.submenu = appMenu
+
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(redo)
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+
+        let viewMenuItem = NSMenuItem()
+        mainMenu.addItem(viewMenuItem)
+        let viewMenu = NSMenu(title: "View")
+        viewMenu.addItem(withTitle: "Reload", action: #selector(reloadWebView), keyEquivalent: "r")
+        viewMenuItem.submenu = viewMenu
+
+        let windowMenuItem = NSMenuItem()
+        mainMenu.addItem(windowMenuItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(
+            withTitle: "Minimize",
+            action: #selector(NSWindow.performMiniaturize(_:)),
+            keyEquivalent: "m",
+        )
+        windowMenu.addItem(
+            withTitle: "Zoom",
+            action: #selector(NSWindow.performZoom(_:)),
+            keyEquivalent: "",
+        )
+        windowMenuItem.submenu = windowMenu
+
+        NSApp.mainMenu = mainMenu
+        NSApp.windowsMenu = windowMenu
+    }
+
+    @objc private func reloadWebView() {
+        webView?.reload()
+    }
+
     // MARK: Window
 
     private func setupWindow() {
@@ -202,6 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         )
         window.center()
         window.title = "PR Helper Git"
+        window.minSize = NSSize(width: 900, height: 600)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
@@ -229,10 +323,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures,
     ) -> WKWebView? {
-        if let url = navigationAction.request.url {
+        guard let url = navigationAction.request.url else { return nil }
+        if isLocalURL(url) {
             webView.load(URLRequest(url: url))
+        } else {
+            // GitHub, docs and other external links belong in the user's browser,
+            // not in the app's single localhost window.
+            NSWorkspace.shared.open(url)
         }
         return nil
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void,
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+        if isLocalURL(url) || url.scheme == "about" {
+            decisionHandler(.allow)
+            return
+        }
+        NSWorkspace.shared.open(url)
+        decisionHandler(.cancel)
+    }
+
+    private func isLocalURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = url.host?.lowercased()
+        else { return false }
+        return host == "127.0.0.1" || host == "localhost"
     }
 
     // MARK: Errors
