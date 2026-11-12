@@ -98,6 +98,17 @@ This is macOS-only and needs the Xcode command-line tools (`swiftc`, `sips`,
 whenever `desktop/` or `scripts/desktop-build.mjs` changes, then confirm
 `CFBundleShortVersionString` in the bundle matches `package.json`.
 
+For a distributable artifact:
+
+```bash
+npm run desktop:dist
+```
+
+This writes a zip, a dmg and `SHA256SUMS` under `dist/release/`. Without Apple
+credentials it is unsigned and local-only. Signing and notarization are
+configured with `APPLE_SIGNING_IDENTITY` and `APPLE_NOTARY_PROFILE`; see
+[`docs/desktop-distribution.md`](docs/desktop-distribution.md).
+
 ## Pull requests
 
 1. Push `dev` only after explicit approval.

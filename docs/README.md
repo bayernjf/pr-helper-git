@@ -13,6 +13,7 @@ Start with the document that matches your question. Do not read all of
 | Looking for current release state | [`CHANGELOG.md`](../CHANGELOG.md) and the top of [`handoff.md`](../handoff.md) |
 | Looking for why a decision was made | [`handoff.md`](../handoff.md) — delivery notes, lessons, historical batches |
 | Looking for parity history with the archived product | [`parity-archive.md`](parity-archive.md) |
+| Preparing a signed macOS release | [`desktop-distribution.md`](desktop-distribution.md) |
 | Looking for E2E fixture repositories | [`test-repos.md`](../test-repos.md) |
 
 ## Documents
@@ -25,6 +26,7 @@ Start with the document that matches your question. Do not read all of
 | `CHANGELOG.md` | Keep a Changelog release notes, newest first | Every release; user-visible changes |
 | `handoff.md` | Chronological delivery ledger: per-release scope, migrations, lessons, historical batches | Release, migration, major refactor, or durable lesson |
 | `docs/parity-archive.md` | Record of cross-repo parity work with the archived product | Parity work changes |
+| `docs/desktop-distribution.md` | macOS signing, notarization, zip/dmg artifacts and verification | Desktop distribution workflow changes |
 | `docs/archive/` | Frozen historical material; do not append new decisions here | Only when archiving |
 | `test-repos.md` | Local fixture repositories used by E2E | Fixture path or URL changes |
 | `design/tokens.css` | Design token source for themes and accents | Visual token changes |

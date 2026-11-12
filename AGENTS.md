@@ -71,6 +71,7 @@ npm run typecheck:server  # checkJs over server/*.mjs
 npm test                  # Vitest unit + route tests
 npm run build             # production build into dist/
 npm run desktop           # macOS-only: build dist/PR Helper Git.app
+npm run desktop:dist      # macOS-only: zip/dmg/checksums (signs when configured)
 npm run e2e               # real loopback server + curl assertions
 ```
 
@@ -86,6 +87,10 @@ Desktop gate (macOS only, when `desktop/` or the build script changes):
 npm run desktop
 plutil -p "dist/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
 ```
+
+Before publishing a desktop build, run `npm run desktop:dist` and verify the
+artifacts and checksums. Signing/notarization env vars and certificate setup
+are documented in `docs/desktop-distribution.md`.
 
 E2E uses port `18774`, token `dev-token`, and an isolated `PR_HELPER_HOME`;
 it never reads or writes `~/.pr-helper-git`.
@@ -176,3 +181,6 @@ server. Native work may add windowing, menus, folder pickers, downloads and
 external-link handling, but registration/feature flows stay in the web UI.
 After changing `desktop/` or `scripts/desktop-build.mjs`, run
 `npm run desktop` and verify the bundle version matches `package.json`.
+`DESKTOP_BUNDLE_ID` is for distribution builds; do not change the local
+default `local.pr-helper-git` without an explicit user decision, because it
+changes the app container and preferences.

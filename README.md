@@ -443,6 +443,28 @@ The resulting bundle is about 1.5 MB. An unsigned, locally built app may
 need a one-time Gatekeeper approval under **System Settings → Privacy &
 Security**.
 
+### Distribution preparation
+
+`npm run desktop:dist` builds the app and writes a zip, a dmg and
+`SHA256SUMS` under `dist/release/`. With no Apple credentials it produces
+unsigned local artifacts; that is enough for use on this machine.
+
+For a signed, notarized build, set a stable distribution bundle id and the
+Developer ID identity, then point at a `notarytool` keychain profile:
+
+```bash
+DESKTOP_BUNDLE_ID=com.bayernjf.pr-helper-git \
+APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+APPLE_NOTARY_PROFILE=pr-helper-git \
+BUILD_NUMBER="$(git rev-list --count HEAD)" \
+npm run desktop:dist
+```
+
+Changing the bundle id creates a separate app container, so local preferences
+and the saved window frame do not carry over. See
+[`docs/desktop-distribution.md`](docs/desktop-distribution.md) for certificate
+setup, notarization, verification and publishing steps.
+
 ## Security model
 
 - The server binds `127.0.0.1` by default. Setting `PR_HELPER_GIT_HOST` (legacy
@@ -528,6 +550,7 @@ src/
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
 scripts/dev.mjs      parallel Vite + API launcher
 scripts/desktop-build.mjs  Vite build + Swift compile into a macOS .app bundle
+scripts/desktop-dist.mjs  optional zip/dmg + signing/notarization pipeline
 desktop/main.swift   native WKWebView window and Node process supervision
 desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ```
@@ -539,6 +562,7 @@ npm test           # Vitest unit + route-level HTTP tests (337 tests, 34 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/
+npm run desktop:dist      # macOS zip/dmg + SHA256SUMS; signs when configured
 npm run e2e        # E2E: real loopback server + curl assertions (144 checks)
 ```
 

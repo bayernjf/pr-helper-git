@@ -88,11 +88,19 @@ current release.
   baseline moved from 336 to **337 tests / 34 files**. Full gate: lint, server
   typecheck, 337 unit tests, build, E2E 144/144; desktop build and startup
   smoke also pass.
+- Added `npm run desktop:dist`: zip + dmg + `SHA256SUMS` under
+  `dist/release/`. It signs with hardened runtime when
+  `APPLE_SIGNING_IDENTITY` is set and notarizes/staples both artifacts when
+  `APPLE_NOTARY_PROFILE` is set. `DESKTOP_BUNDLE_ID` switches the bundle id
+  for distribution.
+- Added `docs/desktop-distribution.md` for certificate setup, `notarytool`
+  keychain profiles, verification and manual publishing.
 - `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
 
-Still open for desktop: signed/notarized distribution, a macOS CI build job,
-and an automated desktop smoke script.
+Still open for desktop: signed/notarized distribution needs a real Developer ID
+and Apple notary account; the macOS CI build job and automated smoke script are
+not added yet.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
