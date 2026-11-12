@@ -7,7 +7,7 @@ covers the optional path from a local `.app` to a signed, notarized release.
 ## What the build produces
 
 `npm run desktop:dist` runs the desktop build, then writes artifacts under
-`dist/release/`:
+`build/release/`:
 
 - `PR Helper Git-<version>-macos.zip` — zipped `.app` for direct download;
 - `PR Helper Git-<version>-macos.dmg` — disk image;
@@ -81,13 +81,13 @@ signed but not notarized; the script says so explicitly.
 ```bash
 npm run desktop:native-test
 npm run desktop:smoke
-codesign --verify --deep --strict --verbose=2 "dist/PR Helper Git.app"
-otool -l "dist/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
-xcrun stapler validate "dist/PR Helper Git.app"
-spctl -a -vv "dist/PR Helper Git.app"
-unzip -t "dist/release/PR Helper Git-<version>-macos.zip"
-hdiutil verify "dist/release/PR Helper Git-<version>-macos.dmg"
-(cd dist/release && shasum -a 256 -c SHA256SUMS)
+codesign --verify --deep --strict --verbose=2 "build/PR Helper Git.app"
+otool -l "build/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
+xcrun stapler validate "build/PR Helper Git.app"
+spctl -a -vv "build/PR Helper Git.app"
+unzip -t "build/release/PR Helper Git-<version>-macos.zip"
+hdiutil verify "build/release/PR Helper Git-<version>-macos.dmg"
+(cd build/release && shasum -a 256 -c SHA256SUMS)
 ```
 
 The CI workflow runs `desktop:native-test`, an unsigned `desktop:dist` and

@@ -113,7 +113,7 @@ For a distributable artifact:
 npm run desktop:dist
 ```
 
-This writes a zip, a dmg and `SHA256SUMS` under `dist/release/`. Without Apple
+This writes a zip, a dmg and `SHA256SUMS` under `build/release/`. Without Apple
 credentials it is unsigned and local-only. Signing and notarization are
 configured with `APPLE_SIGNING_IDENTITY` and `APPLE_NOTARY_PROFILE`; see
 [`docs/desktop-distribution.md`](docs/desktop-distribution.md).

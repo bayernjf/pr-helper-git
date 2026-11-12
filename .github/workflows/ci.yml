@@ -38,4 +38,4 @@ jobs:
       - run: npm run desktop:native-test
       - run: npm run desktop:dist
       - run: npm run desktop:smoke
-      - run: cd dist/release && shasum -a 256 -c SHA256SUMS
+      - run: cd build/release && shasum -a 256 -c SHA256SUMS

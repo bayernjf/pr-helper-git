@@ -70,7 +70,7 @@ npm run lint              # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm test                  # Vitest unit + route tests
 npm run build             # production build into dist/
-npm run desktop           # macOS-only: build dist/PR Helper Git.app
+npm run desktop           # macOS-only: build build/PR Helper Git.app
 npm run desktop:native-test # macOS-only: pure Swift download-path tests (no GUI)
 npm run desktop:smoke     # verify the assembled bundle without launching it
 npm run desktop:dist      # macOS-only: zip/dmg/checksums (signs when configured)
@@ -89,12 +89,12 @@ Desktop gate (macOS only, when `desktop/` or the build script changes):
 npm run desktop:native-test
 npm run desktop
 npm run desktop:smoke
-plutil -p "dist/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
-otool -l "dist/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
+plutil -p "build/PR Helper Git.app/Contents/Info.plist" | grep CFBundleShortVersionString
+otool -l "build/PR Helper Git.app/Contents/MacOS/PR Helper Git" | grep -A2 LC_BUILD_VERSION
 ```
 
 The macOS CI job runs `desktop:native-test`, `desktop:dist` (unsigned) and
-`desktop:smoke`, then verifies `dist/release/SHA256SUMS`.
+`desktop:smoke`, then verifies `build/release/SHA256SUMS`.
 
 Before publishing a desktop build, run `npm run desktop:dist` and verify the
 artifacts and checksums. Signing/notarization env vars and certificate setup

@@ -409,10 +409,10 @@ runtime. It uses the system `WKWebView` (no embedded Chromium) and a
 the machine. Requires macOS 11.3 or later.
 
 ```bash
-npm run desktop   # builds dist/PR Helper Git.app
+npm run desktop   # builds build/PR Helper Git.app
 ```
 
-Double-click the app (or run `open "dist/PR Helper Git.app"`). The shell:
+Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
 
 - resolves Node.js at the common install locations (Homebrew under
   `/opt/homebrew/bin/node`, then `/usr/local/bin/node`) because a GUI-launched
@@ -449,7 +449,7 @@ Security**.
 ### Distribution preparation
 
 `npm run desktop:dist` builds the app and writes a zip, a dmg and
-`SHA256SUMS` under `dist/release/`. With no Apple credentials it produces
+`SHA256SUMS` under `build/release/`. With no Apple credentials it produces
 unsigned local artifacts; that is enough for use on this machine.
 
 For a signed, notarized build, set a stable distribution bundle id and the

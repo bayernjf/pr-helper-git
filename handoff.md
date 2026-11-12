@@ -89,7 +89,7 @@ current release.
   typecheck, 337 unit tests, build, E2E 144/144; desktop build and startup
   smoke also pass.
 - Added `npm run desktop:dist`: zip + dmg + `SHA256SUMS` under
-  `dist/release/`. It signs with hardened runtime when
+  `build/release/`. It signs with hardened runtime when
   `APPLE_SIGNING_IDENTITY` is set and notarizes/staples both artifacts when
   `APPLE_NOTARY_PROFILE` is set. `DESKTOP_BUNDLE_ID` switches the bundle id
   for distribution.
@@ -107,17 +107,15 @@ current release.
   was producing `minos 27.2` while Info.plist promised 11.3. The build now
   passes `-target` and `MACOSX_DEPLOYMENT_TARGET=11.3`; `desktop:smoke` fails
   if the binary minos and `LSMinimumSystemVersion` disagree.
-- `npm run desktop` builds `dist/PR Helper Git.app`; the bundle starts the
+- `npm run desktop` builds `build/PR Helper Git.app`; the bundle starts the
   bundled server and was smoke-tested on this machine.
 
 Still open for desktop: a real signed/notarized release needs a Developer ID
 and Apple notary account; the native folder picker and WKDownload flow still
 need a click-through on an unlocked Mac.
 
-Known desktop packaging footgun: `npm run build` (Vite) empties `dist/`, which
-also removes `dist/PR Helper Git.app` and `dist/release/`. Run `desktop` or
-`desktop:dist` after a web build; a future fix should move desktop artifacts to
-a directory Vite does not own.
+Desktop artifacts live under `build/` (not `dist/`), so `npm run build` (Vite)
+no longer wipes `PR Helper Git.app` or `release/`.
 
 ## Post-0.2.2 hardening (2026-11-11)
 
@@ -227,7 +225,7 @@ and `npm run desktop` are active again; see “Desktop unfrozen” at the top.
 - Desktop (macOS, zero third-party runtime) — **maintained since 2026-11-12**:
   a `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
   `scripts/desktop-build.mjs` via `npm run desktop` into
-  `dist/PR Helper Git.app` (~1.5 MB). It locates the system Node.js at
+  `build/PR Helper Git.app` (~1.5 MB). It locates the system Node.js at
   well-known paths, spawns the server on an ephemeral port with both desktop
   env names, accepts either readiness prefix, loads the one-time token URL,
   opens external links in the default browser, provides standard macOS menus,

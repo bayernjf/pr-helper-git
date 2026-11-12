@@ -10,8 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const appName = 'PR Helper Git';
-const appPath = path.join(root, 'dist', `${appName}.app`);
-const releaseDir = path.join(root, 'dist', 'release');
+// Desktop artifacts live under build/ so `vite build` cannot wipe them.
+const appPath = path.join(root, 'build', `${appName}.app`);
+const releaseDir = path.join(root, 'build', 'release');
 const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
 const version = pkg.version;
 const buildNumber = process.env.BUILD_NUMBER || '1';

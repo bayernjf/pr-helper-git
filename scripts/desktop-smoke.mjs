@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const appName = 'PR Helper Git';
-const appPath = path.join(root, 'dist', `${appName}.app`);
+const appPath = path.join(root, 'build', `${appName}.app`);
 const contents = path.join(appPath, 'Contents');
 const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
 const expectedBundleId = process.env.DESKTOP_BUNDLE_ID || 'local.pr-helper-git';
