@@ -67,7 +67,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | D-003 | 2026-11-13 | 持久化 = **OrbStack 本地 Postgres 容器**（仅 localhost），47 个 Supabase 迁移**原样执行**；`postgres` npm 客户端为首个运行时依赖（打破"零依赖"，用户知情确认） | Phase 1 形态；AGENTS 修订 |
 | D-004 | 2026-11-13 | **GitHub webhook 直接使用**（用户纠正"仅局域网"的过度推断）：本地 server 提供接收端点，可达性方案在 Phase 2 接线时选定（现有网络 / cloudflared tunnel / Tailscale）；不可达时轮询兜底 | 触发延迟回到 1–3s；Phase 2 增加接收端移植 |
 | D-005 | 2026-11-13 | Web Push **缓办**（非砍掉）：替代为 macOS 本地通知 + 飞书 webhook；需要时再迁 | C19/F23 ⏸；Phase 4 |
-| D-006 | 2026-11-13 | GitHub App → **个人 PAT** 替代（个人仓库等价；安装级身份不迁） | D 域 App 相关行 🚫 |
+| D-006 | 2026-11-13 | GitHub App → 个人 PAT 替代。**2026-11-13 修订（v2）**：实测 `vercel env pull` 拉到 GITHUB_APP_* 全套明文凭据 → **GitHub App 凭据随迁移迁入本地 server**（github-app.ts 直迁，App JWT → installation token 流保留，org 级权限与安装边界不损失）；PAT 降级为兜底。受影响矩阵行改为 🔁（M-D1/D2/D4/D5/D11） | D 域 App 相关行 🔁 |
 | D-007 | 2026-11-13 | AI 凭据 → `~/.pr-helper-git/` 0600 config.json（safeStorage 不适用：桌面壳为 Swift 非 Electron） | E3 🔀 |
 | D-008 | 2026-11-13 | 不在场自动化 → **launchd 常驻 headless server**（KeepAlive + 开机自启，复用 v0.2.6 捆绑 runtime/node）；GUI/浏览器为 server 客户端 | Phase 2；唯一无感例外 |
 | D-009 | 2026-11-13 | pr-helper 仓库归档方式 = 推最终状态 → PRIVATE + ARCHIVED（不删除）；Supabase 下线或冷备待定 | Phase 5 |
@@ -263,17 +263,17 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
 |---|---|---|---|---|---|
-| M-D1 | GitHub App 配置解析（7 环境变量） | api/_lib/github-app.ts | 🚫 | D-006 PAT 替代；配置文件留归档 | — |
-| M-D2 | App JWT（RS256）签发 | api/_lib/github-app.ts | 🚫 | 同上 | — |
+| M-D1 | GitHub App 配置解析（7 环境变量） | api/_lib/github-app.ts | 🔁P2 | github-app.ts 直迁；凭据迁入本地 config（0600） | 配置解析单测 |
+| M-D2 | App JWT（RS256）签发 | api/_lib/github-app.ts | 🔁P2 | 同上 | JWT 单测随迁 |
 | M-D3 | 签名会话/OAuth state（HMAC cookie） | api/_lib/github-app.ts | 🔀P2 | git2 token cookie（HttpOnly SameSite）已等价 | e2e 现有 |
-| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🚫 | D-006 | — |
-| M-D5 | installation token 缓存（500 上限/60s 刷新/并发去重） | api/_lib/github-api.ts | 🚫 | D-006（PAT 无安装层） | — |
+| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🔁P2 | 同上（本机 server 承载，本机浏览器授权） | OAuth 流 e2e |
+| M-D5 | installation token 缓存（500 上限/60s 刷新/并发去重） | api/_lib/github-api.ts | 🔁P2 | github-api 层直迁 | 缓存单测 |
 | M-D6 | 统一 GitHub 请求封装（15s 超时/错误分类/version 头） | api/_lib/github-api.ts githubFetch | ✅ | pr-helper-git github-api 层已有等价封装 | 对齐确认（Phase 2 核对错误分类语义） |
 | M-D7 | ETag 遥测（304 可行性观测） | api/_lib/github-api.ts | ⏸P2 | server（低优，先记录） | 遥测行 |
 | M-D8 | Webhook 签名校验（HMAC 常数时间） | api/_lib/github-webhook.ts (+test) | 🔁P2 | server `POST /api/github-webhook`（M-B13 一部分） | 签名单测随迁 |
 | M-D9 | Webhook 路由（raw body、401 fail-closed） | api/github/webhook.ts | 🔁P2 | 同上 | 验签失败 401 e2e |
 | M-D10 | GitHub App 订阅事件集（Push/PR/review/check/status/workflow run） | docs（GitHub App 配置） | 🔀P2 | PAT 权限映射文档（PAT scope ↔ 事件覆盖） | 文档段落 |
-| M-D11 | installation 归属/仓库归属校验 | api/_lib/installations.ts (+test) | 🚫 | D-006（PAT 无 installation 层；注册表校验已覆盖） | — |
+| M-D11 | installation 归属/仓库归属校验 | api/_lib/installations.ts (+test) | 🔁P2 | 同上 | 归属校验单测 |
 | M-D12 | 浏览器 GitHub 代理白名单（method/path、dot-segment 拒绝） | api/github/[action].ts request-policy | ✅ | pr-helper-git github-allowlist.mjs 已有等价（对齐确认） | 对齐核对 |
 | M-D13 | 代理 mutation 审计（created/merged/rerun） | api/github/[action].ts | ✅ | git2 appendAudit 已有（对齐确认） | 对齐核对 |
 | M-D14 | GitHub 会话状态查询（connected/login/avatar） | api/github/[action].ts sessionHandler | 🔀P2 | git2 identity/me 已等价 | 路由核对 |
@@ -494,4 +494,5 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 2026-11-13 | 初版创建（§0–§12） | 用户指令：完整迁移方案落盘为核心台账 | 用户 |
 | 2026-11-13 | **D-011**：pr-helper 全程只读（源仓文件不修改、不提交；仅允许读/fetch/log 核对）。P0-1 标注任务取消，P0-5 标注已满足 | 用户指令：被迁出产品不能动 | 用户 |
 | 2026-11-13 | **D-012**：确立多会话协作协议（§0 规则 5-6）：台账状态列 = 断点，开场读台账领任务、收尾更新+提交+推送+备份 | 多会话上下文对齐需求 | 用户 |
+| 2026-11-13 | **D-006-v2**：vercel env pull 实测 GITHUB_APP_* 明文可拉 → GitHub App 凭据迁入本地 server（推翻 v1 的 PAT 替代），安装级权限保留；DATABASE_URL 被 Sensitive 掩码 → 生产连接串需用户提供 | Phase 1 排障 | 用户 |
 | 2026-11-13 | **D-013**：根目录 `handoff.md` 增设「pr-helper 迁移进度（实时段）」，每个迁移会话收尾实时更新；本文档保持方案/追溯/验收职责不变 | 用户要求进度实时可见 | 用户 |
