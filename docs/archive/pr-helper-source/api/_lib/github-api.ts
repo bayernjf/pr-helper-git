@@ -1,0 +1,155 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+import { createGithubAppJwt, type GitHubAppConfig } from './github-app.js';
+
+const githubApi = 'https://api.github.com';
+const GITHUB_REQUEST_TIMEOUT_MS = 15_000;
+const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
+
+type InstallationToken = { token: string; expires_at?: string };
+type CachedInstallationToken = { token: string; expiresAt: number };
+
+const installationTokenCache = new Map<string, CachedInstallationToken>();
+const installationTokenRequests = new Map<string, Promise<string>>();
+
+// Review 2026-11-02 (P2-11): the cache was unbounded and expired entries were
+// never dropped, so tokens outlived their lifetime as memory residue on
+// long-lived warm instances. Cap the cache and evict expired entries first.
+const MAX_INSTALLATION_TOKEN_CACHE_ENTRIES = 500;
+
+function cacheInstallationToken(key: string, entry: CachedInstallationToken) {
+  // A token already inside the refresh buffer is unusable; never store it.
+  if (entry.expiresAt <= Date.now() + INSTALLATION_TOKEN_REFRESH_BUFFER_MS) return;
+  installationTokenCache.delete(key); // refresh recency
+  installationTokenCache.set(key, entry);
+  if (installationTokenCache.size <= MAX_INSTALLATION_TOKEN_CACHE_ENTRIES) return;
+  const cutoff = Date.now() + INSTALLATION_TOKEN_REFRESH_BUFFER_MS;
+  for (const [k, v] of installationTokenCache) {
+    if (v.expiresAt <= cutoff) installationTokenCache.delete(k);
+  }
+  while (installationTokenCache.size > MAX_INSTALLATION_TOKEN_CACHE_ENTRIES) {
+    const oldest = installationTokenCache.keys().next().value;
+    if (oldest === undefined) break;
+    installationTokenCache.delete(oldest);
+  }
+}
+
+/** Test hook: observe cache occupancy (mirrors resetRateLimitsForTests). */
+export function installationTokenCacheSizeForTests() {
+  return installationTokenCache.size;
+}
+
+export type GitHubCallStats = { calls: number; totalMs: number; slowest: { path: string; ms: number } | null; etagStable: number; etagChanged: number; etagFirstSeen: number };
+
+const callStats = new AsyncLocalStorage<GitHubCallStats>();
+
+// Attribution has to follow the async context, not a module-level counter: a sweep runs many stages
+// concurrently, so a shared counter would report one stage's latency as another's.
+export async function trackGitHubCalls<T>(run: () => Promise<T>): Promise<{ value: T; stats: GitHubCallStats }> {
+  const stats: GitHubCallStats = { calls: 0, totalMs: 0, slowest: null, etagStable: 0, etagChanged: 0, etagFirstSeen: 0 };
+  const value = await callStats.run(stats, run);
+  return { value, stats };
+}
+
+// Read-only ETag telemetry: remember the ETag GitHub returned per request path on this serverless
+// instance and compare it with the previous observation. A repeat with an identical ETag means a
+// conditional request would have answered 304 without a body — that ratio is the go/no-go signal for
+// building a real ETag cache (the egress plan decided to measure before building). Nothing conditional
+// is sent and nothing is cached beyond these headers; the memo is instance-local by design, so cold
+// starts show up as firstSeen and dilute the ratio rather than skewing it.
+const etagMemo = new Map<string, string>();
+const ETAG_MEMO_MAX = 4096;
+
+function noteEtag(path: string, etag: string | null, stats: GitHubCallStats | undefined) {
+  if (!etag) return;
+  if (etagMemo.size >= ETAG_MEMO_MAX) etagMemo.clear();
+  const previous = etagMemo.get(path);
+  etagMemo.set(path, etag);
+  if (!stats) return;
+  if (previous === undefined) stats.etagFirstSeen += 1;
+  else if (previous === etag) stats.etagStable += 1;
+  else stats.etagChanged += 1;
+}
+
+export class GitHubApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'GitHubApiError';
+  }
+}
+
+function requestSignal(signal?: AbortSignal | null) {
+  const timeout = AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS);
+  return { timeout, signal: signal ? AbortSignal.any([signal, timeout]) : timeout };
+}
+
+async function githubResponse<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const stats = callStats.getStore();
+  const startedAt = stats ? performance.now() : 0;
+  try {
+    return await githubFetch<T>(path, token, init);
+  } finally {
+    if (stats) {
+      const ms = Math.round(performance.now() - startedAt);
+      stats.calls += 1;
+      stats.totalMs += ms;
+      if (!stats.slowest || ms > stats.slowest.ms) stats.slowest = { path, ms };
+    }
+  }
+}
+
+async function githubFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const { timeout, signal } = requestSignal(init?.signal);
+  let response: Response;
+  try {
+    response = await fetch(`${githubApi}${path}`, {
+      ...init,
+      signal,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+        ...init?.headers,
+      },
+    });
+  } catch (error) {
+    if (timeout.aborted) throw new Error('GitHub 请求超时，请稍后重试');
+    throw error;
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({ message: response.statusText })) as { message?: string };
+    throw new GitHubApiError(response.status, detail.message || `GitHub 请求失败 (${response.status})`);
+  }
+  // Only GETs are conditional candidates; token minting and mutations would pollute the ratio.
+  if ((init?.method ?? 'GET') === 'GET') noteEtag(path, response.headers.get('etag'), callStats.getStore());
+  if (response.status === 204 || response.headers.get('content-length') === '0') return {} as T;
+  return response.json() as Promise<T>;
+}
+
+export function githubAppRequest<T>(config: GitHubAppConfig, path: string, init?: RequestInit) {
+  return githubResponse<T>(path, createGithubAppJwt(config), init);
+}
+
+export async function installationAccessToken(config: GitHubAppConfig, installationId: string) {
+  const key = `${config.appId}:${installationId}`;
+  const cached = installationTokenCache.get(key);
+  if (cached && cached.expiresAt > Date.now() + INSTALLATION_TOKEN_REFRESH_BUFFER_MS) return cached.token;
+  if (cached) installationTokenCache.delete(key); // expired entries are useless residue
+
+  const inFlight = installationTokenRequests.get(key);
+  if (inFlight) return inFlight;
+
+  const request = githubAppRequest<InstallationToken>(config, `/app/installations/${encodeURIComponent(installationId)}/access_tokens`, { method: 'POST' })
+    .then(result => {
+      const expiresAt = Date.parse(result.expires_at || '') || Date.now() + 55 * 60_000;
+      cacheInstallationToken(key, { token: result.token, expiresAt });
+      return result.token;
+    })
+    .finally(() => installationTokenRequests.delete(key));
+  installationTokenRequests.set(key, request);
+  return request;
+}
+
+export function installationRequest<T>(config: GitHubAppConfig, installationId: string, path: string, init?: RequestInit) {
+  return installationAccessToken(config, installationId).then(token => githubResponse<T>(path, token, init));
+}

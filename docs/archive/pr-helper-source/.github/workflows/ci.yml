@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, unit tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Migration naming/numbering/header gate (tools/check-migrations.sh). Historical
+      # violations are frozen in tools/migration-baseline.txt; new migrations must be clean.
+      - name: Check migration conventions
+        run: npm run check:migrations
+
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      # Browser regression gate. The 34 Playwright cases stub every backend call via page.route,
+      # so they need no GitHub or Supabase credentials. playwright.config.ts already switches to
+      # retries: 2 + the github reporter and starts its own Vite server when CI is set.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E
+        run: npm run test:e2e
+
+      # Mobile monitoring (2026-10-29 plan, layer 1): the desktop board is unreachable while
+      # working through mobile remote control, so CI failures are pushed to Feishu. No-op unless
+      # the repository secret FEISHU_WEBHOOK is set.
+      - name: Notify failure (Feishu)
+        if: failure()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$FEISHU_WEBHOOK" ]]; then
+            echo "::warning title=Notify skipped::Missing repository secret FEISHU_WEBHOOK."
+            exit 0
+          fi
+          curl -fsS -m 10 -X POST "$FEISHU_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg t "[pr-helper] $WORKFLOW 失败" --arg m "工作流 $WORKFLOW 失败：$RUN_URL" '{msg_type:"text", content:{text:($t + "\n" + $m)}}')" \
+            || echo "::warning title=Notify::Feishu webhook 调用失败"
