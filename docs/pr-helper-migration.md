@@ -21,6 +21,17 @@
 4. 与 `AGENTS.md` 的关系：本迁移经用户明确指令**推翻并修订** AGENTS 中的部分禁区
    （§2 决策记录 D-003/D-004/D-005/D-008）。修订稿在 Phase 2 前提交用户留痕；
    未列入修订的禁区（云平台 SaaS 能力）仍然有效。
+5. **源仓只读原则（D-011，2026-11-13）**：pr-helper 的本地目录与 GitHub 仓在迁移
+   全程**只读**——不修改任何文件、不提交、不加标注。一切"冻结/迁移中"声明只记录
+   在本台账（本文档即声明载体）。允许的操作仅限：读文件、`git fetch`/`git log`/
+   `git show` 等只读核对。被迁出产品保持原样，归档与删除决策在 Phase 5 之后。
+6. **多会话协作协议（上下文对齐的唯一机制 = 本文档随仓库版本化）**：
+   - 每个迁移会话**开场**：① 读本文档 §0 使用规则与 §12 变更记录（最新状态）→
+     ② 读 §10 追踪矩阵找第一个 ⬜/🔵 条目 → ③ `git -C . log --oneline -5` 核对
+     基线 → ④ 认领任务并在状态列标 🔵。
+   - 每个迁移会话**收尾**：① 更新状态列与验收证据 → ② 追加 §12 变更记录 →
+     ③ Conventional Commit 提交并 push dev → ④ 跑备份脚本。
+   - 会话中断/换会话不丢上下文：本文件随仓库存在，状态列就是断点。
 
 ---
 
@@ -106,11 +117,11 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | # | 任务 | 源/依据 | 验收标准 | 状态 |
 |---|---|---|---|---|
-| P0-1 | pr-helper 标注 frozen（README/AGENTS 顶部声明 superseded by pr-helper-git） | — | 两文件含声明 | ⬜ |
-| P0-2 | **核对 main.ts 拆分分支**（§3 基线疑点）：确定源基线分支 | git branch -a | 明确源基线 commit 并记入 §12 | ⬜ |
+| P0-1 | ~~pr-helper 标注 frozen~~ **已取消（D-011 源仓只读）**：pr-helper 文件全程不动，frozen 声明以本文档 §1 为准 | 本文档 §1 | 台账含 D-011 声明 | ✅ |
+| P0-2 | **核对 main.ts 拆分分支**（§3 基线疑点）：确定源基线分支（只读操作：`git branch -a` + `git log origin/<branch>`，不改 pr-helper 工作树） | git branch -a | 明确源基线 commit 并记入 §12 | ⬜ |
 | P0-3 | Supabase 生产导出：pg_dump（schema + data，仅 pr_helper_* 与相关表） | Supabase 凭据 | dump 可在本地 Postgres 重放 | ⬜ |
 | P0-4 | 47 迁移文件 + feature-catalog.md + current-state.md 快照拷入本仓 `docs/archive/pr-helper-source/` | supabase/migrations | 文件数 = 47 | ⬜ |
-| P0-5 | pr-helper 推最终状态到 origin（归档前置） | — | origin/main = 本地 HEAD | ⬜ |
+| P0-5 | ~~pr-helper 推最终状态到 origin~~ **已满足**：origin/main = c32c6c6f（#406）= 本地 HEAD，最终状态已在 GitHub | — | ls-remote 核对记录 | ✅ |
 
 ### Phase 1 — OrbStack Postgres + 领域内核移植（2–3 天）
 
@@ -479,3 +490,5 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 日期 | 变更 | 原因 | 批准 |
 |---|---|---|---|
 | 2026-11-13 | 初版创建（§0–§12） | 用户指令：完整迁移方案落盘为核心台账 | 用户 |
+| 2026-11-13 | **D-011**：pr-helper 全程只读（源仓文件不修改、不提交；仅允许读/fetch/log 核对）。P0-1 标注任务取消，P0-5 标注已满足 | 用户指令：被迁出产品不能动 | 用户 |
+| 2026-11-13 | **D-012**：确立多会话协作协议（§0 规则 5-6）：台账状态列 = 断点，开场读台账领任务、收尾更新+提交+推送+备份 | 多会话上下文对齐需求 | 用户 |
