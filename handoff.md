@@ -7,6 +7,26 @@ pushes nothing. This repository, however, **is** on GitHub as the public
 every committed file as world-readable.
 
 
+## pr-helper 迁移进度（实时段，随会话更新）
+
+> 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-013 与验收标准在
+> [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
+> 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
+
+**当前阶段：Phase 0（冻结、基线对齐与数据导出）— 未完成**
+
+| 任务 | 状态 |
+|---|---|
+| P0-1 pr-helper 标注 frozen | ✅ 已取消（D-011 源仓只读：pr-helper 全程不动，frozen 声明以迁移台账为准）|
+| P0-2 核对 main.ts 拆分分支（只读） | ⬜ |
+| P0-3 Supabase 生产导出 | ⬜（需用户确认凭据使用）|
+| P0-4 迁移文件/能力目录快照拷入本仓 docs/archive | ⬜ |
+| P0-5 pr-helper 推最终状态 | ✅ 已满足（origin/main = c32c6c6f）|
+
+Phase 1–5：⬜ 全部待启动（OrbStack Postgres → 自动化引擎 → 控制塔 UI → 通知/归档 → 影子并行）。
+
+最近更新：2026-11-13（台账初版 + 只读规则 + 会话协议落盘，`677244b`；本段建立）。
+
 ## Rename completion (2026-11-12)
 
 The product repository is now `bayernjf/pr-helper-git` (PUBLIC, default branch
