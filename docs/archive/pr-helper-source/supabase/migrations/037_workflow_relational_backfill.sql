@@ -1,4 +1,10 @@
 -- =====================================================
+-- [local-migration adaptation] SKIPPED: this backfill migrates inline payload data into
+-- relational rows, but the local migration imports the relational rows DIRECTLY from the
+-- Supabase data export (see supabase-export JSON) — the payload column was dropped by 044
+-- before this could re-run. The tables it fills are populated by the data import instead.
+-- Original statements preserved below for reference:
+
 -- Migration 037: Backfill relational workflow rows and verify
 -- File: 037_workflow_relational_backfill.sql
 -- Date: 2026-08-21 23:54

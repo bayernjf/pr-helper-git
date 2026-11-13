@@ -1,3 +1,8 @@
+-- 033: Relax the reconciliation clock from */5 to */30.
+-- [local-migration adaptation] Skipped entirely: this migrates a pg_cron schedule,
+-- and in the local deployment the app server owns scheduling (drain 2 min /
+-- reconcile 5 min inside the Node process). Nothing to relax in the database.
+-- Original statements preserved below for reference:
 -- =====================================================
 -- Migration 033: Relax the scheduled sweep to every 30 minutes
 -- File: 033_relax_reconciliation_clock.sql
