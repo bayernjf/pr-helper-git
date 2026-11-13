@@ -10,6 +10,7 @@ import { randomToken } from './security.mjs';
 import { runAsActor } from './actor.mjs';
 import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
+import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import {
   addClient,
@@ -147,7 +148,29 @@ const server = http.createServer(async (req, res) => {
       const identity = await resolveToken(presented, TOKEN);
       if (!identity) return sendJson(res, 401, { error: 'unauthorized' });
 
-      // Server-sent events: long-lived stream for file-change notifications.
+      // Start the automation engine schedulers (drain/reconcile/cleanup).
+    startAutomation();
+
+    // Server-sent events: long-lived stream for file-change notifications.
+      // GitHub webhook receiver (HMAC-verified, delegated to the automation engine).
+      if (pathname === '/api/github-webhook') {
+        const raw = await new Promise((resolve) => {
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        });
+        const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || '';
+        const result = await handleGithubWebhook({
+          method: req.method, pathname, headers: req.headers,
+          body: null, rawBody: raw, secret: webhookSecret,
+        });
+        if (result) {
+          res.writeHead(result.status, { 'content-type': 'application/json', ...NOSNIFF });
+          res.end(JSON.stringify(result.json));
+          return;
+        }
+      }
+
       if (pathname === '/api/events') {
         res.writeHead(200, {
           'content-type': 'text/event-stream',
