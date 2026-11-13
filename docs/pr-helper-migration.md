@@ -121,7 +121,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 |---|---|---|---|---|
 | P0-1 | ~~pr-helper 标注 frozen~~ **已取消（D-011 源仓只读）**：pr-helper 文件全程不动，frozen 声明以本文档 §1 为准 | 本文档 §1 | 台账含 D-011 声明 | ✅ |
 | P0-2 | **核对 main.ts 拆分分支**（§3 基线疑点）：确定源基线分支（只读操作：`git branch -a` + `git log origin/<branch>`，不改 pr-helper 工作树） | git branch -a | 明确源基线 commit 并记入 §12 | ⬜ |
-| P0-3 | Supabase 生产导出：pg_dump（schema + data，仅 pr_helper_* 与相关表） | Supabase 凭据 | dump 可在本地 Postgres 重放 | ⬜ |
+| P0-3 | Supabase 生产导出 | prh_readonly 只读角色 + session pooler（.env.production 无法取 DATABASE_URL — Sensitive 掩码；凭据在 ~/.config/pr-helper/db.env） | 导出集 `000mycodes-backups/pr-helper-git/supabase-export-20261113.json`：58806 行/26 表，14 流程与文档终态一致 | ✅（例外：reconciliation_runs 遥测表 5×60s 超时未导出，非业务数据，§12 已记） |
 | P0-4 | 47 迁移文件 + feature-catalog.md + current-state.md 快照拷入本仓 `docs/archive/pr-helper-source/` | supabase/migrations | 文件数 = 47 | ⬜ |
 | P0-5 | ~~pr-helper 推最终状态到 origin~~ **已满足**：origin/main = c32c6c6f（#406）= 本地 HEAD，最终状态已在 GitHub | — | ls-remote 核对记录 | ✅ |
 
@@ -495,4 +495,5 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 2026-11-13 | **D-011**：pr-helper 全程只读（源仓文件不修改、不提交；仅允许读/fetch/log 核对）。P0-1 标注任务取消，P0-5 标注已满足 | 用户指令：被迁出产品不能动 | 用户 |
 | 2026-11-13 | **D-012**：确立多会话协作协议（§0 规则 5-6）：台账状态列 = 断点，开场读台账领任务、收尾更新+提交+推送+备份 | 多会话上下文对齐需求 | 用户 |
 | 2026-11-13 | **D-006-v2**：vercel env pull 实测 GITHUB_APP_* 明文可拉 → GitHub App 凭据迁入本地 server（推翻 v1 的 PAT 替代），安装级权限保留；DATABASE_URL 被 Sensitive 掩码 → 生产连接串需用户提供 | Phase 1 排障 | 用户 |
-| 2026-11-13 | **D-013**：根目录 `handoff.md` 增设「pr-helper 迁移进度（实时段）」，每个迁移会话收尾实时更新；本文档保持方案/追溯/验收职责不变 | 用户要求进度实时可见 | 用户 |
+| 2026-11-14 | Phase 0 完成：P0-2（源基线=origin/dev@96bd94fe + main 独有修复 709940f3 登记）✅、P0-3（导出 58806 行/26 表，reconciliation_runs 遥测表超时未导出 — 例外记录）✅、P0-4（228 文件快照）✅ | Supabase session pooler 大表/断连不稳 → 超时+重连+跳过策略 | 用户 |
+| 2026-11-14 | **D-013**：根目录 `handoff.md` 增设「pr-helper 迁移进度（实时段）」，每个迁移会话收尾实时更新；本文档保持方案/追溯/验收职责不变 | 用户要求进度实时可见 | 用户 |

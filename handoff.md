@@ -13,19 +13,21 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0（冻结、基线对齐与数据导出）— 未完成**
+**当前阶段：Phase 0 完成 ✅ → Phase 1 就绪（领域内核 + store 层移植）**
 
 | 任务 | 状态 |
 |---|---|
-| P0-1 pr-helper 标注 frozen | ✅ 已取消（D-011 源仓只读：pr-helper 全程不动，frozen 声明以迁移台账为准）|
-| P0-2 核对 main.ts 拆分分支（只读） | ⬜ |
-| P0-3 Supabase 生产导出 | ⬜（需用户确认凭据使用）|
-| P0-4 迁移文件/能力目录快照拷入本仓 docs/archive | ⬜ |
-| P0-5 pr-helper 推最终状态 | ✅ 已满足（origin/main = c32c6c6f）|
+| P0-1 pr-helper 标注 frozen | ✅ 已取消（D-011 源仓只读）|
+| P0-2 核对拆分分支 | ✅ 源基线 = origin/dev@96bd94fe（拆分后形态，src/app 32 文件）；main 独有修复 709940f3（阶段删除取消在途动作）已登记 Phase 2 合并 |
+| P0-3 Supabase 生产导出 | ✅ 58806 行/26 表（14 流程与终态一致）；例外：reconciliation_runs 遥测表超时未导出（非业务数据）|
+| P0-4 快照拷入 | ✅ 228 文件 → docs/archive/pr-helper-source/（含 47 迁移、feature-catalog、main 独有修复文件版）|
+| P0-5 推最终状态 | ✅ origin/main = c32c6c6f |
 
-Phase 1–5：⬜ 全部待启动（OrbStack Postgres → 自动化引擎 → 控制塔 UI → 通知/归档 → 影子并行）。
+Phase 1 就绪：OrbStack Postgres 容器已起（pr-helper-pg，localhost:54329，postgres:15-alpine）；47 迁移与数据导出集就位。待执行：P1-2 迁移执行 → P1-3 数据核对 → P1-4 store 层重写 → P1-5 领域内核直拷。
 
-最近更新：2026-11-13（台账初版 + 只读规则 + 会话协议落盘，`677244b`；本段建立）。
+Phase 2–5：⬜ 待启动。
+
+最近更新：2026-11-14 01:30（Phase 0 全部完成，台账 §5/§12 已同步）。
 
 ## Rename completion (2026-11-12)
 
