@@ -182,6 +182,27 @@ describe('handleFlowsRoute', () => {
     );
   });
 
+  it('reconciles inline only for an explicit queue refresh', async () => {
+    const result = await handleFlowsRoute(ctx({
+      query: new URLSearchParams('refresh=1&repository=octo/app'),
+    }));
+    expect(result?.status).toBe(200);
+    expect(store.reconcileRealtime).toHaveBeenCalledWith(
+      expect.anything(),
+      { installationId: '149185475', repository: 'octo/app', eventName: 'inbox_refresh' },
+      'inbox_refresh',
+    );
+    expect(result?.json.reconciliationScheduled).toBe(true);
+    expect(result?.json.reconciliation).toEqual({ reconciled: 0, outcome: 'completed' });
+  });
+
+  it('keeps page loads on the persisted projection without GitHub reconciliation', async () => {
+    const result = await handleFlowsRoute(ctx());
+    expect(store.reconcileRealtime).not.toHaveBeenCalled();
+    expect(result?.json.reconciliationScheduled).toBe(false);
+    expect(result?.json.reconciliation).toBeNull();
+  });
+
   it('degrades a credential-dependent read to empty + warning instead of failing the board', async () => {
     (store.listWorkflowStageStates as any).mockRejectedValueOnce(new Error('缺少 GitHub App 配置：GITHUB_APP_ID'));
     const result = await handleFlowsRoute(ctx());

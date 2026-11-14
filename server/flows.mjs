@@ -311,15 +311,27 @@ export async function handleFlowsRoute(ctx) {
     // --- Read routes ---
 
     // Board payload: the same eleven-collection fan-out pr-helper's
-    // /api/[action]?action=inbox served. Reconciliation is NOT triggered
-    // inline here — the board renders the persisted projection and live
-    // refresh arrives via webhook / scheduled sweep.
+    // /api/[action]?action=inbox served. A page load renders the persisted
+    // projection; an explicit `refresh=1` reconciles inline within the realtime
+    // budget and leaves the remainder to the scheduled sweep.
     //
     // Reads that need GitHub App credentials (dynamic branch-source stages)
     // degrade to empty collections with a warning instead of failing the
     // whole board: until P2-1 lands the credentials locally, the persisted
     // projection is still complete for static-route workflows.
     if (pathname === '/api/flows/inbox') {
+      const refresh = query.get('refresh') === '1';
+      const repository = query.get('repository') || undefined;
+      let reconciliationScheduled = false;
+      let reconciliation = null;
+      if (refresh && identity.installationId) {
+        reconciliationScheduled = true;
+        reconciliation = await store.reconcileRealtime(
+          env,
+          { installationId: identity.installationId, repository, eventName: 'inbox_refresh' },
+          'inbox_refresh',
+        );
+      }
       const reads = {};
       /** @type {Array<[string, (env: unknown, identity: unknown, reads: unknown) => Promise<unknown>]>} */
       const readNames = [
@@ -349,7 +361,7 @@ export async function handleFlowsRoute(ctx) {
           readWarnings.push({ source: key, message: outcome.reason?.message || String(outcome.reason) });
         }
       });
-      return { status: 200, json: { ...json, readWarnings } };
+      return { status: 200, json: { ...json, readWarnings, reconciliationScheduled, reconciliation } };
     }
 
     // Deployment configuration options (P3-10): actions workflows and GitHub

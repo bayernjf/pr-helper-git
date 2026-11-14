@@ -137,10 +137,23 @@ export type InboxPayload = {
   recoveryStatuses: Array<import('../lib/automation/flows-board').RecoveryStatusRow>;
   automation: AutomationActionRow[];
   readWarnings?: Array<{ source: string; message: string }>;
+  reconciliationScheduled?: boolean;
+  reconciliation?: { outcome?: string; reconciled?: number } | null;
 };
 
-export function fetchInbox(): Promise<InboxPayload> {
-  return request<InboxPayload>('/api/flows/inbox');
+export type InboxRequest = {
+  /** Trigger an inline realtime reconcile (manual queue refresh). */
+  refresh?: boolean;
+  /** Restrict the reconcile to one managed repository. */
+  repository?: string;
+};
+
+export function fetchInbox(options: InboxRequest = {}): Promise<InboxPayload> {
+  const params = new URLSearchParams();
+  if (options.refresh) params.set('refresh', '1');
+  if (options.repository) params.set('repository', options.repository);
+  const query = params.toString();
+  return request<InboxPayload>(`/api/flows/inbox${query ? `?${query}` : ''}`);
 }
 
 export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
