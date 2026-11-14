@@ -25,7 +25,7 @@
 
 | 字段 | 值 | 说明 |
 | --- | --- | --- |
-| swornTo | zeus | 唯一注册归属，星型拓扑，执行器间不直连 |
+| registeredTo | zeus | 唯一注册归属，星型拓扑，执行器间不直连 |
 | domain | pr-release-control | 能力域，Zeus 据此路由 |
 | dataDomains | enterprise | 只服务企业数据域任务 |
 | dataPolicy | read-task-scope | 只读任务范围内的数据 |

@@ -23,7 +23,7 @@ export type AgentCard = {
   preferredTransport: string;
   'x-zeus-handshake': {
     version: string;
-    swornTo: string;
+    registeredTo: string;
     domain: string;
     dataDomains: string[];
     dataPolicy: string;
@@ -87,7 +87,7 @@ export function buildAgentCard(request: ApiRequest): AgentCard {
       {
         id: 'production-rollback',
         name: 'Trigger confirmed Production rollback',
-        description: 'Dispatch a confirmed Production rollback. Irreversible: always escalates to the driver before executing.',
+        description: 'Dispatch a confirmed Production rollback. Irreversible: always escalates to the operator before executing.',
         tags: ['github', 'rollback', 'production', 'irreversible'],
       },
     ],
@@ -97,7 +97,7 @@ export function buildAgentCard(request: ApiRequest): AgentCard {
     preferredTransport: 'JSONRPC',
     'x-zeus-handshake': {
       version: '1',
-      swornTo: 'zeus',
+      registeredTo: 'zeus',
       domain: 'pr-release-control',
       dataDomains: ['enterprise'],
       dataPolicy: 'read-task-scope',

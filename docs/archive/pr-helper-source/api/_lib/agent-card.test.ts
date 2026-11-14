@@ -26,7 +26,7 @@ describe('buildAgentCard', () => {
     const card = buildAgentCard(requestWith({ host: 'pr-helper.example' }));
     expect(card['x-zeus-handshake']).toMatchObject({
       version: '1',
-      swornTo: 'zeus',
+      registeredTo: 'zeus',
       domain: 'pr-release-control',
       dataDomains: ['enterprise'],
       dataPolicy: 'read-task-scope',

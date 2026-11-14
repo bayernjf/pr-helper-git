@@ -44,8 +44,8 @@ function credentialRequired(skill: string): SkillResult {
 function escalationResult(skill: string, reason: string): SkillResult {
   return {
     state: 'input-required',
-    message: `"${skill}" is irreversible and requires driver approval before execution.`,
-    escalation: { level: 'driver', reason, options: ['approve', 'reject'] },
+    message: `"${skill}" is irreversible and requires operator approval before execution.`,
+    escalation: { level: 'operator', reason, options: ['approve', 'reject'] },
   };
 }
 

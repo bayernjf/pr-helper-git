@@ -65,7 +65,7 @@ describe('tasks/send lifecycle', () => {
     const task = response.result as Record<string, unknown>;
     expect(task.status).toMatchObject({ state: 'input-required' });
     const final = lastEvent(events) as Record<string, unknown>;
-    expect(final['x-zeus-escalation']).toMatchObject({ level: 'driver', options: ['approve', 'reject'] });
+    expect(final['x-zeus-escalation']).toMatchObject({ level: 'operator', options: ['approve', 'reject'] });
   });
 
   it('does not escalate irreversible skills in plan mode', () => {
