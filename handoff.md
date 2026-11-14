@@ -47,6 +47,13 @@ P3-4 编辑器 → P3-5 失败中心。
 
 最近更新：2026-11-14（Phase 3 开工：服务面 + 只读看板落地；基线 959/44；全门禁绿）。
 
+## Test-repo iron rule (2026-11-14)
+
+Owner directive: no new test repositories (GitHub or local) without explicit
+approval; product-feature testing reuses repos from `TEST-REPOS.md`, which
+is the single source of truth. Recorded in AGENTS.md Non-negotiables and the
+registry header.
+
 ## Desktop single-instance guard (2026-11-14)
 
 Second launches (double-click, launcher, direct binary) now activate the

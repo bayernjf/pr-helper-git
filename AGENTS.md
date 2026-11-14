@@ -45,6 +45,12 @@ wins; otherwise this file is the default contract.
     notifications plus an optional Feishu webhook (D-005);
   - **Worktrees, submodule writes, GPG signing, deployment gates**: still
     prohibited outright.
+- **Test repositories**: never create a new test repository (GitHub or
+  local) without the user's explicit approval. Product-feature testing must
+  reuse a repository from the registry in `TEST-REPOS.md` (GitHub table for
+  remote fixtures, local table for working trees); the registry is the
+  single source of truth, and newly approved repos are registered there
+  before use.
 - Runtime names are `~/.pr-helper-git`, localStorage `pr-helper-git:*`,
   cookie `pr_helper_git_token`, env `PR_HELPER_GIT_*`. Legacy `GIT2_*` names
   remain as compatibility fallbacks; never remove them without a migration
