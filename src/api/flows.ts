@@ -6,11 +6,12 @@ import type {
   AutomationActionRow,
   WorkflowStageStateRow,
 } from '../lib/automation/flows-board';
+import type { StageEventRow } from '../lib/automation/flows-detail';
 
 export type InboxPayload = {
   items: ActionQueueItem[];
   states: WorkflowStageStateRow[];
-  events: Array<Record<string, unknown>>;
+  events: StageEventRow[];
   deployments: Array<Record<string, unknown>>;
   deploymentRuns: Array<Record<string, unknown>>;
   configurationWarnings: Array<Record<string, unknown>>;

@@ -14,6 +14,7 @@ import {
   type BoardState,
 } from '../lib/automation/flows-board';
 import { t } from '../i18n';
+import FlowDetail from './FlowDetail';
 import { IconRefresh, IconSearch } from './icons';
 
 const FILTERS: BoardFilter[] = ['attention', 'running', 'all', 'failed', 'automation', 'archived'];
@@ -71,6 +72,7 @@ export default function FlowBoard() {
   const [filter, setFilter] = useState<BoardFilter>('all');
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
 
   const load = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setRefreshing(true);
@@ -98,6 +100,17 @@ export default function FlowBoard() {
 
   const counts = useMemo(() => boardCounts(state), [state]);
   const lanes = useMemo(() => buildLaneModels(state, filter, search, 'custom', 'asc'), [state, filter, search]);
+
+  if (selectedFlowId) {
+    return (
+      <FlowDetail
+        flowId={selectedFlowId}
+        state={state}
+        events={inbox?.events ?? []}
+        onClose={() => setSelectedFlowId(null)}
+      />
+    );
+  }
 
   return (
     <div className="flow-board-page">
@@ -157,7 +170,12 @@ export default function FlowBoard() {
         {lanes.length ? lanes.map((lane) => (
           <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}`}>
             <header className="lane-header">
-              <div className="lane-title-block">
+              <button
+                type="button"
+                className="lane-title-block"
+                onClick={() => setSelectedFlowId(lane.workflow.id)}
+                title={t('Flow board')}
+              >
                 {/* The original board shows repository as eyebrow and name as
                     the title; flows named after their repository would render
                     the identity twice, so the eyebrow only survives a rename. */}
@@ -169,7 +187,7 @@ export default function FlowBoard() {
                   {lane.workflow.archived ? <span className="lane-badge">{t('Archived')}</span> : null}
                   {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
                 </h2>
-              </div>
+              </button>
               <span className="lane-run">
                 <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
                 <span className="run-text">{lane.summary.text}</span>
