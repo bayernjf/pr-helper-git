@@ -169,10 +169,10 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | # | 任务 | 验收标准 | 状态 |
 |---|---|---|---|
-| P4-1 | 失败通知：macOS 本地通知（替代 Web Push，D-005）+ 飞书 webhook | 失败场景实测收到通知 | ⬜ |
-| P4-2 | pr-helper GitHub 仓推最终状态 → PRIVATE + ARCHIVED；本地目录标注归档 | gh repo view：PRIVATE+ARCHIVED | ⬜ |
-| P4-3 | AGENTS.md 修订落地（容器/依赖/webhook/PAT/通知五处，D-003~D-006） | AGENTS 修订稿与实际一致 | ⬜ |
-| P4-4 | 移动状态监控脚本（gh-status-summary/page）随迁 scripts/（低优） | 脚本可执行 | ⬜ |
+| P4-1 | 失败通知：macOS 本地通知（替代 Web Push，D-005）+ 飞书 webhook | 失败场景实测收到通知 | ✅ `server/notifier.mjs`（11-14）：osascript 本地通知 + `PR_HELPER_GIT_FEISHU_WEBHOOK` 可选通道；事件纪律=仅人工可行动失败（动作进入 paused/failed → drain failures[]，10 分钟签名去重）；接入 automation.mjs drain 结果；7 单测（去重窗口/上限 5/飞书开关）；macOS 通知实测已发（用户屏幕确认） |
+| P4-2 | pr-helper GitHub 仓推最终状态 → PRIVATE + ARCHIVED；本地目录标注归档 | gh repo view：PRIVATE+ARCHIVED | ⬜ 待用户执行（不可逆外部动作）：① `gh repo edit bayernjf/pr-helper --visibility private --accept-visibility-change-consequences` ② `gh repo archive bayernjf/pr-helper --yes` ③ 本地 `/Users/jiangfeng/000mycodes/pr-helper` 加 README 归档标注；现状 PUBLIC+未归档（11-14 查证） |
+| P4-3 | AGENTS.md 修订落地（容器/依赖/webhook/PAT/通知五处，D-003~D-006） | AGENTS 修订稿与实际一致 | ✅ Non-negotiables 修订（11-14）：容器=仅 OrbStack Postgres 单容器、数据库=仅本地 PG、webhook=仅本地 HMAC 接收端、GitHub App=无 OAuth 仅服务端引擎调用、web push→macOS 通知+可选飞书；worktrees/submodule/GPG/部署门禁仍禁；Layout 段补齐迁移产物（automation/flows/workflows-store/launchd/迁移文档） |
+| P4-4 | 移动状态监控脚本（gh-status-summary/page）随迁 scripts/（低优） | 脚本可执行 | ✅ 随迁（11-14）：bash -n 语法通过（M-F26 低优项一并完成） |
 
 ### Phase 5 — 影子并行 → 切换 → 下线（1 天工作 + 1–2 周日历）
 
@@ -502,6 +502,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 2026-11-14 | P1-6 重定界：快照内无 tools/check-migrations.sh（源前提不成立，查证记录）→ 新实现 `scripts/migration/check-migrations.mjs`（解析 47 迁移推导期望表集 vs 本地 PG 实测，`npm run check:migrations`，26=26 ✓）；P2-9 launchd 完成：`launchd/{install,uninstall}.sh` + README，KeepAlive 崩溃自愈实测 ✓，验证后卸载（常驻启用待用户拍板）；P1-5 核心 4 模块落地 `src/lib/automation/`（workflow/workflow-run/projected-stage/generation-rules + 随迁测试 143 全绿）→ 测试基线升至 480/38 | 继续推进迁移（无阻塞项优先：P1-6 → P2-9 → P1-5 核心） | 用户（继续授权推进） |
 | 2026-11-14 | **P1-4 store 测试网随迁全绿**：`server/workflows-store.test.ts` 418 项（源级不变量断言指快照冻结 TS 源 — bundle 是其机械变换且注释被剥离，指快照才是被测对象；MIGRATIONS_DIR/STORE_SOURCE/`[action].ts`/`workflows.ts`/`main.ts` 七类相对路径重写到快照树）+ `workflow-rows` 25 + `github-api` 11 + `ai-credentials` 5；bundle 补导出 workflowFromRows/workflowToRows；vite.config.ts include 增 `server/**/*.test.ts`；测试基线 480/38 → **939/42**（全门禁绿） | P1-4 验收标准（store 单测随迁全绿）达成 | 用户（继续授权推进） |
 | 2026-11-14 | **Phase 3 启动（P3-0 服务面 + P3-1 第一片）**：`server/flows.mjs` 身份桥（本地 token 身份 → 引擎 identity，采纳 pr_helper_users 单行；多人场景报错待 P2-8）+ 三读路由（inbox 11 函数扇出 / workflows 原始 payload / audit），App 凭据缺失时单路读降级空集+readWarnings（看板投影直出不阻断）；分发顺序调整（flows 在 git 路由前，后者对无 repo 的 /api 兜底 403）；React：`FlowBoard.tsx` 只读看板（Toolbar 新增 Flows 视图）+ `flows-board.ts` 纯语义模块（13 单测）+ `src/api/flows.ts`；i18n 增看板文案（英文句子键）；测试基线 939/42 → **959/44**（全门禁绿） | 用户指令"继续"（Phase 3 开工） | 用户（继续授权推进） |
+| 2026-11-14 | **Phase 4 完成**：P4-1 通知器（macOS 通知实测 + 飞书可选，7 单测，drain failures 接入，10min 去重）；P4-3 AGENTS Non-negotiables 修订（五处反映 D-003~D-006-v2 现实 + Layout 补迁移产物）；P4-4 监控脚本随迁；P4-2 归档命令清单备妥**待用户执行**（gh private/archive 不可逆）；测试基线 983 → **990/47**（全门禁绿，e2e 145） | Phase 4 推进（P4-2 外部动作需用户拍板） | 用户（继续授权推进） |
 | 2026-11-14 | **Phase 3 收官：P3-4 尾巴 + P3-6 判定 + P3-9 映射清单**：FlowEditor 新建双模式 + 加/删步骤（addStage/removeStage）；看板排序控制（custom/name/createdAt+方向）与 lane 上/下移动（moveWorkflowToPosition→PUT 持久化）；P3-6 判定为语义已承载（进度条 3 测试+详情时间线，lane 内嵌时间线为设计偏差不建）；P3-9 `docs/migration-acceptance.md` 34/34 映射（✅15/🔶6/🚫8/⬜2）；测试基线 983/46（全门禁绿，e2e 145） | Phase 3 收官 | 用户（继续授权推进） |
 | 2026-11-14 | **P3-5 失败中心聚合面板**：flows-failures.ts 纯语义（三段聚合+recovery 徽章，5 单测）+ FailureCenter 组件（重跑=写路由、详情=抽屉）+ repair-context 路由（1 测试）；BoardState 增 recoveryStatuses；测试基线 977 → **983/46**（全门禁绿，e2e 145） | 继续推进 Phase 3 | 用户（继续授权推进） |
 | 2026-11-14 | **P3-4 编辑模式 + P3-7 确认交互**：PUT/PATCH/DELETE /api/flows/workflows 落地（upsertWorkflow 返回 automationActivated/gatesChanged；本地无凭据时内联对账失败降级 null——保存永不因 sweep 失败而报错，4 路由测试含回归）；FlowEditor 编辑模式（纯函数组合 automation 字面量形状；规则 content 未随库时诚实拒绝编辑）；P3-7 勾选即动作确认（immediateAutomationEffect × 当前投影 → confirm）；测试基线 973 → **977/45**（全门禁绿，e2e 145） | 继续推进 Phase 3（编辑器最大块拆两片） | 用户（继续授权推进） |

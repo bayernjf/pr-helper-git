@@ -31,8 +31,20 @@ wins; otherwise this file is the default contract.
   in Swift; native work is limited to windowing, process lifetime, menus,
   external-link handling and packaging. Do not add a second feature surface
   that the web UI cannot exercise.
-- Do not reintroduce: containers, worktrees, submodule writes, GPG signing,
-  GitHub App OAuth, webhooks, a database, web push, or deployment gates.
+- Do not reintroduce the removed cloud-era mechanisms — with the pr-helper
+  migration the following amendments now hold (decisions D-003…D-006-v2 in
+  `docs/pr-helper-migration.md`):
+  - **Containers**: only the single local OrbStack Postgres container
+    (`pr-helper-pg`, loopback-only); no other container runtime;
+  - **Database**: only that local Postgres (the automation engine's store);
+  - **Webhooks**: only the local HMAC-verified receiver
+    (`POST /api/github-webhook`);
+  - **GitHub App**: no OAuth login flow — the migrated App credentials live
+    server-side solely for engine GitHub calls (D-006-v2);
+  - **Web push**: not used; failure notifications go through macOS local
+    notifications plus an optional Feishu webhook (D-005);
+  - **Worktrees, submodule writes, GPG signing, deployment gates**: still
+    prohibited outright.
 - Runtime names are `~/.pr-helper-git`, localStorage `pr-helper-git:*`,
   cookie `pr_helper_git_token`, env `PR_HELPER_GIT_*`. Legacy `GIT2_*` names
   remain as compatibility fallbacks; never remove them without a migration
@@ -47,14 +59,21 @@ src/                    React client
   api/                  typed API client, split by domain
   components/           UI components and modals
   lib/                  pure helpers and storage keys
+  lib/automation/       migrated pr-helper pure domain modules + board/detail semantics
 server/                 Node HTTP server and Git/GitHub routes
   main.mjs              entry, auth, static hosting, SSE
   routes-git*.mjs       Git API dispatcher and domain modules
   routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
+  automation.mjs        engine bridge: schedulers, webhook receiver
+  flows.mjs             control-tower routes (inbox fan-out, automation ops, saves)
+  workflows-store.mjs   bundled pr-helper automation engine (frozen source transform)
 e2e/run.sh              curl-driven E2E against a throwaway server
-scripts/                dev launcher and desktop build
+scripts/                dev launcher, desktop build, migration tooling
+launchd/                persistent LaunchAgent install/uninstall (P2-9)
 desktop/                thin Swift WKWebView shell (no feature logic)
 docs/                   long-lived reference docs
+  pr-helper-migration.md   migration ledger (plan, matrix, decisions, DoD)
+  migration-acceptance.md  34-assertion e2e mapping (P3-9)
 handoff.md              delivery ledger, scope, release history, lessons
 CHANGELOG.md            user-visible changes per release
 ```
@@ -175,7 +194,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of the pr-helper migration Phase 1/2 work (2026-11-14):
 
-- unit/route tests: **983 tests / 46 files** (includes the migrated pr-helper
+- unit/route tests: **990 tests / 47 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests under

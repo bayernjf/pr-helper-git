@@ -13,6 +13,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import postgres from 'postgres';
 import * as store from './workflows-store.mjs';
+import { notifyFromDrainResult } from './notifier.mjs';
 
 const DRAIN_INTERVAL_MS = 2 * 60_000;
 const RECONCILE_INTERVAL_MS = 5 * 60_000;
@@ -57,6 +58,9 @@ async function runDrain() {
   try {
     const result = await store.drainWorkflowAutomationActions(env);
     console.error(`[automation] drain ok: ${summarize(result)}`);
+    // Operator-actionable failures (paused/failed actions) reach the
+    // notifier — macOS notification and, when configured, Feishu (P4-1).
+    notifyFromDrainResult(result);
   } catch (err) {
     console.error(`[automation] drain failed: ${err.message}`);
   }
