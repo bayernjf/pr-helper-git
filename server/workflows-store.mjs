@@ -530,7 +530,7 @@ async function scheduleServerAutoMerge(sql, row, workflow, stageIndex, source, p
   if (!actionId) return;
   const outcome = automationMergeOutcome({ number: pullNumber, state: "open" }, gate);
   if (outcome.kind === "paused") {
-    await sql`UPDATE workflow_automation_actions SET failure_reason = ${outcome.reason.slice(0, 800)} WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued'`.catch(() => void 0);
+    await sql`UPDATE workflow_automation_actions SET failure_reason = ${/** @type {any} */ (outcome).reason.slice(0, 800)} WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued'`.catch(() => void 0);
     return;
   }
   await sql`UPDATE workflow_automation_actions SET failure_reason = NULL, updated_at = now() WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued' AND failure_reason IS NOT NULL`.catch(() => void 0);
@@ -820,15 +820,15 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
     { number: pull.number, state: pull.state, merged: Boolean(pull.merged_at), html_url: pull.html_url },
     { checksState: current.checks_state, approvals: current.approvals, requiredApprovals: current.required_approvals, mergeable: pull.mergeable ?? null, mergeableState: pull.mergeable_state || "unknown" }
   );
-  if (outcome.kind === "paused" && outcome.retryable === true) {
-    await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${outcome.reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
+  if (outcome.kind === "paused" && /** @type {any} */ (outcome).retryable === true) {
+    await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${/** @type {any} */ (outcome).reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'waiting-gates', updated_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
-    console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} \u2192 ${action.target}`, reason: "gate-not-ready", gate: outcome.reason, pullNumber, attempts: action.attempts + 1 }));
+    console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} \u2192 ${action.target}`, reason: "gate-not-ready", gate: /** @type {any} */ (outcome).reason, pullNumber, attempts: action.attempts + 1 }));
     return { state: "queued", pullNumber: null };
   }
-  if (outcome.kind === "paused") throw new Error(outcome.reason);
+  if (outcome.kind === "paused") throw new Error(/** @type {any} */ (outcome).reason);
   if (outcome.kind === "cancelled") {
-    await sql`UPDATE workflow_automation_actions SET state = 'cancelled', failure_reason = ${outcome.reason}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
+    await sql`UPDATE workflow_automation_actions SET state = 'cancelled', failure_reason = ${/** @type {any} */ (outcome).reason}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'cancelled', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     return { state: "cancelled", pullNumber: null };
   }
@@ -1217,7 +1217,11 @@ var clientUrl = "";
 function query(environment) {
   const url = databaseUrl(environment);
   if (!client || clientUrl !== url) {
-    client = postgres(url, { max: 4, prepare: false, idle_timeout: 20, connect_timeout: 10, ssl: "require" });
+    // Upstream (Supabase) demanded TLS; the local OrbStack Postgres has none.
+    // Honor an explicit sslmode in the URL, default to "prefer" so a local
+    // server without TLS falls back to plain connections automatically.
+    const sslMode = url.match(/sslmode=([^&]+)/)?.[1] || "prefer";
+    client = postgres(url, { max: 4, prepare: false, idle_timeout: 20, connect_timeout: 10, ssl: sslMode });
     clientUrl = url;
   }
   return client;
@@ -1879,7 +1883,7 @@ async function removeWorkflowStage(environment, identity, workflowId, stageId, s
   });
   if (!savedWorkflow) throw new Error("\u5220\u9664\u6D41\u7A0B\u6B65\u9AA4\u5931\u8D25");
   const result = savedWorkflow;
-  return access.team ? { ...result, team: access.team } : result;
+  return access.team ? { .../** @type {any} */ (result), team: access.team } : result;
 }
 async function removeWorkflow(environment, identity, workflowId) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId);
@@ -2298,7 +2302,7 @@ async function reconcileWorkflowScope(environment, sql, workflowsToReconcile, fi
         firstSeen: githubBudget.etagFirstSeen
       }));
     }
-    const errorMessage = firstFailure ? String(firstFailure instanceof Error ? firstFailure.message : firstFailure).slice(0, 800) : null;
+    const errorMessage = firstFailure ? String(/** @type {any} */ (firstFailure)?.message ?? firstFailure).slice(0, 800) : null;
     if (raced.outcome === "deferred") {
       const pending = pendingPhaseTotals(githubBudget.pending);
       const breakdown = Object.keys(pending).length ? { ...githubBudget.phases, pending } : githubBudget.phases;

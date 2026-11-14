@@ -140,19 +140,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith('/api/')) {
-      const presented = url.searchParams.get('token')
-        || req.headers['x-pr-helper-git-token']
-        || req.headers['x-git2-token']
-        || (req.headers.cookie || '').match(/(?:^|;\s*)(?:pr_helper_git_token|git2_token)=([^;]+)/)?.[1]
-        || (req.headers.authorization || '');
-      const identity = await resolveToken(presented, TOKEN);
-      if (!identity) return sendJson(res, 401, { error: 'unauthorized' });
-
-      // Start the automation engine schedulers (drain/reconcile/cleanup).
-    startAutomation();
-
-    // Server-sent events: long-lived stream for file-change notifications.
-      // GitHub webhook receiver (HMAC-verified, delegated to the automation engine).
+      // GitHub webhook receiver: reachable without a session token — the HMAC
+      // signature IS the authentication for this endpoint. Sits before the
+      // token check because GitHub's delivery carries no session cookie.
       if (pathname === '/api/github-webhook') {
         const raw = await new Promise((resolve) => {
           const chunks = [];
@@ -162,7 +152,7 @@ const server = http.createServer(async (req, res) => {
         const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || '';
         const result = await handleGithubWebhook({
           method: req.method, pathname, headers: req.headers,
-          body: null, rawBody: raw, secret: webhookSecret,
+          rawBody: raw, secret: webhookSecret,
         });
         if (result) {
           res.writeHead(result.status, { 'content-type': 'application/json', ...NOSNIFF });
@@ -170,6 +160,14 @@ const server = http.createServer(async (req, res) => {
           return;
         }
       }
+
+      const presented = url.searchParams.get('token')
+        || req.headers['x-pr-helper-git-token']
+        || req.headers['x-git2-token']
+        || (req.headers.cookie || '').match(/(?:^|;\s*)(?:pr_helper_git_token|git2_token)=([^;]+)/)?.[1]
+        || (req.headers.authorization || '');
+      const identity = await resolveToken(presented, TOKEN);
+      if (!identity) return sendJson(res, 401, { error: 'unauthorized' });
 
       if (pathname === '/api/events') {
         res.writeHead(200, {
@@ -320,6 +318,11 @@ server.keepAliveTimeout = 60_000;
 server.headersTimeout = 65_000;
 
 await ensureDataPermissions();
+
+// Automation engine schedulers are opt-in at boot (PR_HELPER_GIT_AUTOMATION=1)
+// so throwaway servers (e2e, smoke tests) never touch the automation database.
+// Headless launchd runs and desktop sessions that want the engine set the flag.
+if (process.env.PR_HELPER_GIT_AUTOMATION === '1') startAutomation();
 
 server.listen(PORT, HOST, async () => {
   const address = server.address();

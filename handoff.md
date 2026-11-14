@@ -13,21 +13,32 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 完成 ✅ → Phase 1 就绪（领域内核 + store 层移植）**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）**
 
 | 任务 | 状态 |
 |---|---|
-| P0-1 pr-helper 标注 frozen | ✅ 已取消（D-011 源仓只读）|
-| P0-2 核对拆分分支 | ✅ 源基线 = origin/dev@96bd94fe（拆分后形态，src/app 32 文件）；main 独有修复 709940f3（阶段删除取消在途动作）已登记 Phase 2 合并 |
-| P0-3 Supabase 生产导出 | ✅ 58806 行/26 表（14 流程与终态一致）；例外：reconciliation_runs 遥测表超时未导出（非业务数据）|
-| P0-4 快照拷入 | ✅ 228 文件 → docs/archive/pr-helper-source/（含 47 迁移、feature-catalog、main 独有修复文件版）|
-| P0-5 推最终状态 | ✅ origin/main = c32c6c6f |
+| P0-1…P0-5（冻结/基线/导出/快照/推送） | ✅ 全部完成（2026-11-14，见台账 §12）|
+| P1-1 OrbStack Postgres | ✅ pr-helper-pg 常驻（127.0.0.1:54329，unless-stopped）|
+| P1-2 47 迁移原样执行 | 🔶 26 表 schema 一致（030 → server 调度例外）；校验脚本随迁未做 |
+| P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
+| P1-4 store 层移植 | 🔶 bundle 3014 行自含 ESM（29169ff）；~857 单测网随迁未做 |
+| P1-5 领域内核 | 🔶 编译至 server/domain.mjs + team-permissions.mjs（偏差：非 src/lib TS）|
+| P1-6 check-migrations 随迁 | ⬜ |
+| P2-2/4/6/7 引擎 bundle（drain/对账/AI 接管/重跑） | 🔶 已随 bundle 落地，单测随迁与实网验收待 |
+| P2-5 触发器三通道 | 🔶 webhook 端到端实测 ✓（11-14：HMAC/去重/projection/实时对账）；签名单测随迁待 |
+| P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
+| P2-1 PAT/App 凭据实网验收 | ⬜ 待用户提供一次性私有测试仓 + PAT |
+| P2-3 门禁+合并执行接线 | ⬜ |
+| P2-8 团队四角色 | ⬜ |
+| P2-9 launchd LaunchAgent | ⬜ |
+| Phase 3 控制塔 UI React 重建 | ⬜ |
+| Phase 4–5 通知/影子并行/切换 | ⬜ |
 
-Phase 1 就绪：OrbStack Postgres 容器已起（pr-helper-pg，localhost:54329，postgres:15-alpine）；47 迁移与数据导出集就位。待执行：P1-2 迁移执行 → P1-3 数据核对 → P1-4 store 层重写 → P1-5 领域内核直拷。
+Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
+启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
+鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；全门禁绿（lint / typecheck:server / vitest 337 / build / e2e 144）。
 
-Phase 2–5：⬜ 待启动。
-
-最近更新：2026-11-14 01:30（Phase 0 全部完成，台账 §5/§12 已同步）。
+最近更新：2026-11-14（Phase 2 接线验证 + 台账 P1/P2 状态同步）。
 
 ## Rename completion (2026-11-12)
 
