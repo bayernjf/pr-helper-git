@@ -19,6 +19,7 @@ an archived private repo, checkpoint is unrelated).
 | 5 | [bayernjf/e2e-test-real](https://github.com/bayernjf/e2e-test-real) | Private | 2026-08-07 | pr-helper-era E2E repo. |
 | 6 | [bayernjf/e2e-test](https://github.com/bayernjf/e2e-test) | Private | 2026-08-07 | pr-helper-era E2E repo. |
 | 7 | [bayernjf/receipt-test](https://github.com/bayernjf/receipt-test) | Private | 2026-08-23 | Purpose unconfirmed — registered as a test repo pending the owner's review. |
+| 8 | [bayernjf/aw-pr-dogfood](https://github.com/bayernjf/aw-pr-dogfood) | Private | 2026-09-01 | "Temporary dogfood target for agent-world tpl-release-pr (delete me)" — near-empty (1KB), registered 2026-11-14 on the owner's direction. |
 
 Excluded from this registry (reviewed 2026-11-14): `hello-world` (archived
 private repo, not a test fixture) and `checkpoint` (unrelated).
@@ -40,7 +41,10 @@ GitHub repo was renamed too, so the old URL still redirects) and
 
 ## Deletion
 
-Do not delete anything from this list unless the user explicitly asks. When a
+`aw-pr-dogfood` carries the owner's own "(delete me)" note in its
+description — deleting it is pre-approved whenever convenient.
+
+Do not delete anything else from this list unless the user explicitly asks. When a
 repository is removed, delete both:
 
 1. the local directory (when one exists), and
