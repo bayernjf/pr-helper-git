@@ -28,7 +28,7 @@ describe('buildAgentCard', () => {
       version: '1',
       swornTo: 'zeus',
       domain: 'pr-release-control',
-      dataRealms: ['enterprise'],
+      dataDomains: ['enterprise'],
       dataPolicy: 'read-task-scope',
       reportBack: true,
       escalationPolicy: 'auto',

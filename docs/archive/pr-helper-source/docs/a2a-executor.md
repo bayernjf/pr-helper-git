@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | swornTo | zeus | 唯一注册归属，星型拓扑，执行器间不直连 |
 | domain | pr-release-control | 能力域，Zeus 据此路由 |
-| dataRealms | enterprise | 只服务企业数据域任务 |
+| dataDomains | enterprise | 只服务企业数据域任务 |
 | dataPolicy | read-task-scope | 只读任务范围内的数据 |
 | reportBack | true | 任务产物回传：每个完成 artifact 携带 summary/evidence/cost/followUps |
 | escalationPolicy | auto | 不可逆操作一律升级人工在环操作者 |

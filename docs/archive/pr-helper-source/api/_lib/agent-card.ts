@@ -25,7 +25,7 @@ export type AgentCard = {
     version: string;
     swornTo: string;
     domain: string;
-    dataRealms: string[];
+    dataDomains: string[];
     dataPolicy: string;
     reportBack: boolean;
     escalationPolicy: string;
@@ -99,7 +99,7 @@ export function buildAgentCard(request: ApiRequest): AgentCard {
       version: '1',
       swornTo: 'zeus',
       domain: 'pr-release-control',
-      dataRealms: ['enterprise'],
+      dataDomains: ['enterprise'],
       dataPolicy: 'read-task-scope',
       reportBack: true,
       escalationPolicy: 'auto',
