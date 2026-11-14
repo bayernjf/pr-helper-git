@@ -43,8 +43,13 @@ wins; otherwise this file is the default contract.
     server-side solely for engine GitHub calls (D-006-v2);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
-  - **Worktrees, submodule writes, GPG signing, deployment gates**: still
-    prohibited outright.
+  - **Worktrees, submodule writes, GPG signing**: still prohibited outright.
+  - **Deployment gates for managed repositories are in scope** (D-002-v2):
+    pr-helper-git itself is not deployed to Cloudflare/Vercel and must not
+    require their APIs; but it still tracks the managed repository's GitHub
+    Actions deployment runs, health URL, failure summary and confirmed rollback.
+    "The product does not go to production" must never be read as "it does not
+    manage other repositories' deployments".
 - **Test repositories**: never create a new test repository (GitHub or
   local) without the user's explicit approval. Product-feature testing must
   reuse a repository from the registry in `TEST-REPOS.md` (GitHub table for

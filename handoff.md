@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 ⬜（回补）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -31,9 +31,10 @@ every committed file as world-readable.
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | ✅ **Phase 3 收官**（11-14，9 任务全闭环，983/46，e2e 145；34 条原版 e2e 映射清单 docs/migration-acceptance.md；设计偏差：lane 内嵌时间线不建=详情页承载、pointer 拖拽留尾=上下按钮等价入口）|
-| Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）|
-| Phase 5 影子并行→切换→下线 | ✅ **影子期运行中**（11-14 16:24 启动：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；1–2 周日历期后按 runbook 切换）|
+| Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等未闭环**（11-14 复审）：看板/详情/抽屉/编辑器/失败中心/手机已落地；但部署门禁、换仓库、归档/静音、预检、PR 引用、审计 CSV、同步健康度、团队 UI、运行历史仍缺（详见台账 Phase 3.5）。原“Phase 3 收官”结论作废 |
+| Phase 3.5 功能缺口回补 | ⬜ **待开工**：P3-10 部署门禁全链路、P3-11 换仓库必做；P3-12…P3-16 逐项裁决/补齐。D-002-v2 已撤销错误范围 |
+| Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
+| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
@@ -45,7 +46,20 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-14（Phase 3 开工：服务面 + 只读看板落地；基线 959/44；全门禁绿）。
+最近更新：2026-11-14（D-002-v2 功能缺口复审：部署门禁/换仓库误裁恢复；Phase 3/5 状态降级；验收统计改为 ✅18/🔶5/🔀1/⬜10）。
+
+## D-002-v2 功能缺口复审（2026-11-14）
+
+用户纠正：“pr-helper-git 产品自身不上生产、不部署到 Cloudflare/Vercel”不等于“不管理
+其他仓库的部署”。D-002 把两者混为一谈，导致核心部署门禁/健康检查/确认式回滚被裁。
+复审同时发现：换仓库 #7/#8 是非云依赖的误裁；归档/静音、流程预检、PR 引用复制、
+flows 审计 UI+CSV、同步健康度、团队 UI、运行历史仍未完成。以上不是“云基建替代”，
+不能计入迁移完成。
+
+已落文档：`docs/pr-helper-migration.md`（D-002-v2、范围、矩阵、Phase 3.5、DoD、风险 R8）、
+`docs/migration-acceptance.md`（#1 改替代、#7/#8 与 #21/#22/#23/#30/#31 转 ⬜、统计修正）、
+`docs/phase5-runbook.md`（切换前置）、`AGENTS.md`（部署门禁不再列为禁区）。代码未改；
+下一步从 P3-10 开始。
 
 ## Credentials D-006-v3 (2026-11-14)
 
