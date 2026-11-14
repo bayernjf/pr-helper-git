@@ -1,5 +1,10 @@
 # Test repositories registry
 
+> **Iron rule (2026-11-14, owner):** do NOT create new test repositories.
+> Product-feature testing must reuse a repository from this registry;
+> creating a new one (GitHub or local) requires the owner's explicit
+> approval, and newly approved repos are registered here before use.
+
 Test repositories used by pr-helper-git (and its pr-helper predecessor) for
 end-to-end and feature validation. These are **not** part of the product and
 can be deleted on request.
