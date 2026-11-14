@@ -285,6 +285,9 @@ function automationColumns(automation) {
   return {
     auto_create: automation ? automation.autoCreatePullRequest === true : null,
     auto_merge: automation ? automation.autoMergePullRequest === true : null,
+    // D-015: persist auto-advance (the legacy cloud schema dropped this
+    // column — restored locally via migration 048).
+    auto_advance: automation ? (automation.autoAdvanceNext === true ? true : null) : null,
     execution_mode: automation?.executionMode ?? null,
     trigger_min_commits: automation?.triggerMinCommits ?? null,
     rule_name: rule?.name ?? null,
@@ -343,7 +346,9 @@ function automationFromRow(row) {
     ...row.auto_merge ? { autoMergePullRequest: true } : {},
     executionMode: "server",
     ...row.trigger_min_commits === null ? {} : { triggerMinCommits: row.trigger_min_commits },
-    generationRule: { name: row.rule_name || "", capturedAt: row.rule_captured_at || "", ...row.rule_content_hash ? { contentHash: row.rule_content_hash } : {} }
+    generationRule: { name: row.rule_name || "", capturedAt: row.rule_captured_at || "", ...row.rule_content_hash ? { contentHash: row.rule_content_hash } : {} },
+    // D-015: restore auto-advance from migration 048's column.
+    ...row.auto_advance === true ? { autoAdvanceNext: true } : {}
   };
 }
 function stageFromRow(row) {

@@ -56,6 +56,17 @@ installationRequest seam. Local credentials live in
 git). The cloud pr-helper was untouched — read-only pull only. This unblocks
 P2-1 and the Phase 5 shadow period.
 
+## Local migration protocol + auto-advance fix (2026-11-14, D-015)
+
+The faithful schema replay carried over a legacy pr-helper gap: the
+auto-advance stage flag had no storage column (confirmed live — the cloud
+toggle drops on refresh). Local fix: migration 048 in
+`scripts/migration/local-migrations/` (first use of the local-increment
+protocol — snapshot stays frozen, column-level additions don't affect the
+table-set check) plus store read/write round-trip (3 tests). The cloud
+pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
+driven by create/merge which persist fine.
+
 ## Test-repo iron rule (2026-11-14)
 
 Owner directive: no new test repositories (GitHub or local) without explicit
