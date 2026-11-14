@@ -973,6 +973,27 @@ export const ZH: Record<string, string> = {
   'Delete flow': '删除流程',
   'Flow deleted': '流程已删除',
   'This removes the flow from the local database. It cannot be undone.': '这会从本地数据库移除该流程，操作不可撤销。',
+  // Flow preflight (P3-13)
+  'Flow preflight': '流程预检',
+  'preflight': '预检',
+  'GitHub App access': 'GitHub App 权限',
+  'Branches': '分支',
+  'Upstream dependencies': '上游依赖',
+  'Actions': 'Actions',
+  'GitHub Environments': 'GitHub Environment',
+  'pass': '通过',
+  'warning': '警告',
+  'skipped': '跳过',
+  'Checking flow…': '正在检查流程…',
+  'No blocking issues found': '没有阻塞问题',
+  'Blocking issues found': '存在阻塞问题',
+  '{count} failed': '{count} 项失败',
+  '{count} warnings': '{count} 项警告',
+  '{count} passed': '{count} 项通过',
+  'Checked': '检查时间',
+  'Fix': '修复',
+  'Read-only check — the flow is not modified.': '只读检查 — 不会修改流程。',
+  'Run again': '重新检查',
 };
 
 /** Counted UI copy, e.g. "12 commits" — handled by rules, not by dictionary keys. */

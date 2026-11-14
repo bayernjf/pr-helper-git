@@ -21,6 +21,7 @@ import FlowEditor from './FlowEditor';
 import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
+import FlowPreflightModal from './FlowPreflightModal';
 import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
@@ -96,6 +97,7 @@ export default function FlowBoard() {
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -355,6 +357,13 @@ export default function FlowBoard() {
                 <button
                   type="button"
                   className="drawer-btn small"
+                  onClick={() => setPreflightFlowId(lane.workflow.id)}
+                >
+                  {t('preflight')}
+                </button>
+                <button
+                  type="button"
+                  className="drawer-btn small"
                   disabled={laneBusy === lane.workflow.id}
                   onClick={async () => {
                     const archiving = !lane.workflow.archived;
@@ -433,6 +442,13 @@ export default function FlowBoard() {
         )}
       </section>
       {auditOpen ? <FlowAuditModal onClose={() => setAuditOpen(false)} /> : null}
+      {preflightFlowId ? (
+        <FlowPreflightModal
+          flowId={preflightFlowId}
+          flowName={state.workflows.find((workflow) => workflow.id === preflightFlowId)?.name ?? ''}
+          onClose={() => setPreflightFlowId(null)}
+        />
+      ) : null}
     </div>
   );
 }

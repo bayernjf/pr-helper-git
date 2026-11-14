@@ -205,11 +205,13 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of the pr-helper migration Phase 1/2 work (2026-11-14):
 
-- unit/route tests: **996 tests / 48 files** (includes the migrated pr-helper
+- unit/route tests: **1012 tests / 50 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests under
-  `src/lib/automation/`, and 7 control-tower route tests in `server/flows.test.ts`)
+  `src/lib/automation/`, 5 flow-preflight semantics tests in
+  `server/workflow-preflight.test.ts`, and 28 control-tower route tests in
+  `server/flows.test.ts`)
 - E2E: **145 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs

@@ -247,6 +247,17 @@ export async function handleFlowsRoute(ctx) {
       return { status: 200, json: { ok: true } };
     }
 
+    // Read-only flow preflight (P3-13): app access, branches, PR
+    // mergeability, upstream dependencies, Actions and Environments. It
+    // never mutates the workflow; the board renders findings + fix hints.
+    if (method === 'POST' && pathname === '/api/flows/preflight') {
+      if (typeof payload.workflowId !== 'string' || !payload.workflowId.trim()) {
+        return { status: 400, json: { error: '无效的流程预检请求' } };
+      }
+      const preflight = await store.preflightWorkflow(env, identity, payload.workflowId);
+      return { status: 200, json: { preflight } };
+    }
+
     if (method === 'POST' && pathname === '/api/flows/repair-context') {
       if (typeof payload.workflowId !== 'string' || typeof payload.stageIndex !== 'number') {
         return { status: 400, json: { error: '无效的修复任务请求' } };

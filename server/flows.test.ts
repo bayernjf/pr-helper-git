@@ -26,6 +26,13 @@ vi.mock('./workflows-store.mjs', () => ({
     return [{ action: 'workflow-saved', outcome: 'success' }];
   }),
   codexRepairContext: vi.fn(async (_env, _identity, _workflowId, _stageIndex, source) => ({ title: '修复任务', source: source ?? null, steps: [] })),
+  preflightWorkflow: vi.fn(async (_env, _identity, workflowId) => ({
+    workflowId,
+    repository: 'octo/app',
+    checkedAt: '2026-11-15T00:00:00.000Z',
+    ok: true,
+    findings: [{ category: 'app', code: 'app-ok', status: 'pass', title: 'GitHub App access', detail: '', suggestion: '' }],
+  })),
   // Workflow payload writes (P3-4)
   upsertWorkflow: vi.fn(async (_env, _identity, workflow) => ({
     workflow,
@@ -270,6 +277,23 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json).toEqual({ ok: true });
+  });
+
+  it('runs the read-only flow preflight and rejects an empty workflow id', async () => {
+    const good = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { workflowId: 'w1' },
+    }));
+    expect(good?.status).toBe(200);
+    expect(good?.json.preflight).toMatchObject({ workflowId: 'w1', ok: true });
+    expect(store.preflightWorkflow).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), 'w1',
+    );
+    (store.preflightWorkflow as any).mockClear();
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { workflowId: '   ' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.preflightWorkflow).not.toHaveBeenCalled();
   });
 
   it('generates the Codex repair context via POST', async () => {

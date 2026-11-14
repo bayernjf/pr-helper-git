@@ -50,6 +50,37 @@ export type DeploymentOptions = {
   environments: string[];
 };
 
+export type FlowPreflightCategory = 'app' | 'branch' | 'pr' | 'dependency' | 'actions' | 'environment';
+export type FlowPreflightStatus = 'pass' | 'warn' | 'fail' | 'skip';
+
+export type FlowPreflightFinding = {
+  category: FlowPreflightCategory;
+  code: string;
+  status: FlowPreflightStatus;
+  title: string;
+  detail: string;
+  suggestion: string;
+  stageIndex?: number;
+  pullNumber?: number;
+};
+
+export type FlowPreflightResult = {
+  workflowId: string;
+  repository: string;
+  checkedAt: string;
+  ok: boolean;
+  findings: FlowPreflightFinding[];
+};
+
+/** POST /api/flows/preflight — read-only P3-13 flow check. */
+export function fetchFlowPreflight(workflowId: string): Promise<{ preflight: FlowPreflightResult }> {
+  return request<{ preflight: FlowPreflightResult }>('/api/flows/preflight', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ workflowId }),
+  });
+}
+
 export type WorkflowRunRow = {
   id: string;
   workflowId: string;
