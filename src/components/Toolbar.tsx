@@ -310,6 +310,13 @@ export default function Toolbar() {
         >
           Pull Requests
         </button>
+        <button
+          type="button"
+          className={view === 'flows' ? 'active' : ''}
+          onClick={() => setView('flows')}
+        >
+          {t('Flows')}
+        </button>
       </span>
       <button
         type="button"

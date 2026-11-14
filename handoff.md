@@ -31,15 +31,20 @@ every committed file as world-readable.
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | ⬜ |
+| Phase 3 控制塔 UI React 重建 | 🔶 P3-0 服务面 + P3-1 第一片完成（11-14）：身份桥 + inbox/workflows/audit 三读路由 + FlowBoard 只读看板（六筛选/聚合/搜索/卡片语义随迁，13 单测）；剩：抽屉/编辑器/失败中心/拖拽排序/手机适配 |
 | Phase 4–5 通知/影子并行/切换 | ⬜ |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
-鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；测试基线 939/42（+459 随迁引擎测试网：store 418、
-workflow-rows 25、github-api 11、ai-credentials 5）。
+鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；测试基线 959/44。
 
-最近更新：2026-11-14（P1-4 store 测试网随迁全绿，基线 939/42；全门禁绿）。
+Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_helper_users 单行 +
+`/api/flows/{inbox,workflows,audit}`，App 凭据缺失单路读降级空集+readWarnings）+
+`src/lib/automation/flows-board.ts`（六筛选/计数/步骤色调/运行摘要语义，13 单测）+
+`src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
+P3-4 编辑器 → P3-5 失败中心。
+
+最近更新：2026-11-14（Phase 3 开工：服务面 + 只读看板落地；基线 959/44；全门禁绿）。
 
 ## Rename completion (2026-11-12)
 

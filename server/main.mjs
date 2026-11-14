@@ -12,6 +12,7 @@ import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
 import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
+import { handleFlowsRoute } from './flows.mjs';
 import {
   addClient,
   reconcileWatching,
@@ -221,6 +222,10 @@ const server = http.createServer(async (req, res) => {
       // Run the handlers inside the identity context so appendAudit() records
       // who performed each operation without every route taking a user arg.
       const result = await runAsActor(identity, async () => (
+        // Flow routes are a distinct surface; handle them before the repo
+        // routes, which answer 403 for any /api path without ?repo=.
+        await handleFlowsRoute(ctx)
+      ) || (
         await handleGitRoute(ctx)
       ) || (
         await handleGithubRoute(ctx)
