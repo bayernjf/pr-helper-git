@@ -67,6 +67,13 @@ table-set check) plus store read/write round-trip (3 tests). The cloud
 pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
 driven by create/merge which persist fine.
 
+## Feishu channel deferred (2026-11-14, D-017)
+
+Feishu failure notifications are not enabled for now (owner verdict) and do
+not block the migration — macOS local notifications satisfy DoD #5's main
+body; the channel code stays ready (set PR_HELPER_GIT_FEISHU_WEBHOOK to
+enable anytime).
+
 ## Switch/retire approval rule (2026-11-14, D-016)
 
 Every P5-2 switch and P5-3 sunset action requires the owner's explicit
