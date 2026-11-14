@@ -31,7 +31,7 @@
 | 18 | 勾选自动合并先确认，取消则不保存 | ✅ | `immediateAutomationEffect` 语义测试（143）+ editor window.confirm |
 | 19 | 前置缺失时开关禁用 | 🔶 | 前置简化为诚实提示（AI 凭据面 M-E 未迁移）；阈值/规则缺失拒绝编辑已实测 |
 | 20 | 删除流程需确认后本地删除 | ✅ | UI 实测（11-14）：详情页「Delete flow」→ 确认弹窗（Delete Delete smoke 1114?）→ 删除后 lane 15→14、名称消失；DELETE 路由 200 |
-| 21 | 部署回滚二次确认 + 不可变运行标识 | 🔶 | 后端 `requestDeploymentRollback` + `POST /api/flows/deployment-rollback` 路由测试 ✓；StepDrawer 确认框展示 provider/environment/target/runId/rollback workflow 并二次确认；11-15 已对账出 4 条真实成功部署 run（bayjf 2、pr-helper 2，均带 deployment_url），回滚按钮条件已满足；实际 dispatch 会触发被管理仓库的 rollback workflow，需用户明确批准后才执行 |
+| 21 | 部署回滚二次确认 + 不可变运行标识 | ✅ | 11-15 范围裁决：StepDrawer 确认框展示 provider/environment/target/runId/rollback workflow 并二次确认，runId 不可改写；`requestDeploymentRollback` + `POST /api/flows/deployment-rollback` 路由测试 ✓；真实成功部署 run 已入投影（bayjf 2、pr-helper 2），回滚按钮条件已满足。实际 dispatch 会触发被管理仓库 rollback workflow，按用户裁决作为范围例外**不执行**，不据此宣称真实回滚已发生 |
 | 22 | 部署门禁收起表单 + 配置警告 | ✅ | FlowEditor 部署区（11-14 UI 实测）：收起时列表 + 警告；表单支持 workflow/target/provider/environment + 高级字段；`deploymentConfigurationWarnings` 渲染 no-deployments/actions-unavailable 等；真实仓库 Actions/Environment 列表随 `GET /api/flows/deployment-options`（路由测试 + 400 校验） |
 | 23 | 移除部署门禁可撤销 | ✅ | UI 实测（11-14）：移除 Vercel·dev 后出现「Removed Vercel · dev」+ undo；撤销后四张默认门禁恢复 |
 | 24 | 详情返回时目标泳道高亮后褪去 | ✅ | UI 实测（11-14）：进入 zeus/临时流程详情后返回，目标 lane 立即带 `.is-return-highlight`，1.6s 动画后自动清除 |
@@ -46,6 +46,6 @@
 | 33 | 手机竖屏无横向溢出，Lane 与抽屉可用 | ✅ | Chrome headless 390×844 仿真验收（14 lanes 无溢出）+ 700px 断点 |
 | 34 | 手机竖屏失败中心与创建弹窗不溢出 | 🔶 | 失败中心/编辑器为单列布局；走查确认 |
 
-**统计**：✅ 30 · 🔶 3 · 🔀 1 · ⬜ 0（合计 34）。11-15 实网对账后 #30/#31 转 ✅（bayjf 5 个 Environment、pr-helper-git 空列表）；剩余 🔶 为 #19 前置提示、#21 回滚实网 dispatch、#34 竖屏走查。**“34/34 已映射”不等于“34/34 已通过”**，P3-9 不得再以 🚫 计数宣布功能闭环。
+**统计**：✅ 31 · 🔶 2 · 🔀 1 · ⬜ 0（合计 34）。11-15 实网对账后 #30/#31 转 ✅；#21 按用户裁决转 ✅（确认 UX/路由验收，实际 dispatch 为范围例外）；剩余 🔶 为 #19 前置提示、#34 竖屏走查。**“34/34 已映射”不等于“34/34 已通过”**，P3-9 不得以 🚫 计数宣布功能闭环。
 
 走查方式：`npm run dev` → Flows 视图（桌面）或 /m（手机），逐条对照本表。
