@@ -3013,7 +3013,9 @@ export {
   withStageDeadline,
   workflowArchiveTransition,
   workflowConfigurationWarnings,
+  workflowFromRows,
   workflowRunCompletionState,
   workflowSaveConflicts,
-  workflowStageStateMatchesDefinition
+  workflowStageStateMatchesDefinition,
+  workflowToRows
 };
