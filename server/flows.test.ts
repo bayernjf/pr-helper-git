@@ -25,6 +25,7 @@ vi.mock('./workflows-store.mjs', () => ({
     void limit;
     return [{ action: 'workflow-saved', outcome: 'success' }];
   }),
+  codexRepairContext: vi.fn(async (_env, _identity, _workflowId, _stageIndex, source) => ({ title: '修复任务', source: source ?? null, steps: [] })),
   // Workflow payload writes (P3-4)
   upsertWorkflow: vi.fn(async (_env, _identity, workflow) => ({
     workflow,
@@ -213,6 +214,22 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json).toEqual({ ok: true });
+  });
+
+  it('generates the Codex repair context via POST', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/repair-context',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'dev', pullNumber: 12 },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result.json.title).toBe('修复任务');
+    expect(store.codexRepairContext).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), 'w1', 0, 'dev', 12,
+    );
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/repair-context', body: { stageIndex: 0 },
+    }));
+    expect(bad?.status).toBe(400);
   });
 
   it('routes rerun-actions with the same validation', async () => {

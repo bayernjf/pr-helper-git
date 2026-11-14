@@ -56,10 +56,22 @@ export type AutomationActionRow = {
   stageIndex?: number | null;
   stageId?: string | null;
   source: string;
+  target?: string;
   kind?: string;
   state: 'queued' | 'running' | 'paused' | 'failed';
   message?: string | null;
   updatedAt?: string;
+};
+
+export type RecoveryStatusRow = {
+  workflowId: string;
+  stageIndex: number;
+  source: string;
+  retryCount?: number;
+  maxRetries?: number;
+  exhausted?: boolean;
+  cooldownRemainingSeconds?: number;
+  escalationNeeded?: boolean;
 };
 
 export type BoardState = {
@@ -67,6 +79,7 @@ export type BoardState = {
   states: readonly WorkflowStageStateRow[];
   actionQueue: readonly ActionQueueItem[];
   automationActions: readonly AutomationActionRow[];
+  recoveryStatuses?: readonly RecoveryStatusRow[];
 };
 
 export type BoardFilter = 'attention' | 'running' | 'all' | 'failed' | 'automation' | 'archived';

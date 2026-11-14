@@ -3843,3 +3843,22 @@ pre.diff {
 .editor-recovery { display: flex; gap: 14px; }
 .editor-recovery label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
 .editor-recovery input { width: 110px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: var(--fs-ui); padding: 5px 10px; }
+
+/* ---------- Failure center (P3-5) ---------- */
+.failure-center { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 14px 12px; }
+.failure-center .fc-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.failure-center .fc-eyebrow { margin: 0; font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.failure-center .fc-count { font-size: var(--fs-ui); color: var(--amber); font-weight: 600; }
+.failure-center ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.failure-center .fc-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-soft); }
+.failure-center .fc-item:first-child { border-top: 0; }
+.failure-center .fc-icon { width: 20px; text-align: center; flex-shrink: 0; font-size: var(--fs-ui); }
+.failure-center .fc-item.failed .fc-icon { color: var(--red); }
+.failure-center .fc-item.attention .fc-icon { color: var(--amber); }
+.failure-center .fc-main { min-width: 0; flex: 1; }
+.failure-center .fc-main b { font-size: var(--fs-ui); display: block; }
+.failure-center .fc-main small { color: var(--muted); font-size: var(--fs-meta); display: block; }
+.failure-center .fc-main small a { color: var(--accent); text-decoration: none; }
+.failure-center .fc-main p { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.failure-center .fc-recovery-badge { display: inline-block; margin-top: 3px; font-size: var(--fs-meta); color: var(--amber); border: 1px solid rgba(229, 192, 123, 0.4); background: var(--amber-soft); border-radius: var(--radius-xs); padding: 0 6px; }
+.failure-center .fc-ops { display: flex; gap: 6px; flex-shrink: 0; }

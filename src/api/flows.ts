@@ -18,7 +18,7 @@ export type InboxPayload = {
   syncHealth: Record<string, unknown> | null;
   runs: Array<Record<string, unknown>>;
   timeline: Array<Record<string, unknown>>;
-  recoveryStatuses: Array<Record<string, unknown>>;
+  recoveryStatuses: Array<import('../lib/automation/flows-board').RecoveryStatusRow>;
   automation: AutomationActionRow[];
   readWarnings?: Array<{ source: string; message: string }>;
 };

@@ -189,6 +189,18 @@ export async function handleFlowsRoute(ctx) {
       return { status: 200, json: { ok: true } };
     }
 
+    if (method === 'POST' && pathname === '/api/flows/repair-context') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.stageIndex !== 'number') {
+        return { status: 400, json: { error: '无效的修复任务请求' } };
+      }
+      const context = await store.codexRepairContext(
+        env, identity, payload.workflowId, payload.stageIndex,
+        typeof payload.source === 'string' ? payload.source : undefined,
+        typeof payload.pullNumber === 'number' ? payload.pullNumber : undefined,
+      );
+      return { status: 200, json: context };
+    }
+
     if (method !== 'GET') return null;
 
     // --- Read routes ---

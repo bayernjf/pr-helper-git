@@ -14,6 +14,7 @@ import {
   type BoardState,
 } from '../lib/automation/flows-board';
 import { t } from '../i18n';
+import FailureCenter from './FailureCenter';
 import FlowDetail from './FlowDetail';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
@@ -98,6 +99,7 @@ export default function FlowBoard() {
     states: inbox?.states ?? [],
     actionQueue: inbox?.items ?? [],
     automationActions: inbox?.automation ?? [],
+    recoveryStatuses: inbox?.recoveryStatuses ?? [],
   }), [inbox, workflows]);
 
   const counts = useMemo(() => boardCounts(state), [state]);
@@ -155,6 +157,14 @@ export default function FlowBoard() {
           <IconRefresh width={14} height={14} /> {refreshing ? t('Refreshing…') : t('Refresh')}
         </button>
       </section>
+
+      {inbox ? (
+        <FailureCenter
+          state={state}
+          onOpenDrawer={(flowId, stageIndex) => setDrawerStage({ flowId, stageIndex })}
+          onMutated={() => void load(true)}
+        />
+      ) : null}
 
       {inbox?.readWarnings?.length ? (
         <details className="compact-notice">
