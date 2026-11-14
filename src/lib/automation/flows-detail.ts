@@ -49,7 +49,7 @@ export type StageDetailModel = {
   };
 };
 
-function stageStateText(kind: 'not-created' | 'open' | 'merged' | 'closed', checksState: string | undefined, hasChecks: boolean): string {
+export function stageStateText(kind: 'not-created' | 'open' | 'merged' | 'closed', checksState: string | undefined, hasChecks: boolean): string {
   // Mirrors stageTimeline's `state` decision (detail.ts): post-merge
   // verification, then action failures, approvals, mergeability, waiting.
   if (kind === 'merged') {

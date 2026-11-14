@@ -3772,3 +3772,50 @@ pre.diff {
 .m-tab-title { font-size: var(--fs-ui); font-weight: 600; color: var(--text); }
 .m-flows { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .m-flows .flow-board-page { padding: 10px 12px 20px; max-width: none; }
+
+/* ---------- Step drawer (P3-3) ---------- */
+.drawer-backdrop { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 60; display: flex; justify-content: flex-end; }
+.step-drawer {
+  width: min(480px, 100%); height: 100%; background: var(--bg-elevated); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 24px; overflow-y: auto;
+}
+.step-drawer-head { display: flex; align-items: flex-start; gap: 10px; }
+.step-drawer-head > div { min-width: 0; flex: 1; }
+.step-drawer .drawer-eyebrow { margin: 0; font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.step-drawer-head h2 { margin: 2px 0 2px; font-size: var(--fs-body); font-weight: 600; }
+.step-drawer .drawer-state { margin: 0; color: var(--muted); font-size: var(--fs-meta); }
+.step-drawer .m-icon-btn { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+.drawer-error { border: 1px solid var(--red); color: var(--red); background: var(--red-soft); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--fs-ui); }
+.drawer-section { display: flex; flex-direction: column; gap: 6px; }
+.drawer-label { font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.drawer-section > a { color: var(--accent); font-size: var(--fs-ui); text-decoration: none; }
+.drawer-section > a:hover { text-decoration: underline; }
+.drawer-gate { font-size: var(--fs-meta); color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 1px 8px; }
+.drawer-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.drawer-btn { padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: var(--fs-ui); cursor: pointer; }
+.drawer-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--hover); }
+.drawer-btn.primary { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.drawer-btn.small { padding: 3px 10px; font-size: var(--fs-meta); }
+.drawer-btn:disabled { opacity: 0.55; cursor: default; }
+.drawer-empty { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.drawer-actions-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.automation-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.automation-row.failed { border-left: 2px solid var(--red); }
+.automation-row.attention { border-left: 2px solid var(--amber); }
+.automation-row.running { border-left: 2px solid var(--blue); }
+.automation-row-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.automation-row-main b { font-size: var(--fs-ui); }
+.automation-row-main .automation-state { font-size: var(--fs-meta); color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 0 6px; }
+.automation-row-main small { width: 100%; color: var(--muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.automation-row-ops { display: flex; gap: 6px; flex-wrap: wrap; }
+.takeover-form { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border-soft); padding-top: 8px; }
+.takeover-form input, .takeover-form textarea { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: var(--fs-ui); padding: 6px 10px; font-family: inherit; resize: vertical; }
+.takeover-form input:focus, .takeover-form textarea:focus { outline: none; border-color: var(--accent-line); }
+.takeover-ops { display: flex; gap: 6px; }
+.drawer-events { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.drawer-events li { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-meta); color: var(--muted); border-top: 1px solid var(--border-soft); padding-top: 3px; }
+.drawer-events li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-events li time { color: var(--faint); flex-shrink: 0; }
+.automation-history { font-size: var(--fs-meta); }
+.automation-history summary { color: var(--faint); cursor: pointer; }
+.automation-history .automation-row.muted { opacity: 0.75; }

@@ -34,3 +34,58 @@ export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
 export function fetchFlowAudit(limit = 100) {
   return request<{ entries: Array<Record<string, unknown>> }>(`/api/flows/audit?limit=${limit}`);
 }
+
+// --- Write routes (P3-3) ---------------------------------------------------
+
+export type EnqueueInput = {
+  workflowId: string;
+  stageIndex: number;
+  source: string;
+  kind: 'create-pr' | 'merge-pr' | 'advance-stage';
+  idempotencyKey: string;
+};
+
+/** Plain POST enqueues a new automation action (board/drawer buttons). */
+export function enqueueAutomation(input: EnqueueInput) {
+  return request<{ action: Record<string, unknown> }>('/api/flows/automation', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+function automationAction(action: 'execute' | 'regenerate' | 'takeover', body: Record<string, unknown>) {
+  return request<{ result: Record<string, unknown> }>(`/api/flows/automation?action=${action}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function executeAutomationAction(actionId: number) {
+  return automationAction('execute', { actionId });
+}
+
+export function regenerateAutomationMessage(actionId: number) {
+  return automationAction('regenerate', { actionId });
+}
+
+export function takeoverAutomationAction(actionId: number, title: string, body: string) {
+  return automationAction('takeover', { actionId, title, body });
+}
+
+export function recordRecoveryEvent(input: { workflowId: string; stageIndex: number; source: string }) {
+  return request<{ ok: boolean }>('/api/flows/recovery-event', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function rerunFailedActions(input: { workflowId: string; stageIndex: number; source: string }) {
+  return request<{ result: Record<string, unknown> }>('/api/flows/rerun-actions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}

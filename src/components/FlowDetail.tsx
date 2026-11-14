@@ -28,11 +28,13 @@ function AutomationChip({ label, enabled }: { label: string; enabled: boolean })
   );
 }
 
-export default function FlowDetail({ flowId, state, events, onClose }: {
+export default function FlowDetail({ flowId, state, events, onClose, onOpenDrawer }: {
   flowId: string;
   state: BoardState;
   events: readonly StageEventRow[];
   onClose: () => void;
+  /** Opens the step drawer for one stage (P3-3 operations). */
+  onOpenDrawer?: (stageIndex: number) => void;
 }) {
   const flow = useMemo(
     () => state.workflows.find((workflow) => workflow.id === flowId),
@@ -95,6 +97,15 @@ export default function FlowDetail({ flowId, state, events, onClose }: {
               ) : null}
               <i className={`tone-dot ${stage.tone}`} aria-hidden="true" />
               <span className="detail-state">{stage.stateText}</span>
+              {onOpenDrawer ? (
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  onClick={() => onOpenDrawer(stage.index)}
+                >
+                  {t('step details')}
+                </button>
+              ) : null}
             </div>
 
             {stage.gates.length ? (

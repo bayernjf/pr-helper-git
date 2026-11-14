@@ -15,6 +15,7 @@ import {
 } from '../lib/automation/flows-board';
 import { t } from '../i18n';
 import FlowDetail from './FlowDetail';
+import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
 
 const FILTERS: BoardFilter[] = ['attention', 'running', 'all', 'failed', 'automation', 'archived'];
@@ -73,6 +74,7 @@ export default function FlowBoard() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+  const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
 
   const load = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setRefreshing(true);
@@ -103,12 +105,24 @@ export default function FlowBoard() {
 
   if (selectedFlowId) {
     return (
-      <FlowDetail
-        flowId={selectedFlowId}
-        state={state}
-        events={inbox?.events ?? []}
-        onClose={() => setSelectedFlowId(null)}
-      />
+      <>
+        <FlowDetail
+          flowId={selectedFlowId}
+          state={state}
+          events={inbox?.events ?? []}
+          onClose={() => setSelectedFlowId(null)}
+          onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
+        />
+        {drawerStage && inbox ? (
+          <StepDrawer
+            flow={state.workflows.find((w) => w.id === drawerStage.flowId)!}
+            stageIndex={drawerStage.stageIndex}
+            inbox={inbox}
+            onClose={() => setDrawerStage(null)}
+            onMutated={() => void load(true)}
+          />
+        ) : null}
+      </>
     );
   }
 
