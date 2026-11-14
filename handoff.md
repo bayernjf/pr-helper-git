@@ -47,6 +47,14 @@ P3-4 编辑器 → P3-5 失败中心。
 
 最近更新：2026-11-14（Phase 3 开工：服务面 + 只读看板落地；基线 959/44；全门禁绿）。
 
+## Desktop single-instance guard (2026-11-14)
+
+Second launches (double-click, launcher, direct binary) now activate the
+running app and exit before spawning a second loopback server
+(`NSRunningApplication` check in `desktop/main.swift`, verified live).
+The rebuilt bundle carries the migrated web UI (Flows etc.); the user
+should restart the currently open desktop app once to pick it up.
+
 ## Rename completion (2026-11-12)
 
 The product repository is now `bayernjf/pr-helper-git` (PUBLIC, default branch
