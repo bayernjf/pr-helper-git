@@ -1,6 +1,11 @@
 // Notifier tests (P4-1): dedupe window, drain-result extraction, kill-switch.
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+// The notifier intentionally skips osascript on non-macOS hosts (CI runs
+// Linux). These assertions cover the macOS branch, so pin the platform for
+// this test file instead of weakening the production guard.
+Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
+
 const calls = { mac: [], feishu: [] };
 vi.mock('node:child_process', () => ({
   execFile: vi.fn((cmd, args) => { calls.mac.push(args.join(' ')); }),
