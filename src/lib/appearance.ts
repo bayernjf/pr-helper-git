@@ -28,4 +28,11 @@ export function applyAppearance(mode: ThemeMode, accent: Accent): void {
   document.documentElement.dataset.theme = resolveLight(mode) ? 'light' : 'dark';
   if (accent === 'violet') delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = accent;
+  // Desktop shell bridge (P4-3 desktop): the WKWebView host reads this to keep
+  // the window titlebar chrome in the same theme as the content. No-op in a
+  // plain browser (no message handler registered).
+  const isLight = resolveLight(mode);
+  (window as unknown as {
+    webkit?: { messageHandlers?: { themeSync?: { postMessage: (value: string) => void } } };
+  })?.webkit?.messageHandlers?.themeSync?.postMessage(isLight ? 'light' : 'dark');
 }

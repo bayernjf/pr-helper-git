@@ -178,9 +178,13 @@ check "register non-git dir is 400" "400" "$(post repos/add "$(printf '{"repo":"
 
 echo ""
 echo "=== E2E: Mobile shell ==="
-MOBILE_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/m?token=$TOKEN")
-check "mobile shell responds" "200" "$MOBILE_CODE"
-MOBILE_BODY=$(curl -s "$BASE/m?token=$TOKEN")
+# /m?token= bootstraps the auth cookie now (302 to /m) instead of serving the
+# shell directly — the phone's first visit must be able to call the API.
+MOBILE_BOOT=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/m?token=$TOKEN")
+check "mobile bootstrap sets cookie via 302" "302" "$MOBILE_BOOT"
+MOBILE_CODE=$(curl -s -L -o /dev/null -w '%{http_code}' "$BASE/m?token=$TOKEN")
+check "mobile shell responds after bootstrap" "200" "$MOBILE_CODE"
+MOBILE_BODY=$(curl -s -L "$BASE/m?token=$TOKEN")
 contains "mobile shell is the app entry" '<div id="root">' "$MOBILE_BODY"
 
 echo "=== E2E: Repos + Core reads ==="

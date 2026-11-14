@@ -1,0 +1,107 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const sources: Record<string, string> = {
+  main: readFileSync(new URL('./main.ts', import.meta.url), 'utf8'),
+  statusRefresh: readFileSync(new URL('./app/state/status-refresh.ts', import.meta.url), 'utf8'),
+  detail: readFileSync(new URL('./app/render/detail.ts', import.meta.url), 'utf8'),
+};
+const source = sources.main;
+
+function body(name: string) {
+  for (const text of Object.values(sources)) {
+    const start = text.indexOf(`async function ${name}(`);
+    if (start !== -1) return text.slice(start, text.indexOf('\n}', start));
+  }
+  return '';
+}
+
+describe('background refresh', () => {
+  // Both screens used to refresh on a 60-second clock, which spent one `/api/inbox` read per interval
+  // whether or not anything had moved. Webhooks already advance stages server-side within seconds, so
+  // the clock bought the browser nothing but egress. The remaining `setInterval` watches for a popup to
+  // close and issues no request per tick.
+  it('drives neither screen from a clock', () => {
+    expect(source).not.toContain('POLL_INTERVAL_MS');
+    expect(source).not.toContain('pollTimer');
+    const ticks = source.match(/setInterval\([\s\S]{0,160}/g) || [];
+    expect(ticks.filter(tick => /refreshOverviewSnapshot|refreshStatuses/.test(tick))).toEqual([]);
+  });
+
+  // Returning to the tab is what replaces the clock, so losing either listener would leave the board
+  // showing whatever it had when the user last looked at it.
+  it('refreshes each screen when the tab becomes visible again', () => {
+    expect(source).toContain("window.addEventListener('focus', () => { if (uiState.screen === 'overview') void refreshOverviewSnapshot(); })");
+    expect(sources.detail).toContain("window.addEventListener('focus', () => { if (uiState.screen === 'detail' && !uiState.detailStatusRefreshing) void refreshStatuses(); })");
+    // One return-to-tab listener per screen: the overview's lives in main.ts, the detail's in render/detail.ts.
+    expect(source.match(/document\.addEventListener\('visibilitychange'/g) || []).toHaveLength(1);
+    expect(sources.detail.match(/document\.addEventListener\('visibilitychange'/g) || []).toHaveLength(1);
+  });
+
+  // Switching tabs fires visibilitychange and focus, and both listeners are needed: one covers a tab
+  // switch, the other a window switch. Measured in production 2026-08-22, returning to the tab issued
+  // two identical `/api/inbox` reads in the same second. The flag lives in refreshStatuses rather than
+  // in the listeners so a refresh the user asked for is never the one that gets dropped.
+  it('drops a return-to-tab refresh that duplicates one already in flight', () => {
+    const poll = body('refreshStatuses');
+    expect(poll).toContain('uiState.detailStatusRefreshing = true;');
+    expect(poll).toMatch(/finally \{ uiState.detailStatusRefreshing = false;/);
+    // Only the two return-to-tab listeners are guarded. A repository sync also refreshes the detail
+    // screen, and that one the user asked for.
+    const listeners = sources.detail.match(/(?:window|document)\.addEventListener\('(?:focus|visibilitychange)'[^\n]*refreshStatuses[^\n]*/g) || [];
+    expect(listeners).toHaveLength(2);
+    expect(listeners.filter(listener => !listener.includes('!uiState.detailStatusRefreshing'))).toEqual([]);
+  });
+
+  // Entering the overview must still load once, but `overview()` runs on every render, so the guard is
+  // what keeps a re-render from issuing a second read.
+  it('loads the overview once per visit rather than once per render', () => {
+    expect(source).toContain('if (!uiState.overviewSnapshotRefreshed) {');
+    expect(source).toContain('uiState.overviewSnapshotRefreshed = false;');
+  });
+});
+
+describe('refreshDetailStatuses', () => {
+  // Browser-side status reads only update what is rendered; the persisted projection and the server
+  // automation that reads it move only when the queue is refreshed. Gating that on a wildcard source
+  // left every static-branch workflow with no way to reconcile on demand at all.
+  it('reconciles on the server for every workflow, not only wildcard sources', () => {
+    const refresh = body('refreshDetailStatuses');
+    expect(refresh).toContain('loadActionQueue(true, workflowState.active.repository)');
+    expect(refresh).not.toContain("includes('*')");
+  });
+
+  // The background poll is a different contract: it refreshes the projection the progress bar and the
+  // automation blocks read, but must stay a plain read. `/api/inbox` only calls GitHub when `refresh=1`
+  // is set, which `loadActionQueue(false)` does not send, so the tick costs one database read.
+  it('refreshes the projection on every tick without asking the server to reconcile', () => {
+    const poll = body('loadDetailStatuses');
+    expect(poll).toContain('loadActionQueue(false)');
+    expect(poll).not.toContain('loadActionQueue(true');
+  });
+});
+
+describe('detail staleness while revalidating', () => {
+  // Entering the page used to blank every row until several GitHub round trips per stage completed.
+  // The server projection already loaded for the board paints the page first.
+  it('prefills statuses from the server projection when entering the detail screen', () => {
+    expect(source).toContain('uiState.statuses = workflowState.active ? projectedDetailStatuses(workflowState.active) : null');
+    expect(sources.detail).toMatch(/function projectedDetailStatuses[\s\S]{0,400}projectedStageStatus/);
+  });
+
+  // Navigation and focus share a short TTL so tab switches cannot issue the same GitHub reads twice;
+  // the explicit button bypasses it through the force argument.
+  it('skips an automatic live read inside the TTL but lets a forced one through', () => {
+    const refresh = body('refreshStatuses');
+    expect(refresh).toContain('if (!force && workflowState.active && !detailRefreshDueAt(uiState.lastDetailLiveRead.get(workflowState.active.id), Date.now())) return;');
+    const explicit = body('refreshDetailStatuses');
+    expect(explicit).toContain('refreshStatuses(false, false, true)');
+  });
+
+  // A silent background revalidation must not take over the refresh button on an already painted page.
+  it('only an explicit refresh flips the button to its loading state', () => {
+    const poll = body('loadDetailStatuses');
+    expect(poll).toContain('if (force) {');
+    expect(poll).toMatch(/if \(force\) \{[\s\S]{0,200}detail\.refresh\.loading/);
+  });
+});

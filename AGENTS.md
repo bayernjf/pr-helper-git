@@ -31,8 +31,26 @@ wins; otherwise this file is the default contract.
   in Swift; native work is limited to windowing, process lifetime, menus,
   external-link handling and packaging. Do not add a second feature surface
   that the web UI cannot exercise.
-- Do not reintroduce: containers, worktrees, submodule writes, GPG signing,
-  GitHub App OAuth, webhooks, a database, web push, or deployment gates.
+- Do not reintroduce the removed cloud-era mechanisms — with the pr-helper
+  migration the following amendments now hold (decisions D-003…D-006-v2 in
+  `docs/pr-helper-migration.md`):
+  - **Containers**: only the single local OrbStack Postgres container
+    (`pr-helper-pg`, loopback-only); no other container runtime;
+  - **Database**: only that local Postgres (the automation engine's store);
+  - **Webhooks**: only the local HMAC-verified receiver
+    (`POST /api/github-webhook`);
+  - **GitHub App**: no OAuth login flow — the migrated App credentials live
+    server-side solely for engine GitHub calls (D-006-v2);
+  - **Web push**: not used; failure notifications go through macOS local
+    notifications plus an optional Feishu webhook (D-005);
+  - **Worktrees, submodule writes, GPG signing, deployment gates**: still
+    prohibited outright.
+- **Test repositories**: never create a new test repository (GitHub or
+  local) without the user's explicit approval. Product-feature testing must
+  reuse a repository from the registry in `TEST-REPOS.md` (GitHub table for
+  remote fixtures, local table for working trees); the registry is the
+  single source of truth, and newly approved repos are registered there
+  before use.
 - Runtime names are `~/.pr-helper-git`, localStorage `pr-helper-git:*`,
   cookie `pr_helper_git_token`, env `PR_HELPER_GIT_*`. Legacy `GIT2_*` names
   remain as compatibility fallbacks; never remove them without a migration
@@ -47,14 +65,21 @@ src/                    React client
   api/                  typed API client, split by domain
   components/           UI components and modals
   lib/                  pure helpers and storage keys
+  lib/automation/       migrated pr-helper pure domain modules + board/detail semantics
 server/                 Node HTTP server and Git/GitHub routes
   main.mjs              entry, auth, static hosting, SSE
   routes-git*.mjs       Git API dispatcher and domain modules
   routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
+  automation.mjs        engine bridge: schedulers, webhook receiver
+  flows.mjs             control-tower routes (inbox fan-out, automation ops, saves)
+  workflows-store.mjs   bundled pr-helper automation engine (frozen source transform)
 e2e/run.sh              curl-driven E2E against a throwaway server
-scripts/                dev launcher and desktop build
+scripts/                dev launcher, desktop build, migration tooling
+launchd/                persistent LaunchAgent install/uninstall (P2-9)
 desktop/                thin Swift WKWebView shell (no feature logic)
 docs/                   long-lived reference docs
+  pr-helper-migration.md   migration ledger (plan, matrix, decisions, DoD)
+  migration-acceptance.md  34-assertion e2e mapping (P3-9)
 handoff.md              delivery ledger, scope, release history, lessons
 CHANGELOG.md            user-visible changes per release
 ```
@@ -173,12 +198,23 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of release `0.2.6` (2026-11-12):
+As of the pr-helper migration Phase 1/2 work (2026-11-14):
 
-- unit/route tests: **337 tests / 34 files**
-- E2E: **144 passed / 0 failed**
+- unit/route tests: **994 tests / 48 files** (includes the migrated pr-helper
+  engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
+  workflow-rows / github-api / ai-credentials suites in `server/`, 143
+  automation domain tests plus 13 flow-board semantics tests under
+  `src/lib/automation/`, and 7 control-tower route tests in `server/flows.test.ts`)
+- E2E: **145 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs
+
+`jsdom` is pinned to exact `26.1.0` (do not `npm update` across majors): the
+host's Node drifts between 20.x and 26.x, jsdom 31 requires Node ≥22.22 and
+crashes at import under Node 20 (undici), while Node ≥22 also shadows jsdom's
+`window.localStorage` with an undefined experimental global — both handled by
+this pin plus `src/test-setup.ts`. If the reported test-file count suddenly
+drops by ~6, check these two before anything else.
 
 Update these numbers when the baseline changes. Historical numbers in
 `handoff.md` are records, not the current baseline.

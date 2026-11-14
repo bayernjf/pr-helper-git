@@ -18,11 +18,14 @@
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "typecheck:server": "tsc -p tsconfig.server.json",
+    "check:migrations": "node scripts/migration/check-migrations.mjs",
     "e2e": "bash e2e/run.sh"
   },
   "dependencies": {
+    "postgres": "^4.1.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
