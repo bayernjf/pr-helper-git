@@ -25,6 +25,13 @@ vi.mock('./workflows-store.mjs', () => ({
     void limit;
     return [{ action: 'workflow-saved', outcome: 'success' }];
   }),
+  // Write routes (P3-3)
+  executeWorkflowAutomationAction: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'succeeded' })),
+  regenerateAutomationMessage: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'queued' })),
+  takeoverAutomationAction: vi.fn(async (_env, _identity, actionId, title) => ({ actionId, title, state: 'paused' })),
+  enqueueWorkflowAutomationAction: vi.fn(async (_env, _identity, input) => ({ ...input, id: 1 })),
+  recordRecoveryEvent: vi.fn(async () => undefined),
+  rerunFailedActions: vi.fn(async (_env, _identity, input) => ({ rerun: input.source, count: 2 })),
 }));
 
 const queryResults: Array<Array<Record<string, unknown>>> = [];
@@ -43,12 +50,12 @@ vi.mock('postgres', () => ({
 import { handleFlowsRoute, flowIdentity, resetFlowIdentityCache } from './flows.mjs';
 import * as store from './workflows-store.mjs';
 
-function ctx(overrides: Partial<{ method: string; pathname: string; query: URLSearchParams }> = {}) {
+function ctx(overrides: Partial<{ method: string; pathname: string; query: URLSearchParams; body: unknown }> = {}) {
   return {
     method: overrides.method ?? 'GET',
     pathname: overrides.pathname ?? '/api/flows/inbox',
     query: overrides.query ?? new URLSearchParams(),
-    body: {},
+    body: overrides.body ?? {},
     headers: {},
     identity: { name: 'owner', role: 'admin', instance: true },
   };
@@ -123,5 +130,86 @@ describe('handleFlowsRoute', () => {
     expect((await handleFlowsRoute(ctx({ pathname: '/api/flows/nope' })))?.status).toBe(404);
     expect(await handleFlowsRoute(ctx({ pathname: '/api/flows/inbox', method: 'POST' }))).toBeNull();
     expect(await handleFlowsRoute(ctx({ pathname: '/api/repos' }))).toBeNull();
+  });
+});
+
+describe('flows write routes (P3-3)', () => {
+  it('enqueues an automation action with the original argument normalization', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/automation',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'dev', kind: 'create-pr', idempotencyKey: 'k-1' },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result.json.action).toMatchObject({ workflowId: 'w1', kind: 'create-pr', id: 1 });
+    expect(store.enqueueWorkflowAutomationAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { workflowId: 'w1', stageIndex: 0, source: 'dev', kind: 'create-pr', idempotencyKey: 'k-1' },
+    );
+  });
+
+  it('coerces non-merge kinds to create-pr exactly like upstream', async () => {
+    await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/automation',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'dev', kind: 'bogus' },
+    }));
+    expect(store.enqueueWorkflowAutomationAction).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(),
+      expect.objectContaining({ kind: 'create-pr', idempotencyKey: '' }),
+    );
+  });
+
+  it('passes execute/regenerate/takeover through with a numeric actionId', async () => {
+    const execute = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/automation',
+      query: new URLSearchParams('action=execute'), body: { actionId: '42' },
+    }));
+    expect(execute.json.result).toMatchObject({ actionId: 42, state: 'succeeded' });
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/automation',
+      query: new URLSearchParams('action=regenerate'), body: { actionId: 7 },
+    }));
+    expect(store.regenerateAutomationMessage).toHaveBeenCalledWith(expect.anything(), expect.anything(), 7);
+    const takeover = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/automation',
+      query: new URLSearchParams('action=takeover'),
+      body: { actionId: 9, title: '人工接管', body: '修复文案' },
+    }));
+    expect(takeover.json.result).toMatchObject({ actionId: 9, title: '人工接管' });
+    expect(store.takeoverAutomationAction).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), 9, '人工接管', '修复文案',
+    );
+  });
+
+  it('rejects unknown automation sub-actions with 400', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/automation',
+      query: new URLSearchParams('action=pause'), body: {},
+    }));
+    expect(result?.status).toBe(400);
+  });
+
+  it('validates the recovery-event payload before hitting the engine', async () => {
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/recovery-event',
+      body: { workflowId: 'w1', stageIndex: 'zero', source: 'dev' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.recordRecoveryEvent).not.toHaveBeenCalled();
+    const good = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/recovery-event',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
+    }));
+    expect(good?.json).toEqual({ ok: true });
+  });
+
+  it('routes rerun-actions with the same validation', async () => {
+    const good = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/rerun-actions',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
+    }));
+    expect(good?.json.result).toEqual({ rerun: 'dev', count: 2 });
   });
 });

@@ -123,15 +123,17 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   try {
-    // Token bootstrap: /?token=... sets an HttpOnly cookie, then redirects.
-    if (pathname === '/' && url.searchParams.has('token')) {
+    // Token bootstrap: /?token=... (or /m?token=... on a phone) sets an
+    // HttpOnly cookie, then redirects. The phone path must bootstrap too —
+    // otherwise the first /m visit can't call any API.
+    if ((pathname === '/' || pathname === '/m') && url.searchParams.has('token')) {
       const given = url.searchParams.get('token');
       // The instance token belongs to the owner; member tokens opened through
       // the same bootstrap URL set the same cookie.
       const identity = await resolveToken(given, TOKEN);
       if (!identity) return sendJson(res, 401, { error: 'invalid token' });
       res.writeHead(302, {
-        location: '/',
+        location: pathname === '/m' ? '/m' : '/',
         // The token is regenerated on every launch, so a stale cookie is never
         // accepted; a lifetime beyond a day only avoids forcing a relaunch in
         // long-running sessions (the desktop shell can stay open for days).

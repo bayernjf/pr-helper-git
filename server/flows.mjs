@@ -66,16 +66,90 @@ function environment() {
 }
 
 /**
- * Control-tower read routes. Auth is enforced by the caller (main.mjs runs
- * this after token resolution). Returns null when the path is not ours.
+ * Control-tower routes. Auth is enforced by the caller (main.mjs runs this
+ * after token resolution). Returns null when the path is not ours.
+ *
+ * Read routes mirror pr-helper's /api/[action]?action=inbox; write routes
+ * mirror api/workflows.ts resource=automation (P3-3): enqueue / execute /
+ * regenerate / takeover, plus the recovery-event registration from
+ * api/[action].ts. They fail loudly until P2-1 lands the GitHub credentials —
+ * the client surfaces the error message as-is.
  */
 export async function handleFlowsRoute(ctx) {
-  const { method, pathname, query } = ctx;
-  if (!pathname.startsWith('/api/flows') || method !== 'GET') return null;
+  const { method, pathname, query, body } = ctx;
+  if (!pathname.startsWith('/api/flows')) return null;
 
   try {
     const identity = await flowIdentity();
     const env = environment();
+    const payload = body && typeof body === 'object' ? body : {};
+
+    // --- Write routes (P3-3), mirroring api/workflows.ts resource=automation
+    // --- and the recovery/rerun registrations from api/[action].ts. They fail
+    // --- loudly until P2-1 lands the GitHub credentials.
+    if (method === 'POST' && pathname === '/api/flows/automation') {
+      const actionId = typeof payload.actionId === 'number' ? payload.actionId : Number(payload.actionId);
+      switch (query.get('action')) {
+        case 'execute':
+          return { status: 200, json: { result: await store.executeWorkflowAutomationAction(env, identity, actionId) } };
+        case 'regenerate':
+          return { status: 200, json: { result: await store.regenerateAutomationMessage(env, identity, actionId) } };
+        case 'takeover':
+          return {
+            status: 200,
+            json: {
+              result: await store.takeoverAutomationAction(
+                env, identity, actionId,
+                typeof payload.title === 'string' ? payload.title : '',
+                typeof payload.body === 'string' ? payload.body : '',
+              ),
+            },
+          };
+        case undefined:
+        case '':
+        case null: {
+          // Plain POST = enqueue a new automation action (board/drawer buttons).
+          const result = await store.enqueueWorkflowAutomationAction(env, identity, {
+            workflowId: typeof payload.workflowId === 'string' ? payload.workflowId : '',
+            stageIndex: typeof payload.stageIndex === 'number' ? payload.stageIndex : -1,
+            source: typeof payload.source === 'string' ? payload.source : '',
+            kind: payload.kind === 'merge-pr' || payload.kind === 'advance-stage' ? payload.kind : 'create-pr',
+            idempotencyKey: typeof payload.idempotencyKey === 'string' ? payload.idempotencyKey : '',
+          });
+          return { status: 200, json: { action: result } };
+        }
+        default:
+          return { status: 400, json: { error: `unknown automation action: ${query.get('action')}` } };
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/flows/recovery-event') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.stageIndex !== 'number' || typeof payload.source !== 'string') {
+        return { status: 400, json: { error: '无效的失败恢复请求' } };
+      }
+      await store.recordRecoveryEvent(env, identity, {
+        workflowId: payload.workflowId,
+        stageIndex: payload.stageIndex,
+        source: payload.source,
+      });
+      return { status: 200, json: { ok: true } };
+    }
+
+    if (method === 'POST' && pathname === '/api/flows/rerun-actions') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.stageIndex !== 'number' || typeof payload.source !== 'string') {
+        return { status: 400, json: { error: '无效的 Actions 重跑请求' } };
+      }
+      const result = await store.rerunFailedActions(env, identity, {
+        workflowId: payload.workflowId,
+        stageIndex: payload.stageIndex,
+        source: payload.source,
+      });
+      return { status: 200, json: { result } };
+    }
+
+    if (method !== 'GET') return null;
+
+    // --- Read routes ---
 
     // Board payload: the same eleven-collection fan-out pr-helper's
     // /api/[action]?action=inbox served. Reconciliation is NOT triggered
@@ -88,6 +162,7 @@ export async function handleFlowsRoute(ctx) {
     // projection is still complete for static-route workflows.
     if (pathname === '/api/flows/inbox') {
       const reads = {};
+      /** @type {Array<[string, (env: unknown, identity: unknown, reads: unknown) => Promise<unknown>]>} */
       const readNames = [
         ['items', store.listActionableStages],
         ['states', store.listWorkflowStageStates],
@@ -104,18 +179,18 @@ export async function handleFlowsRoute(ctx) {
       const settled = await Promise.allSettled(
         readNames.map(([, fn]) => fn(env, identity, reads)),
       );
-      const payload = {};
+      const json = {};
       const readWarnings = [];
       settled.forEach((outcome, i) => {
         const [key] = readNames[i];
         if (outcome.status === 'fulfilled') {
-          payload[key] = outcome.value;
+          json[key] = outcome.value;
         } else {
-          payload[key] = [];
+          json[key] = [];
           readWarnings.push({ source: key, message: outcome.reason?.message || String(outcome.reason) });
         }
       });
-      return { status: 200, json: { ...payload, readWarnings } };
+      return { status: 200, json: { ...json, readWarnings } };
     }
 
     // Raw workflow payloads (editor, P3-4).
@@ -133,6 +208,6 @@ export async function handleFlowsRoute(ctx) {
 
     return { status: 404, json: { error: 'unknown flows route' } };
   } catch (err) {
-    return { status: 500, json: { error: err.message || 'flows read failed' } };
+    return { status: 500, json: { error: err.message || 'flows route failed' } };
   }
 }

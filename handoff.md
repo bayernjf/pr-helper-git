@@ -31,7 +31,7 @@ every committed file as world-readable.
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | 🔶 P3-0 服务面 + P3-1 看板（样式返工+700px 断点）+ P3-2 详情只读片完成（11-14，967/45）；剩：P3-3 抽屉（写路由+操作）/P3-4 编辑器/P3-5 失败中心/拖拽排序/MobileApp 接入 |
+| Phase 3 控制塔 UI React 重建 | 🔶 P3-0/P3-1/P3-2 完成 + P3-8 MobileApp Flows ✓ + P3-3 服务面写路由 ✓（11-14，973/45，e2e 145）；剩：P3-3 抽屉 UI/P3-4 编辑器/P3-5 失败中心/P3-6 时间线/P3-7 自动化开关/P3-9 34 条映射 |
 | Phase 4–5 通知/影子并行/切换 | ⬜ |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
