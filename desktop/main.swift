@@ -581,6 +581,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 }
 
+// Single-instance guard: a second launch (double-click, launcher, direct
+// binary) must activate the existing window instead of spawning another app
+// plus another loopback server. Runs before anything else starts.
+let bundleID = Bundle.main.bundleIdentifier ?? "local.pr-helper-git"
+let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+if let existing = running.first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
+    existing.unhide()
+    existing.activate(options: [.activateAllWindows])
+    exit(0)
+}
+
 let application = NSApplication.shared
 let delegate = AppDelegate()
 application.delegate = delegate
