@@ -25,7 +25,7 @@ every committed file as world-readable.
 | P1-5 领域内核 | 🔶 核心 4 模块落地 src/lib/automation/ + 随迁测试 143 全绿（11-14）；长尾 UI 支撑模块随 Phase 3 移植 |
 | P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
 | P2-2/4/6/7 引擎 bundle（drain/对账/AI 接管/重跑） | 🔶 已随 bundle 落地，单测随迁与实网验收待 |
-| P2-5 触发器三通道 | 🔶 webhook 端到端实测 ✓（11-14：HMAC/去重/projection/实时对账）；签名单测随迁待 |
+| P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
 | P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
 | P2-3 门禁+合并执行接线 | ⬜ |
@@ -46,7 +46,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（Phase 3 继续收口：P3-7 四项前置禁用、#19/#34 通过，Phase 3.5 关闭；P3-4 补步骤「上移/下移」入口并 UI 实测；P3-2 补手动 Refresh 的 `?refresh=1` live 对账 + 页面进入/回焦 30s TTL，隔离实例实测 `reconciled=12`、`outcome=deferred`。验收 ✅33/🔶0/🔀1/⬜0，测试 1020/52、E2E 145/145、build 通过）。
+最近更新：2026-11-15（Phase 3 已收口；补 P2-5 webhook 验签契约 9 单测：无 secret 503、坏签名 401 不触库、缺头/坏 JSON 400、shadow 不投影、合法 PR 投影+分支级 reconcile 202、重复 delivery 去重。验收 ✅33/🔶0/🔀1/⬜0，测试 1029/53、E2E 145/145、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
