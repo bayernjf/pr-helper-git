@@ -25,7 +25,8 @@ every committed file as world-readable.
 | P1-5 领域内核 | ✅ 核心 4 模块 + Phase 3 语义模块（board/detail/failures/audit/prerequisites）全部落地，143 域测试 + 31 UI 语义测试；长尾 navigation/save-queue 由 React hooks + API client 直接承载，不重复造状态机 |
 | P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
 | P2-2/4 drain + 对账引擎 | ✅ 418 store 不变量覆盖 drain 决策/退避/幂等/取消；租约/轮转/分级预算测试通过；本地 PG `reconciliation_runs` 产生 `inbox_refresh` 遥测行（14 total/12 reconciled/0 failed/≈6s） |
-| P2-6/7 AI 接管 + 重跑 | 🔶 接管/重生成/重跑/Codex 路由与 domain 解析已测；paused→unpause 实网端到端待 |
+| P2-6 AI 接管 | 🔶 接管/重生成路由与 domain 解析已测；paused→unpause 实网端到端待 |
+| P2-7 Actions 重跑 + Codex | ✅ 校验链随 bundle，路由 400/合法测试 + 次数上限域测试 + Codex context 测试；实际 rerun dispatch 未执行 |
 | P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
 | P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |

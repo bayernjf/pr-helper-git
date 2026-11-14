@@ -365,6 +365,14 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json.result).toEqual({ rerun: 'dev', count: 2 });
+
+    (store.rerunFailedActions as any).mockClear();
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/rerun-actions',
+      body: { workflowId: 'w1', stageIndex: '0', source: 'dev' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.rerunFailedActions).not.toHaveBeenCalled();
   });
 });
 
