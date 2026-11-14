@@ -48,8 +48,9 @@ npm run sync:shadow
 审计写入撞主键（2026-11-14 的 PUT 500 就是这个原因）。
 
 **当前本地镜像（2026-11-14 18:xx）**：14 workflows / 14 stages（auto_create、
-auto_merge 各 14 true）/ actions 3,568 / runs 3,568 / audit 8,311 / events 3,256；
-`auto_advance` 本地为 0，等切换日显式开启。
+auto_merge 各 14 true）/ actions 3,568 / runs 3,568 / audit 8,313 / events 3,256；
+`auto_advance` 本地为 0，等切换日显式开启。重启 4789 后影子日志首轮
+`queue 1 queued / 0 running / 4 paused，trackedWorkflows=14`，与本地库分布一致。
 
 > **代码更新后必须重启 4789 影子服务**（`launchctl kickstart -k gui/$(id -u)/local.pr-helper-git.server`）。
 > launchd 只在进程退出时重读代码；常驻进程会继续跑旧 bundle。D-015 验收就踩过：
