@@ -5,7 +5,7 @@
 import AppKit
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var server: Process?
@@ -437,6 +437,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let configuration = WKWebViewConfiguration()
         // The persistent store keeps localStorage preferences across launches.
         configuration.websiteDataStore = .default()
+        // Theme bridge: the web client reports dark/light so the window
+        // chrome (titlebar) matches the content instead of following the
+        // system appearance (P4-3 desktop).
+        configuration.userContentController.add(self, name: "themeSync")
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -451,6 +455,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         window.center()
         window.title = "PR Helper Git"
         window.minSize = NSSize(width: 900, height: 600)
+        // Transparent titlebar over the dark window background: the web
+        // toolbar fills the top edge, so no light strip can appear. The web
+        // client corrects the appearance via the themeSync bridge on load.
+        window.titlebarAppearsTransparent = true
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = NSColor(red: 0x10 / 255.0, green: 0x12 / 255.0, blue: 0x16 / 255.0, alpha: 1)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
@@ -566,6 +576,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
               let host = url.host?.lowercased()
         else { return false }
         return host == "127.0.0.1" || host == "localhost"
+    }
+
+    // MARK: Theme bridge
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "themeSync", let mode = message.body as? String else { return }
+        let light = mode == "light"
+        window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
+        window.backgroundColor = light
+            ? NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
+            : NSColor(red: 0x10 / 255.0, green: 0x12 / 255.0, blue: 0x16 / 255.0, alpha: 1)
     }
 
     // MARK: Errors
