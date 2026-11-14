@@ -50,6 +50,49 @@ export type DeploymentOptions = {
   environments: string[];
 };
 
+export type WorkflowRunRow = {
+  id: string;
+  workflowId: string;
+  version: number | null;
+  stageIndex: number;
+  stageId: string | null;
+  source: string;
+  target: string;
+  pullNumber: number | null;
+  state: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+export type SyncHealth = {
+  lastReconciliation: {
+    id: string;
+    trigger: string;
+    state: string;
+    stagesTotal: number;
+    stagesReconciled: number;
+    stagesFailed: number;
+    durationMs: number | null;
+    errorMessage: string | null;
+    repository: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+    interrupted: boolean;
+  } | null;
+  triggerHealth: Array<Record<string, unknown>>;
+  stages: Array<{
+    workflowId: string;
+    stageIndex: number;
+    stageId: string | null;
+    source: string;
+    target: string;
+    updatedAt: string;
+    ageSeconds: number;
+    stale: boolean;
+  }>;
+  webhookDeliveriesLast24h: number;
+};
+
 export type InboxPayload = {
   items: ActionQueueItem[];
   states: WorkflowStageStateRow[];
@@ -57,8 +100,8 @@ export type InboxPayload = {
   deployments: DeploymentRow[];
   deploymentRuns: DeploymentRunRow[];
   configurationWarnings: DeploymentConfigurationWarningRow[];
-  syncHealth: Record<string, unknown> | null;
-  runs: Array<Record<string, unknown>>;
+  syncHealth: SyncHealth | null;
+  runs: WorkflowRunRow[];
   timeline: Array<Record<string, unknown>>;
   recoveryStatuses: Array<import('../lib/automation/flows-board').RecoveryStatusRow>;
   automation: AutomationActionRow[];
@@ -123,6 +166,15 @@ export function fetchGenerationRules(): Promise<{ rules: GenerationRuleRow[] }> 
   return request<{ rules: GenerationRuleRow[] }>('/api/flows/rules');
 }
 
+/** DELETE /api/flows/workflows — confirmed local delete (P3-12 tail). */
+export function deleteFlowFromServer(id: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>('/api/flows/workflows', {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+}
+
 /** PUT /api/flows/workflows — saves a full workflow payload (P3-4). */
 export function saveWorkflowToServer(workflow: Workflow): Promise<Workflow> {
   return request<{ ok: boolean; workflow: Workflow; automationActivated: { create: boolean; merge: boolean }; gatesChanged: boolean }>(
@@ -135,8 +187,24 @@ export function saveWorkflowToServer(workflow: Workflow): Promise<Workflow> {
   ).then((payload) => payload.workflow);
 }
 
+export type FlowAuditEntry = {
+  id: number | string;
+  action: string;
+  outcome: string;
+  repository: string | null;
+  workflowId: string | null;
+  stageId: string | null;
+  source: string | null;
+  target: string | null;
+  pullNumber: number | null;
+  runId: number | null;
+  metadata: Record<string, unknown>;
+  failureReason: string | null;
+  occurredAt: string;
+};
+
 export function fetchFlowAudit(limit = 100) {
-  return request<{ entries: Array<Record<string, unknown>> }>(`/api/flows/audit?limit=${limit}`);
+  return request<{ entries: FlowAuditEntry[] }>(`/api/flows/audit?limit=${limit}`);
 }
 
 // --- Write routes (P3-3) ---------------------------------------------------

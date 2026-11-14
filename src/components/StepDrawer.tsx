@@ -11,6 +11,7 @@ import { stageStateText } from '../lib/automation/flows-detail';
 import { deploymentConfigs, matchingStageProjections, type DeploymentConfig, type Workflow } from '../lib/automation/workflow';
 import { automationActionPresentation, type AutomationActionState } from '../lib/automation/workflow-run';
 import { githubPullUrl } from '../lib/domain';
+import PullReference from './PullReference';
 import {
   enqueueAutomation,
   executeAutomationAction,
@@ -272,7 +273,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
         {pullNumber ? (
           <div className="drawer-section">
             <span className="drawer-label">PR</span>
-            <a href={githubPullUrl(flow.repository, pullNumber)} target="_blank" rel="noreferrer">#{pullNumber}</a>
+            <PullReference url={githubPullUrl(flow.repository, pullNumber)} label={`#${pullNumber}`} />
             {primary?.checksTotal ? (
               <span className="drawer-gate">{tp('checks {passed}/{total} {state}', {
                 passed: primary.checksPassed ?? 0,

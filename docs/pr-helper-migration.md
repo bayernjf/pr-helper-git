@@ -161,7 +161,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | # | 任务 | 源（pr-helper） | 目标 | 验收标准 | 状态 |
 |---|---|---|---|---|---|
-| P3-1 | 流程看板（Lane board 页面化：六筛选/搜索/聚合条/活动条/卡片） | src/main.ts overview/projectLane | `src/components/FlowBoard.tsx` | 筛选/排序/聚合与 pr-helper 行为一致 | 🔶 第一片完成（11-14）：服务面前置（P3-0：`server/flows.mjs` 身份桥单人采纳 + `/api/flows/{inbox,workflows,audit}` 三路由，App 依赖读优雅降级为空集+warning）+ 纯语义模块 `src/lib/automation/flows-board.ts`（六筛选计数/可见性/搜索/步骤色调/运行摘要，DI 重写自 overview()+derive.ts，13 单测）+ FlowBoard React 组件（只读版：筛选条/聚合/搜索/刷新/卡片/PR 链接）；**剩：归档/恢复、静音/取消静音、运行历史入口**（拖拽排序/新建/编辑已由 P3-4 补） |
+| P3-1 | 流程看板（Lane board 页面化：六筛选/搜索/聚合条/活动条/卡片） | src/main.ts overview/projectLane | `src/components/FlowBoard.tsx` | 筛选/排序/聚合与 pr-helper 行为一致 | 🔶 第一片完成（11-14）：服务面前置（P3-0：`server/flows.mjs` 身份桥单人采纳 + `/api/flows/{inbox,workflows,audit}` 三路由，App 依赖读优雅降级为空集+warning）+ 纯语义模块 `src/lib/automation/flows-board.ts`（六筛选计数/可见性/搜索/步骤色调/运行摘要，DI 重写自 overview()+derive.ts，13 单测）+ FlowBoard React 组件（只读版：筛选条/聚合/搜索/刷新/卡片/PR 链接）；归档/恢复、静音、运行历史已由 P3-12 补齐；拖拽排序/新建/编辑由 P3-4 补 |
 | P3-2 | 流程详情（投影直出 + live 校正 + 30s TTL） | src/main.ts detail、src/lib/projected-stage.ts | `src/components/FlowDetail.tsx` | 投影 TTL 语义一致 | 🔶 只读详情第一片完成（11-14）：`flows-detail.ts` 纯语义（stageTimeline 的状态判定/门禁文案/动态路由分支列表/进度条仅计连续前缀，8 单测）+ FlowDetail 页（看板点 lane 进入，返回交互，Chrome headless 截图验收）；降级：live 校正需 App 凭据（P2-1），刷新=重读投影；自动化控制项归 P3-4/P3-7 |
 | P3-3 | 步骤抽屉（创建 PR/合并/重跑/部署卡/时间线） | src/main.ts 抽屉 | `src/components/StepDrawer.tsx` | 操作集与 pr-helper 一致 | 🔶 服务面路由 + StepDrawer UI 完成（11-14）：右侧抽屉 = 状态头 + PR/门禁 + 操作（创建 PR/合并/重跑，操作后自动重读投影 + toast）+ 自动化块（最新动作为主块：queued/paused→execute、failed→重新生成、全部→take over 表单；历史折叠）+ 事件时间线；headless 截图验收（8 动作/26 事件渲染正确）；**部署卡、健康状态、失败摘要、最近 8 次 run、回滚按钮已补（11-14）**：StepDrawer 按 workflowId/stageId/source 过滤 `deployments`/`deploymentRuns`，显示 provider/environment/runId/state/health/failure summary/failed job/open site/open logs；失败 run 可 retry，成功 run 可确认式 rollback；配置警告块。**实测缺口**：本机无 GitHub App 凭据、部署 run 表为空，按钮未在真实 run 上走查（归 P3-10 🔶） |
 | P3-4 | 流程编辑器（步骤/路由/门禁/恢复策略表单 + 拖拽排序） | src/main.ts editor | `src/components/FlowEditor.tsx` | 表单语义一致；互斥校验随迁 | 🔶 编辑器主体完成（11-14）：编辑+新建双模式（createWorkflow 预置 dev→main，新建时仓库可编辑）、加/删步骤（addStage/removeStage 纯函数）、恢复策略表单、自动化三开关+阈值（纯函数组合）；看板排序控制（custom/name/createdAt + 方向切换，custom 模式 lane 上/下移动按钮=原版键盘兜底语义，moveWorkflowToPosition→PUT 持久化）；**pointer 拖拽留尾**（上/下按钮为原版键盘兜底的等价入口，拖拽属增强交互）。**部署表单已补（11-14）**：部署列表/警告、添加/编辑/移除/撤销、sync gates、suggestion、workflow/env datalist、target/provider/environment、health/rollback 高级字段；**换仓库已补（11-14）**：仓库字段可编辑，确认后转新建流程，`save()` 拒绝未确认换仓。pointer 拖拽仍留尾（上/下按钮等价） |
@@ -169,7 +169,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P3-6 | 时间线 + 只读进度条 | src/main.ts 时间线段 | `src/components/FlowTimeline.tsx` | 连续前缀计数语义一致 | ✅ 语义已承载（11-14 判定）：详情页=进度条（flowProgress 连续前缀，3 测试明确覆盖）+ 分步时间线卡 + 每步事件流；抽屉=事件列表；**设计偏差**：lane 内不再嵌时间线段（信息已由详情页/抽屉承载，React 版 lane 保持单行紧凑）——独立 FlowTimeline 组件不建 |
 | P3-7 | 自动化开关 UI（四项前置 + 勾选即动作确认） | src/lib/workflow.ts immediateAutomationEffect | FlowEditor 内 | 确认交互与 pr-helper 一致 | 🔶 勾选即动作确认完成（11-14）：toggleAutomation 用 immediateAutomationEffect 对当前投影计算即时效果（open+pr→合并确认 / ahead≥阈值→立即建 PR 确认），confirm 语义与原版一致；四项前置完整版待 AI 凭据面（M-E）迁移 |
 | P3-8 | /m 手机适配（700px 断点对齐） | src/style.css 700px 方案 | FlowBoard/FlowDetail 响应式 | 390×844 无横向溢出 | ✅ MobileApp 接入 Flows 完成（11-14）：header segmented「Repository/Flows」切换（偏好持久化 mobile.tab），Flows tab 复用 FlowBoard 组件全宽渲染；顺带修复 /m?token= 不种 cookie 的既有缺口（bootstrap 放宽到 /m，e2e 断言随行为更新 144→145）；Chrome headless 手机仿真 390×844 截图验收：14 lane 无横向溢出 |
-| P3-9 | 34 条 Playwright e2e 断言语义逐条映射为组件测试/手动走查清单 | e2e/pr-helper.spec.ts | `docs/migration-acceptance.md` 附录 | 映射清单 34/34 完整；D-002-v2 后必须补部署/换仓断言 | 🔶 映射完成、验收部分闭合（11-14）：✅22 / 🔶8 / 🔀1 / ⬜3；P3-10/P3-11 回补后 #7/#8/#22/#23 转 ✅，#21/#30/#31 保留 🔶。**“映射 34/34”不等于通过 34/34** |
+| P3-9 | 34 条 Playwright e2e 断言语义逐条映射为组件测试/手动走查清单 | e2e/pr-helper.spec.ts | `docs/migration-acceptance.md` 附录 | 映射清单 34/34 完整；D-002-v2 后必须补部署/换仓断言 | 🔶 映射完成、验收继续闭合（11-14）：✅28 / 🔶5 / 🔀1 / ⬜0；P3-10/P3-11 后 #7/#8/#22/#23 转 ✅，P3-12/P3-14/P3-16 后 #2/#5/#6/#24/#32 转 ✅；#21/#30/#31 保留 🔶（真实 run/凭据），#19/#34 保留 🔶（#20 删除确认已 ✅）。**“映射 34/34”不等于通过 34/34** |
 
 ### Phase 3.5 — 功能缺口回补（D-002-v2，2026-11-14 新增）
 
@@ -181,11 +181,11 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 |---|---|---|---|---|
 | P3-10 | 部署门禁全链路恢复（配置表单/Environment/警告/StepDrawer 部署卡/健康状态/失败摘要/最近 8 次 run/回滚二次确认 + HTTP 路由） | FlowEditor + StepDrawer + `server/flows.mjs` + `src/api/flows.ts` | 验收 #21/#22/#23/#30/#31 重开；配置→保存→run 跟踪→健康红/绿→回滚确认全链路走查 | 🔶 实现完成、实网未闭（11-14）：后端 `listDeploymentOptions`（Actions workflows + GitHub Environments）、`retryDeploymentRun`（仅 failure run，rerun + stage event + `deployment-rerun` 审计）、`requestDeploymentRollback`；路由 `GET /deployment-options`、`POST /deployment-rollback`、`POST /deployment-retry`；API client/类型；FlowEditor 表单/警告/撤销；StepDrawer 部署卡/健康/失败摘要/8 次 run/retry/rollback 确认。验收 #22/#23 ✅，#21/#30/#31 🔶：本机 GitHub App 凭据未配置、`workflow_stage_deployment_runs` 为 0，真实 run 的回滚/重跑与 Environment 列表未走查（P2-1） |
 | P3-11 | 换仓库确认交互（编辑既有流程换仓库 → 确认 → 转为新建流程） | FlowEditor | 验收 #7/#8 通过；不误改原流程 | ✅ 完成（11-14）：仓库字段编辑态可改；确认框「Change this flow to …? A new flow will be created; the original flow stays unchanged.」；确认后 `createWorkflow(newRepo,...)` + `createMode=true`，原流程不动；未确认换仓 `save()` 拒绝；FlowBoard `onSaved` 对未知 id 追加并选中。UI 实测 #7/#8 通过 |
-| P3-12 | 流程归档/恢复、静音/取消静音、最近运行历史入口 | FlowBoard/FlowDetail | 原功能目录 §2 的 ✔ 项走查；归档可逆、静音只影响通知 | ⬜ |
+| P3-12 | 流程归档/恢复、静音/取消静音、最近运行历史入口 | FlowBoard/FlowDetail | 原功能目录 §2 的 ✔ 项走查；归档可逆、静音只影响通知 | ✅ 完成（11-14 UI 实测）：FlowBoard lane 归档（确认弹窗）→ Archived 筛选计数 1 → restore 回 0；静音 → Muted 徽标/按钮变 unmute，取消后恢复；详情页确认删除 → lane 15→14；FlowDetail「Recent runs」显示 zeus #192/#55（44 条 inbox runs 中按 workflowId 取前 10）；PUT 复用 `upsertWorkflow` 的 archive transition 与 muted 列 |
 | P3-13 | 流程预检（App 权限/分支/PR 冲突/上游依赖/Actions/Environment） | `server/flows.mjs` + FlowBoard | 先裁决“重建”还是“正式删除”；若重建，每项给修复建议 | ⬜ |
-| P3-14 | PR 引用复制/tooltip、flows 操作审计 UI+CSV、同步健康度 UI | `src/lib` + `AuditModal`/FlowBoard | 验收 #2/#32；CSV 导出可验证；过时阶段可见 | ⬜ |
+| P3-14 | PR 引用复制/tooltip、flows 操作审计 UI+CSV、同步健康度 UI | `src/lib` + `AuditModal`/FlowBoard | 验收 #2/#32；CSV 导出可验证；过时阶段可见 | ✅ 完成（11-14 UI 实测）：`FlowAuditModal` 500 行表格+筛选+CSV（90,686 bytes，RFC4180 转义）；`PullReference` 悬停完整 URL + Open PR、点击复制 toast；FlowBoard「Sync health」显示 last reconcile / 14 stale stage(s) / 0 webhook/24h |
 | P3-15 | 团队管理 UI（四角色/共享） | TeamModal | 单用户可暂缓，但不得计完成；若恢复，角色矩阵走查 | ⬜ |
-| P3-16 | 编辑器折叠、return-highlight 等 UI 细节 | FlowEditor/FlowBoard | 验收 #5/#6/#24 | ⬜ |
+| P3-16 | 编辑器折叠、return-highlight 等 UI 细节 | FlowEditor/FlowBoard | 验收 #5/#6/#24 | ✅ 完成（11-14 UI 实测）：编辑既有流程 0 个展开表单、新建默认展开；展开后 1 个 body，add step 后 2 个折叠头/0 body；详情返回 lane 立即 `.is-return-highlight`，1.6s 自动清除 |
 
 **Phase 3.5 关闭条件**：P3-10/P3-11 必须 ✅；P3-12…P3-16 每项要么 ✅，要么有用户明确的
 “本期不做”裁决并写入 §12；验收清单不再存在 🚫 类功能缺口。
@@ -331,7 +331,7 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | M-C7 | 部署跟踪（Vercel/Cloudflare runs + 健康探测 + 失败摘要） | api/_lib/workflows-store.ts | 🔁P3 | 引擎逻辑已在（`reconcileStageDeployments` / `deploymentStateWithHealth` / `deploymentFailureSummary`）；产品面 StepDrawer 部署卡、run 历史、失败摘要入口随 P3-10（D-002-v2） | 部署 run/健康/失败摘要走查 |
 | M-C8 | webhook delivery 去重落库 | api/_lib/workflows-store.ts recordWebhookDelivery | 🔁P2 | 同上（003 表） | 去重单测 |
 | M-C9 | 阶段事件/时间线落库 | api/_lib/workflows-store.ts | 🔁P2 | 同上（008 表） | 事件写入验证 |
-| M-C10 | 同步健康度（过时阶段/webhook 计数） | api/_lib/workflows-store.ts | 🔁P2 | `/api/flows/inbox` 已返回 `syncHealth`；组件层未使用，UI 待 P3-14 | 健康度单测 + UI 走查 |
+| M-C10 | 同步健康度（过时阶段/webhook 计数） | api/_lib/workflows-store.ts | 🔁P2 | `/api/flows/inbox` 返回 `syncHealth`；FlowBoard UI 已接（P3-14） | 健康度单测 + UI 走查 |
 | M-C11 | 对账遥测（GitHub 调用数/耗时/ETag 命中） | api/_lib/github-api.ts noteEtag + store | ⏸P2 | server（低优，先记录后可视化） | 遥测行存在 |
 | M-C12 | 操作审计（9 类 action 全量留痕 + CSV 导出） | api/_lib/workflows-store.ts recordOperationAudit + src/app/ui/audit.ts | 🔁P2+P3 | Postgres 表（020 原样）+ git2 AuditModal 扩展 | 审计行/导出验证 |
 | M-C13 | 数据保留清理（webhook 30/密文 30/对账 90/事件 180/部署 180/审计 365 天） | api/_lib/workflows-store.ts cleanupRetainedData | 🔁P2 | 同上（022 表） | 保留预算单测 |
@@ -402,7 +402,7 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | M-F16 | 主题切换（light/dark）+ token 守卫 | src/app/ui/theme.ts + style-theme-tokens.test.ts | ✅ | git2 主题已等价；**token 守卫测试模式可借鉴（可选）** | — |
 | M-F17 | Toast（Popover API，undo 7s） | src/app/ui/toast.ts | ✅ | git2 ToastProvider 已等价 | — |
 | M-F18 | 原生 tooltip | src/app/ui/tooltip.ts | ✅ | git2 design/tooltip.ts 已等价（共享文件） | — |
-| M-F19 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | client lib 直拷；验收 #32 当前仍为普通外链，待 P3-14 | 组件测试 |
+| M-F19 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | React `PullReference` 组件（tooltip + copy）；验收 #32 ✅ | 组件测试 |
 | M-F20 | 账户菜单/权限说明/断开/删号/隐私页 | src/main.ts + public/privacy.html | 🔀P3 | git2 identity/Settings 已等价；隐私页按需移植 | 走查 |
 | M-F21 | 团队管理对话框 | src/main.ts showTeamsDialog | 🔁P3 | 引擎四角色/共享函数已在；TeamModal 扩展（四角色）未做；单用户暂缓但不得计完成 | 走查 |
 | M-F22 | 云同步对话框（解锁/推拉/轮换） | src/main.ts showCloudSyncDialog 系列 | 🚫 | 本地存储即权威（D-003，无同步需求） | — |

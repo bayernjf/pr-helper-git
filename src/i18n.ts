@@ -938,6 +938,41 @@ export const ZH: Record<string, string> = {
   'Starting…': '启动中…',
   'roll back': '回滚',
   'logs': '日志',
+  // Archive / mute / sync health / run history (P3-12/P3-14)
+  'Sync health': '同步健康度',
+  'no reconciliation yet': '尚无对账记录',
+  'reconcile interrupted': '对账中断',
+  'Archiving stops its automation and hides it from the active filters; it can be restored later.': '归档会停止该流程的自动化，并将其从活动筛选中隐藏；之后可恢复。',
+  'archive': '归档',
+  'restore': '恢复',
+  'unmute': '取消静音',
+  'mute': '静音',
+  'Recent runs': '最近运行',
+  'Flow archived': '流程已归档',
+  'Flow restored': '流程已恢复',
+  'Flow muted': '流程已静音',
+  'Flow unmuted': '流程已取消静音',
+  // Flows audit (P3-14)
+  'Flows audit log': '流程操作审计',
+  'Filter audit entries': '筛选审计记录',
+  'Export CSV': '导出 CSV',
+  'No audit entries yet': '暂无审计记录',
+  'Time': '时间',
+  'Action': '动作',
+  'Outcome': '结果',
+  'Details': '详情',
+  'Failure': '失败原因',
+  // PR reference chip (P3-14)
+  'PR link copied': 'PR 链接已复制',
+  'Copy PR link': '复制 PR 链接',
+  'Open PR': '打开 PR',
+  // Step form collapse (P3-16)
+  'collapse': '收起',
+  'expand': '展开',
+  // Confirmed delete (P3-12 tail)
+  'Delete flow': '删除流程',
+  'Flow deleted': '流程已删除',
+  'This removes the flow from the local database. It cannot be undone.': '这会从本地数据库移除该流程，操作不可撤销。',
 };
 
 /** Counted UI copy, e.g. "12 commits" — handled by rules, not by dictionary keys. */

@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 🔶（P3-10 实现完成/实网待验，P3-11 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 🔶（P3-10 实网待验；P3-11/P3-12/P3-14/P3-16 ✅；P3-13/P3-15 待裁/暂缓）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -31,8 +31,8 @@ every committed file as world-readable.
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等未闭环**（11-14 复审）：看板/详情/抽屉/编辑器/失败中心/手机已落地；但部署门禁、换仓库、归档/静音、预检、PR 引用、审计 CSV、同步健康度、团队 UI、运行历史仍缺（详见台账 Phase 3.5）。原“Phase 3 收官”结论作废 |
-| Phase 3.5 功能缺口回补 | 🔶 P3-11 ✅（换仓库确认→新建，UI #7/#8 实测）；P3-10 🔶（部署门禁 UI/路由/store 实现完成，#22/#23 实测，真实 run 回滚/Environment 列表待 P2-1 凭据）；P3-12…P3-16 待裁决/补齐 |
+| Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等接近闭环**（11-14）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度已落地；剩余部署实网、预检裁决、团队 UI（详见 Phase 3.5） |
+| Phase 3.5 功能缺口回补 | 🔶 P3-11 ✅、P3-12 ✅、P3-14 ✅、P3-16 ✅（UI 实测）；P3-10 🔶（部署门禁实现完成，#22/#23 实测，真实 run 回滚/Environment 列表待 P2-1）；P3-13 预检待用户裁决“重建/删除”；P3-15 团队 UI 单用户暂缓、未计完成 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
 
@@ -46,7 +46,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-14（P3-10/P3-11 代码回补：部署门禁 options/retry/rollback 路由 + FlowEditor 表单/警告/撤销 + StepDrawer 部署卡/健康/失败摘要/8 次 run；换仓库确认转新建；验收 ✅22/🔶8/🔀1/⬜3，测试 1002/48 + build 通过）。
+最近更新：2026-11-14（P3-12/P3-14/P3-16 回补：看板归档/恢复+静音/取消静音、详情最近运行、flows 审计 UI+CSV、同步健康度、PR 引用 tooltip/复制、编辑器折叠、返回高亮；验收 ✅28/🔶5/🔀1/⬜0，测试 1006/49 + build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
@@ -60,6 +60,13 @@ flows 审计 UI+CSV、同步健康度、团队 UI、运行历史仍未完成。�
 `docs/migration-acceptance.md`（#1 改替代、#7/#8 与 #21/#22/#23/#30/#31 转 ⬜、统计修正）、
 `docs/phase5-runbook.md`（切换前置）、`AGENTS.md`（部署门禁不再列为禁区）。代码未改；
 下一步从 P3-10 开始。
+
+## P3-12 / P3-14 / P3-16 回补（2026-11-14）
+
+- P3-12：`FlowBoard` lane 增加归档/恢复（确认弹窗，归档后进入 Archived 筛选，可恢复）与静音/取消静音（仅影响通知徽标/suppression，不阻断自动化）；`FlowDetail` 新增「Recent runs」，按 workflowId 从 inbox 44 条 run 中取前 10（实测 zeus #192/#55）。写路径复用 `PUT /api/flows/workflows` → `upsertWorkflow`（archive transition + muted 列）。
+- P3-14：新增 `FlowAuditModal`（`GET /api/flows/audit` 500 行、文本筛选、CSV 导出；`flowAuditCsv` 4 单测），FlowBoard「Sync health」接 `syncHealth`（last reconcile/stale stage/webhook 24h），新增 `PullReference` 统一 PR 引用 tooltip + 复制（看板/详情/抽屉/失败中心）。
+- P3-16：FlowEditor 既有流程步骤默认折叠、新建默认展开、add step 后全部折叠；FlowBoard 详情返回目标 lane `.is-return-highlight` 1.6s 后清除。
+- 验证：lint/typecheck:server 通过；`npm test` **1006/49**；`npm run build` 通过；真实 UI 走查归档计数 0→1→0、确认删除 15→14、静音徽标往返、审计 CSV 90,686 bytes、PR 引用悬停/复制、折叠 body 0→1→0、返回高亮 YES×12。
 
 ## P3-10 / P3-11 回补（2026-11-14）
 

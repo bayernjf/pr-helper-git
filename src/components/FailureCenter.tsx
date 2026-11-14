@@ -9,6 +9,7 @@ import { failureSections, type FailureItem } from '../lib/automation/flows-failu
 import { rerunFailedActions } from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
 import { githubPullUrl } from '../lib/domain';
+import PullReference from './PullReference';
 import { t, tp } from '../i18n';
 
 function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer }: {
@@ -27,7 +28,7 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer }: {
         <small>
           {item.route}
           {item.pullNumber ? (
-            <> · <a href={githubPullUrl(flowRepository, item.pullNumber)} target="_blank" rel="noreferrer">#{item.pullNumber}</a></>
+            <> · <PullReference url={githubPullUrl(flowRepository, item.pullNumber)} label={`#${item.pullNumber}`} /></>
           ) : null}
         </small>
         <p>{item.message}</p>

@@ -13,13 +13,15 @@ import {
   type BoardFilter,
   type BoardState,
 } from '../lib/automation/flows-board';
-import { useToast } from './ui';
+import { useToast, useConfirm } from './ui';
 import { t, tp } from '../i18n';
 import { saveWorkflowToServer } from '../api/flows';
 import FailureCenter from './FailureCenter';
 import FlowEditor from './FlowEditor';
-import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView } from '../lib/automation/workflow';
+import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
 import FlowDetail from './FlowDetail';
+import FlowAuditModal from './FlowAuditModal';
+import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
 
@@ -63,9 +65,10 @@ function StepCard({ lane, repository }: {
       <small>
         {lane.label}
         {lane.pullNumber ? (
-          <a href={flowPullUrl(repository, lane.pullNumber)} target="_blank" rel="noreferrer">
-            {' '}#{lane.pullNumber}
-          </a>
+          <PullReference
+            url={flowPullUrl(repository, lane.pullNumber)}
+            label={`#${lane.pullNumber}`}
+          />
         ) : null}
       </small>
     </div>
@@ -73,11 +76,14 @@ function StepCard({ lane, repository }: {
 }
 
 /**
- * Flow board page. Read-only in this slice: edit/archive/mute and the step
- * drawer arrive with P3-3/P3-4; refresh re-reads the persisted projection.
+ * Flow board page: board filters, archive/restore + mute/unmute (P3-12),
+ * sync-health strip and flows audit entry (P3-14), and return-highlight
+ * (P3-16). Refreshing re-reads the persisted projection.
  */
 export default function FlowBoard() {
   const toast = useToast();
+  const confirm = useConfirm();
+  const [laneBusy, setLaneBusy] = useState('');
   const [inbox, setInbox] = useState<InboxPayload | null>(null);
   const [workflows, setWorkflows] = useState<BoardState['workflows']>([]);
   const [loading, setLoading] = useState(true);
@@ -86,10 +92,24 @@ export default function FlowBoard() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+  const [returnHighlight, setReturnHighlight] = useState<string | null>(null);
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  useEffect(() => {
+    if (!returnHighlight) return undefined;
+    const timer = window.setTimeout(() => setReturnHighlight(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [returnHighlight]);
+
+  const closeDetail = useCallback(() => {
+    const flowId = selectedFlowId;
+    setSelectedFlowId(null);
+    if (flowId) setReturnHighlight(flowId);
+  }, [selectedFlowId]);
 
   const load = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setRefreshing(true);
@@ -129,9 +149,28 @@ export default function FlowBoard() {
     const ordered = moveWorkflowToPosition(state.workflows, flowId, to);
     setWorkflows(sortWorkflowsForView(ordered, 'custom', 'asc'));
     // Persist the new custom order through the editor save route.
-    const moved = ordered[from];
-    void saveWorkflowToServer(moved).catch((err) => toast.error(errorMessage(err)));
+    const moved = ordered.find((workflow) => workflow.id === flowId);
+    if (moved) void saveWorkflowToServer(moved).catch((err) => toast.error(errorMessage(err)));
   }, [state.workflows, toast]);
+
+  const setLaneFlag = useCallback(async (
+    workflow: Workflow,
+    patch: Pick<Workflow, 'archived' | 'muted'> | { archived: true } | { muted: true },
+    message: string,
+  ) => {
+    setLaneBusy(workflow.id);
+    try {
+      // PUT the full workflow so the server's optimistic-version guard and the
+      // stage/audit projections stay consistent with the archive/mute column.
+      const saved = await saveWorkflowToServer({ ...workflow, ...patch });
+      setWorkflows((current) => current.map((item) => (item.id === saved.id ? saved : item)));
+      toast.notify(t(message));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setLaneBusy('');
+    }
+  }, [toast]);
 
   if (creating) {
     return (
@@ -156,7 +195,7 @@ export default function FlowBoard() {
           state={state}
           events={inbox?.events ?? []}
           inbox={inbox ?? undefined}
-          onClose={() => setSelectedFlowId(null)}
+          onClose={closeDetail}
           onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
           onSaved={(saved) => {
             // P3-11: a repository change saves a *new* flow, so append it
@@ -165,6 +204,11 @@ export default function FlowBoard() {
               ? current.map((w) => (w.id === saved.id ? saved : w))
               : [...current, saved]));
             setSelectedFlowId(saved.id);
+          }}
+          onDeleted={(id) => {
+            setWorkflows((current) => current.filter((workflow) => workflow.id !== id));
+            setSelectedFlowId(null);
+            void load(true);
           }}
         />
         {drawerStage && inbox ? (
@@ -197,6 +241,9 @@ export default function FlowBoard() {
             aria-label={t('Search flows')}
           />
         </label>
+        <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
+          {t('Audit log')}
+        </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
         </button>
@@ -210,6 +257,25 @@ export default function FlowBoard() {
           <IconRefresh width={14} height={14} /> {refreshing ? t('Refreshing…') : t('Refresh')}
         </button>
       </section>
+
+      {inbox?.syncHealth ? (
+        <section className="sync-health">
+          <span className="sync-health-label">{t('Sync health')}</span>
+          {inbox.syncHealth.lastReconciliation ? (
+            <span className={inbox.syncHealth.lastReconciliation.state === 'completed' ? 'ok' : 'warn'}>
+              {tp('last reconcile: {state} · {count} stages', {
+                state: inbox.syncHealth.lastReconciliation.state,
+                count: inbox.syncHealth.lastReconciliation.stagesReconciled,
+              })}
+            </span>
+          ) : <span className="warn">{t('no reconciliation yet')}</span>}
+          <span className={inbox.syncHealth.stages.some((stage) => stage.stale) ? 'warn' : 'ok'}>
+            {tp('{count} stale stage(s)', { count: inbox.syncHealth.stages.filter((stage) => stage.stale).length })}
+          </span>
+          <span>{tp('{count} webhook(s) / 24h', { count: inbox.syncHealth.webhookDeliveriesLast24h })}</span>
+          {inbox.syncHealth.lastReconciliation?.interrupted ? <span className="warn">{t('reconcile interrupted')}</span> : null}
+        </section>
+      ) : null}
 
       {inbox ? (
         <FailureCenter
@@ -265,7 +331,7 @@ export default function FlowBoard() {
 
       <section className="project-board">
         {lanes.length ? lanes.map((lane) => (
-          <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}`}>
+          <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}${returnHighlight === lane.workflow.id ? ' is-return-highlight' : ''}`}>
             <header className="lane-header">
               <button
                 type="button"
@@ -285,6 +351,44 @@ export default function FlowBoard() {
                   {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
                 </h2>
               </button>
+              <div className="lane-actions">
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  disabled={laneBusy === lane.workflow.id}
+                  onClick={async () => {
+                    const archiving = !lane.workflow.archived;
+                    if (archiving) {
+                      const confirmed = await confirm({
+                        title: tp('Archive {name}?', { name: lane.workflow.name }),
+                        detail: t('Archiving stops its automation and hides it from the active filters; it can be restored later.'),
+                        confirmLabel: t('archive'),
+                        danger: true,
+                      });
+                      if (!confirmed) return;
+                    }
+                    await setLaneFlag(
+                      lane.workflow,
+                      { archived: archiving ? true : undefined },
+                      archiving ? 'Flow archived' : 'Flow restored',
+                    );
+                  }}
+                >
+                  {lane.workflow.archived ? t('restore') : t('archive')}
+                </button>
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  disabled={laneBusy === lane.workflow.id}
+                  onClick={() => setLaneFlag(
+                    lane.workflow,
+                    { muted: lane.muted ? undefined : true },
+                    lane.muted ? 'Flow unmuted' : 'Flow muted',
+                  )}
+                >
+                  {lane.muted ? t('unmute') : t('mute')}
+                </button>
+              </div>
               <span className="lane-run">
                 {sortMode === 'custom' && filter === 'all' && !search ? (
                   <span className="lane-move">
@@ -328,6 +432,7 @@ export default function FlowBoard() {
           </article>
         )}
       </section>
+      {auditOpen ? <FlowAuditModal onClose={() => setAuditOpen(false)} /> : null}
     </div>
   );
 }

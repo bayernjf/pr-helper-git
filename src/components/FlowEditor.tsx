@@ -50,6 +50,11 @@ import { t, tp } from '../i18n';
 
 type EditorStage = Workflow['stages'][number];
 
+/** Stable key for the per-stage collapse state; stageId survives reorders. */
+function stageKey(stage: EditorStage, index: number): string {
+  return stage.stageId ?? `index:${index}`;
+}
+
 /**
  * The four prerequisites upstream requires before automation toggles may be
  * flipped (P3-7): without an AI automation credential the generated PR body
@@ -127,6 +132,11 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   );
   const [draft, setDraft] = useState<Workflow>(initial);
   const [createMode, setCreateMode] = useState(workflow === undefined);
+  // Existing flows open with every step form folded; a new flow keeps its
+  // first step open so the user can start typing immediately (#5/#6).
+  const [expandedStages, setExpandedStages] = useState<Set<string>>(() => new Set(
+    workflow ? [] : initial.stages.map((stage, index) => stageKey(stage, index)),
+  ));
   const [repositoryInput, setRepositoryInput] = useState(initial.repository);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -531,9 +541,29 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
 
       <section className="editor-card">
         <span className="drawer-label">{t('Steps')}</span>
-        {draft.stages.map((stage, index) => (
-          <article key={stage.stageId ?? index} className="editor-stage">
-            <div className="editor-stage-routes">
+        {draft.stages.map((stage, index) => {
+          const key = stageKey(stage, index);
+          const expanded = expandedStages.has(key);
+          return (
+          <article key={key} className={`editor-stage${expanded ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="editor-stage-head"
+              aria-expanded={expanded}
+              onClick={() => setExpandedStages((current) => {
+                const next = new Set(current);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              })}
+            >
+              <span className="step-index">{index + 1}</span>
+              <b>{stage.source} → {stage.target}</b>
+              <span className="editor-stage-toggle">{t(expanded ? 'collapse' : 'expand')}</span>
+            </button>
+            {expanded ? (
+            <div className="editor-stage-fields">
+            <div className="editor-stage-body">
               <label>
                 {t('source branch')}
                 <input
@@ -611,12 +641,19 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                 </button>
               ) : null}
             </div>
+            </div>
+            ) : null}
           </article>
-        ))}
+          );
+        })}
         <button
           type="button"
           className="drawer-btn"
-          onClick={() => setDraft((current) => addStage(current, 'feature', current.stages[current.stages.length - 1]?.target || 'main'))}
+          onClick={() => {
+            setDraft((current) => addStage(current, 'feature', current.stages[current.stages.length - 1]?.target || 'main'));
+            // The upstream editor folds every step after adding a new one (#5).
+            setExpandedStages(new Set());
+          }}
         >
           {t('add step')}
         </button>

@@ -3,6 +3,8 @@
 // the stage's automation flags. Operations (create/merge/repair) arrive with
 // the step drawer (P3-3); live revalidation arrives with P2-1 credentials.
 import { useMemo, useState } from 'react';
+import { useToast, useConfirm } from './ui';
+import { deleteFlowFromServer } from '../api/flows';
 import {
   buildStageDetails,
   flowProgress,
@@ -13,6 +15,7 @@ import { githubPullUrl } from '../lib/domain';
 import type { BoardState } from '../lib/automation/flows-board';
 import { t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
+import PullReference from './PullReference';
 
 /** "M/D HH:mm" in local time, matching the board's updated stamp. */
 function formatEventTime(occurredAt: string): string {
@@ -29,7 +32,7 @@ function AutomationChip({ label, enabled }: { label: string; enabled: boolean })
   );
 }
 
-export default function FlowDetail({ flowId, state, events, inbox, onClose, onOpenDrawer, onSaved }: {
+export default function FlowDetail({ flowId, state, events, inbox, onClose, onOpenDrawer, onSaved, onDeleted }: {
   flowId: string;
   state: BoardState;
   events: readonly StageEventRow[];
@@ -39,7 +42,11 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
   onOpenDrawer?: (stageIndex: number) => void;
   /** When present, the flow can be edited; called with the saved version. */
   onSaved?: (saved: import('../lib/automation/workflow').Workflow) => void;
+  /** Called after a confirmed local delete; the board removes the lane. */
+  onDeleted?: (id: string) => void;
 }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const flow = useMemo(
     () => state.workflows.find((workflow) => workflow.id === flowId),
     [state.workflows, flowId],
@@ -50,6 +57,10 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
     [state, flow, events],
   );
   const progress = useMemo(() => (flow ? flowProgress(state, flow) : null), [state, flow]);
+  const recentRuns = useMemo(
+    () => (inbox?.runs ?? []).filter((run) => run.workflowId === flowId).slice(0, 10),
+    [inbox?.runs, flowId],
+  );
 
   if (!flow) {
     return (
@@ -79,6 +90,30 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
         <button type="button" className="ghost" onClick={onClose}>← {t('Back')}</button>
         <div className="detail-head-main">
           {onSaved ? <button type="button" className="drawer-btn" onClick={() => setEditing(true)}>{t('Edit flow')}</button> : null}
+          {onDeleted ? (
+            <button
+              type="button"
+              className="drawer-btn danger"
+              onClick={async () => {
+                const confirmed = await confirm({
+                  title: tp('Delete {name}?', { name: flow.name }),
+                  detail: t('This removes the flow from the local database. It cannot be undone.'),
+                  confirmLabel: t('Delete'),
+                  danger: true,
+                });
+                if (!confirmed) return;
+                try {
+                  await deleteFlowFromServer(flow.id);
+                  toast.notify(t('Flow deleted'));
+                  onDeleted(flow.id);
+                } catch (err) {
+                  toast.error(String(err instanceof Error ? err.message : err));
+                }
+              }}
+            >
+              {t('Delete flow')}
+            </button>
+          ) : null}
           {flow.name.toLocaleLowerCase() !== flow.repository.toLocaleLowerCase() ? (
             <p className="detail-eyebrow">{flow.repository}</p>
           ) : null}
@@ -101,6 +136,24 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
         </div>
       </section>
 
+      {recentRuns.length ? (
+        <section className="detail-runs">
+          <span className="detail-events-label">{t('Recent runs')}</span>
+          <ol>
+            {recentRuns.map((run) => (
+              <li key={run.id}>
+                <b>{run.source} → {run.target}</b>
+                {run.pullNumber ? (
+                  <PullReference url={githubPullUrl(flow.repository, run.pullNumber)} label={`#${run.pullNumber}`} />
+                ) : null}
+                <span>{run.state}</span>
+                <time>{formatEventTime(run.startedAt ?? '')}</time>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       <section className="detail-stages">
         {stages.map((stage) => (
           <article key={stage.index} className={`detail-stage ${stage.tone}`}>
@@ -108,9 +161,10 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
               <span className="step-index">{stage.index + 1}</span>
               <b>{stage.source} → {stage.target}</b>
               {stage.pullNumber ? (
-                <a href={stage.pullUrl ?? githubPullUrl(flow.repository, stage.pullNumber)} target="_blank" rel="noreferrer">
-                  #{stage.pullNumber}
-                </a>
+                <PullReference
+                  url={stage.pullUrl ?? githubPullUrl(flow.repository, stage.pullNumber)}
+                  label={`#${stage.pullNumber}`}
+                />
               ) : null}
               <i className={`tone-dot ${stage.tone}`} aria-hidden="true" />
               <span className="detail-state">{stage.stateText}</span>

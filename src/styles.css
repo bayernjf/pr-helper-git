@@ -3914,3 +3914,50 @@ pre.diff {
 .drawer-deployment-history small { color: var(--muted); font-size: var(--fs-meta); display: block; }
 .drawer-deployment-history li.failure b { color: var(--red); }
 .drawer-deployment-history li.success b { color: var(--green); }
+
+/* Archive / mute + sync health + run history (P3-12/P3-14) */
+.lane-actions { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.sync-health { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); font-size: var(--fs-meta); color: var(--muted); }
+.sync-health-label { color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.sync-health .ok { color: var(--green); }
+.sync-health .warn { color: var(--amber); }
+.detail-runs { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel); }
+.detail-runs ol { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.detail-runs li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-meta); color: var(--muted); }
+.detail-runs li b { color: var(--text); }
+.detail-runs li a { color: var(--accent); text-decoration: none; }
+.detail-runs li time { margin-left: auto; color: var(--faint); }
+.flow-audit-body { padding: 0 16px 16px; }
+.flow-audit-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 0; flex-wrap: wrap; }
+.flow-audit-toolbar input { flex: 1 1 240px; min-width: 180px; }
+.flow-audit-toolbar span { color: var(--muted); font-size: var(--fs-meta); }
+.flow-audit-table { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); }
+.flow-audit-table th, .flow-audit-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.flow-audit-table th { color: var(--faint); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+.flow-audit-table td:last-child { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-audit-table .ok { color: var(--green); }
+.flow-audit-table .warn { color: var(--red); }
+.flow-audit-table code { font-size: var(--fs-meta); color: var(--text); }
+.pr-ref-wrap { position: relative; display: inline-flex; }
+.pr-ref { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: none; }
+.pr-ref:hover, .pr-ref:focus-visible { text-decoration: underline; }
+.pr-ref-tip { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; display: flex; align-items: center; gap: 8px; max-width: 420px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); white-space: nowrap; font-size: var(--fs-meta); }
+.pr-ref-tip code { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.pr-ref-tip a { color: var(--accent); text-decoration: none; }
+.editor-stage-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: var(--text); padding: 2px 0; text-align: left; cursor: pointer; }
+.editor-stage-head:hover .editor-stage-toggle { color: var(--accent); }
+.editor-stage-toggle { margin-left: auto; color: var(--faint); font-size: var(--fs-meta); }
+.editor-stage-body { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.editor-stage-body label { flex: 1 1 180px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
+.editor-stage-body input { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: var(--fs-ui); font-family: var(--mono); padding: 5px 10px; }
+.editor-stage-body input:focus { outline: none; border-color: var(--accent-line); }
+.editor-stage-body input:disabled { color: var(--faint); }
+@keyframes return-highlight {
+  0% { box-shadow: 0 0 0 2px var(--accent); background: var(--accent-soft); }
+  70% { box-shadow: 0 0 0 2px var(--accent-line); background: var(--accent-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.project-lane.is-return-highlight { animation: return-highlight 1.6s ease-out; }
+.editor-stage-fields { display: flex; flex-direction: column; gap: 8px; }
+.drawer-btn.danger { color: var(--red); border-color: rgba(240, 85, 103, 0.45); }
+.drawer-btn.danger:hover:not(:disabled) { background: var(--red); color: #fff; }
