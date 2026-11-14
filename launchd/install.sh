@@ -25,6 +25,9 @@ PORT="${PR_HELPER_GIT_AGENT_PORT:-4789}"
 LOG_DIR="$HOME/Library/Logs/pr-helper-git"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 AUTOMATION="${PR_HELPER_GIT_AUTOMATION:-1}"
+# Shadow period (P5-1): set PR_HELPER_AUTOMATION_SHADOW=1 so the engine only
+# observes and logs — the cloud pr-helper stays the executor until switch day.
+SHADOW="${PR_HELPER_AUTOMATION_SHADOW:-0}"
 
 mkdir -p "$LOG_DIR" "$HOME/Library/LaunchAgents"
 
@@ -54,6 +57,7 @@ cat > "$PLIST" <<EOF
   <key>EnvironmentVariables</key>
   <dict>
     <key>PR_HELPER_GIT_AUTOMATION</key><string>${AUTOMATION}</string>
+    <key>PR_HELPER_AUTOMATION_SHADOW</key><string>${SHADOW}</string>
   </dict>
   <key>StandardOutPath</key><string>${LOG_DIR}/server.out.log</string>
   <key>StandardErrorPath</key><string>${LOG_DIR}/server.err.log</string>
@@ -66,6 +70,6 @@ plutil -lint "$PLIST"
 launchctl bootout "gui/$(id -u)/${LABEL}" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
-echo "installed: ${LABEL} (port ${PORT}, automation=${AUTOMATION})"
+echo "installed: ${LABEL} (port ${PORT}, automation=${AUTOMATION}, shadow=${SHADOW})"
 echo "logs:      ${LOG_DIR}/server.{out,err}.log"
 echo "UI URL:    read the token with: grep -o 'token=[a-f0-9]*' ${LOG_DIR}/server.out.log | tail -1"
