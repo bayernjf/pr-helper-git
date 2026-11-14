@@ -3,7 +3,9 @@
 // static hosting for the built client in dist/.
 import http from 'node:http';
 import fsp from 'node:fs/promises';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { randomToken } from './security.mjs';
@@ -325,6 +327,23 @@ server.keepAliveTimeout = 60_000;
 server.headersTimeout = 65_000;
 
 await ensureDataPermissions();
+
+// D-006-v3: load the local credentials file (created via a read-only
+// `vercel env pull` into ~/.pr-helper-git/credentials.env) and inject any
+// keys the process does not already have — GITHUB_TOKEN, GITHUB_APP_* etc.
+// The file is 0600, lives in the data dir, and is excluded from backups'
+// plaintext output by the secret-shape redaction rule.
+try {
+  const credsPath = path.join(os.homedir(), '.pr-helper-git', 'credentials.env');
+  if (existsSync(credsPath)) {
+    for (const line of readFileSync(credsPath, 'utf8').split('\n')) {
+      const match = line.match(/^([A-Z_]+)="?(.*)"?$/);
+      if (match && match[2] && match[2] !== '[SENSITIVE]' && process.env[match[1]] === undefined) {
+        process.env[match[1]] = match[2];
+      }
+    }
+  }
+} catch { /* credentials are optional */ }
 
 // Automation engine schedulers are opt-in at boot (PR_HELPER_GIT_AUTOMATION=1)
 // so throwaway servers (e2e, smoke tests) never touch the automation database.

@@ -150,6 +150,11 @@ async function installationAccessToken(config, installationId) {
   return request;
 }
 function installationRequest(config, installationId, path, init) {
+  // D-006-v3: local deployments without App credentials drive the engine with
+  // a user PAT injected as GITHUB_TOKEN (main.mjs loads it from the data-dir
+  // credentials file). Same account, same REST paths as the App calls.
+  const pat = process.env.GITHUB_TOKEN?.trim?.();
+  if (pat) return githubFetch(path, pat, init);
   return installationAccessToken(config, installationId).then((token) => githubResponse(path, token, init));
 }
 

@@ -47,6 +47,15 @@ P3-4 编辑器 → P3-5 失败中心。
 
 最近更新：2026-11-14（Phase 3 开工：服务面 + 只读看板落地；基线 959/44；全门禁绿）。
 
+## Credentials D-006-v3 (2026-11-14)
+
+vercel env pull proved the App private key is Sensitive-locked (12 keys
+unpullable), so the engine gained a GITHUB_TOKEN PAT fallback at the
+installationRequest seam. Local credentials live in
+`~/.pr-helper-git/credentials.env` (0600; loaded at server boot; never in
+git). The cloud pr-helper was untouched — read-only pull only. This unblocks
+P2-1 and the Phase 5 shadow period.
+
 ## Test-repo iron rule (2026-11-14)
 
 Owner directive: no new test repositories (GitHub or local) without explicit
