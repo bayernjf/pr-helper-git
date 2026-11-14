@@ -8,13 +8,55 @@ import type {
 } from '../lib/automation/flows-board';
 import type { StageEventRow } from '../lib/automation/flows-detail';
 
+export type DeploymentRow = {
+  workflowId: string;
+  stageIndex: number;
+  stageId?: string | null;
+  source: string;
+  provider: 'vercel' | 'cloudflare';
+  environment: 'preview' | 'production';
+  runId: number | null;
+  runName: string;
+  runUrl: string | null;
+  deploymentUrl: string | null;
+  state: 'pending' | 'success' | 'failure';
+  conclusion: string | null;
+  failureSummary: string | null;
+  failureJobUrl: string | null;
+  healthState: 'success' | 'failure' | null;
+  healthUrl: string | null;
+  healthDetail: string | null;
+  updatedAt?: string | null;
+};
+
+export type DeploymentRunRow = Omit<DeploymentRow, 'failureSummary' | 'failureJobUrl'> & {
+  failureSummary: null;
+  failureJobUrl: null;
+  firstSeenAt?: string | null;
+};
+
+export type DeploymentConfigurationWarningRow = {
+  workflowId: string;
+  target?: string;
+  provider?: 'vercel' | 'cloudflare';
+  code: string;
+  value?: string;
+};
+
+export type DeploymentOptions = {
+  actionsAvailable: boolean;
+  workflows: Array<{ name: string; path: string }>;
+  environmentsAvailable: boolean;
+  environments: string[];
+};
+
 export type InboxPayload = {
   items: ActionQueueItem[];
   states: WorkflowStageStateRow[];
   events: StageEventRow[];
-  deployments: Array<Record<string, unknown>>;
-  deploymentRuns: Array<Record<string, unknown>>;
-  configurationWarnings: Array<Record<string, unknown>>;
+  deployments: DeploymentRow[];
+  deploymentRuns: DeploymentRunRow[];
+  configurationWarnings: DeploymentConfigurationWarningRow[];
   syncHealth: Record<string, unknown> | null;
   runs: Array<Record<string, unknown>>;
   timeline: Array<Record<string, unknown>>;
@@ -146,6 +188,40 @@ export function recordRecoveryEvent(input: { workflowId: string; stageIndex: num
 
 export function rerunFailedActions(input: { workflowId: string; stageIndex: number; source: string }) {
   return request<{ result: Record<string, unknown> }>('/api/flows/rerun-actions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+// --- Deployment gates (P3-10) ---------------------------------------------
+
+export function fetchDeploymentOptions(repository: string) {
+  return request<DeploymentOptions>(`/api/flows/deployment-options?repository=${encodeURIComponent(repository)}`);
+}
+
+export function rollbackDeployment(input: {
+  workflowId: string;
+  stageIndex: number;
+  source: string;
+  provider: 'vercel' | 'cloudflare';
+  runId: number;
+}) {
+  return request<{ ok: boolean; result: { workflowName: string } }>('/api/flows/deployment-rollback', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function retryDeploymentRun(input: {
+  workflowId: string;
+  stageIndex: number;
+  source: string;
+  provider: 'vercel' | 'cloudflare';
+  runId: number;
+}) {
+  return request<{ ok: boolean; result: { runId: number; provider: string; runName: string } }>('/api/flows/deployment-retry', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),

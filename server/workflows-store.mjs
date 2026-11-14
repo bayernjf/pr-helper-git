@@ -1381,6 +1381,41 @@ async function requestDeploymentRollback(environment, identity, input) {
   });
   return { workflowName: rollbackWorkflow.name };
 }
+async function retryDeploymentRun(environment, identity, input) {
+  if (!input.workflowId || !input.source || !Number.isInteger(input.stageIndex) || input.stageIndex < 0 || !["vercel", "cloudflare"].includes(input.provider) || !Number.isInteger(input.runId) || input.runId <= 0) throw new Error("无效的部署重跑请求");
+  if (!identity.installationId) throw new Error("尚未选择 GitHub App 可访问的仓库");
+  const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId);
+  const sql = query(environment);
+  const access = await requireWorkflowOperation(sql, user.id, input.workflowId, "actions-rerun");
+  const workflow = access.workflow;
+  const stage = workflow ? stageForIndex(workflow, input.stageIndex) : void 0;
+  if (!workflow || !stage) throw new Error("未找到对应的流程步骤");
+  const deployment = deploymentConfigsForTarget(workflow, stage.target).find((candidate) => candidate.provider === input.provider);
+  if (!deployment) throw new Error("该步骤没有配置对应的部署门禁");
+  if (access.team) assertTeamOperation(access.team.role, "actions-rerun");
+  const runs = await sql`SELECT deployment_url, state FROM workflow_stage_deployment_runs WHERE user_id = ${access.ownerUserId} AND workflow_id = ${input.workflowId} AND stage_id = ${stage.stageId} AND source = ${input.source} AND provider = ${input.provider} AND run_id = ${input.runId} LIMIT 1`;
+  if (!runs.length || runs[0].state !== "failure") throw new Error("只能重跑失败的部署运行");
+  const { owner, name } = ownerAndName(workflow.repository);
+  const config = parseGithubAppConfig(environment);
+  await installationRequest(config, identity.installationId, `/repos/${owner}/${name}/actions/runs/${input.runId}/rerun`, { method: "POST" });
+  const providerName = input.provider === "vercel" ? "Vercel" : "Cloudflare Pages";
+  const eventKey = `${input.workflowId}:${stage.stageId}:${input.source}:deployment-rerun:${input.provider}:${input.runId}:${Date.now()}`;
+  await recordWorkflowStageEvent(sql, access.ownerUserId, input.workflowId, input.stageIndex, input.source, eventKey, "deployment-rerun", `已重新触发 ${providerName} 部署 #${input.runId}`, stage.stageId, stage.target);
+  await recordOperationAuditForUser(sql, access.ownerUserId, identity.installationId, {
+    action: "deployment-rerun",
+    outcome: "success",
+    repository: workflow.repository,
+    workflowId: input.workflowId,
+    stageId: stage.stageId,
+    source: input.source,
+    target: stage.target,
+    pullNumber: null,
+    runId: input.runId,
+    metadata: { provider: input.provider, environment: deployment.environment },
+    failureReason: null
+  });
+  return { runId: input.runId, provider: input.provider, runName: deployment.workflowName };
+}
 async function codexRepairContext(environment, identity, workflowId, stageIndex, source, requestedPullNumber) {
   if (!Number.isInteger(stageIndex) || stageIndex < 0) throw new Error("\u65E0\u6548\u7684\u6D41\u7A0B\u6B65\u9AA4");
   if (!identity.installationId) throw new Error("\u5C1A\u672A\u9009\u62E9 GitHub App \u53EF\u8BBF\u95EE\u7684\u4ED3\u5E93");
@@ -2501,6 +2536,28 @@ async function listWorkflowStageDeploymentRuns(environment, identity, reads) {
   const rows = await sql`SELECT workflow_id, stage_index, stage_id, source, provider, environment, run_id, run_name, run_url, deployment_url, state, conclusion, NULL::text AS failure_summary, NULL::text AS failure_job_url, health_state, health_url, health_detail, first_seen_at, updated_at FROM (SELECT runs.*, row_number() OVER (PARTITION BY workflow_id, stage_id, source ORDER BY updated_at DESC) AS position FROM workflow_stage_deployment_runs runs WHERE ${visibleWorkflowPredicate(sql, user.id, "runs.user_id", "runs.workflow_id")}) recent WHERE position <= 8 ORDER BY workflow_id, stage_id, source, updated_at DESC`;
   return rows.map((row) => ({ workflowId: row.workflow_id, stageIndex: row.stage_index, stageId: row.stage_id, source: row.source, provider: row.provider, environment: row.environment, runId: row.run_id, runName: row.run_name, runUrl: row.run_url, deploymentUrl: row.deployment_url, state: row.state, conclusion: row.conclusion, failureSummary: null, failureJobUrl: null, healthState: row.health_state, healthUrl: row.health_url, healthDetail: row.health_detail, firstSeenAt: row.first_seen_at, updatedAt: row.updated_at }));
 }
+async function listDeploymentOptions(environment, identity, repository) {
+  if (!repository) throw new Error("无效的仓库参数");
+  if (!identity.installationId) {
+    return { actionsAvailable: false, workflows: [], environmentsAvailable: false, environments: [] };
+  }
+  const { owner, name } = ownerAndName(repository);
+  const config = parseGithubAppConfig(environment);
+  const [actions, environments] = await Promise.all([
+    installationRequest(config, identity.installationId, `/repos/${owner}/${name}/actions/workflows?per_page=100`)
+      .then((result) => ({ available: true, values: result.workflows.filter((item) => item.state === "active").map((item) => ({ name: item.name, path: item.path })) }))
+      .catch(() => ({ available: false, values: [] })),
+    installationRequest(config, identity.installationId, `/repos/${owner}/${name}/environments?per_page=100`)
+      .then((result) => ({ available: true, values: result.environments.map((item) => item.name) }))
+      .catch(() => ({ available: false, values: [] }))
+  ]);
+  return {
+    actionsAvailable: actions.available,
+    workflows: actions.values,
+    environmentsAvailable: environments.available,
+    environments: environments.values
+  };
+}
 async function listWorkflowConfigurationWarnings(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId);
   const sql = query(environment);
@@ -2943,6 +3000,7 @@ export {
   isStoredWorkflow,
   jsonFromModelText,
   listActionableStages,
+  listDeploymentOptions,
   listOperationAuditLogs,
   listRecentWorkflowStageEvents,
   listRecoveryStatuses,
@@ -2992,6 +3050,7 @@ export {
   removeWorkflowStage,
   repairCommitSha,
   requestDeploymentRollback,
+  retryDeploymentRun,
   requestUser,
   requiredApprovalsFromProtection,
   rerunFailedActions,

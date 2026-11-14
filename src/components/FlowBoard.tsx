@@ -158,7 +158,14 @@ export default function FlowBoard() {
           inbox={inbox ?? undefined}
           onClose={() => setSelectedFlowId(null)}
           onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
-          onSaved={(saved) => setWorkflows((current) => current.map((w) => (w.id === saved.id ? saved : w)))}
+          onSaved={(saved) => {
+            // P3-11: a repository change saves a *new* flow, so append it
+            // instead of mapping over ids that only covers the original.
+            setWorkflows((current) => (current.some((w) => w.id === saved.id)
+              ? current.map((w) => (w.id === saved.id ? saved : w))
+              : [...current, saved]));
+            setSelectedFlowId(saved.id);
+          }}
         />
         {drawerStage && inbox ? (
           <StepDrawer

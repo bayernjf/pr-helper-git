@@ -1,12 +1,14 @@
-// Step drawer (Phase 3, P3-3): per-step operations — create PR / merge /
-// rerun / AI takeover — over the automation actions on one stage route, plus
-// the stage's event stream. Operations ride the write routes landed in
-// server/flows.mjs and fail loudly until P2-1 provides the credentials.
+// Step drawer (Phase 3, P3-3 + P3-10): per-step operations — create PR / merge
+// / rerun / AI takeover — over the automation actions on one stage route, plus
+// the stage's event stream and deployment gates (managed-repository Actions
+// runs, health, failure summary, retry and confirmed rollback). Operations
+// ride the write routes landed in server/flows.mjs and fail loudly until P2-1
+// provides the credentials.
 import { useMemo, useState } from 'react';
-import { useToast } from './ui';
+import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
 import { stageStateText } from '../lib/automation/flows-detail';
-import { matchingStageProjections, type Workflow } from '../lib/automation/workflow';
+import { deploymentConfigs, matchingStageProjections, type DeploymentConfig, type Workflow } from '../lib/automation/workflow';
 import { automationActionPresentation, type AutomationActionState } from '../lib/automation/workflow-run';
 import { githubPullUrl } from '../lib/domain';
 import {
@@ -14,7 +16,12 @@ import {
   executeAutomationAction,
   regenerateAutomationMessage,
   rerunFailedActions,
+  retryDeploymentRun,
+  rollbackDeployment,
   takeoverAutomationAction,
+  type DeploymentRow,
+  type DeploymentRunRow,
+  type DeploymentConfigurationWarningRow,
   type InboxPayload,
 } from '../api/flows';
 import type { ActionQueueItem, AutomationActionRow, WorkflowStageStateRow } from '../lib/automation/flows-board';
@@ -36,6 +43,41 @@ const STATE_TONE_LABEL: Record<string, string> = {
   cancelled: 'cancelled',
 };
 
+const DEPLOYMENT_STATE_LABEL: Record<string, string> = {
+  pending: 'waiting for the deployment run',
+  success: 'deployed',
+  failure: 'deployment failed',
+};
+
+function providerName(provider: DeploymentConfig['provider']): string {
+  return provider === 'vercel' ? 'Vercel' : 'Cloudflare Pages';
+}
+
+function deploymentTone(state: string): string {
+  return state === 'success' ? 'success' : state === 'failure' ? 'failure' : 'pending';
+}
+
+function deploymentWarningText(warning: DeploymentConfigurationWarningRow): string {
+  switch (warning.code) {
+    case 'no-deployments':
+      return t('No deployment gates configured for this flow');
+    case 'actions-unavailable':
+      return t('Could not read GitHub Actions workflows');
+    case 'workflow-not-found':
+      return tp('Deployment workflow not found: {value}', { value: warning.value ?? '' });
+    case 'environment-missing':
+      return t('GitHub Environment is empty');
+    case 'environment-not-found':
+      return tp('GitHub Environment not found: {value}', { value: warning.value ?? '' });
+    case 'health-path-invalid':
+      return t('Health check path does not start with /');
+    case 'rollback-workflow-not-found':
+      return tp('Rollback workflow not found: {value}', { value: warning.value ?? '' });
+    default:
+      return warning.code;
+  }
+}
+
 export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated }: {
   flow: Workflow;
   stageIndex: number;
@@ -45,6 +87,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   onMutated: () => void;
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState<string>('');
   const [error, setError] = useState('');
   const [takeoverFor, setTakeoverFor] = useState<number | null>(null);
@@ -92,6 +135,30 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     [inbox.events, flow.id, stageIndex],
   );
 
+  const deploymentRows = useMemo(
+    () => inbox.deployments.filter(
+      (deployment) => deployment.workflowId === flow.id
+        && (stage.stageId ? deployment.stageId === stage.stageId : deployment.stageIndex === stageIndex)
+        && (!primary ? true : deployment.source === primary.source),
+    ),
+    [inbox.deployments, flow.id, stage.stageId, stageIndex, primary],
+  );
+  const deploymentHistory = useMemo(
+    () => inbox.deploymentRuns.filter(
+      (run) => run.workflowId === flow.id
+        && (stage.stageId ? run.stageId === stage.stageId : run.stageIndex === stageIndex)
+        && (!primary ? true : run.source === primary.source),
+    ).slice(0, 8),
+    [inbox.deploymentRuns, flow.id, stage.stageId, stageIndex, primary],
+  );
+  const deploymentWarnings = useMemo(
+    () => inbox.configurationWarnings.filter(
+      (warning) => warning.workflowId === flow.id
+        && (!warning.target || warning.target === stage.target),
+    ),
+    [inbox.configurationWarnings, flow.id, stage.target],
+  );
+
   const kind = primary?.pullState === 'merged' ? 'merged' : primary?.pullState === 'open' ? 'open' : 'not-created';
   const stateText = stageStateText(kind, primary?.checksState, Boolean(primary?.checksTotal));
   const pullNumber = queueItem?.pullNumber ?? primary?.pullNumber ?? null;
@@ -128,6 +195,56 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       stageIndex,
       source: primary?.source || stage.source,
     }), t('Actions rerun requested'));
+  }
+
+  function deploymentConfigFor(provider: DeploymentConfig['provider']) {
+    return deploymentConfigs(flow).find((configuration) => configuration.target === stage.target && configuration.provider === provider);
+  }
+
+  function retryDeployment(row: DeploymentRow) {
+    if (!row.runId) {
+      toast.error(t('This deployment has no run to retry'));
+      return;
+    }
+    void runOp(`retry-deployment-${row.provider}-${row.runId}`, () => retryDeploymentRun({
+      workflowId: flow.id,
+      stageIndex,
+      source: row.source || primary?.source || stage.source,
+      provider: row.provider,
+      runId: row.runId!,
+    }), t('Deployment retry requested'));
+  }
+
+  async function rollbackDeploymentRun(run: DeploymentRunRow) {
+    if (!run.runId) return;
+    const configuration = deploymentConfigFor(run.provider);
+    if (!configuration?.rollbackWorkflowName) {
+      toast.error(t('This deployment gate has no rollback workflow configured'));
+      return;
+    }
+    const confirmed = await confirm({
+      title: tp('Roll back {provider} {environment}?', {
+        provider: providerName(run.provider),
+        environment: t(run.environment === 'production' ? 'production' : 'preview'),
+      }),
+      detail: tp('Target: {repository} · {source} → {target}\nRun #{runId} · workflow: {workflow}\nThis dispatches the managed repository’s rollback workflow. The run identity cannot be rewritten.', {
+        repository: flow.repository,
+        source: run.source,
+        target: stage.target,
+        runId: run.runId,
+        workflow: configuration.rollbackWorkflowName,
+      }),
+      confirmLabel: t('Roll back'),
+      danger: true,
+    });
+    if (!confirmed) return;
+    void runOp(`rollback-${run.provider}-${run.runId}`, () => rollbackDeployment({
+      workflowId: flow.id,
+      stageIndex,
+      source: run.source || primary?.source || stage.source,
+      provider: run.provider,
+      runId: run.runId!,
+    }), t('Deployment rollback started'));
   }
 
   return (
@@ -198,6 +315,100 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             {busy === 'rerun' ? t('Refreshing…') : t('rerun Actions')}
           </button>
         </div>
+
+        {deploymentWarnings.length ? (
+          <div className="drawer-section drawer-deployment-warnings">
+            <span className="drawer-label">{t('Deployment configuration warnings')}</span>
+            <ul>
+              {deploymentWarnings.map((warning, index) => <li key={index}>{deploymentWarningText(warning)}</li>)}
+            </ul>
+          </div>
+        ) : null}
+
+        {deploymentRows.length ? (
+          <div className="drawer-section drawer-deployments">
+            <span className="drawer-label">{t('Deployment gates')}</span>
+            <div className="deployment-cards">
+              {deploymentRows.map((deployment) => {
+                const tone = deploymentTone(deployment.state);
+                const primaryUrl = deployment.deploymentUrl || deployment.runUrl;
+                return (
+                  <article key={`${deployment.provider}-${deployment.source}`} className={`deployment-card ${tone}`}>
+                    <div className="deployment-card-main">
+                      <b>{providerName(deployment.provider)}</b>
+                      <small>
+                        {t(deployment.environment === 'production' ? 'production' : 'preview')}
+                        {' · '}
+                        {deployment.runId === null ? t('configured workflow has no run yet') : t(DEPLOYMENT_STATE_LABEL[deployment.state] ?? deployment.state)}
+                      </small>
+                      {deployment.healthState ? (
+                        <small className={`deployment-health ${deployment.healthState}`}>
+                          {t('health check')} · {deployment.healthState === 'success' ? t('passed') : t('failed')}
+                          {deployment.healthDetail ? ` (${deployment.healthDetail})` : ''}
+                        </small>
+                      ) : null}
+                      {deployment.failureSummary ? <p className="deployment-failure-summary">{deployment.failureSummary}</p> : null}
+                    </div>
+                    <div className="deployment-card-actions">
+                      {deployment.state === 'failure' && deployment.runId ? (
+                        <button
+                          type="button"
+                          className="drawer-btn small"
+                          disabled={busy !== ''}
+                          onClick={() => retryDeployment(deployment)}
+                        >
+                          {busy === `retry-deployment-${deployment.provider}-${deployment.runId}` ? t('Retrying…') : t('retry deployment')}
+                        </button>
+                      ) : null}
+                      {deployment.failureJobUrl ? <a href={deployment.failureJobUrl} target="_blank" rel="noreferrer">{t('failed job')} ↗</a> : null}
+                      {deployment.deploymentUrl ? <a href={deployment.deploymentUrl} target="_blank" rel="noreferrer">{t('open site')} ↗</a> : null}
+                      {deployment.runUrl ? <a href={deployment.runUrl} target="_blank" rel="noreferrer">{t('open logs')} ↗</a> : null}
+                      {primaryUrl && !deployment.deploymentUrl && !deployment.runUrl ? <a href={primaryUrl} target="_blank" rel="noreferrer">{t('open')} ↗</a> : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {deploymentHistory.length ? (
+          <div className="drawer-section drawer-deployment-history">
+            <span className="drawer-label">{t('Recent deployment runs')}</span>
+            <ol>
+              {deploymentHistory.map((run) => {
+                const configuration = deploymentConfigFor(run.provider);
+                const canRollback = run.state === 'success' && Boolean(run.deploymentUrl) && Boolean(configuration?.rollbackWorkflowName);
+                return (
+                  <li key={`${run.provider}-${run.runId}`} className={run.state}>
+                    <div>
+                      <b>{providerName(run.provider)} · {t(run.environment === 'production' ? 'production' : 'preview')}</b>
+                      <small>
+                        {run.runId === null ? t('run unavailable') : `#${run.runId}`}
+                        {' · '}
+                        {t(DEPLOYMENT_STATE_LABEL[run.state] ?? run.state)}
+                        {run.healthState ? ` · ${t('health check')} ${run.healthState === 'success' ? t('passed') : t('failed')}` : ''}
+                      </small>
+                    </div>
+                    <div className="deployment-run-actions">
+                      {canRollback ? (
+                        <button
+                          type="button"
+                          className="drawer-btn small"
+                          disabled={busy !== ''}
+                          onClick={() => void rollbackDeploymentRun(run)}
+                        >
+                          {busy === `rollback-${run.provider}-${run.runId}` ? t('Starting…') : t('roll back')}
+                        </button>
+                      ) : null}
+                      {run.runUrl ? <a href={run.runUrl} target="_blank" rel="noreferrer">{t('logs')} ↗</a> : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        ) : null}
 
         <div className="drawer-section">
           <span className="drawer-label">{t('Automation')}</span>

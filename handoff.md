@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 ⬜（回补）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 🔶（P3-10 实现完成/实网待验，P3-11 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -32,7 +32,7 @@ every committed file as world-readable.
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
 | Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等未闭环**（11-14 复审）：看板/详情/抽屉/编辑器/失败中心/手机已落地；但部署门禁、换仓库、归档/静音、预检、PR 引用、审计 CSV、同步健康度、团队 UI、运行历史仍缺（详见台账 Phase 3.5）。原“Phase 3 收官”结论作废 |
-| Phase 3.5 功能缺口回补 | ⬜ **待开工**：P3-10 部署门禁全链路、P3-11 换仓库必做；P3-12…P3-16 逐项裁决/补齐。D-002-v2 已撤销错误范围 |
+| Phase 3.5 功能缺口回补 | 🔶 P3-11 ✅（换仓库确认→新建，UI #7/#8 实测）；P3-10 🔶（部署门禁 UI/路由/store 实现完成，#22/#23 实测，真实 run 回滚/Environment 列表待 P2-1 凭据）；P3-12…P3-16 待裁决/补齐 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
 
@@ -46,7 +46,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-14（D-002-v2 功能缺口复审：部署门禁/换仓库误裁恢复；Phase 3/5 状态降级；验收统计改为 ✅18/🔶5/🔀1/⬜10）。
+最近更新：2026-11-14（P3-10/P3-11 代码回补：部署门禁 options/retry/rollback 路由 + FlowEditor 表单/警告/撤销 + StepDrawer 部署卡/健康/失败摘要/8 次 run；换仓库确认转新建；验收 ✅22/🔶8/🔀1/⬜3，测试 1002/48 + build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
@@ -60,6 +60,12 @@ flows 审计 UI+CSV、同步健康度、团队 UI、运行历史仍未完成。�
 `docs/migration-acceptance.md`（#1 改替代、#7/#8 与 #21/#22/#23/#30/#31 转 ⬜、统计修正）、
 `docs/phase5-runbook.md`（切换前置）、`AGENTS.md`（部署门禁不再列为禁区）。代码未改；
 下一步从 P3-10 开始。
+
+## P3-10 / P3-11 回补（2026-11-14）
+
+- 后端：`server/workflows-store.mjs` 新增 `listDeploymentOptions`（GitHub App 凭据列目标仓库 active Actions workflows + Environments；凭据缺失返回 `actionsAvailable=false` 而非炸板）与 `retryDeploymentRun`（只允许 `workflow_stage_deployment_runs.state='failure'`，`POST /actions/runs/{id}/rerun` + stage event + `deployment-rerun` 审计）；`server/flows.mjs` 新增 `GET /api/flows/deployment-options`、`POST /api/flows/deployment-rollback`、`POST /api/flows/deployment-retry`。
+- 前端：`src/api/flows.ts` 部署类型/client；`FlowEditor` 部署列表/警告/添加/编辑/移除/撤销/sync/suggestion/datalist/高级字段，仓库字段可编辑 + 确认后 `createWorkflow` 转新建；`StepDrawer` 部署卡（provider/environment/run/health/failure summary/failed job/open site/logs）、失败 run retry、最近 8 次 run、成功 run 确认式 rollback；`FlowBoard` 新 id 追加并选中。
+- 验证：`npm run lint`、`npm run typecheck:server`、`npm test` 1002/48、`npm run build` 通过；路由测试覆盖 options 400、rollback/retry 参数 400 与成功透传。真实回滚/重跑与 Environment 列表仍待 P2-1 GitHub App 凭据 + 真实部署 run；`workflow_stage_deployment_runs` 当前为 0。
 
 ## Credentials D-006-v3 (2026-11-14)
 

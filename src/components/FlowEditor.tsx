@@ -1,12 +1,14 @@
-// Flow editor (Phase 3, P3-4 + P3-7): edits an existing flow's identity,
-// step routes, automation toggles and recovery policy. The automation
-// mutations use the ported pure helpers (setStageAutoCreate/AutoMerge/
-// AutoAdvance) and the toggle confirmation mirrors the original
-// confirmImmediateAutomation interaction: flipping a switch computes the
-// immediate effect on the persisted projection and asks before it saves.
+// Flow editor (Phase 3, P3-4 + P3-7; P3-10/P3-11): edits an existing flow's
+// identity, step routes, automation toggles, deployment gates, recovery
+// policy and repository binding. The automation mutations use the ported
+// pure helpers (setStageAutoCreate/AutoMerge/AutoAdvance) and the toggle
+// confirmation mirrors the original confirmImmediateAutomation interaction:
+// flipping a switch computes the immediate effect on the persisted projection
+// and asks before it saves.
 //
-// Slice scope: editing an existing flow. Creating from scratch, drag
-// ordering, and the deployment form follow in the next slice.
+// Repository changes intentionally leave the existing flow untouched: a flow
+// is bound to one repository, so switching turns the draft into a new flow
+// (the original confirmRepositorySwitch semantics).
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from './ui';
 import { errorMessage } from '../lib/errors';
@@ -16,13 +18,23 @@ import {
   setStageAutoAdvance,
   addStage,
   removeStage,
+  addDeployment,
+  removeDeployment,
+  replaceDeployment,
   createWorkflow,
+  deploymentConfigs,
+  deploymentConfigurationWarnings,
+  deploymentSuggestions,
+  syncedDeployments,
+  type DeploymentConfig,
+  type DeploymentConfigurationWarning,
   type Workflow,
 } from '../lib/automation/workflow';
 import { immediateAutomationEffect } from '../lib/automation/workflow';
 import { projectedStageStatus } from '../lib/automation/projected-stage';
 import { matchingStageProjections } from '../lib/automation/workflow';
 import {
+  fetchDeploymentOptions,
   saveWorkflowToServer,
   deleteAiCredential,
   fetchAiCredential,
@@ -30,6 +42,7 @@ import {
   saveAiCredential,
   testSavedAiCredential,
   type AiAutomationCredential,
+  type DeploymentOptions,
   type GenerationRuleRow,
 } from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
@@ -58,6 +71,44 @@ function effectText(effect: ReturnType<typeof immediateAutomationEffect>): strin
   return tp('Enabling auto-create will create the PR immediately ({count} new commits).', { count: effect.aheadBy });
 }
 
+/** Deployment warning copy. The codes come from the ported pure validator. */
+function deploymentWarningText(warning: DeploymentConfigurationWarning): string {
+  switch (warning.code) {
+    case 'no-deployments':
+      return t('No deployment gates — the deployment gate is not holding this stage');
+    case 'actions-unavailable':
+      return t('Could not read GitHub Actions workflows — existing gates are kept as configured');
+    case 'workflow-not-found':
+      return tp('Workflow not found in this repository: {value}', { value: warning.value ?? '' });
+    case 'environment-missing':
+      return t('GitHub Environment is empty — leave it blank only when the repository has none');
+    case 'environment-not-found':
+      return tp('GitHub Environment not found in this repository: {value}', { value: warning.value ?? '' });
+    case 'health-path-invalid':
+      return t('Health check path must start with /');
+    case 'rollback-workflow-not-found':
+      return tp('Rollback workflow not found in this repository: {value}', { value: warning.value ?? '' });
+    default:
+      return warning.code;
+  }
+}
+
+function deploymentProviderName(provider: DeploymentConfig['provider']): string {
+  return provider === 'vercel' ? 'Vercel' : 'Cloudflare Pages';
+}
+
+function defaultDeploymentFor(workflow: Workflow): DeploymentConfig {
+  const target = workflow.stages[workflow.stages.length - 1]?.target || 'main';
+  const existing = deploymentConfigs(workflow).filter((deployment) => deployment.target === target);
+  const provider: DeploymentConfig['provider'] = existing.some((deployment) => deployment.provider === 'vercel') ? 'cloudflare' : 'vercel';
+  return {
+    target,
+    provider,
+    workflowName: provider === 'vercel' ? 'Deploy frontend to Vercel' : 'Deploy frontend to Cloudflare Pages',
+    environment: target === 'main' ? 'production' : 'preview',
+  };
+}
+
 export default function FlowEditor({ workflow, initialDraft, state, inbox, onClose, onSaved }: {
   /** Existing flow to edit; omit for create mode with initialDraft pre-seeded. */
   workflow?: Workflow;
@@ -68,15 +119,47 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   onSaved: (saved: Workflow) => void;
 }) {
   const toast = useToast();
-  const [draft, setDraft] = useState<Workflow>(
+  const initial = useMemo(
     () => structuredClone(workflow ?? initialDraft ?? createWorkflow('', 'dev', 'main')),
+    // The caller supplies one stable draft for the lifetime of the editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
-  const isCreate = workflow === undefined;
+  const [draft, setDraft] = useState<Workflow>(initial);
+  const [createMode, setCreateMode] = useState(workflow === undefined);
+  const [repositoryInput, setRepositoryInput] = useState(initial.repository);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [options, setOptions] = useState<DeploymentOptions | null>(null);
+  const [optionsError, setOptionsError] = useState('');
+  const [deploymentFormOpen, setDeploymentFormOpen] = useState(false);
+  const [deploymentEditIndex, setDeploymentEditIndex] = useState<number | null>(null);
+  const [deploymentDraft, setDeploymentDraft] = useState<DeploymentConfig | null>(null);
+  const [removedDeployment, setRemovedDeployment] = useState<{ deployment: DeploymentConfig; index: number } | null>(null);
   const prerequisites = useMemo(() => automationPrerequisites(inbox), [inbox]);
   const [ai, setAi] = useState<AiAutomationCredential>(null);
   const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+
+  useEffect(() => {
+    if (!/^[^/\s]+\/[^/\s]+$/.test(draft.repository)) {
+      setOptions(null);
+      setOptionsError('');
+      return undefined;
+    }
+    let cancelled = false;
+    fetchDeploymentOptions(draft.repository)
+      .then((next) => {
+        if (cancelled) return;
+        setOptions(next);
+        setOptionsError('');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setOptions(null);
+        setOptionsError(errorMessage(err));
+      });
+    return () => { cancelled = true; };
+  }, [draft.repository]);
 
   useEffect(() => {
     fetchAiCredential().then((res) => setAi(res.credential)).catch(() => setAi(null));
@@ -238,7 +321,141 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
     });
   }
 
+  const deploymentWarnings = useMemo(
+    () => deploymentConfigurationWarnings(draft, {
+      actionsLoaded: options?.actionsAvailable ?? false,
+      actionWorkflows: options?.workflows ?? [],
+      environmentsLoaded: options?.environmentsAvailable ?? false,
+      environments: options?.environments ?? [],
+    }),
+    [draft, options],
+  );
+  const configuredDeployments = useMemo(() => deploymentConfigs(draft), [draft]);
+  const deploymentTargets = useMemo(
+    () => [...new Set([...draft.stages.map((stage) => stage.target), ...configuredDeployments.map((deployment) => deployment.target)])],
+    [draft.stages, configuredDeployments],
+  );
+  const suggestions = useMemo(
+    () => (options?.actionsAvailable ? deploymentSuggestions(draft, options.workflows, options.environments) : []),
+    [draft, options],
+  );
+  const generalDeploymentWarnings = deploymentWarnings.filter((warning) => warning.deploymentIndex === undefined);
+  const rowDeploymentWarnings = (index: number) => deploymentWarnings.filter((warning) => warning.deploymentIndex === index);
+
+  function openAddDeployment() {
+    setDeploymentEditIndex(null);
+    setDeploymentDraft(defaultDeploymentFor(draft));
+    setDeploymentFormOpen(true);
+  }
+
+  function openEditDeployment(index: number) {
+    setDeploymentEditIndex(index);
+    setDeploymentDraft({ ...configuredDeployments[index] });
+    setDeploymentFormOpen(true);
+  }
+
+  function updateDeploymentDraft(patch: Partial<DeploymentConfig>) {
+    setDeploymentDraft((current) => ({ ...(current ?? defaultDeploymentFor(draft)), ...patch }));
+  }
+
+  function submitDeployment() {
+    if (!deploymentDraft) return;
+    const deployment: DeploymentConfig = {
+      ...deploymentDraft,
+      workflowName: deploymentDraft.workflowName.trim(),
+      githubEnvironment: deploymentDraft.githubEnvironment?.trim() || undefined,
+      healthCheckPath: deploymentDraft.healthCheckPath?.trim() || undefined,
+      rollbackWorkflowName: deploymentDraft.rollbackWorkflowName?.trim() || undefined,
+    };
+    if (!deployment.workflowName) {
+      toast.error(t('Deployment workflow name is required'));
+      return;
+    }
+    if (deployment.healthCheckPath && !deployment.healthCheckPath.startsWith('/')) {
+      toast.error(t('Health check path must start with /'));
+      return;
+    }
+    if (configuredDeployments.some((current, index) => index !== deploymentEditIndex && current.target === deployment.target && current.provider === deployment.provider)) {
+      toast.error(t('This target and provider already have a deployment gate'));
+      return;
+    }
+    setDraft((current) => (deploymentEditIndex === null
+      ? addDeployment(current, deployment)
+      : replaceDeployment(current, deploymentEditIndex, deployment)));
+    setDeploymentFormOpen(false);
+    setDeploymentEditIndex(null);
+    setDeploymentDraft(null);
+    setRemovedDeployment(null);
+    toast.notify(t(deploymentEditIndex === null ? 'Deployment gate added' : 'Deployment gate updated'));
+  }
+
+  function removeDeploymentAt(index: number) {
+    const removed = configuredDeployments[index];
+    setDraft((current) => removeDeployment(current, index));
+    setRemovedDeployment(removed ? { deployment: removed, index } : null);
+    setDeploymentFormOpen(false);
+    setDeploymentEditIndex(null);
+    setDeploymentDraft(null);
+    toast.notify(t('Deployment gate removed'));
+  }
+
+  function undoRemoveDeployment() {
+    if (!removedDeployment) return;
+    const { deployment, index } = removedDeployment;
+    setDraft((current) => {
+      const deployments = [...deploymentConfigs(current)];
+      deployments.splice(Math.min(index, deployments.length), 0, deployment);
+      return { ...current, deployments };
+    });
+    setRemovedDeployment(null);
+    toast.notify(t('Deployment gate restored'));
+  }
+
+  function syncDeployments() {
+    if (!options?.actionsAvailable) {
+      toast.error(t('Cannot sync deployment gates while GitHub Actions workflows are unavailable'));
+      return;
+    }
+    const next = syncedDeployments(draft, options.workflows, options.environments, true);
+    setDraft((current) => ({ ...current, deployments: next }));
+    toast.notify(t('Deployment gates synced to the repository workflows'));
+  }
+
+  function applySuggestion(index: number) {
+    const suggestion = suggestions[index];
+    if (!suggestion) return;
+    setDeploymentEditIndex(null);
+    setDeploymentDraft(suggestion);
+    setDeploymentFormOpen(true);
+  }
+
+  function switchRepository() {
+    const repository = repositoryInput.trim();
+    if (repository === draft.repository) return;
+    if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) {
+      toast.error(t('Repository must be owner/repo'));
+      return;
+    }
+    // A flow is bound to one repository. Replacing it in place would silently
+    // move the original flow's history onto another repository, so the
+    // original stays untouched and the draft becomes a new flow.
+    // eslint-disable-next-line no-alert
+    const confirmed = window.confirm(tp('Change this flow to {repository}? A new flow will be created; the original flow stays unchanged.', { repository }));
+    if (!confirmed) return;
+    const next = createWorkflow(repository, draft.stages[0]?.source || 'dev', draft.stages[0]?.target || 'main', draft.name || repository, []);
+    setDraft(next);
+    setCreateMode(true);
+    setRepositoryInput(repository);
+    setDeploymentFormOpen(false);
+    setDeploymentDraft(null);
+    toast.notify(t('New flow started for the new repository — the original flow was left unchanged'));
+  }
+
   async function save() {
+    if (!createMode && repositoryInput.trim() !== draft.repository) {
+      toast.error(t('Confirm the repository change first'));
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -260,8 +477,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
       <section className="page-head editor-head">
         <button type="button" className="ghost" onClick={onClose}>← {t('Back')}</button>
         <div className="detail-head-main">
-          <p className="detail-eyebrow">{workflow?.repository || t('New flow')}</p>
-          <h1>{isCreate ? t('New flow') : t('Edit flow')}</h1>
+          <p className="detail-eyebrow">{draft.repository || t('New flow')}</p>
+          <h1>{createMode ? t('New flow') : t('Edit flow')}</h1>
         </div>
         <button
           type="button"
@@ -293,12 +510,23 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
         <label className="editor-label">
           {t('Repository')}
           <input
-            value={draft.repository}
-            disabled={!isCreate}
+            value={createMode ? draft.repository : repositoryInput}
             placeholder={t('owner/repo')}
-            onChange={(event) => setDraft((current) => ({ ...current, repository: event.target.value }))}
+            onChange={(event) => {
+              const value = event.target.value;
+              setRepositoryInput(value);
+              if (createMode) setDraft((current) => ({ ...current, repository: value }));
+            }}
           />
         </label>
+        {!createMode && repositoryInput.trim() !== draft.repository ? (
+          <div className="compact-notice">
+            <p>{t('A flow is bound to one repository. Changing it creates a new flow and leaves the original unchanged.')}</p>
+            <button type="button" className="drawer-btn small" onClick={switchRepository}>
+              {t('Change repository and create a new flow')}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="editor-card">
@@ -392,6 +620,182 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
         >
           {t('add step')}
         </button>
+      </section>
+
+      <section className="editor-card">
+        <div className="editor-section-head">
+          <span className="drawer-label">{t('Deployment gates')}</span>
+          <button type="button" className="drawer-btn small" onClick={openAddDeployment}>
+            {t('add deployment gate')}
+          </button>
+          <button
+            type="button"
+            className="drawer-btn small"
+            disabled={!options?.actionsAvailable}
+            title={options?.actionsAvailable ? t('Re-derive gates from the repository workflows') : t('Cannot sync while Actions workflows are unavailable')}
+            onClick={syncDeployments}
+          >
+            {t('sync gates')}
+          </button>
+        </div>
+        <p className="editor-hint">
+          {t('Track the managed repository’s GitHub Actions deployments. The provider is only a label; pr-helper-git itself is not deployed to Vercel or Cloudflare.')}
+        </p>
+        {optionsError ? <p className="editor-hint error">{optionsError}</p> : null}
+        {generalDeploymentWarnings.length ? (
+          <ul className="deployment-config-warnings">
+            {generalDeploymentWarnings.map((warning, index) => <li key={`general-${index}`}>{deploymentWarningText(warning)}</li>)}
+          </ul>
+        ) : null}
+        {configuredDeployments.length ? (
+          <div className="deployment-config-list">
+            {configuredDeployments.map((deployment, index) => {
+              const warnings = rowDeploymentWarnings(index);
+              return (
+                <article key={`${deployment.target}:${deployment.provider}:${index}`} className={`deployment-config-row${warnings.length ? ' has-warning' : ''}`}>
+                  <div className="deployment-config-main">
+                    <b>{deployment.target}</b>
+                    <span className="deployment-chip">{deploymentProviderName(deployment.provider)}</span>
+                    <span className={`deployment-chip env-${deployment.environment}`}>{t(deployment.environment === 'production' ? 'production' : 'preview')}</span>
+                    <small>
+                      {deployment.workflowName}
+                      {deployment.githubEnvironment ? ` · ${deployment.githubEnvironment}` : ''}
+                      {deployment.healthCheckPath ? ` · ♥ ${deployment.healthCheckPath}` : ''}
+                    </small>
+                    {deployment.rollbackWorkflowName ? <small>↩ {deployment.rollbackWorkflowName}</small> : null}
+                  </div>
+                  {warnings.length ? (
+                    <ul className="deployment-row-warnings">
+                      {warnings.map((warning, warningIndex) => <li key={warningIndex}>{deploymentWarningText(warning)}</li>)}
+                    </ul>
+                  ) : null}
+                  <div className="deployment-row-actions">
+                    <button type="button" className="drawer-btn small" onClick={() => openEditDeployment(index)}>{t('edit')}</button>
+                    <button type="button" className="drawer-btn small" onClick={() => removeDeploymentAt(index)}>{t('remove')}</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="drawer-empty">{t('No deployment gates configured')}</p>
+        )}
+        {removedDeployment ? (
+          <div className="deployment-undo">
+            <span>{tp('Removed {provider} · {target}', { provider: deploymentProviderName(removedDeployment.deployment.provider), target: removedDeployment.deployment.target })}</span>
+            <button type="button" className="drawer-btn small" onClick={undoRemoveDeployment}>{t('undo')}</button>
+          </div>
+        ) : null}
+        {suggestions.length ? (
+          <div className="deployment-suggestions">
+            <b>{t('Suggestions from this repository')}</b>
+            {suggestions.map((suggestion, index) => (
+              <div key={`${suggestion.target}:${suggestion.provider}:${index}`}>
+                <small>{suggestion.target} · {deploymentProviderName(suggestion.provider)} · {suggestion.workflowName}</small>
+                <button type="button" className="drawer-btn small" onClick={() => applySuggestion(index)}>{t('use')}</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {deploymentFormOpen && deploymentDraft ? (
+          <div className="deployment-add-form">
+            <p className="editor-hint">{deploymentEditIndex === null ? t('New deployment gate') : t('Edit deployment gate')}</p>
+            <label className="editor-label">
+              {t('Deployment workflow')}
+              <input
+                list="deployment-workflow-options"
+                value={deploymentDraft.workflowName}
+                placeholder="Deploy frontend to Vercel"
+                onChange={(event) => updateDeploymentDraft({ workflowName: event.target.value })}
+              />
+              <datalist id="deployment-workflow-options">
+                {(options?.workflows ?? []).map((workflow) => <option key={workflow.path} value={workflow.name}>{workflow.path}</option>)}
+              </datalist>
+            </label>
+            <div className="editor-grow-row">
+              <label>
+                {t('target branch')}
+                <select
+                  value={deploymentDraft.target}
+                  onChange={(event) => updateDeploymentDraft({ target: event.target.value })}
+                >
+                  {deploymentTargets.map((target) => <option key={target} value={target}>{target}</option>)}
+                </select>
+              </label>
+              <label>
+                {t('provider')}
+                <select
+                  value={deploymentDraft.provider}
+                  onChange={(event) => updateDeploymentDraft({ provider: event.target.value as DeploymentConfig['provider'] })}
+                >
+                  <option value="vercel">Vercel</option>
+                  <option value="cloudflare">Cloudflare Pages</option>
+                </select>
+              </label>
+              <label>
+                {t('environment')}
+                <select
+                  value={deploymentDraft.environment}
+                  onChange={(event) => updateDeploymentDraft({ environment: event.target.value as DeploymentConfig['environment'] })}
+                >
+                  <option value="preview">{t('preview')}</option>
+                  <option value="production">{t('production')}</option>
+                </select>
+              </label>
+            </div>
+            <details className="deployment-advanced" open={Boolean(deploymentDraft.healthCheckPath || deploymentDraft.rollbackWorkflowName || deploymentDraft.githubEnvironment)}>
+              <summary>{t('advanced')}</summary>
+              <label className="editor-label">
+                {t('GitHub Environment')}
+                <input
+                  list="deployment-environment-options"
+                  value={deploymentDraft.githubEnvironment ?? ''}
+                  placeholder={!options || !options.environmentsAvailable ? 'preview-vercel' : options.environments[0] ?? ''}
+                  onChange={(event) => updateDeploymentDraft({ githubEnvironment: event.target.value })}
+                />
+                <datalist id="deployment-environment-options">
+                  {(options?.environments ?? []).map((environment) => <option key={environment} value={environment} />)}
+                </datalist>
+                <small>
+                  {!options
+                    ? t('Could not load GitHub Environments — leave blank to derive the conventional name')
+                    : !options.environmentsAvailable
+                      ? t('Could not load GitHub Environments — leave blank to derive the conventional name')
+                      : options.environments.length
+                        ? t('Choose one of the repository’s GitHub Environments, or leave blank to derive the conventional name')
+                        : t('This repository has no GitHub Environments — leave blank')}
+                </small>
+              </label>
+              <label className="editor-label">
+                {t('health check path')}
+                <input
+                  value={deploymentDraft.healthCheckPath ?? ''}
+                  placeholder="/health"
+                  onChange={(event) => updateDeploymentDraft({ healthCheckPath: event.target.value })}
+                />
+                <small>{t('Optional. Must start with / and is probed after a successful deployment.')}</small>
+              </label>
+              <label className="editor-label">
+                {t('rollback workflow')}
+                <input
+                  list="deployment-workflow-options"
+                  value={deploymentDraft.rollbackWorkflowName ?? ''}
+                  placeholder="Rollback production deployment"
+                  onChange={(event) => updateDeploymentDraft({ rollbackWorkflowName: event.target.value })}
+                />
+                <small>{t('Optional. The managed repository must already contain this workflow; pr-helper-git dispatches it.')}</small>
+              </label>
+            </details>
+            <div className="editor-automation">
+              <button type="button" className="drawer-btn primary small" onClick={submitDeployment}>
+                {deploymentEditIndex === null ? t('add gate') : t('save gate')}
+              </button>
+              <button type="button" className="drawer-btn small" onClick={() => { setDeploymentFormOpen(false); setDeploymentDraft(null); setDeploymentEditIndex(null); }}>
+                {t('Cancel')}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="editor-card">

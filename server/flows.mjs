@@ -171,6 +171,40 @@ export async function handleFlowsRoute(ctx) {
       return { status: 200, json: { result } };
     }
 
+    if (method === 'POST' && pathname === '/api/flows/deployment-rollback') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.source !== 'string'
+        || typeof payload.stageIndex !== 'number' || payload.stageIndex < 0
+        || !['vercel', 'cloudflare'].includes(payload.provider)
+        || typeof payload.runId !== 'number' || payload.runId <= 0) {
+        return { status: 400, json: { error: '无效的部署回滚请求' } };
+      }
+      const result = await store.requestDeploymentRollback(env, identity, {
+        workflowId: payload.workflowId,
+        stageIndex: payload.stageIndex,
+        source: payload.source,
+        provider: payload.provider,
+        runId: payload.runId,
+      });
+      return { status: 200, json: { ok: true, result } };
+    }
+
+    if (method === 'POST' && pathname === '/api/flows/deployment-retry') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.source !== 'string'
+        || typeof payload.stageIndex !== 'number' || payload.stageIndex < 0
+        || !['vercel', 'cloudflare'].includes(payload.provider)
+        || typeof payload.runId !== 'number' || payload.runId <= 0) {
+        return { status: 400, json: { error: '无效的部署重跑请求' } };
+      }
+      const result = await store.retryDeploymentRun(env, identity, {
+        workflowId: payload.workflowId,
+        stageIndex: payload.stageIndex,
+        source: payload.source,
+        provider: payload.provider,
+        runId: payload.runId,
+      });
+      return { status: 200, json: { ok: true, result } };
+    }
+
     // --- Workflow payload writes (P3-4), mirroring api/workflows.ts PUT/
     // --- PATCH/DELETE. Upstream re-verifies repository ownership via the
     // GitHub App API (IDOR guard); locally the token itself is the boundary
@@ -305,6 +339,17 @@ export async function handleFlowsRoute(ctx) {
         }
       });
       return { status: 200, json: { ...json, readWarnings } };
+    }
+
+    // Deployment configuration options (P3-10): actions workflows and GitHub
+    // Environments come from the managed repository, never from pr-helper-git's
+    // own deployment surface.
+    if (pathname === '/api/flows/deployment-options') {
+      const repository = query.get('repository') || '';
+      if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) {
+        return { status: 400, json: { error: '无效的仓库参数（需要 owner/repo）' } };
+      }
+      return { status: 200, json: await store.listDeploymentOptions(env, identity, repository) };
     }
 
     // Raw workflow payloads (editor, P3-4).

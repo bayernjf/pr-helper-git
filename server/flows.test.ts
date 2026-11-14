@@ -52,6 +52,16 @@ vi.mock('./workflows-store.mjs', () => ({
   enqueueWorkflowAutomationAction: vi.fn(async (_env, _identity, input) => ({ ...input, id: 1 })),
   recordRecoveryEvent: vi.fn(async () => undefined),
   rerunFailedActions: vi.fn(async (_env, _identity, input) => ({ rerun: input.source, count: 2 })),
+  // Deployment gates (P3-10)
+  listDeploymentOptions: vi.fn(async (_env, _identity, repository) => ({
+    actionsAvailable: true,
+    workflows: [{ name: 'Deploy', path: `.github/workflows/deploy.yml` }],
+    environmentsAvailable: true,
+    environments: ['production-vercel'],
+    repository,
+  })),
+  requestDeploymentRollback: vi.fn(async (_env, _identity, input) => ({ workflowName: 'Deploy', ...input })),
+  retryDeploymentRun: vi.fn(async (_env, _identity, input) => ({ runId: input.runId, provider: input.provider, runName: 'Deploy' })),
 }));
 
 const queryResults: Array<Array<Record<string, unknown>>> = [];
@@ -310,6 +320,79 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json.result).toEqual({ rerun: 'dev', count: 2 });
+  });
+});
+
+describe('deployment gate routes (P3-10)', () => {
+  it('serves repository Actions workflows and Environments for the editor', async () => {
+    const result = await handleFlowsRoute(ctx({
+      pathname: '/api/flows/deployment-options',
+      query: new URLSearchParams('repository=octo/app'),
+    }));
+    expect(result?.status).toBe(200);
+    expect(result?.json.workflows[0].name).toBe('Deploy');
+    expect(result?.json.environments).toEqual(['production-vercel']);
+    expect(store.listDeploymentOptions).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), 'octo/app',
+    );
+  });
+
+  it('rejects a malformed repository before the engine call', async () => {
+    const result = await handleFlowsRoute(ctx({
+      pathname: '/api/flows/deployment-options',
+      query: new URLSearchParams('repository=octo'),
+    }));
+    expect(result?.status).toBe(400);
+    expect(result?.json.error).toContain('owner/repo');
+    expect(store.listDeploymentOptions).not.toHaveBeenCalled();
+  });
+
+  it('forwards a confirmed rollback with the run identity', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/deployment-rollback',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'vercel', runId: 42 },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result?.json).toEqual({ ok: true, result: expect.objectContaining({ runId: 42 }) });
+    expect(store.requestDeploymentRollback).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(),
+      { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'vercel', runId: 42 },
+    );
+  });
+
+  it('rejects a rollback without a positive run id', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/deployment-rollback',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'vercel', runId: 0 },
+    }));
+    expect(result?.status).toBe(400);
+    expect(store.requestDeploymentRollback).not.toHaveBeenCalled();
+  });
+
+  it('forwards a deployment retry only for failed runs', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/deployment-retry',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'cloudflare', runId: 7 },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result?.json.result).toEqual({ runId: 7, provider: 'cloudflare', runName: 'Deploy' });
+    expect(store.retryDeploymentRun).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(),
+      { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'cloudflare', runId: 7 },
+    );
+  });
+
+  it('rejects an unknown provider before the engine call', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST',
+      pathname: '/api/flows/deployment-retry',
+      body: { workflowId: 'w1', stageIndex: 0, source: 'main', provider: 'netlify', runId: 7 },
+    }));
+    expect(result?.status).toBe(400);
+    expect(store.retryDeploymentRun).not.toHaveBeenCalled();
   });
 });
 

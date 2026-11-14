@@ -3876,3 +3876,41 @@ pre.diff {
 .editor-grow-row { flex-wrap: wrap; }
 .editor-grow { flex: 1 1 220px; }
 .editor-grow input { width: 100%; }
+
+/* Deployment gates (P3-10) — managed-repository Actions runs, health, retry, rollback */
+.editor-section-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.editor-section-head .drawer-label { margin-right: auto; }
+.editor-hint.error { color: var(--red); }
+.deployment-config-list { display: flex; flex-direction: column; gap: 8px; }
+.deployment-config-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--panel-2); }
+.deployment-config-row.has-warning { border-color: rgba(229, 192, 123, 0.45); }
+.deployment-config-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.deployment-config-main small { color: var(--muted); font-size: var(--fs-meta); }
+.deployment-chip { font-size: var(--fs-meta); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 1px 6px; color: var(--muted); }
+.deployment-chip.env-production { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.deployment-config-warnings, .deployment-row-warnings, .drawer-deployment-warnings ul { margin: 0; padding-left: 18px; color: var(--amber); font-size: var(--fs-meta); }
+.deployment-row-actions { display: flex; gap: 6px; }
+.deployment-undo { display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--muted); }
+.deployment-suggestions { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-soft); padding-top: 8px; font-size: var(--fs-meta); }
+.deployment-suggestions > div { display: flex; align-items: center; gap: 8px; }
+.deployment-suggestions small { flex: 1; color: var(--muted); }
+.deployment-add-form { border-top: 1px solid var(--border-soft); padding-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.deployment-advanced summary { cursor: pointer; font-size: var(--fs-meta); color: var(--muted); }
+.deployment-advanced { display: flex; flex-direction: column; gap: 10px; }
+.deployment-cards { display: flex; flex-direction: column; gap: 8px; }
+.deployment-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; gap: 10px; align-items: flex-start; background: var(--panel-2); }
+.deployment-card.success { border-color: rgba(126, 231, 135, 0.35); }
+.deployment-card.failure { border-color: rgba(255, 123, 114, 0.45); }
+.deployment-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.deployment-card-main small { color: var(--muted); font-size: var(--fs-meta); }
+.deployment-health.success { color: var(--green); }
+.deployment-health.failure { color: var(--red); }
+.deployment-failure-summary { margin: 2px 0 0; color: var(--red); font-size: var(--fs-meta); }
+.deployment-card-actions, .deployment-run-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.deployment-card-actions a, .deployment-run-actions a { color: var(--accent); font-size: var(--fs-meta); text-decoration: none; align-self: center; }
+.drawer-deployment-history ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.drawer-deployment-history li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--border-soft); }
+.drawer-deployment-history li:first-child { border-top: 0; }
+.drawer-deployment-history small { color: var(--muted); font-size: var(--fs-meta); display: block; }
+.drawer-deployment-history li.failure b { color: var(--red); }
+.drawer-deployment-history li.success b { color: var(--green); }
