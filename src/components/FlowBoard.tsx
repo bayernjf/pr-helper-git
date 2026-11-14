@@ -43,8 +43,10 @@ function StepCard({ lane, repository }: {
 }) {
   return (
     <div className={`lane-step ${lane.tone}`}>
-      <span className="lane-step-index">{lane.stageIndex + 1}</span>
-      <b>{lane.source} → {lane.target}</b>
+      <div className="step-route">
+        <span className="step-index">{lane.stageIndex + 1}</span>
+        <b>{lane.source} → {lane.target}</b>
+      </div>
       <small>
         {lane.label}
         {lane.pullNumber ? (
@@ -154,26 +156,32 @@ export default function FlowBoard() {
       <section className="project-board">
         {lanes.length ? lanes.map((lane) => (
           <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}`}>
-            <header>
-              <div className="lane-heading">
-                <div>
-                  <p className="eyebrow">{lane.workflow.repository}</p>
-                  <h2>{lane.workflow.name}</h2>
-                  {lane.workflow.archived ? <span className="lane-archived-badge">{t('Archived')}</span> : null}
-                  {lane.muted ? <span className="lane-muted-badge">{t('Muted')}</span> : null}
-                  <p className={`lane-run-summary ${lane.summary.tone}`}>{lane.summary.text}</p>
-                </div>
+            <header className="lane-header">
+              <div className="lane-title-block">
+                {/* The original board shows repository as eyebrow and name as
+                    the title; flows named after their repository would render
+                    the identity twice, so the eyebrow only survives a rename. */}
+                {lane.workflow.name.toLocaleLowerCase() !== lane.workflow.repository.toLocaleLowerCase() ? (
+                  <p className="lane-eyebrow">{lane.workflow.repository}</p>
+                ) : null}
+                <h2>
+                  {lane.workflow.name}
+                  {lane.workflow.archived ? <span className="lane-badge">{t('Archived')}</span> : null}
+                  {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
+                </h2>
               </div>
+              <span className="lane-run">
+                <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
+                <span className="run-text">{lane.summary.text}</span>
+              </span>
             </header>
-            <div className="lane-body">
-              <div className="lane-track">
-                {lane.steps.map((step, index) => (
-                  <Fragment key={`${step.stageIndex}:${step.source}`}>
-                    {index > 0 ? <span className="lane-connector" aria-hidden="true">→</span> : null}
-                    <StepCard lane={step} repository={lane.workflow.repository} />
-                  </Fragment>
-                ))}
-              </div>
+            <div className="lane-track">
+              {lane.steps.map((step, index) => (
+                <Fragment key={`${step.stageIndex}:${step.source}`}>
+                  {index > 0 ? <span className="lane-connector" aria-hidden="true">→</span> : null}
+                  <StepCard lane={step} repository={lane.workflow.repository} />
+                </Fragment>
+              ))}
             </div>
           </article>
         )) : (

@@ -210,14 +210,20 @@ export function laneStepModel(
       : undefined,
   );
   const tone = queueItem?.kind === 'checks-failed' ? 'failed' : queueItem ? 'attention' : run.tone;
-  const label = queueItem?.message || stageRunText(run.status, run.pullNumber);
+  const pullNumber = queueItem?.pullNumber ?? projection?.pullNumber ?? null;
+  // The status text stays number-free — the interactive #N link carries the
+  // reference; queue messages that already end in "#N" get it stripped.
+  const rawLabel = queueItem?.message || stageRunText(run.status, null);
+  const label = pullNumber != null && rawLabel.trimEnd().endsWith(`#${pullNumber}`)
+    ? rawLabel.trimEnd().slice(0, -String(pullNumber).length - 1).trimEnd()
+    : rawLabel;
   return {
     stageIndex,
     source,
     target: stage.target,
     tone,
     label,
-    pullNumber: queueItem?.pullNumber ?? projection?.pullNumber ?? null,
+    pullNumber,
     hasQueueItem: Boolean(queueItem),
   };
 }

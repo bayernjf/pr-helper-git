@@ -155,7 +155,9 @@ describe('laneStepModel', () => {
     const step = laneStepModel(state, FLOW_A, 0, route);
     expect(step.tone).toBe('running');
     expect(step.pullNumber).toBe(3);
-    expect(step.label).toContain('#3');
+    // The status copy stays number-free; the PR reference is carried by the
+    // interactive link (FlowBoard renders it), so the label must not repeat it.
+    expect(step.label).not.toContain('#3');
   });
 
   it('renders an idle waiting-for-changes step for a stage without projection', () => {
