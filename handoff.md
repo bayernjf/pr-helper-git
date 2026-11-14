@@ -67,6 +67,13 @@ table-set check) plus store read/write round-trip (3 tests). The cloud
 pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
 driven by create/merge which persist fine.
 
+## Switch/retire approval rule (2026-11-14, D-016)
+
+Every P5-2 switch and P5-3 sunset action requires the owner's explicit
+approval before execution (item-by-item: restate → approve → execute →
+report). Shadow-period consistency alone is not an execution authorization.
+Recorded in docs/phase5-runbook.md and the migration ledger.
+
 ## Test-repo iron rule (2026-11-14)
 
 Owner directive: no new test repositories (GitHub or local) without explicit
