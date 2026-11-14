@@ -29,7 +29,7 @@
 | 16 | 详情页开启合并后自动推进且不影响其它策略 | ✅ | `setStageAutoAdvance` 纯函数测试 + P3-7 确认交互 |
 | 17 | 详情页单步开启自动合并不影响自动创建策略 | ✅ | `setStageAutoMerge` 纯函数测试 |
 | 18 | 勾选自动合并先确认，取消则不保存 | ✅ | `immediateAutomationEffect` 语义测试（143）+ editor window.confirm |
-| 19 | 前置缺失时开关禁用 | 🔶 | 前置简化为诚实提示（AI 凭据面 M-E 未迁移）；阈值/规则缺失拒绝编辑已实测 |
+| 19 | 前置缺失时开关禁用 | ✅ | 11-15 UI 实测（隔离服务 4791）：新建流程时显示「automation toggles are disabled」，auto-create / auto-merge / auto-advance 三个开关及阈值全部 `disabled`；缺项逐条列出（AI 凭据、自动生成、自动确认、规则）。原版四项前置 `autoCreatePrerequisites()` 语义已移植，`editor-prerequisites` 3 个纯函数测试 |
 | 20 | 删除流程需确认后本地删除 | ✅ | UI 实测（11-14）：详情页「Delete flow」→ 确认弹窗（Delete Delete smoke 1114?）→ 删除后 lane 15→14、名称消失；DELETE 路由 200 |
 | 21 | 部署回滚二次确认 + 不可变运行标识 | ✅ | 11-15 范围裁决：StepDrawer 确认框展示 provider/environment/target/runId/rollback workflow 并二次确认，runId 不可改写；`requestDeploymentRollback` + `POST /api/flows/deployment-rollback` 路由测试 ✓；真实成功部署 run 已入投影（bayjf 2、pr-helper 2），回滚按钮条件已满足。实际 dispatch 会触发被管理仓库 rollback workflow，按用户裁决作为范围例外**不执行**，不据此宣称真实回滚已发生 |
 | 22 | 部署门禁收起表单 + 配置警告 | ✅ | FlowEditor 部署区（11-14 UI 实测）：收起时列表 + 警告；表单支持 workflow/target/provider/environment + 高级字段；`deploymentConfigurationWarnings` 渲染 no-deployments/actions-unavailable 等；真实仓库 Actions/Environment 列表随 `GET /api/flows/deployment-options`（路由测试 + 400 校验） |
@@ -44,8 +44,8 @@
 | 31 | 无 Environment 时提示留空 | ✅ | 11-15 实网：同一接口对 `bayernjf/pr-helper-git` 返回 `environmentsAvailable=true`、`environments=[]`；FlowEditor 的「未加载 / 有可选 / 仓库无 Environment 留空」三分支已实现，空列表走最后一支 |
 | 32 | PR 引用悬停显示地址、点击复制 | ✅ | UI 实测（11-14）：悬停 `#194` 显示完整 `https://github.com/bayernjf/zeus/pull/194` + Open PR；点击后 toast「PR link copied」；看板/详情/抽屉/失败中心统一 `PullReference` |
 | 33 | 手机竖屏无横向溢出，Lane 与抽屉可用 | ✅ | Chrome headless 390×844 仿真验收（14 lanes 无溢出）+ 700px 断点 |
-| 34 | 手机竖屏失败中心与创建弹窗不溢出 | 🔶 | 失败中心/编辑器为单列布局；走查确认 |
+| 34 | 手机竖屏失败中心与创建弹窗不溢出 | ✅ | 11-15 Chrome CDP 390×844 实测：`/m` Flows 失败中心宽 366、`document.documentElement.scrollWidth=390`；「New flow」创建页同样 `scrollWidth=390`，无横向溢出 |
 
-**统计**：✅ 31 · 🔶 2 · 🔀 1 · ⬜ 0（合计 34）。11-15 实网对账后 #30/#31 转 ✅；#21 按用户裁决转 ✅（确认 UX/路由验收，实际 dispatch 为范围例外）；剩余 🔶 为 #19 前置提示、#34 竖屏走查。**“34/34 已映射”不等于“34/34 已通过”**，P3-9 不得以 🚫 计数宣布功能闭环。
+**统计**：✅ 33 · 🔶 0 · 🔀 1 · ⬜ 0（合计 34）。11-15 实网对账后 #30/#31 转 ✅；#21 按用户裁决转 ✅（确认 UX/路由验收，实际 dispatch 为范围例外）；#19 四项前置禁用与 #34 手机竖屏走查同日通过；#1 为认证形态替代（🔀，非功能误砍）。**“34/34 已映射”不等于“34/34 已通过”**，但除 #1 的有意替代外已无开放式失败项。
 
 走查方式：`npm run dev` → Flows 视图（桌面）或 /m（手机），逐条对照本表。

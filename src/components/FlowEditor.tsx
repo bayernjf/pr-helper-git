@@ -33,6 +33,7 @@ import {
 import { immediateAutomationEffect } from '../lib/automation/workflow';
 import { projectedStageStatus } from '../lib/automation/projected-stage';
 import { matchingStageProjections } from '../lib/automation/workflow';
+import { automationPrerequisiteCodes, type AutomationPrerequisiteCode } from '../lib/automation/editor-prerequisites';
 import {
   fetchDeploymentOptions,
   saveWorkflowToServer,
@@ -57,14 +58,30 @@ function stageKey(stage: EditorStage, index: number): string {
 
 /**
  * The four prerequisites upstream requires before automation toggles may be
- * flipped (P3-7): without an AI automation credential the generated PR body
- * has no author. The local build reports them read-only until the credential
- * surface (M-E) is migrated.
+ * flipped: server AI credential, auto-generate, auto-confirm and at least one
+ * generation rule. The local build mirrors the original disable behaviour
+ * instead of merely warning.
  */
-function automationPrerequisites(inbox?: { readWarnings?: Array<{ source: string; message: string }> } | null): { ok: boolean; missing: string[] } {
-  const missing: string[] = [];
-  if (!inbox) missing.push(t('projection unavailable'));
-  return { ok: missing.length === 0, missing };
+function automationPrerequisites(
+  inbox?: { readWarnings?: Array<{ source: string; message: string }> } | null,
+  ai?: AiAutomationCredential | null,
+  rules: GenerationRuleRow[] = [],
+): { ok: boolean; missing: string[] } {
+  const labels: Record<AutomationPrerequisiteCode, string> = {
+    projection: t('projection unavailable'),
+    credential: t('server AI credential not configured'),
+    'auto-generate': t('auto-generate PR message is off'),
+    'auto-confirm': t('auto-confirm PR creation is off'),
+    rules: t('no generation rules in the library'),
+  };
+  const codes = automationPrerequisiteCodes({
+    projectionAvailable: Boolean(inbox),
+    credentialConfigured: Boolean(ai?.configured),
+    autoGeneratePrMessage: Boolean(ai?.autoGeneratePrMessage),
+    autoConfirmPrCreation: Boolean(ai?.autoConfirmPrCreation),
+    generationRuleCount: rules.length,
+  });
+  return { ok: codes.length === 0, missing: codes.map((code) => labels[code]) };
 }
 
 /** Immediate effect confirmation copy, mirroring the original dialog. */
@@ -146,9 +163,9 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   const [deploymentEditIndex, setDeploymentEditIndex] = useState<number | null>(null);
   const [deploymentDraft, setDeploymentDraft] = useState<DeploymentConfig | null>(null);
   const [removedDeployment, setRemovedDeployment] = useState<{ deployment: DeploymentConfig; index: number } | null>(null);
-  const prerequisites = useMemo(() => automationPrerequisites(inbox), [inbox]);
   const [ai, setAi] = useState<AiAutomationCredential>(null);
   const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+  const prerequisites = useMemo(() => automationPrerequisites(inbox, ai, rules), [inbox, ai, rules]);
 
   useEffect(() => {
     if (!/^[^/\s]+\/[^/\s]+$/.test(draft.repository)) {
@@ -504,7 +521,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
 
       {!prerequisites.ok ? (
         <details className="compact-notice">
-          <summary>{t('Automation prerequisites unmet — toggles may refuse to enable')}</summary>
+          <summary>{t('Automation prerequisites unmet — automation toggles are disabled')}</summary>
           {prerequisites.missing.map((item, index) => <p key={index}>{item}</p>)}
         </details>
       ) : null}
@@ -586,6 +603,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                 <input
                   type="checkbox"
                   checked={stage.automation?.autoCreatePullRequest === true}
+                  disabled={!prerequisites.ok}
                   onChange={(event) => void toggleAutomation(index, 'create', event.target.checked)}
                 />
                 {t('auto-create')}
@@ -596,7 +614,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                   value={stage.automation?.triggerMinCommits || 1}
                   className="editor-threshold"
                   title={t('auto-create threshold')}
-                  disabled={stage.automation?.autoCreatePullRequest !== true}
+                  disabled={!prerequisites.ok || stage.automation?.autoCreatePullRequest !== true}
                   onChange={(event) => {
                     const threshold = Math.min(20, Math.max(1, Number(event.target.value) || 1));
                     const currentStage = draft.stages[index];
@@ -619,6 +637,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                 <input
                   type="checkbox"
                   checked={stage.automation?.autoMergePullRequest === true}
+                  disabled={!prerequisites.ok}
                   onChange={(event) => void toggleAutomation(index, 'merge', event.target.checked)}
                 />
                 {t('auto-merge')}
@@ -627,6 +646,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                 <input
                   type="checkbox"
                   checked={(stage.automation as { autoAdvanceNext?: true } | undefined)?.autoAdvanceNext === true}
+                  disabled={!prerequisites.ok}
                   onChange={(event) => void toggleAutomation(index, 'advance', event.target.checked)}
                 />
                 {t('auto-advance')}
