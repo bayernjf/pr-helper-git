@@ -22,7 +22,7 @@ every committed file as world-readable.
 | P1-2 47 迁移原样执行 | ✅ 26 表 schema 一致（030 → server 调度例外）；`npm run check:migrations` 校验脚本随迁（11-14，26=26 ✓）|
 | P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
 | P1-4 store 层移植 | ✅ bundle 3014 行自含 ESM（29169ff）+ store 测试网随迁全绿（418 不变量 + workflow-rows 25 + github-api 11 + ai-credentials 5，11-14）；api 路由层测试随 Phase 3 服务面接线随迁 |
-| P1-5 领域内核 | 🔶 核心 4 模块落地 src/lib/automation/ + 随迁测试 143 全绿（11-14）；长尾 UI 支撑模块随 Phase 3 移植 |
+| P1-5 领域内核 | ✅ 核心 4 模块 + Phase 3 语义模块（board/detail/failures/audit/prerequisites）全部落地，143 域测试 + 31 UI 语义测试；长尾 navigation/save-queue 由 React hooks + API client 直接承载，不重复造状态机 |
 | P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
 | P2-2/4 drain + 对账引擎 | ✅ 418 store 不变量覆盖 drain 决策/退避/幂等/取消；租约/轮转/分级预算测试通过；本地 PG `reconciliation_runs` 产生 `inbox_refresh` 遥测行（14 total/12 reconciled/0 failed/≈6s） |
 | P2-6/7 AI 接管 + 重跑 | 🔶 接管/重生成/重跑/Codex 路由与 domain 解析已测；paused→unpause 实网端到端待 |
