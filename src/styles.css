@@ -3862,3 +3862,11 @@ pre.diff {
 .failure-center .fc-main p { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .failure-center .fc-recovery-badge { display: inline-block; margin-top: 3px; font-size: var(--fs-meta); color: var(--amber); border: 1px solid rgba(229, 192, 123, 0.4); background: var(--amber-soft); border-radius: var(--radius-xs); padding: 0 6px; }
 .failure-center .fc-ops { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Board sort + lane move (P3-4 tail) */
+.board-sort { display: inline-flex; gap: 4px; margin-right: auto; }
+.board-sort button { padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: var(--fs-meta); cursor: pointer; }
+.board-sort button.active { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
+.lane-move { display: inline-flex; gap: 2px; margin-right: 4px; }
+.lane-move-btn { width: 20px; height: 20px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--panel-2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-meta); }
+.lane-move-btn:hover { color: var(--text); border-color: var(--border-strong); }

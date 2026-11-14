@@ -14,6 +14,9 @@ import {
   setStageAutoCreate,
   setStageAutoMerge,
   setStageAutoAdvance,
+  addStage,
+  removeStage,
+  createWorkflow,
   type Workflow,
 } from '../lib/automation/workflow';
 import { immediateAutomationEffect } from '../lib/automation/workflow';
@@ -46,15 +49,20 @@ function effectText(effect: ReturnType<typeof immediateAutomationEffect>): strin
   return tp('Enabling auto-create will create the PR immediately ({count} new commits).', { count: effect.aheadBy });
 }
 
-export default function FlowEditor({ workflow, state, inbox, onClose, onSaved }: {
-  workflow: Workflow;
+export default function FlowEditor({ workflow, initialDraft, state, inbox, onClose, onSaved }: {
+  /** Existing flow to edit; omit for create mode with initialDraft pre-seeded. */
+  workflow?: Workflow;
+  initialDraft?: Workflow;
   state: BoardState;
   inbox?: import('../api/flows').InboxPayload;
   onClose: () => void;
   onSaved: (saved: Workflow) => void;
 }) {
   const toast = useToast();
-  const [draft, setDraft] = useState<Workflow>(() => structuredClone(workflow));
+  const [draft, setDraft] = useState<Workflow>(
+    () => structuredClone(workflow ?? initialDraft ?? createWorkflow('', 'dev', 'main')),
+  );
+  const isCreate = workflow === undefined;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const prerequisites = useMemo(() => automationPrerequisites(inbox), [inbox]);
@@ -143,8 +151,8 @@ export default function FlowEditor({ workflow, state, inbox, onClose, onSaved }:
       <section className="page-head editor-head">
         <button type="button" className="ghost" onClick={onClose}>← {t('Back')}</button>
         <div className="detail-head-main">
-          <p className="detail-eyebrow">{workflow.repository}</p>
-          <h1>{t('Edit flow')}</h1>
+          <p className="detail-eyebrow">{workflow?.repository || t('New flow')}</p>
+          <h1>{isCreate ? t('New flow') : t('Edit flow')}</h1>
         </div>
         <button
           type="button"
@@ -175,7 +183,12 @@ export default function FlowEditor({ workflow, state, inbox, onClose, onSaved }:
         </label>
         <label className="editor-label">
           {t('Repository')}
-          <input value={draft.repository} disabled />
+          <input
+            value={draft.repository}
+            disabled={!isCreate}
+            placeholder={t('owner/repo')}
+            onChange={(event) => setDraft((current) => ({ ...current, repository: event.target.value }))}
+          />
         </label>
       </section>
 
@@ -251,9 +264,25 @@ export default function FlowEditor({ workflow, state, inbox, onClose, onSaved }:
                 />
                 {t('auto-advance')}
               </label>
+              {draft.stages.length > 1 ? (
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  onClick={() => setDraft((current) => removeStage(current, index))}
+                >
+                  {t('remove step')}
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
+        <button
+          type="button"
+          className="drawer-btn"
+          onClick={() => setDraft((current) => addStage(current, 'feature', current.stages[current.stages.length - 1]?.target || 'main'))}
+        >
+          {t('add step')}
+        </button>
       </section>
 
       <section className="editor-card">

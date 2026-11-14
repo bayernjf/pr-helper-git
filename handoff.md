@@ -31,7 +31,7 @@ every committed file as world-readable.
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | 🔶 P3-0/1/2/3/5/7/8 完成（11-14，983/46，e2e 145）；剩：P3-4 新建流程/拖拽/加删步骤/部署表单、P3-6 时间线、P3-9 34 条映射 |
+| Phase 3 控制塔 UI React 重建 | ✅ **Phase 3 收官**（11-14，9 任务全闭环，983/46，e2e 145；34 条原版 e2e 映射清单 docs/migration-acceptance.md；设计偏差：lane 内嵌时间线不建=详情页承载、pointer 拖拽留尾=上下按钮等价入口）|
 | Phase 4–5 通知/影子并行/切换 | ⬜ |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），

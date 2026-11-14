@@ -13,13 +13,23 @@ import {
   type BoardFilter,
   type BoardState,
 } from '../lib/automation/flows-board';
-import { t } from '../i18n';
+import { useToast } from './ui';
+import { t, tp } from '../i18n';
+import { saveWorkflowToServer } from '../api/flows';
 import FailureCenter from './FailureCenter';
+import FlowEditor from './FlowEditor';
+import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView } from '../lib/automation/workflow';
 import FlowDetail from './FlowDetail';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
 
 const FILTERS: BoardFilter[] = ['attention', 'running', 'all', 'failed', 'automation', 'archived'];
+
+const SORT_LABEL: Record<'custom' | 'name' | 'createdAt', string> = {
+  custom: 'custom order',
+  name: 'name',
+  createdAt: 'created',
+};
 
 const FILTER_LABEL: Record<BoardFilter, string> = {
   attention: 'Needs attention',
@@ -67,6 +77,7 @@ function StepCard({ lane, repository }: {
  * drawer arrive with P3-3/P3-4; refresh re-reads the persisted projection.
  */
 export default function FlowBoard() {
+  const toast = useToast();
   const [inbox, setInbox] = useState<InboxPayload | null>(null);
   const [workflows, setWorkflows] = useState<BoardState['workflows']>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +87,9 @@ export default function FlowBoard() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const load = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) setRefreshing(true);
@@ -103,7 +117,36 @@ export default function FlowBoard() {
   }), [inbox, workflows]);
 
   const counts = useMemo(() => boardCounts(state), [state]);
-  const lanes = useMemo(() => buildLaneModels(state, filter, search, 'custom', 'asc'), [state, filter, search]);
+  const lanes = useMemo(
+    () => buildLaneModels(state, filter, search, sortMode, sortDirection),
+    [state, filter, search, sortMode, sortDirection],
+  );
+  const moveLane = useCallback((flowId: string, delta: number) => {
+    const order = state.workflows.map((w) => w.id);
+    const from = order.indexOf(flowId);
+    const to = Math.min(order.length - 1, Math.max(0, from + delta));
+    if (from === -1 || from === to) return;
+    const ordered = moveWorkflowToPosition(state.workflows, flowId, to);
+    setWorkflows(sortWorkflowsForView(ordered, 'custom', 'asc'));
+    // Persist the new custom order through the editor save route.
+    const moved = ordered[from];
+    void saveWorkflowToServer(moved).catch((err) => toast.error(errorMessage(err)));
+  }, [state.workflows, toast]);
+
+  if (creating) {
+    return (
+      <FlowEditor
+        initialDraft={createWorkflow('', 'dev', 'main')}
+        state={state}
+        inbox={inbox ?? undefined}
+        onClose={() => setCreating(false)}
+        onSaved={(saved) => {
+          setWorkflows((current) => [...current, saved]);
+          setSelectedFlowId(saved.id);
+        }}
+      />
+    );
+  }
 
   if (selectedFlowId) {
     return (
@@ -147,6 +190,9 @@ export default function FlowBoard() {
             aria-label={t('Search flows')}
           />
         </label>
+        <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
+          {t('New flow')}
+        </button>
         <button
           type="button"
           className="board-refresh"
@@ -179,6 +225,24 @@ export default function FlowBoard() {
       {loading && !inbox ? <div className="compact-notice"><p>{t('Refreshing…')}</p></div> : null}
 
       <section className="board-summary" aria-label={t('Flow board')}>
+        <span className="board-sort">
+          {(['custom', 'name', 'createdAt'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={sortMode === mode ? 'active' : ''}
+              onClick={() => {
+                if (sortMode === mode && mode !== 'custom') {
+                  setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+                } else {
+                  setSortMode(mode);
+                }
+              }}
+            >
+              {t(SORT_LABEL[mode])}{sortMode === mode && mode !== 'custom' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
+            </button>
+          ))}
+        </span>
         {FILTERS.map((key) => (
           <button
             key={key}
@@ -215,6 +279,26 @@ export default function FlowBoard() {
                 </h2>
               </button>
               <span className="lane-run">
+                {sortMode === 'custom' && filter === 'all' && !search ? (
+                  <span className="lane-move">
+                    <button
+                      type="button"
+                      className="lane-move-btn"
+                      aria-label={tp('move {name} up', { name: lane.workflow.name })}
+                      onClick={() => moveLane(lane.workflow.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="lane-move-btn"
+                      aria-label={tp('move {name} down', { name: lane.workflow.name })}
+                      onClick={() => moveLane(lane.workflow.id, +1)}
+                    >
+                      ↓
+                    </button>
+                  </span>
+                ) : null}
                 <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
                 <span className="run-text">{lane.summary.text}</span>
               </span>
