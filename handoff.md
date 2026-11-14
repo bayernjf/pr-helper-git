@@ -19,26 +19,26 @@ every committed file as world-readable.
 |---|---|
 | P0-1…P0-5（冻结/基线/导出/快照/推送） | ✅ 全部完成（2026-11-14，见台账 §12）|
 | P1-1 OrbStack Postgres | ✅ pr-helper-pg 常驻（127.0.0.1:54329，unless-stopped）|
-| P1-2 47 迁移原样执行 | 🔶 26 表 schema 一致（030 → server 调度例外）；校验脚本随迁未做 |
+| P1-2 47 迁移原样执行 | ✅ 26 表 schema 一致（030 → server 调度例外）；`npm run check:migrations` 校验脚本随迁（11-14，26=26 ✓）|
 | P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
 | P1-4 store 层移植 | 🔶 bundle 3014 行自含 ESM（29169ff）；~857 单测网随迁未做 |
-| P1-5 领域内核 | 🔶 编译至 server/domain.mjs + team-permissions.mjs（偏差：非 src/lib TS）|
-| P1-6 check-migrations 随迁 | ⬜ |
+| P1-5 领域内核 | 🔶 核心 4 模块落地 src/lib/automation/ + 随迁测试 143 全绿（11-14）；长尾 UI 支撑模块随 Phase 3 移植 |
+| P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
 | P2-2/4/6/7 引擎 bundle（drain/对账/AI 接管/重跑） | 🔶 已随 bundle 落地，单测随迁与实网验收待 |
 | P2-5 触发器三通道 | 🔶 webhook 端到端实测 ✓（11-14：HMAC/去重/projection/实时对账）；签名单测随迁待 |
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
 | P2-1 PAT/App 凭据实网验收 | ⬜ 待用户提供一次性私有测试仓 + PAT |
 | P2-3 门禁+合并执行接线 | ⬜ |
 | P2-8 团队四角色 | ⬜ |
-| P2-9 launchd LaunchAgent | ⬜ |
+| P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
 | Phase 3 控制塔 UI React 重建 | ⬜ |
 | Phase 4–5 通知/影子并行/切换 | ⬜ |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
-鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；全门禁绿（lint / typecheck:server / vitest 337 / build / e2e 144）。
+鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；测试基线 480/38（+143 随迁领域测试）。
 
-最近更新：2026-11-14（Phase 2 接线验证 + 台账 P1/P2 状态同步）。
+最近更新：2026-11-14（P1-6 重定界落地、P2-9 launchd 实测、P1-5 核心 4 模块+143 测试随迁；全门禁绿）。
 
 ## Rename completion (2026-11-12)
 

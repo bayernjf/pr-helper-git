@@ -133,8 +133,8 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P1-2 | 原样执行 47 迁移（含 030 的函数创建；调度职责由 server 承担，见 §11 例外） | supabase/migrations | 本地 PG schema | `\dt` 表清单与 §11 矩阵一致；迁移基线校验脚本随迁 | 🔶 26 表 schema 与矩阵一致（030 pg_cron/pg_net → server 调度 + no-op stub，§11 例外）；校验脚本随迁未做（P1-6） |
 | P1-3 | Supabase 数据导入（P0-3 dump → 本地 PG） | dump | 数据行数与导出一致 | 14 流程/17 stages 逐列对照 | ✅ 58806 行/25 表导入（eb5000e，reconciliation_runs 遥测表例外）；workflows=14 实测确认 |
 | P1-4 | `postgres` npm 客户端接入 + store 层重写（`workflows-store.ts` 的 SQL/事务/锁直迁，Supabase SDK → SQL） | api/_lib/workflows-store.ts | `server/workflows-store.mjs` | store 单测随迁全绿 | 🔶 esbuild bundle 3014 行自含 ESM 落地（29169ff，web-push CJS 桥/本地身份替换）；~857 单测网随迁未做 |
-| P1-5 | 领域纯逻辑直拷（domain/workflow/workflow-run/generation-rules/projected-stage/…） | src/lib/*.ts + tests | `src/lib/automation/*.ts` | 随迁单测全绿（预计 ~600±） | 🔶 偏差：编译至 server/domain.mjs + team-permissions.mjs（非 src/lib TS）；随迁单测未做 |
-| P1-6 | 迁移纪律脚本随迁（check-migrations） | tools/check-migrations.sh | scripts/ | `npm run check:migrations` 通过 | ⬜ |
+| P1-5 | 领域纯逻辑直拷（domain/workflow/workflow-run/generation-rules/projected-stage/…） | src/lib/*.ts + tests | `src/lib/automation/*.ts` | 随迁单测全绿（预计 ~600±） | 🔶 核心 4 模块落地 `src/lib/automation/`（workflow/workflow-run/projected-stage/generation-rules + 测试 143 全绿，11-14）；长尾 UI 支撑模块（navigation/workflow-save-queue/action-queue-request-queue 等）随 Phase 3 需求移植 |
+| P1-6 | 迁移纪律脚本随迁（check-migrations） | tools/check-migrations.sh | scripts/ | `npm run check:migrations` 通过 | ✅ 源前提不成立（快照无 tools/，11-14 查证）→ 重定界为新实现：`scripts/migration/check-migrations.mjs` 解析 47 迁移推导期望表集 vs 本地 PG 实测（26=26 ✓，核心表行数核对 ✓） |
 
 ### Phase 2 — 自动化引擎 + webhook 接收端 + launchd（4–5 天，中高风险）
 
@@ -148,7 +148,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P2-6 | AI 失败接管（regenerate/takeover/unpause）+ 消息解析（剥围栏/部分 JSON） | api/_lib/workflows-store.ts | server + 引擎 | 接管单测随迁；paused→unpause 端到端 | ⬜ |
 | P2-7 | Actions 重跑（次数/冷却/提交校验）+ Codex 修复包 | api/_lib/workflows-store.ts、api/[action].ts | server | rerun 校验单测随迁 | ⬜ |
 | P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ⬜ |
-| P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ⬜ |
+| P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ✅ `launchd/{install,uninstall}.sh` + README（11-14）：RunAtLoad 登录自启、KeepAlive 崩溃 10s 重启实测（kill -9 → 新 pid → 200）、自动化随启（PR_HELPER_GIT_AUTOMATION=1）、日志 ~/Library/Logs/pr-helper-git/；验证后已卸载，常驻启用待用户拍板（Phase 5 前） |
 | P2-10 | 影子模式开关（引擎只决策不执行 + 决策日志落库） | 本方案 Phase 5 | server | 影子日志可逐日比对 | ⬜ |
 
 ### Phase 3 — 控制塔视图 React 重建（4–5 天，量大但机械）
@@ -499,3 +499,4 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 2026-11-14 | **D-013**：根目录 `handoff.md` 增设「pr-helper 迁移进度（实时段）」，每个迁移会话收尾实时更新；本文档保持方案/追溯/验收职责不变 | 用户要求进度实时可见 | 用户 |
 | 2026-11-14 | Phase 2 接线修正四项（0330dd1 验证后）：① webhook 路由移出 token 鉴权区 — GitHub 投递无 session token，HMAC 签名即该端点鉴权，原位置所有真实投递 401；② 自动化调度器改为启动时显式 opt-in（`PR_HELPER_GIT_AUTOMATION=1`），撤除请求路径内启动 — launchd headless 无 UI 会话也 drain，e2e/临时 server 与真实自动化库零接触；③ shadow 模式重定义为**只读观测**（引擎无 dry-run 缝，shadow 永不调用 drain/reconcile 执行入口，仅报告队列深度+tracked 数）；④ `workflows-store.mjs` ssl `require`→尊重 URL `sslmode`/默认 `prefer`（本地 OrbStack 无 TLS）+ 9 处 checkJs 行为中立类型修补，`typecheck:server` 门禁恢复全绿 | Phase 2 端到端验证发现接线缺陷：webhook 401 死路、e2e 隔离泄漏、shadow 假执行、本地 PG SSL_NOT_SUPPORTED | 用户（继续授权推进） |
 | 2026-11-14 | webhook 接收端端到端实测通过：无 token 可达 ✓、无 secret 503 fail-closed ✓、错误签名 401 ✓、有效签名 202 accepted ✓、重放 duplicate ✓、投递行落库 ✓、shadow 观测（tracked=14）✓、空队列真实 drain ✓；调度形态三态验证（opt-in+shadow / opt-in 实跑 / 默认零 automation）✓ | P2-5 验收标准部分达成；全门禁 lint ✓ / typecheck ✓ / vitest 337 ✓ / build ✓ / e2e 144 ✓ | 用户（继续授权推进） |
+| 2026-11-14 | P1-6 重定界：快照内无 tools/check-migrations.sh（源前提不成立，查证记录）→ 新实现 `scripts/migration/check-migrations.mjs`（解析 47 迁移推导期望表集 vs 本地 PG 实测，`npm run check:migrations`，26=26 ✓）；P2-9 launchd 完成：`launchd/{install,uninstall}.sh` + README，KeepAlive 崩溃自愈实测 ✓，验证后卸载（常驻启用待用户拍板）；P1-5 核心 4 模块落地 `src/lib/automation/`（workflow/workflow-run/projected-stage/generation-rules + 随迁测试 143 全绿）→ 测试基线升至 480/38 | 继续推进迁移（无阻塞项优先：P1-6 → P2-9 → P1-5 核心） | 用户（继续授权推进） |

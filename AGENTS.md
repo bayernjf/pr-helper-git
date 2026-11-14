@@ -173,9 +173,10 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of release `0.2.6` (2026-11-12):
+As of the pr-helper migration Phase 1/2 work (2026-11-14):
 
-- unit/route tests: **337 tests / 34 files**
+- unit/route tests: **480 tests / 38 files** (includes 143 migrated pr-helper
+  automation domain tests under `src/lib/automation/`)
 - E2E: **144 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs
