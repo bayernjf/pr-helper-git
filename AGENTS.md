@@ -194,7 +194,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of the pr-helper migration Phase 1/2 work (2026-11-14):
 
-- unit/route tests: **990 tests / 47 files** (includes the migrated pr-helper
+- unit/route tests: **991 tests / 47 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests under

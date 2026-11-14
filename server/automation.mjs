@@ -11,6 +11,9 @@
 // local Postgres URL.
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import postgres from 'postgres';
 import * as store from './workflows-store.mjs';
 import { notifyFromDrainResult } from './notifier.mjs';
@@ -91,7 +94,9 @@ async function runRetention() {
 /**
  * Shadow mode: read-only observation. The engine has no dry-run seam, so
  * shadow mode never invokes drain/reconcile/retention — it reports what is
- * queued and tracked, with zero side effects (Phase 5 影子并行 relies on this).
+ * queued and tracked, with zero side effects, and appends every observation
+ * to a JSONL shadow log (P2-10 / P5-1: the daily-diff material for the
+ * shadow period against the still-running cloud pr-helper).
  */
 async function shadowObserve(kind) {
   const sql = postgres(databaseUrl(), { max: 1, prepare: false, connect_timeout: 10, idle_timeout: 5 });
@@ -107,11 +112,29 @@ async function shadowObserve(kind) {
       SELECT count(*)::int AS workflows
       FROM pr_helper_workflows
       WHERE archived = false`;
+    const observation = {
+      ts: new Date().toISOString(),
+      kind,
+      queue: { queued: queue.queued, running: queue.running, paused: queue.paused },
+      trackedWorkflows: tracked.workflows,
+    };
     console.error(`[automation:shadow] ${kind} observe: queue q=${queue.queued} r=${queue.running} p=${queue.paused}, tracked workflows=${tracked.workflows}`);
+    appendShadowLog(observation);
   } catch (err) {
     console.error(`[automation:shadow] ${kind} observe failed: ${err.message}`);
   } finally {
     await sql.end({ timeout: 0 }).catch(() => undefined);
+  }
+}
+
+/** JSONL shadow log under the data dir (PR_HELPER_HOME override respected). */
+function appendShadowLog(observation) {
+  try {
+    const dir = process.env.PR_HELPER_HOME || path.join(os.homedir(), '.pr-helper-git');
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(path.join(dir, 'automation-shadow.log'), `${JSON.stringify(observation)}\n`);
+  } catch (err) {
+    console.error(`[automation:shadow] log append failed: ${err.message}`);
   }
 }
 

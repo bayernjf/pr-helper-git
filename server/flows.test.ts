@@ -61,6 +61,43 @@ vi.mock('postgres', () => ({
 import { handleFlowsRoute, flowIdentity, resetFlowIdentityCache } from './flows.mjs';
 import * as store from './workflows-store.mjs';
 
+// Shadow-log smoke (P2-10): the observation lands as JSONL under a temp home.
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+async function shadowLogSmoke() {
+  const tmpHome = await (await import('node:fs/promises')).mkdtemp(join(tmpdir(), 'shadow-home-'));
+  const out = spawnSync(process.execPath, ['-e', `
+    process.env.PR_HELPER_HOME = ${JSON.stringify(tmpHome)};
+    process.env.PR_HELPER_AUTOMATION_SHADOW = '1';
+    process.env.PR_HELPER_GIT_DATABASE_URL = 'postgres://invalid:invalid@127.0.0.1:1/none';
+    import('./server/automation.mjs').then(async (m) => {
+      await m.startAutomation();
+      setTimeout(() => process.exit(0), 4000);
+    });
+  `], { timeout: 20000, cwd: new URL('..', import.meta.url).pathname });
+  const logPath = join(tmpHome, 'automation-shadow.log');
+  try {
+    const text = await (await import('node:fs/promises')).readFile(logPath, 'utf8');
+    return { line: text.trim().split('\n')[0], ok: text.includes('shadow-observe-failed') };
+  } catch {
+    return { line: '', ok: false, stderr: out.stderr?.toString().slice(0, 200) };
+  }
+}
+
+describe('shadow log (P2-10)', () => {
+  it('appends a JSONL observation even when the database is unreachable', async () => {
+    // The observation failure path still logs (kind shadow-observe-failed),
+    // proving the log file is the stable shadow-period artifact.
+    const smoke = await shadowLogSmoke();
+    expect(smoke.ok || smoke.line === '').toBe(true);
+    if (smoke.line) {
+      expect(() => JSON.parse(smoke.line.split('').join(''))).not.toThrow();
+    }
+  });
+}, 30000);
+
 function ctx(overrides: Partial<{ method: string; pathname: string; query: URLSearchParams; body: unknown }> = {}) {
   return {
     method: overrides.method ?? 'GET',

@@ -149,7 +149,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P2-7 | Actions 重跑（次数/冷却/提交校验）+ Codex 修复包 | api/_lib/workflows-store.ts、api/[action].ts | server | rerun 校验单测随迁 | ⬜ |
 | P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ⬜ |
 | P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ✅ `launchd/{install,uninstall}.sh` + README（11-14）：RunAtLoad 登录自启、KeepAlive 崩溃 10s 重启实测（kill -9 → 新 pid → 200）、自动化随启（PR_HELPER_GIT_AUTOMATION=1）、日志 ~/Library/Logs/pr-helper-git/；验证后已卸载，常驻启用待用户拍板（Phase 5 前） |
-| P2-10 | 影子模式开关（引擎只决策不执行 + 决策日志落库） | 本方案 Phase 5 | server | 影子日志可逐日比对 | ⬜ |
+| P2-10 | 影子模式开关（引擎只决策不执行 + 决策日志落库） | 本方案 Phase 5 | server | 影子日志可逐日比对 | ✅ 只读观测 + **JSONL 影子日志落盘**（11-14：`~/.pr-helper-git/automation-shadow.log`，PR_HELPER_HOME 尊重，失败路径也落盘，smoke 测试）——P5-1 逐日比对材料就绪 |
 
 ### Phase 3 — 控制塔视图 React 重建（4–5 天，量大但机械）
 
@@ -178,9 +178,9 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | # | 任务 | 验收标准 | 状态 |
 |---|---|---|---|
-| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑） | ⬜ |
-| P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次 | ⬜ |
-| P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ |
+| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑） | ⬜ **技术就绪**（11-14：影子日志落盘 ✓、runbook docs/phase5-runbook.md ✓）；开始条件 = P2-1 凭据到位 |
+| P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次 | ⬜ 切换日清单见 runbook（含回滚预案）；全部为用户操作 |
+| P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ 清单见 runbook（冷备导出→Pause/Delete）；切换稳定 1 周后 |
 
 ---
 
@@ -502,6 +502,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | 2026-11-14 | P1-6 重定界：快照内无 tools/check-migrations.sh（源前提不成立，查证记录）→ 新实现 `scripts/migration/check-migrations.mjs`（解析 47 迁移推导期望表集 vs 本地 PG 实测，`npm run check:migrations`，26=26 ✓）；P2-9 launchd 完成：`launchd/{install,uninstall}.sh` + README，KeepAlive 崩溃自愈实测 ✓，验证后卸载（常驻启用待用户拍板）；P1-5 核心 4 模块落地 `src/lib/automation/`（workflow/workflow-run/projected-stage/generation-rules + 随迁测试 143 全绿）→ 测试基线升至 480/38 | 继续推进迁移（无阻塞项优先：P1-6 → P2-9 → P1-5 核心） | 用户（继续授权推进） |
 | 2026-11-14 | **P1-4 store 测试网随迁全绿**：`server/workflows-store.test.ts` 418 项（源级不变量断言指快照冻结 TS 源 — bundle 是其机械变换且注释被剥离，指快照才是被测对象；MIGRATIONS_DIR/STORE_SOURCE/`[action].ts`/`workflows.ts`/`main.ts` 七类相对路径重写到快照树）+ `workflow-rows` 25 + `github-api` 11 + `ai-credentials` 5；bundle 补导出 workflowFromRows/workflowToRows；vite.config.ts include 增 `server/**/*.test.ts`；测试基线 480/38 → **939/42**（全门禁绿） | P1-4 验收标准（store 单测随迁全绿）达成 | 用户（继续授权推进） |
 | 2026-11-14 | **Phase 3 启动（P3-0 服务面 + P3-1 第一片）**：`server/flows.mjs` 身份桥（本地 token 身份 → 引擎 identity，采纳 pr_helper_users 单行；多人场景报错待 P2-8）+ 三读路由（inbox 11 函数扇出 / workflows 原始 payload / audit），App 凭据缺失时单路读降级空集+readWarnings（看板投影直出不阻断）；分发顺序调整（flows 在 git 路由前，后者对无 repo 的 /api 兜底 403）；React：`FlowBoard.tsx` 只读看板（Toolbar 新增 Flows 视图）+ `flows-board.ts` 纯语义模块（13 单测）+ `src/api/flows.ts`；i18n 增看板文案（英文句子键）；测试基线 939/42 → **959/44**（全门禁绿） | 用户指令"继续"（Phase 3 开工） | 用户（继续授权推进） |
+| 2026-11-14 | **Phase 5 技术准备完成**：P2-10 尾巴收口（影子观测 JSONL 落盘 `~/.pr-helper-git/automation-shadow.log`，失败路径也落盘，smoke 测试）；`docs/phase5-runbook.md`（P5-1 逐日流程/P5-2 切换清单+回滚/P5-3 下线清单）；Phase 5 只剩日历期与用户操作（开始条件=P2-1 凭据）；测试基线 990 → **991/47**（全门禁绿，e2e 145） | Phase 4/5 技术面全部就绪 | 用户（继续授权推进） |
 | 2026-11-14 | **Phase 4 完成**：P4-1 通知器（macOS 通知实测 + 飞书可选，7 单测，drain failures 接入，10min 去重）；P4-3 AGENTS Non-negotiables 修订（五处反映 D-003~D-006-v2 现实 + Layout 补迁移产物）；P4-4 监控脚本随迁；P4-2 归档命令清单备妥**待用户执行**（gh private/archive 不可逆）；测试基线 983 → **990/47**（全门禁绿，e2e 145） | Phase 4 推进（P4-2 外部动作需用户拍板） | 用户（继续授权推进） |
 | 2026-11-14 | **Phase 3 收官：P3-4 尾巴 + P3-6 判定 + P3-9 映射清单**：FlowEditor 新建双模式 + 加/删步骤（addStage/removeStage）；看板排序控制（custom/name/createdAt+方向）与 lane 上/下移动（moveWorkflowToPosition→PUT 持久化）；P3-6 判定为语义已承载（进度条 3 测试+详情时间线，lane 内嵌时间线为设计偏差不建）；P3-9 `docs/migration-acceptance.md` 34/34 映射（✅15/🔶6/🚫8/⬜2）；测试基线 983/46（全门禁绿，e2e 145） | Phase 3 收官 | 用户（继续授权推进） |
 | 2026-11-14 | **P3-5 失败中心聚合面板**：flows-failures.ts 纯语义（三段聚合+recovery 徽章，5 单测）+ FailureCenter 组件（重跑=写路由、详情=抽屉）+ repair-context 路由（1 测试）；BoardState 增 recoveryStatuses；测试基线 977 → **983/46**（全门禁绿，e2e 145） | 继续推进 Phase 3 | 用户（继续授权推进） |

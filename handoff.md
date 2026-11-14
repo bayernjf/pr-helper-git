@@ -33,7 +33,7 @@ every committed file as world-readable.
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
 | Phase 3 控制塔 UI React 重建 | ✅ **Phase 3 收官**（11-14，9 任务全闭环，983/46，e2e 145；34 条原版 e2e 映射清单 docs/migration-acceptance.md；设计偏差：lane 内嵌时间线不建=详情页承载、pointer 拖拽留尾=上下按钮等价入口）|
 | Phase 4 通知/归档/AGENTS 修订 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；**P4-2 归档待用户执行**（gh private+archive 命令见台账）|
-| Phase 5 影子并行→切换→下线 | ⬜ |
+| Phase 5 影子并行→切换→下线 | ⬜ **技术就绪**（runbook docs/phase5-runbook.md；影子日志落盘 ✓）；开始条件 = P2-1 凭据到位 |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
