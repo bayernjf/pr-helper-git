@@ -18,6 +18,7 @@ import {
   setStageAutoAdvance,
   addStage,
   removeStage,
+  reorderStages,
   addDeployment,
   removeDeployment,
   replaceDeployment,
@@ -661,6 +662,31 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                 </button>
               ) : null}
             </div>
+            {draft.stages.length > 1 ? (
+              <div className="editor-stage-order">
+                <span>{t('step order')}</span>
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  aria-label={t('move step up')}
+                  title={t('move step up')}
+                  disabled={index === 0}
+                  onClick={() => setDraft((current) => reorderStages(current, index, index - 1))}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  aria-label={t('move step down')}
+                  title={t('move step down')}
+                  disabled={index === draft.stages.length - 1}
+                  onClick={() => setDraft((current) => reorderStages(current, index, index + 1))}
+                >
+                  ↓
+                </button>
+              </div>
+            ) : null}
             </div>
             ) : null}
           </article>

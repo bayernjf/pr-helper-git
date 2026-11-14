@@ -4008,6 +4008,8 @@ pre.diff {
 .editor-stage-body input { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: var(--fs-ui); font-family: var(--mono); padding: 5px 10px; }
 .editor-stage-body input:focus { outline: none; border-color: var(--accent-line); }
 .editor-stage-body input:disabled { color: var(--faint); }
+.editor-stage-order { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--muted); }
+.editor-stage-order .drawer-btn.small { min-width: 28px; padding: 2px 6px; }
 @keyframes return-highlight {
   0% { box-shadow: 0 0 0 2px var(--accent); background: var(--accent-soft); }
   70% { box-shadow: 0 0 0 2px var(--accent-line); background: var(--accent-soft); }
