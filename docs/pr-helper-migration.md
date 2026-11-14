@@ -178,7 +178,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 | # | 任务 | 验收标准 | 状态 |
 |---|---|---|---|
-| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑） | ⬜ **技术就绪**（11-14：影子日志落盘 ✓、runbook docs/phase5-runbook.md ✓）；开始条件 = P2-1 凭据到位 |
+| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑） | ✅ **影子期已启动**（11-14 16:24）：launchd 常驻（port 4789，automation=1，shadow=1，KeepAlive）+ 凭据就绪（D-006-v3 PAT fallback，readWarnings 清零）+ 影子日志首行落盘（queue q=0/r=0/p=0，tracked=14）；逐日比对材料自动积累，判定与切换按 docs/phase5-runbook.md |
 | P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次 | ⬜ 切换日清单见 runbook（含回滚预案）；全部为用户操作 |
 | P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ 清单见 runbook（冷备导出→Pause/Delete）；切换稳定 1 周后 |
 
