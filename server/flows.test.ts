@@ -25,6 +25,16 @@ vi.mock('./workflows-store.mjs', () => ({
     void limit;
     return [{ action: 'workflow-saved', outcome: 'success' }];
   }),
+  // Workflow payload writes (P3-4)
+  upsertWorkflow: vi.fn(async (_env, _identity, workflow) => ({
+    workflow,
+    automationActivated: { create: true, merge: false },
+    gatesChanged: false,
+  })),
+  removeWorkflowStage: vi.fn(async (_env, _identity, workflowId, stageId) => ({ id: workflowId, removed: stageId, stages: [] })),
+  removeWorkflow: vi.fn(async () => undefined),
+  isStoredWorkflow: vi.fn((workflow) => Boolean(workflow && workflow.id && workflow.repository && Array.isArray(workflow.stages))),
+  reconcileRealtime: vi.fn(async () => ({ reconciled: 0, outcome: 'completed' })),
   // Write routes (P3-3)
   executeWorkflowAutomationAction: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'succeeded' })),
   regenerateAutomationMessage: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'queued' })),
@@ -211,5 +221,55 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json.result).toEqual({ rerun: 'dev', count: 2 });
+  });
+});
+
+describe('flows workflow payload writes (P3-4)', () => {
+  const workflow = {
+    id: 'w1', name: '主干发布', repository: 'octo/app', version: 7,
+    stages: [{ source: 'dev', target: 'main', stageId: 's-1' }],
+  };
+
+  it('saves a workflow via PUT and reports the automation activation', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'PUT', pathname: '/api/flows/workflows', body: { workflow },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result.json.workflow.id).toBe('w1');
+    expect(result.json.automationActivated).toEqual({ create: true, merge: false });
+    // The identity carries an installationId, so an inline sweep is attempted
+    // (upstream semantics); its failure must not fail the save.
+    expect(store.reconcileRealtime).toHaveBeenCalled();
+  });
+
+  it('does not fail the save when the inline sweep fails', async () => {
+    (store.reconcileRealtime as any).mockRejectedValueOnce(new Error('缺少 GitHub App 配置：GITHUB_APP_ID'));
+    const result = await handleFlowsRoute(ctx({
+      method: 'PUT', pathname: '/api/flows/workflows', body: { workflow },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result.json.workflow.id).toBe('w1');
+    expect(result.json.reconciliation).toBeNull();
+  });
+
+  it('rejects an invalid payload before touching the engine', async () => {
+    const result = await handleFlowsRoute(ctx({
+      method: 'PUT', pathname: '/api/flows/workflows', body: { workflow: { id: 'w1' } },
+    }));
+    expect(result?.status).toBe(400);
+    expect(store.upsertWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('removes a stage via PATCH and a workflow via DELETE', async () => {
+    const patched = await handleFlowsRoute(ctx({
+      method: 'PATCH', pathname: '/api/flows/workflows',
+      body: { workflowId: 'w1', stageId: 's-1', stageIndex: 0, source: 'dev', target: 'main' },
+    }));
+    expect(patched?.json.workflow.removed).toBe('s-1');
+    const deleted = await handleFlowsRoute(ctx({
+      method: 'DELETE', pathname: '/api/flows/workflows', body: { id: 'w1' },
+    }));
+    expect(deleted?.json).toEqual({ ok: true });
+    expect(store.removeWorkflow).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'w1');
   });
 });

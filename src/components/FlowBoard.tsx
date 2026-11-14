@@ -110,8 +110,10 @@ export default function FlowBoard() {
           flowId={selectedFlowId}
           state={state}
           events={inbox?.events ?? []}
+          inbox={inbox ?? undefined}
           onClose={() => setSelectedFlowId(null)}
           onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
+          onSaved={(saved) => setWorkflows((current) => current.map((w) => (w.id === saved.id ? saved : w)))}
         />
         {drawerStage && inbox ? (
           <StepDrawer

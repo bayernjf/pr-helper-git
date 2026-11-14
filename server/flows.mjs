@@ -147,6 +147,48 @@ export async function handleFlowsRoute(ctx) {
       return { status: 200, json: { result } };
     }
 
+    // --- Workflow payload writes (P3-4), mirroring api/workflows.ts PUT/
+    // --- PATCH/DELETE. Upstream re-verifies repository ownership via the
+    // GitHub App API (IDOR guard); locally the token itself is the boundary
+    // (single-user), so that check has no remote counterpart until P2-1.
+    if (method === 'PUT' && pathname === '/api/flows/workflows') {
+      if (!store.isStoredWorkflow(payload.workflow)) {
+        return { status: 400, json: { error: '无效的流程负载' } };
+      }
+      const saved = await store.upsertWorkflow(env, identity, payload.workflow);
+      // Either toggle earns an immediate sweep upstream. Without credentials
+      // locally the sweep degrades to the scheduled/webhook reconcile.
+      const shouldReconcile = (saved.automationActivated.create || saved.automationActivated.merge || saved.gatesChanged)
+        && Boolean(identity.installationId);
+      // A failed inline sweep must not fail the save itself — the workflow is
+      // already persisted and the scheduled/webhook reconcile catches up.
+      const reconciliation = shouldReconcile
+        ? await store.reconcileRealtime(env, { installationId: identity.installationId, repository: saved.workflow.repository, eventName: 'automation_enabled' }, 'manual').catch(() => null)
+        : null;
+      return { status: 200, json: { ok: true, workflow: saved.workflow, automationActivated: saved.automationActivated, gatesChanged: saved.gatesChanged, reconciliation } };
+    }
+
+    if (method === 'PATCH' && pathname === '/api/flows/workflows') {
+      if (typeof payload.workflowId !== 'string' || typeof payload.stageId !== 'string') {
+        return { status: 400, json: { error: '无效的步骤删除请求' } };
+      }
+      const workflow = await store.removeWorkflowStage(
+        env, identity, payload.workflowId, payload.stageId,
+        typeof payload.stageIndex === 'number' ? payload.stageIndex : undefined,
+        typeof payload.source === 'string' ? payload.source : undefined,
+        typeof payload.target === 'string' ? payload.target : undefined,
+      );
+      return { status: 200, json: { ok: true, workflow } };
+    }
+
+    if (method === 'DELETE' && pathname === '/api/flows/workflows') {
+      if (typeof payload.id !== 'string') {
+        return { status: 400, json: { error: '无效的流程删除请求' } };
+      }
+      await store.removeWorkflow(env, identity, payload.id);
+      return { status: 200, json: { ok: true } };
+    }
+
     if (method !== 'GET') return null;
 
     // --- Read routes ---

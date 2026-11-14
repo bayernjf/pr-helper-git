@@ -2,7 +2,7 @@
 // progress bar, per-stage timeline with projected statuses and events, and
 // the stage's automation flags. Operations (create/merge/repair) arrive with
 // the step drawer (P3-3); live revalidation arrives with P2-1 credentials.
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   buildStageDetails,
   flowProgress,
@@ -12,6 +12,7 @@ import { workflowSummary } from '../lib/automation/workflow';
 import { githubPullUrl } from '../lib/domain';
 import type { BoardState } from '../lib/automation/flows-board';
 import { t, tp } from '../i18n';
+import FlowEditor from './FlowEditor';
 
 /** "M/D HH:mm" in local time, matching the board's updated stamp. */
 function formatEventTime(occurredAt: string): string {
@@ -28,18 +29,22 @@ function AutomationChip({ label, enabled }: { label: string; enabled: boolean })
   );
 }
 
-export default function FlowDetail({ flowId, state, events, onClose, onOpenDrawer }: {
+export default function FlowDetail({ flowId, state, events, inbox, onClose, onOpenDrawer, onSaved }: {
   flowId: string;
   state: BoardState;
   events: readonly StageEventRow[];
+  inbox?: import('../api/flows').InboxPayload;
   onClose: () => void;
   /** Opens the step drawer for one stage (P3-3 operations). */
   onOpenDrawer?: (stageIndex: number) => void;
+  /** When present, the flow can be edited; called with the saved version. */
+  onSaved?: (saved: import('../lib/automation/workflow').Workflow) => void;
 }) {
   const flow = useMemo(
     () => state.workflows.find((workflow) => workflow.id === flowId),
     [state.workflows, flowId],
   );
+  const [editing, setEditing] = useState(false);
   const stages = useMemo(
     () => (flow ? buildStageDetails(state, flow, events) : []),
     [state, flow, events],
@@ -54,6 +59,17 @@ export default function FlowDetail({ flowId, state, events, onClose, onOpenDrawe
       </div>
     );
   }
+  if (editing) {
+    return (
+      <FlowEditor
+        workflow={flow}
+        state={state}
+        inbox={inbox}
+        onClose={() => setEditing(false)}
+        onSaved={(saved) => onSaved?.(saved)}
+      />
+    );
+  }
   const summary = workflowSummary(flow);
   const progressPct = progress && progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
 
@@ -62,6 +78,7 @@ export default function FlowDetail({ flowId, state, events, onClose, onOpenDrawe
       <section className="page-head detail-page-head">
         <button type="button" className="ghost" onClick={onClose}>← {t('Back')}</button>
         <div className="detail-head-main">
+          {onSaved ? <button type="button" className="drawer-btn" onClick={() => setEditing(true)}>{t('Edit flow')}</button> : null}
           {flow.name.toLocaleLowerCase() !== flow.repository.toLocaleLowerCase() ? (
             <p className="detail-eyebrow">{flow.repository}</p>
           ) : null}

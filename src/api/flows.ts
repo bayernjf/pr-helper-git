@@ -31,6 +31,18 @@ export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
   return request<{ workflows: Workflow[] }>('/api/flows/workflows');
 }
 
+/** PUT /api/flows/workflows — saves a full workflow payload (P3-4). */
+export function saveWorkflowToServer(workflow: Workflow): Promise<Workflow> {
+  return request<{ ok: boolean; workflow: Workflow; automationActivated: { create: boolean; merge: boolean }; gatesChanged: boolean }>(
+    '/api/flows/workflows',
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ workflow }),
+    },
+  ).then((payload) => payload.workflow);
+}
+
 export function fetchFlowAudit(limit = 100) {
   return request<{ entries: Array<Record<string, unknown>> }>(`/api/flows/audit?limit=${limit}`);
 }
