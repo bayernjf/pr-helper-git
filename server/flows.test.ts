@@ -36,6 +36,15 @@ vi.mock('./workflows-store.mjs', () => ({
   removeWorkflow: vi.fn(async () => undefined),
   isStoredWorkflow: vi.fn((workflow) => Boolean(workflow && workflow.id && workflow.repository && Array.isArray(workflow.stages))),
   reconcileRealtime: vi.fn(async () => ({ reconciled: 0, outcome: 'completed' })),
+  // AI automation credentials (M-E5 tail) + rules
+  getAiAutomationCredential: vi.fn(async () => ({ configured: false })),
+  saveAiAutomationCredential: vi.fn(async (_env, _identity, input) => ({
+    configured: true, baseUrl: input.baseUrl, model: input.model,
+    keyMask: 'sk-…abcd', autoGeneratePrMessage: input.autoGeneratePrMessage,
+    autoConfirmPrCreation: input.autoConfirmPrCreation,
+  })),
+  deleteAiAutomationCredential: vi.fn(async () => undefined),
+  testSavedAiAutomationCredential: vi.fn(async () => ({ message: 'ok', model: 'gpt-4o-mini' })),
   // Write routes (P3-3)
   executeWorkflowAutomationAction: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'succeeded' })),
   regenerateAutomationMessage: vi.fn(async (_env, _identity, actionId) => ({ actionId, state: 'queued' })),
@@ -267,6 +276,32 @@ describe('flows write routes (P3-3)', () => {
       method: 'POST', pathname: '/api/flows/repair-context', body: { stageIndex: 0 },
     }));
     expect(bad?.status).toBe(400);
+  });
+
+  it('serves the AI automation credential lifecycle', async () => {
+    const empty = await handleFlowsRoute(ctx({ pathname: '/api/flows/ai-credentials' }));
+    expect(empty.json.credential).toMatchObject({ configured: false });
+
+    const saved = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/ai-credentials',
+      body: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', apiKey: 'sk-test', autoGeneratePrMessage: true, autoConfirmPrCreation: true },
+    }));
+    expect(saved.json.credential).toMatchObject({ configured: true, baseUrl: 'https://api.openai.com/v1', keyMask: 'sk-…abcd' });
+
+    const tested = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/ai-credentials',
+      query: new URLSearchParams('action=test-saved'), body: {},
+    }));
+    expect(tested.json).toMatchObject({ message: 'ok', model: 'gpt-4o-mini' });
+
+    const removed = await handleFlowsRoute(ctx({ method: 'DELETE', pathname: '/api/flows/ai-credentials' }));
+    expect(removed.json).toEqual({ ok: true });
+  });
+
+  it('lists generation rules scoped to the engine identity', async () => {
+    const result = await handleFlowsRoute(ctx({ pathname: '/api/flows/rules' }));
+    expect(result?.status).toBe(200);
+    expect(Array.isArray(result.json.rules)).toBe(true);
   });
 
   it('routes rerun-actions with the same validation', async () => {

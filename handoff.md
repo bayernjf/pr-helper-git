@@ -67,6 +67,18 @@ table-set check) plus store read/write round-trip (3 tests). The cloud
 pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
 driven by create/merge which persist fine.
 
+## AI credential + rules wiring (2026-11-14, M-E5 tail)
+
+The two business gaps found under the owner's acceptance frame (code
+migration done, acceptance = no functional loss) are closed:
+`/api/flows/ai-credentials` (GET/POST/DELETE/test-saved) drives the
+migrated credential functions; `/api/flows/rules` lists the migrated
+generation rules; the FlowEditor gained an AI credential card and pins a
+library rule when enabling auto-create. The stale encrypted credential row
+(old key unpullable) was cleared — the owner re-enters the AI key once.
+A disposition summary section (6.0) records migrated vs not-migrated with
+decision references.
+
 ## Feishu channel deferred (2026-11-14, D-017)
 
 Feishu failure notifications are not enabled for now (owner verdict) and do

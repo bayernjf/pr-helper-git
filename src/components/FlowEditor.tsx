@@ -7,7 +7,7 @@
 //
 // Slice scope: editing an existing flow. Creating from scratch, drag
 // ordering, and the deployment form follow in the next slice.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useToast } from './ui';
 import { errorMessage } from '../lib/errors';
 import {
@@ -22,7 +22,16 @@ import {
 import { immediateAutomationEffect } from '../lib/automation/workflow';
 import { projectedStageStatus } from '../lib/automation/projected-stage';
 import { matchingStageProjections } from '../lib/automation/workflow';
-import { saveWorkflowToServer } from '../api/flows';
+import {
+  saveWorkflowToServer,
+  deleteAiCredential,
+  fetchAiCredential,
+  fetchGenerationRules,
+  saveAiCredential,
+  testSavedAiCredential,
+  type AiAutomationCredential,
+  type GenerationRuleRow,
+} from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
 import { t, tp } from '../i18n';
 
@@ -66,6 +75,13 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const prerequisites = useMemo(() => automationPrerequisites(inbox), [inbox]);
+  const [ai, setAi] = useState<AiAutomationCredential>(null);
+  const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+
+  useEffect(() => {
+    fetchAiCredential().then((res) => setAi(res.credential)).catch(() => setAi(null));
+    fetchGenerationRules().then((res) => setRules(res.rules)).catch(() => setRules([]));
+  }, []);
 
 
   function patchStage(stageIndex: number, patch: (stage: EditorStage) => EditorStage) {
@@ -73,6 +89,81 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
       ...current,
       stages: current.stages.map((stage, index) => (index === stageIndex ? patch(stage) : stage)),
     }));
+  }
+
+  const [aiForm, setAiForm] = useState({
+    baseUrl: '',
+    model: '',
+    apiKey: '',
+    autoGeneratePrMessage: true,
+    autoConfirmPrCreation: true,
+  });
+
+  // Prefill the form from the saved credential (key stays masked server side).
+  useEffect(() => {
+    if (ai?.configured) {
+      setAiForm((current) => ({
+        ...current,
+        baseUrl: ai.baseUrl ?? current.baseUrl,
+        model: ai.model ?? current.model,
+        autoGeneratePrMessage: ai.autoGeneratePrMessage ?? current.autoGeneratePrMessage,
+        autoConfirmPrCreation: ai.autoConfirmPrCreation ?? current.autoConfirmPrCreation,
+      }));
+    }
+  }, [ai]);
+
+  async function saveAi() {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await saveAiCredential({
+        baseUrl: aiForm.baseUrl.trim(),
+        model: aiForm.model.trim(),
+        apiKey: aiForm.apiKey.trim(),
+        autoGeneratePrMessage: aiForm.autoGeneratePrMessage,
+        autoConfirmPrCreation: aiForm.autoConfirmPrCreation,
+      });
+      setAi(res.credential);
+      setAiForm((current) => ({ ...current, apiKey: '' }));
+      toast.notify(t('AI credential saved'));
+    } catch (err) {
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testAi() {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await testSavedAiCredential();
+      toast.notify(`${t('AI credential test ok')} · ${res.model ?? ''}`);
+    } catch (err) {
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeAi() {
+    setSaving(true);
+    setError('');
+    try {
+      await deleteAiCredential();
+      setAi(null);
+      toast.notify(t('AI credential deleted'));
+    } catch (err) {
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleAutomation(stageIndex: number, toggle: 'create' | 'merge' | 'advance', enabling: boolean) {
@@ -112,13 +203,31 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
 
     // Automation composition goes through the ported pure helpers, which
     // build the literal-union shapes correctly. Upstream pins a generation
-    // rule (name+content) on enable; the local rule library is not migrated
-    // yet (M-E), so a rule without stored content cannot be composed here.
-    const pinned = stage.automation?.generationRule;
-    const rule = pinned && pinned.content ? { name: pinned.name, content: pinned.content } : undefined;
-    if (toggle === 'create' && enabling && !rule) {
-      toast.error(t('rule content not stored locally — automation editing needs the rule library (M-E)'));
-      return;
+    // rule (name+content) on enable — the editor offers the migrated rule
+    // library; without a library entry the toggle is refused (the pure
+    // helper also refuses, mirroring upstream). Enabling auto-create also
+    // requires the AI credential (M-E5): the message draft comes from it.
+    let rule: { name: string; content: string } | undefined;
+    if (toggle === 'create' && enabling) {
+      const pinned = stage.automation?.generationRule;
+      if (pinned?.content) {
+        rule = { name: pinned.name, content: pinned.content };
+      } else if (rules.length) {
+        const picked = window.prompt(
+          `${t('pick a generation rule for this step')}\n\n${rules.map((r, i) => `${i + 1}. ${r.label}`).join('\n')}\n\n${t('enter the number, or leave empty to cancel')}`,
+          '1',
+        );
+        const index = Number(picked) - 1;
+        if (!picked || Number.isNaN(index) || !rules[index]) return;
+        rule = { name: rules[index].label, content: rules[index].content };
+      } else {
+        toast.error(t('no generation rules in the library — add one to pr_helper_generation_rules first'));
+        return;
+      }
+      if (!ai?.configured) {
+        toast.error(t('AI credential not configured — auto-create needs it to draft the PR message'));
+        return;
+      }
     }
     setDraft((current) => {
       if (toggle === 'create') {
@@ -283,6 +392,67 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
         >
           {t('add step')}
         </button>
+      </section>
+
+      <section className="editor-card">
+        <span className="drawer-label">{t('AI automation credential')}</span>
+        <p className="editor-hint">{ai?.configured ? tp('configured · model {model} · key {mask}', { model: ai.model ?? '—', mask: ai.keyMask ?? '—' }) : t('not configured — required to draft auto-created PR messages')}</p>
+        <div className="editor-recovery editor-grow-row">
+          <label>
+            {t('base URL')}
+            <input
+              value={aiForm.baseUrl}
+              onChange={(event) => setAiForm((current) => ({ ...current, baseUrl: event.target.value }))}
+              placeholder="https://api.openai.com/v1"
+            />
+          </label>
+          <label>
+            {t('model')}
+            <input
+              value={aiForm.model}
+              onChange={(event) => setAiForm((current) => ({ ...current, model: event.target.value }))}
+              placeholder="gpt-4o-mini"
+            />
+          </label>
+          <label className="editor-grow">
+            {t('API key')}
+            <input
+              type="password"
+              value={aiForm.apiKey}
+              onChange={(event) => setAiForm((current) => ({ ...current, apiKey: event.target.value }))}
+              placeholder={ai?.configured ? t('leave empty to keep the saved key') : 'sk-…'}
+            />
+          </label>
+        </div>
+        <div className="editor-automation">
+          <label className="editor-toggle">
+            <input
+              type="checkbox"
+              checked={aiForm.autoGeneratePrMessage}
+              onChange={(event) => setAiForm((current) => ({ ...current, autoGeneratePrMessage: event.target.checked }))}
+            />
+            {t('auto-generate PR message')}
+          </label>
+          <label className="editor-toggle">
+            <input
+              type="checkbox"
+              checked={aiForm.autoConfirmPrCreation}
+              onChange={(event) => setAiForm((current) => ({ ...current, autoConfirmPrCreation: event.target.checked }))}
+            />
+            {t('auto-confirm PR creation')}
+          </label>
+          <button type="button" className="drawer-btn small" disabled={saving} onClick={() => void saveAi()}>
+            {t('save credential')}
+          </button>
+          <button type="button" className="drawer-btn small" disabled={!ai?.configured || saving} onClick={() => void testAi()}>
+            {t('test saved credential')}
+          </button>
+          {ai?.configured ? (
+            <button type="button" className="drawer-btn small" disabled={saving} onClick={() => void removeAi()}>
+              {t('delete credential')}
+            </button>
+          ) : null}
+        </div>
       </section>
 
       <section className="editor-card">

@@ -55,6 +55,30 @@ export async function flowIdentity() {
   }
 }
 
+/**
+ * Generation rules for the engine identity, read straight from the migrated
+ * pr_helper_generation_rules table (content_hash + content).
+ */
+async function readGenerationRules(env, identity) {
+  const sql = postgres(databaseUrl(), { max: 1, prepare: false, connect_timeout: 10, idle_timeout: 5 });
+  try {
+    const rows = await sql`
+      SELECT g.content_hash, g.content, g.created_at
+      FROM pr_helper_generation_rules g
+      JOIN pr_helper_users u ON u.id = g.user_id
+      WHERE u.github_login = ${identity.login}
+      ORDER BY g.created_at DESC`;
+    return rows.map((row) => ({
+      contentHash: row.content_hash,
+      content: row.content,
+      createdAt: row.created_at === null ? null : String(row.created_at),
+      label: (row.content || '').trimStart().slice(0, 60).replace(/\s+/g, ' ') || row.content_hash.slice(0, 12),
+    }));
+  } finally {
+    await sql.end({ timeout: 0 }).catch(() => undefined);
+  }
+}
+
 /** Test hook: drop the cached identity (e.g. after pointing at another DB). */
 export function resetFlowIdentityCache() {
   cachedIdentity = null;
@@ -199,6 +223,42 @@ export async function handleFlowsRoute(ctx) {
         typeof payload.pullNumber === 'number' ? payload.pullNumber : undefined,
       );
       return { status: 200, json: context };
+    }
+
+    // --- AI automation credentials (M-E5, P3-4 tail): the auto-create flow
+    // --- generates PR messages with these credentials; without them the
+    // --- action fails into manual takeover. Mirrors resource=ai-credentials.
+    if (pathname === '/api/flows/ai-credentials') {
+      if (method === 'GET') {
+        return { status: 200, json: { credential: await store.getAiAutomationCredential(env, identity) } };
+      }
+      if (method === 'DELETE') {
+        await store.deleteAiAutomationCredential(env, identity);
+        return { status: 200, json: { ok: true } };
+      }
+      if (method === 'POST') {
+        if (query.get('action') === 'test-saved') {
+          return { status: 200, json: await store.testSavedAiAutomationCredential(env, identity) };
+        }
+        const baseUrl = typeof payload.baseUrl === 'string' ? payload.baseUrl.trim() : '';
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const apiKey = typeof payload.apiKey === 'string' ? payload.apiKey.trim() : '';
+        const saved = await store.saveAiAutomationCredential(env, identity, {
+          baseUrl, model, apiKey,
+          autoGeneratePrMessage: payload.autoGeneratePrMessage === true,
+          autoConfirmPrCreation: payload.autoConfirmPrCreation === true,
+        });
+        return { status: 200, json: { credential: saved } };
+      }
+      return { status: 405, json: { error: 'method not allowed' } };
+    }
+
+    // Generation rules library (M-E tail): the local PG carries the migrated
+    // rules (hash+content, no name column — the original kept names client
+    // side); list them so the editor can pin one when enabling auto-create.
+    if (method === 'GET' && pathname === '/api/flows/rules') {
+      const rules = await readGenerationRules(env, identity);
+      return { status: 200, json: { rules } };
     }
 
     if (method !== 'GET') return null;

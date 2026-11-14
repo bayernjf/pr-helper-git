@@ -3870,3 +3870,9 @@ pre.diff {
 .lane-move { display: inline-flex; gap: 2px; margin-right: 4px; }
 .lane-move-btn { width: 20px; height: 20px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--panel-2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-meta); }
 .lane-move-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* Editor AI credential card (M-E5 tail) */
+.editor-hint { margin: 0; font-size: var(--fs-meta); color: var(--muted); }
+.editor-grow-row { flex-wrap: wrap; }
+.editor-grow { flex: 1 1 220px; }
+.editor-grow input { width: 100%; }

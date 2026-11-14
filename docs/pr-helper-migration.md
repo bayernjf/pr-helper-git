@@ -186,6 +186,35 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 ## 6. 能力追踪矩阵（源基线 → 处置 → 目标 → 验收）
 
+### 6.0 处置留痕汇总（2026-11-14，应业主要求建立——迁移与不迁移逐类可回溯）
+
+**已迁移并验证落地**（✅ 主体）：
+- 工作流定义/规则（A 16 行）→ 本地 PG schema + `src/lib/automation/` 纯模块
+- 自动化引擎（B 16 行）→ `server/workflows-store.mjs` bundle（418 项源级不变量测试）
+- 持久化/对账（C 20 行）→ 本地 OrbStack Postgres（26 表 + 048 本地增量）
+- GitHub 集成（D 18 行）→ webhook 接收端（D-004）+ PAT fallback（D-006-v3）+ gh 凭据
+- AI 能力（E 9 行）→ ai-credentials 模块/测试 + 凭据路由 + 规则库接线（本日补齐缺口）
+- 视图层（F 27 行主体）→ React 组件树（看板/详情/抽屉/失败中心/编辑器/MobileApp）
+- 本地 WIP（G 7 行）→ 已吸收
+- 横切（H 16 行）→ 通知器（D-005/D-017）、launchd（P2-9）、审计
+
+**有意不迁移**（🚫/⏸/🔀，逐项决策）：
+- 部署跟踪 + Environment + 部署回滚（🚫，M-C 处置；D 决策）
+- 云同步 encrypted-sync（🚫，D-003：本地存储即权威）
+- Web Push（⏸→🔀，D-005/D-017：macOS 通知 + 飞书通道保留代码）
+- GitHub App OAuth 登录流（🚫，D-006-v2/v3：本地 token + PAT）
+- 团队多人协作 UI（P2-8 ⬜，单用户无感；引擎函数已迁移）
+- 移动状态监控 gh-status（⏸→✅ 随迁 scripts/，低优备用）
+- 旧 Playwright e2e 直接执行（🔀→✅ 34 条语义映射 docs/migration-acceptance.md）
+- 换仓库交互/部署表单（编辑器内，随构建裁剪）
+
+**本地修复的原版缺陷**（迁移增益）：
+- 推进开关持久化（D-015：048 列 + 读写往返）
+- webhook 路由死路（D-004 实测修正）
+- /m?token= 不种 cookie
+
+
+
 > 处置图例：🔁 迁移（Phase n）· ✅ 已存在（pr-helper-git 已有等价）· 🔀 替代实现 ·
 > ⏸ 缓办 · 🚫 不迁移（理由）· 部分 = 拆分处置（各行单独标注）
 
