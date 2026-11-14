@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { randomToken } from './security.mjs';
 import { runAsActor } from './actor.mjs';
+import { parseCredentialEnv } from './credentials-env.mjs';
 import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
 import { startAutomation, handleGithubWebhook } from './automation.mjs';
@@ -336,11 +337,9 @@ await ensureDataPermissions();
 try {
   const credsPath = path.join(os.homedir(), '.pr-helper-git', 'credentials.env');
   if (existsSync(credsPath)) {
-    for (const line of readFileSync(credsPath, 'utf8').split('\n')) {
-      const match = line.match(/^([A-Z_]+)="?(.*)"?$/);
-      if (match && match[2] && match[2] !== '[SENSITIVE]' && process.env[match[1]] === undefined) {
-        process.env[match[1]] = match[2];
-      }
+    const values = parseCredentialEnv(readFileSync(credsPath, 'utf8'));
+    for (const [key, value] of Object.entries(values)) {
+      if (process.env[key] === undefined) process.env[key] = value;
     }
   }
 } catch { /* credentials are optional */ }

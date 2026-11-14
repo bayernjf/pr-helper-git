@@ -17,6 +17,10 @@ var requiredSettings = [
   ["APP_ORIGIN", "appOrigin"]
 ];
 function parseGithubAppConfig(environment) {
+  // D-006-v3: a user PAT is a complete alternative to the GitHub App. When it
+  // is present, skip the App-settings requirements so callers that parse the
+  // config before installationRequest can still reach the PAT branch.
+  if (environment.GITHUB_TOKEN?.trim?.()) return {};
   const result = {};
   for (const [environmentName, configName] of requiredSettings) {
     const value = environment[environmentName]?.trim();
@@ -2767,12 +2771,32 @@ async function preflightWorkflow(environment, identity, workflowId) {
   const repositoryOptions = identity.installationId
     ? await listDeploymentOptions(environment, identity, workflow.repository).catch(() => noOptions)
     : noOptions;
+  let liveStates = states;
   let branchesAvailable = false;
   let branches = [];
   if (identity.installationId) {
     try {
       const config = parseGithubAppConfig(environment);
       const { owner, name } = ownerAndName(workflow.repository);
+      // PR mergeability is computed by GitHub asynchronously and the local
+      // projection can lag a merge/close. Refresh only the open PRs the
+      // preflight is about to judge; fall back to the projection if a read
+      // fails. This keeps the check read-only while avoiding stale conflicts.
+      liveStates = await Promise.all(states.map(async (state) => {
+        if (!Number.isInteger(state.pullNumber) || state.pullNumber <= 0
+          || ['merged', 'closed'].includes(String(state.pullState || '').toLowerCase())) return state;
+        try {
+          const pull = await installationRequest(config, identity.installationId, `/repos/${owner}/${name}/pulls/${state.pullNumber}`);
+          return {
+            ...state,
+            pullState: pull.merged_at ? 'merged' : (pull.state || state.pullState),
+            mergeable: pull.mergeable ?? state.mergeable,
+            mergeableState: pull.mergeable_state ?? state.mergeableState,
+          };
+        } catch {
+          return state;
+        }
+      }));
       const result = await installationRequest(config, identity.installationId, `/repos/${owner}/${name}/branches?per_page=100`);
       branches = (Array.isArray(result) ? result : []).map((branch) => branch?.name).filter(Boolean);
       branchesAvailable = true;
@@ -2780,7 +2804,7 @@ async function preflightWorkflow(environment, identity, workflowId) {
       branchesAvailable = false;
     }
   }
-  return workflowPreflight(workflow, states, {
+  return workflowPreflight(workflow, liveStates, {
     installationId: identity.installationId,
     branchesAvailable,
     branches,

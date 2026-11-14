@@ -31,7 +31,7 @@
 | 18 | 勾选自动合并先确认，取消则不保存 | ✅ | `immediateAutomationEffect` 语义测试（143）+ editor window.confirm |
 | 19 | 前置缺失时开关禁用 | 🔶 | 前置简化为诚实提示（AI 凭据面 M-E 未迁移）；阈值/规则缺失拒绝编辑已实测 |
 | 20 | 删除流程需确认后本地删除 | ✅ | UI 实测（11-14）：详情页「Delete flow」→ 确认弹窗（Delete Delete smoke 1114?）→ 删除后 lane 15→14、名称消失；DELETE 路由 200 |
-| 21 | 部署回滚二次确认 + 不可变运行标识 | 🔶 | 后端 `requestDeploymentRollback` + `POST /api/flows/deployment-rollback` 路由测试 ✓；StepDrawer 确认框展示 provider/environment/target/runId/rollback workflow 并二次确认；实网 dispatch 待 P2-1 凭据 + 真实失败/成功部署 run |
+| 21 | 部署回滚二次确认 + 不可变运行标识 | 🔶 | 后端 `requestDeploymentRollback` + `POST /api/flows/deployment-rollback` 路由测试 ✓；StepDrawer 确认框展示 provider/environment/target/runId/rollback workflow 并二次确认；11-15 已对账出 4 条真实成功部署 run（bayjf 2、pr-helper 2，均带 deployment_url），回滚按钮条件已满足；实际 dispatch 会触发被管理仓库的 rollback workflow，需用户明确批准后才执行 |
 | 22 | 部署门禁收起表单 + 配置警告 | ✅ | FlowEditor 部署区（11-14 UI 实测）：收起时列表 + 警告；表单支持 workflow/target/provider/environment + 高级字段；`deploymentConfigurationWarnings` 渲染 no-deployments/actions-unavailable 等；真实仓库 Actions/Environment 列表随 `GET /api/flows/deployment-options`（路由测试 + 400 校验） |
 | 23 | 移除部署门禁可撤销 | ✅ | UI 实测（11-14）：移除 Vercel·dev 后出现「Removed Vercel · dev」+ undo；撤销后四张默认门禁恢复 |
 | 24 | 详情返回时目标泳道高亮后褪去 | ✅ | UI 实测（11-14）：进入 zeus/临时流程详情后返回，目标 lane 立即带 `.is-return-highlight`，1.6s 动画后自动清除 |
@@ -40,12 +40,12 @@
 | 27 | 进度条只统计连续完成前缀 | ✅ | 同上（明确断言后续已合并不算本轮） |
 | 28 | 全部完成后进度条无当前步 | ✅ | `workflowProgress` firstUnfinished === -1 → currentIndex null |
 | 29 | 深色主题下 PR 编号链接色 | ✅ | 全站 token 化（--accent），无浏览器默认色 |
-| 30 | GitHub Environment 字段列出可选值 | 🔶 | 表单已接 `/api/flows/deployment-options` 的 `environments` datalist + 占位/提示；当前本机 GitHub App 凭据未配置，列表返回空（`actionsAvailable=false`），待 P2-1 实网走查 |
-| 31 | 无 Environment 时提示留空 | 🔶 | UI 三种提示已实现（未加载/有可选/仓库无 Environment 留空）；「仓库无 Environment」分支待有凭据的真实空列表走查 |
+| 30 | GitHub Environment 字段列出可选值 | ✅ | 11-15 实网：`GET /api/flows/deployment-options?repository=bayernjf/bayjf` 返回 `actionsAvailable=true`、`environmentsAvailable=true`，Actions 4 个、Environment 5 个（`Production`、`preview-cloudflare-pages`、`preview-vercel-api`、`production-cloudflare-pages`、`production-vercel-api`）；FlowEditor 的 datalist 已接该字段 |
+| 31 | 无 Environment 时提示留空 | ✅ | 11-15 实网：同一接口对 `bayernjf/pr-helper-git` 返回 `environmentsAvailable=true`、`environments=[]`；FlowEditor 的「未加载 / 有可选 / 仓库无 Environment 留空」三分支已实现，空列表走最后一支 |
 | 32 | PR 引用悬停显示地址、点击复制 | ✅ | UI 实测（11-14）：悬停 `#194` 显示完整 `https://github.com/bayernjf/zeus/pull/194` + Open PR；点击后 toast「PR link copied」；看板/详情/抽屉/失败中心统一 `PullReference` |
 | 33 | 手机竖屏无横向溢出，Lane 与抽屉可用 | ✅ | Chrome headless 390×844 仿真验收（14 lanes 无溢出）+ 700px 断点 |
 | 34 | 手机竖屏失败中心与创建弹窗不溢出 | 🔶 | 失败中心/编辑器为单列布局；走查确认 |
 
-**统计**：✅ 28 · 🔶 5 · 🔀 1 · ⬜ 0（合计 34）。11-14 连续回补后，#2 审计 UI+CSV、#5/#6 编辑器折叠、#20 删除确认、#24 返回高亮、#32 PR 引用转 ✅；剩余 🔶 为 #19 前置提示、#21 回滚实网、#30/#31 Environment 实网、#34 竖屏走查。**“34/34 已映射”不等于“34/34 已通过”**，P3-9 不得再以 🚫 计数宣布功能闭环。
+**统计**：✅ 30 · 🔶 3 · 🔀 1 · ⬜ 0（合计 34）。11-15 实网对账后 #30/#31 转 ✅（bayjf 5 个 Environment、pr-helper-git 空列表）；剩余 🔶 为 #19 前置提示、#21 回滚实网 dispatch、#34 竖屏走查。**“34/34 已映射”不等于“34/34 已通过”**，P3-9 不得再以 🚫 计数宣布功能闭环。
 
 走查方式：`npm run dev` → Flows 视图（桌面）或 /m（手机），逐条对照本表。
