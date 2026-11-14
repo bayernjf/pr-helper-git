@@ -7,6 +7,134 @@ pushes nothing. This repository, however, **is** on GitHub as the public
 every committed file as world-readable.
 
 
+## pr-helper 迁移进度（实时段，随会话更新）
+
+> 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-013 与验收标准在
+> [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
+> 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
+
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 🔶（P3-10 实网待验；P3-11/P3-12/P3-14/P3-16 ✅；P3-13/P3-15 待裁/暂缓）→ Phase 4 部分 ✅ → Phase 5 冻结**
+
+| 任务 | 状态 |
+|---|---|
+| P0-1…P0-5（冻结/基线/导出/快照/推送） | ✅ 全部完成（2026-11-14，见台账 §12）|
+| P1-1 OrbStack Postgres | ✅ pr-helper-pg 常驻（127.0.0.1:54329，unless-stopped）|
+| P1-2 47 迁移原样执行 | ✅ 26 表 schema 一致（030 → server 调度例外）；`npm run check:migrations` 校验脚本随迁（11-14，26=26 ✓）|
+| P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
+| P1-4 store 层移植 | ✅ bundle 3014 行自含 ESM（29169ff）+ store 测试网随迁全绿（418 不变量 + workflow-rows 25 + github-api 11 + ai-credentials 5，11-14）；api 路由层测试随 Phase 3 服务面接线随迁 |
+| P1-5 领域内核 | 🔶 核心 4 模块落地 src/lib/automation/ + 随迁测试 143 全绿（11-14）；长尾 UI 支撑模块随 Phase 3 移植 |
+| P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
+| P2-2/4/6/7 引擎 bundle（drain/对账/AI 接管/重跑） | 🔶 已随 bundle 落地，单测随迁与实网验收待 |
+| P2-5 触发器三通道 | 🔶 webhook 端到端实测 ✓（11-14：HMAC/去重/projection/实时对账）；签名单测随迁待 |
+| P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
+| P2-1 PAT/App 凭据实网验收 | ⬜ 待用户提供一次性私有测试仓 + PAT |
+| P2-3 门禁+合并执行接线 | ⬜ |
+| P2-8 团队四角色 | ⬜ |
+| P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
+| Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等接近闭环**（11-14）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度已落地；剩余部署实网、预检裁决、团队 UI（详见 Phase 3.5） |
+| Phase 3.5 功能缺口回补 | 🔶 P3-11 ✅、P3-12 ✅、P3-14 ✅、P3-16 ✅（UI 实测）；P3-10 🔶（部署门禁实现完成，#22/#23 实测，真实 run 回滚/Environment 列表待 P2-1）；P3-13 预检待用户裁决“重建/删除”；P3-15 团队 UI 单用户暂缓、未计完成 |
+| Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
+| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
+
+Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
+启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
+鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；测试基线 959/44。
+
+Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_helper_users 单行 +
+`/api/flows/{inbox,workflows,audit}`，App 凭据缺失单路读降级空集+readWarnings）+
+`src/lib/automation/flows-board.ts`（六筛选/计数/步骤色调/运行摘要语义，13 单测）+
+`src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
+P3-4 编辑器 → P3-5 失败中心。
+
+最近更新：2026-11-14（P3-12/P3-14/P3-16 回补：看板归档/恢复+静音/取消静音、详情最近运行、flows 审计 UI+CSV、同步健康度、PR 引用 tooltip/复制、编辑器折叠、返回高亮；验收 ✅28/🔶5/🔀1/⬜0，测试 1006/49 + build 通过）。
+
+## D-002-v2 功能缺口复审（2026-11-14）
+
+用户纠正：“pr-helper-git 产品自身不上生产、不部署到 Cloudflare/Vercel”不等于“不管理
+其他仓库的部署”。D-002 把两者混为一谈，导致核心部署门禁/健康检查/确认式回滚被裁。
+复审同时发现：换仓库 #7/#8 是非云依赖的误裁；归档/静音、流程预检、PR 引用复制、
+flows 审计 UI+CSV、同步健康度、团队 UI、运行历史仍未完成。以上不是“云基建替代”，
+不能计入迁移完成。
+
+已落文档：`docs/pr-helper-migration.md`（D-002-v2、范围、矩阵、Phase 3.5、DoD、风险 R8）、
+`docs/migration-acceptance.md`（#1 改替代、#7/#8 与 #21/#22/#23/#30/#31 转 ⬜、统计修正）、
+`docs/phase5-runbook.md`（切换前置）、`AGENTS.md`（部署门禁不再列为禁区）。代码未改；
+下一步从 P3-10 开始。
+
+## P3-12 / P3-14 / P3-16 回补（2026-11-14）
+
+- P3-12：`FlowBoard` lane 增加归档/恢复（确认弹窗，归档后进入 Archived 筛选，可恢复）与静音/取消静音（仅影响通知徽标/suppression，不阻断自动化）；`FlowDetail` 新增「Recent runs」，按 workflowId 从 inbox 44 条 run 中取前 10（实测 zeus #192/#55）。写路径复用 `PUT /api/flows/workflows` → `upsertWorkflow`（archive transition + muted 列）。
+- P3-14：新增 `FlowAuditModal`（`GET /api/flows/audit` 500 行、文本筛选、CSV 导出；`flowAuditCsv` 4 单测），FlowBoard「Sync health」接 `syncHealth`（last reconcile/stale stage/webhook 24h），新增 `PullReference` 统一 PR 引用 tooltip + 复制（看板/详情/抽屉/失败中心）。
+- P3-16：FlowEditor 既有流程步骤默认折叠、新建默认展开、add step 后全部折叠；FlowBoard 详情返回目标 lane `.is-return-highlight` 1.6s 后清除。
+- 验证：lint/typecheck:server 通过；`npm test` **1006/49**；`npm run build` 通过；真实 UI 走查归档计数 0→1→0、确认删除 15→14、静音徽标往返、审计 CSV 90,686 bytes、PR 引用悬停/复制、折叠 body 0→1→0、返回高亮 YES×12。
+
+## P3-10 / P3-11 回补（2026-11-14）
+
+- 后端：`server/workflows-store.mjs` 新增 `listDeploymentOptions`（GitHub App 凭据列目标仓库 active Actions workflows + Environments；凭据缺失返回 `actionsAvailable=false` 而非炸板）与 `retryDeploymentRun`（只允许 `workflow_stage_deployment_runs.state='failure'`，`POST /actions/runs/{id}/rerun` + stage event + `deployment-rerun` 审计）；`server/flows.mjs` 新增 `GET /api/flows/deployment-options`、`POST /api/flows/deployment-rollback`、`POST /api/flows/deployment-retry`。
+- 前端：`src/api/flows.ts` 部署类型/client；`FlowEditor` 部署列表/警告/添加/编辑/移除/撤销/sync/suggestion/datalist/高级字段，仓库字段可编辑 + 确认后 `createWorkflow` 转新建；`StepDrawer` 部署卡（provider/environment/run/health/failure summary/failed job/open site/logs）、失败 run retry、最近 8 次 run、成功 run 确认式 rollback；`FlowBoard` 新 id 追加并选中。
+- 验证：`npm run lint`、`npm run typecheck:server`、`npm test` 1002/48、`npm run build` 通过；路由测试覆盖 options 400、rollback/retry 参数 400 与成功透传。真实回滚/重跑与 Environment 列表仍待 P2-1 GitHub App 凭据 + 真实部署 run；`workflow_stage_deployment_runs` 当前为 0。
+
+## Credentials D-006-v3 (2026-11-14)
+
+vercel env pull proved the App private key is Sensitive-locked (12 keys
+unpullable), so the engine gained a GITHUB_TOKEN PAT fallback at the
+installationRequest seam. Local credentials live in
+`~/.pr-helper-git/credentials.env` (0600; loaded at server boot; never in
+git). The cloud pr-helper was untouched — read-only pull only. This unblocks
+P2-1 and the Phase 5 shadow period.
+
+## Local migration protocol + auto-advance fix (2026-11-14, D-015)
+
+The faithful schema replay carried over a legacy pr-helper gap: the
+auto-advance stage flag had no storage column (confirmed live — the cloud
+toggle drops on refresh). Local fix: migration 048 in
+`scripts/migration/local-migrations/` (first use of the local-increment
+protocol — snapshot stays frozen, column-level additions don't affect the
+table-set check) plus store read/write round-trip (3 tests). The cloud
+pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
+driven by create/merge which persist fine.
+
+## AI credential + rules wiring (2026-11-14, M-E5 tail)
+
+The two business gaps found under the owner's acceptance frame (code
+migration done, acceptance = no functional loss) are closed:
+`/api/flows/ai-credentials` (GET/POST/DELETE/test-saved) drives the
+migrated credential functions; `/api/flows/rules` lists the migrated
+generation rules; the FlowEditor gained an AI credential card and pins a
+library rule when enabling auto-create. The stale encrypted credential row
+(old key unpullable) was cleared — the owner re-enters the AI key once.
+A disposition summary section (6.0) records migrated vs not-migrated with
+decision references.
+
+## Feishu channel deferred (2026-11-14, D-017)
+
+Feishu failure notifications are not enabled for now (owner verdict) and do
+not block the migration — macOS local notifications satisfy DoD #5's main
+body; the channel code stays ready (set PR_HELPER_GIT_FEISHU_WEBHOOK to
+enable anytime).
+
+## Switch/retire approval rule (2026-11-14, D-016)
+
+Every P5-2 switch and P5-3 sunset action requires the owner's explicit
+approval before execution (item-by-item: restate → approve → execute →
+report). Shadow-period consistency alone is not an execution authorization.
+Recorded in docs/phase5-runbook.md and the migration ledger.
+
+## Test-repo iron rule (2026-11-14)
+
+Owner directive: no new test repositories (GitHub or local) without explicit
+approval; product-feature testing reuses repos from `TEST-REPOS.md`, which
+is the single source of truth. Recorded in AGENTS.md Non-negotiables and the
+registry header.
+
+## Desktop single-instance guard (2026-11-14)
+
+Second launches (double-click, launcher, direct binary) now activate the
+running app and exit before spawning a second loopback server
+(`NSRunningApplication` check in `desktop/main.swift`, verified live).
+The rebuilt bundle carries the migrated web UI (Flows etc.); the user
+should restart the currently open desktop app once to pick it up.
+
 ## Rename completion (2026-11-12)
 
 The product repository is now `bayernjf/pr-helper-git` (PUBLIC, default branch
@@ -24,7 +152,7 @@ Runtime identifiers were renamed with one-shot migrations:
 - Tauri bundle id and download filename follow the new name.
 
 Verification: lint, `typecheck:server`, 336 unit tests / 34 files, production
-build, and E2E 144/144. CI is green through rename commit `077f1af` (run `43061784626`).
+build, and E2E 144/144. CI is green through release commit `72e206a` (run `43253045248`, test + desktop).
 
 The desktop shell was **frozen** at the time of this rename; it was unfrozen
 later on the same day (see “Desktop unfrozen” below). The old Qoder session copy
@@ -39,6 +167,12 @@ does not depend on the currently checked-out branch. The latest
 history; check `git bundle list-heads` for the exact main ref.
 
 ## Release 0.2.6 (2026-11-12)
+
+> **发布状态（2026-11-12 更新）**：draft 已 publish 为正式版（draft=false,
+> prerelease=false, `releases/latest` = v0.2.6 — 应用内 Check for Updates
+> 的"有更新"分支自此可实测）；dev 与 main 均在 0.2.6 + jsdom pin
+> （266c039，测试计数在 Node 20/26 漂移下稳定为 337/34）。
+
 
 `package.json` / `package-lock.json` are at **0.2.6**; `CHANGELOG.md` has the
 `[0.2.6]` section. `v0.2.6` is an annotated tag on this release commit.

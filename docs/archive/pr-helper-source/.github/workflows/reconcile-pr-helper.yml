@@ -1,0 +1,116 @@
+name: Reconcile PR Helper monitoring
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    env:
+      CRON_SECRET: ${{ secrets.PR_HELPER_CRON_SECRET }}
+      RECONCILE_URL: https://pr-helper-ten.vercel.app/api/cron/reconcile
+      HEALTH_URL: https://pr-helper-ten.vercel.app/api/cron/health
+      DRAIN_URL: https://pr-helper-ten.vercel.app/api/cron/drain
+    steps:
+      - name: Check reconcile configuration
+        id: config
+        run: |
+          if [[ -z "$CRON_SECRET" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Reconcile skipped::Missing repository secret PR_HELPER_CRON_SECRET."
+            {
+              echo "### Reconcile skipped"
+              echo ""
+              echo "Set the repository secret \`PR_HELPER_CRON_SECRET\` to enable scheduled monitoring reconciliation."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Calibrate active workflows
+        if: steps.config.outputs.configured == 'true'
+        env:
+          SWEEPS: '1'
+          SWEEP_INTERVAL_SECONDS: '75'
+        run: |
+          # pg_cron (migration 030) is the clock now: it drains every 2 minutes and reconciles every 5.
+          # This job is the fallback for when pg_net cannot reach the endpoints, so it sweeps once.
+          # Sweeping repeatedly here was how coverage survived a scheduler that delivered a */10
+          # schedule every 46 minutes; restoring it would only double the reconcile spend against the
+          # GitHub quota for coverage pg_cron already provides. Overlap is harmless either way, because
+          # a trigger that cannot take the reconciliation lease records itself as skipped.
+          failures=0
+          for sweep in $(seq 1 "$SWEEPS"); do
+            if [[ "$sweep" -gt 1 ]]; then sleep "$SWEEP_INTERVAL_SECONDS"; fi
+            echo "::group::sweep $sweep/$SWEEPS"
+            if curl --fail-with-body --silent --show-error --max-time 90 \
+              --header "Authorization: Bearer ${CRON_SECRET}" \
+              "$RECONCILE_URL"; then
+              echo ""
+            else
+              failures=$((failures + 1))
+              echo "::warning title=Reconcile sweep failed::Sweep $sweep of $SWEEPS did not complete."
+            fi
+            # An action is executed by whichever request enqueued it, so a recycled instance leaves the
+            # row claimed and nothing reads it back. Draining after each sweep is what makes that
+            # recovery depend on this schedule rather than on someone pushing to the stuck branch again.
+            if ! curl --fail-with-body --silent --show-error --max-time 90 \
+              --header "Authorization: Bearer ${CRON_SECRET}" \
+              "$DRAIN_URL"; then
+              echo "::warning title=Drain failed::Automation queue drain $sweep of $SWEEPS did not complete."
+            fi
+            echo ""
+            echo "::endgroup::"
+          done
+          # One bad sweep is what the next sweep is for; every sweep failing is a real outage.
+          if [[ "$failures" -eq "$SWEEPS" ]]; then
+            echo "::error title=Reconcile failed::All $SWEEPS sweeps failed."
+            exit 1
+          fi
+
+      - name: Report convergence health
+        # A degraded sweep still returns 200, so nothing here noticed the day projections stopped
+        # converging. This step is the only push channel to a human, so it runs even when the sweep
+        # above failed: the numbers are most interesting exactly then.
+        if: always() && steps.config.outputs.configured == 'true'
+        run: |
+          status=$(curl --silent --show-error --max-time 30 --output health.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "$HEALTH_URL") || status=000
+          {
+            echo "### Convergence health"
+            echo ""
+            echo "HTTP $status"
+            echo ""
+            echo '```json'
+            cat health.json 2>/dev/null || echo '{}'
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$status" != "200" ]]; then
+            echo "::error title=Stages not converging::/api/cron/health returned $status."
+            exit 1
+          fi
+
+      # Mobile monitoring (2026-10-29 plan, layer 1): the scheduled monitoring itself is exactly
+      # what a phone needs to hear about. No-op unless FEISHU_WEBHOOK is set.
+      - name: Notify failure (Feishu)
+        if: failure()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$FEISHU_WEBHOOK" ]]; then
+            echo "::warning title=Notify skipped::Missing repository secret FEISHU_WEBHOOK."
+            exit 0
+          fi
+          curl -fsS -m 10 -X POST "$FEISHU_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg t "[pr-helper] $WORKFLOW 失败" --arg m "监控工作流 $WORKFLOW 失败：$RUN_URL" '{msg_type:"text", content:{text:($t + "\n" + $m)}}')" \
+            || echo "::warning title=Notify::Feishu webhook 调用失败"

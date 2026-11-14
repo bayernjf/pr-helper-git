@@ -20,6 +20,9 @@ import { setLocale, t, useLocale } from '../i18n';
 import type { Commit, ParsedStatus, RepoBrief, StatusFile } from '../types';
 import { IconBranch, IconChevronRight, IconRefresh, IconX } from './icons';
 import { Dropdown } from './Dropdown';
+import FlowBoard from './FlowBoard';
+
+type MobileTab = 'repo' | 'flows';
 
 type Detail = {
   commit: Commit;
@@ -44,6 +47,12 @@ export default function MobileApp() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [diff, setDiff] = useState<{ file: string; text: string; masked: boolean } | null>(null);
   const [work, setWork] = useState<{ file: StatusFile; text: string | null; masked: boolean } | null>(null);
+  const [tab, setTab] = useState<MobileTab>(() => getPref<MobileTab>('mobile.tab', 'repo'));
+
+  function selectTab(next: MobileTab) {
+    setTab(next);
+    setPref('mobile.tab', next);
+  }
 
   async function loadRepos() {
     try {
@@ -170,26 +179,40 @@ export default function MobileApp() {
   return (
     <div className="m-app">
       <header className="m-header">
-        <Dropdown
-          className="m-repo-select"
-          aria-label={t('Repository')}
-          value={repo}
-          onChange={selectRepo}
-          options={
-            repos.length === 0
-              ? [{ value: '', label: t('No repositories yet.') }]
-              : repos.map((r) => ({ value: r.path, label: r.name }))
-          }
-        />
-        <button
-          type="button"
-          className="m-icon-btn"
-          aria-label={t('Refresh')}
-          title={t('Refresh')}
-          onClick={() => loadRepo(repo)}
-        >
-          <IconRefresh width={18} height={18} />
-        </button>
+        {tab === 'repo' ? (
+          <Dropdown
+            className="m-repo-select"
+            aria-label={t('Repository')}
+            value={repo}
+            onChange={selectRepo}
+            options={
+              repos.length === 0
+                ? [{ value: '', label: t('No repositories yet.') }]
+                : repos.map((r) => ({ value: r.path, label: r.name }))
+            }
+          />
+        ) : (
+          <span className="m-tab-title">{t('Flows')}</span>
+        )}
+        <span className="m-segmented">
+          <button type="button" className={tab === 'repo' ? 'active' : ''} onClick={() => selectTab('repo')}>
+            {t('Repository')}
+          </button>
+          <button type="button" className={tab === 'flows' ? 'active' : ''} onClick={() => selectTab('flows')}>
+            {t('Flows')}
+          </button>
+        </span>
+        {tab === 'repo' && (
+          <button
+            type="button"
+            className="m-icon-btn"
+            aria-label={t('Refresh')}
+            title={t('Refresh')}
+            onClick={() => loadRepo(repo)}
+          >
+            <IconRefresh width={18} height={18} />
+          </button>
+        )}
         <button
           type="button"
           className="m-icon-btn m-locale"
@@ -200,7 +223,13 @@ export default function MobileApp() {
         </button>
       </header>
 
-      <section className="m-status">
+      {tab === 'flows' ? (
+        <main className="m-flows">
+          <FlowBoard />
+        </main>
+      ) : (
+        <>
+          <section className="m-status">
         <div className="m-branch">
           <IconBranch width={15} height={15} />
           <span>{status?.branch || t('detached HEAD')}</span>
@@ -256,6 +285,8 @@ export default function MobileApp() {
             </button>
           ))}
         </main>
+      )}
+        </>
       )}
 
       {detail && (

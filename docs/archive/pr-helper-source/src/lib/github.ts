@@ -1,0 +1,62 @@
+import { t } from './i18n';
+
+const apiBase = 'https://api.github.com';
+const appApiBase = (import.meta.env.VITE_AUTH_ORIGIN || '').replace(/\/$/, '');
+export const GITHUB_REQUEST_TIMEOUT_MS = 20_000;
+
+export class GitHubRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'GitHubRequestError';
+  }
+}
+
+export function githubAppApiUrl(path: string) {
+  return `${appApiBase}${path}`;
+}
+
+export function parseRepository(repository: string) {
+  const [owner, name] = repository.split('/');
+  if (!owner || !name || repository.split('/').length !== 2) throw new Error(t('error.repo.invalid'));
+  return { owner, name };
+}
+
+export function githubApiUrl(owner: string, repository: string, path: string) {
+  return `${apiBase}/repos/${owner}/${repository}/${path}`;
+}
+
+export function pullRequestPayload(title: string, head: string, base: string, body: string) {
+  return { title, head, base, body };
+}
+
+export function mergePullRequestPayload(method: 'merge' | 'squash' | 'rebase', sha: string) {
+  return { merge_method: method, sha };
+}
+
+export function selectCurrentPull<T extends { state: string }>(pulls: T[]) {
+  return pulls.find(pull => pull.state === 'open') || pulls[0];
+}
+
+export async function githubFetch<T>(token: string, path: string, init?: RequestInit, workflowId?: string): Promise<T> {
+  const useGitHubApp = !token;
+  const workflowQuery = workflowId ? `&workflowId=${encodeURIComponent(workflowId)}` : '';
+  let response: Response;
+  try {
+    response = await fetch(useGitHubApp ? githubAppApiUrl(`/api/github/request?path=${encodeURIComponent(path)}${workflowQuery}`) : `${apiBase}${path}`, {
+      ...init,
+      cache: 'no-store',
+      signal: init?.signal || AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      headers: useGitHubApp
+        ? { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers }
+        : { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', ...init?.headers },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') throw new GitHubRequestError(504, t('error.github.timeout'));
+    throw error;
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({ message: response.statusText }));
+    throw new GitHubRequestError(response.status, detail.message || t('error.github.requestFailed', { status: response.status }));
+  }
+  return response.json() as Promise<T>;
+}

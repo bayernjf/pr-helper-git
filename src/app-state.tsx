@@ -26,7 +26,7 @@ import { STORAGE_KEYS } from './lib/storage-keys';
 import { applyAppearance, getAccent, getThemeMode, type Accent, type ThemeMode } from './lib/appearance';
 import { t as translateText } from './i18n';
 
-type View = 'git' | 'pr' | 'dashboard';
+type View = 'git' | 'pr' | 'dashboard' | 'flows';
 export type Theme = ThemeMode;
 const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
 const PAT_KEY = STORAGE_KEYS.pat;

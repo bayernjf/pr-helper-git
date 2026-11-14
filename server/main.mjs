@@ -3,14 +3,18 @@
 // static hosting for the built client in dist/.
 import http from 'node:http';
 import fsp from 'node:fs/promises';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { randomToken } from './security.mjs';
 import { runAsActor } from './actor.mjs';
 import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
+import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
+import { handleFlowsRoute } from './flows.mjs';
 import {
   addClient,
   reconcileWatching,
@@ -121,15 +125,17 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   try {
-    // Token bootstrap: /?token=... sets an HttpOnly cookie, then redirects.
-    if (pathname === '/' && url.searchParams.has('token')) {
+    // Token bootstrap: /?token=... (or /m?token=... on a phone) sets an
+    // HttpOnly cookie, then redirects. The phone path must bootstrap too —
+    // otherwise the first /m visit can't call any API.
+    if ((pathname === '/' || pathname === '/m') && url.searchParams.has('token')) {
       const given = url.searchParams.get('token');
       // The instance token belongs to the owner; member tokens opened through
       // the same bootstrap URL set the same cookie.
       const identity = await resolveToken(given, TOKEN);
       if (!identity) return sendJson(res, 401, { error: 'invalid token' });
       res.writeHead(302, {
-        location: '/',
+        location: pathname === '/m' ? '/m' : '/',
         // The token is regenerated on every launch, so a stale cookie is never
         // accepted; a lifetime beyond a day only avoids forcing a relaunch in
         // long-running sessions (the desktop shell can stay open for days).
@@ -139,6 +145,27 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith('/api/')) {
+      // GitHub webhook receiver: reachable without a session token — the HMAC
+      // signature IS the authentication for this endpoint. Sits before the
+      // token check because GitHub's delivery carries no session cookie.
+      if (pathname === '/api/github-webhook') {
+        const raw = await new Promise((resolve) => {
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        });
+        const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || '';
+        const result = await handleGithubWebhook({
+          method: req.method, pathname, headers: req.headers,
+          rawBody: raw, secret: webhookSecret,
+        });
+        if (result) {
+          res.writeHead(result.status, { 'content-type': 'application/json', ...NOSNIFF });
+          res.end(JSON.stringify(result.json));
+          return;
+        }
+      }
+
       const presented = url.searchParams.get('token')
         || req.headers['x-pr-helper-git-token']
         || req.headers['x-git2-token']
@@ -147,7 +174,6 @@ const server = http.createServer(async (req, res) => {
       const identity = await resolveToken(presented, TOKEN);
       if (!identity) return sendJson(res, 401, { error: 'unauthorized' });
 
-      // Server-sent events: long-lived stream for file-change notifications.
       if (pathname === '/api/events') {
         res.writeHead(200, {
           'content-type': 'text/event-stream',
@@ -200,6 +226,10 @@ const server = http.createServer(async (req, res) => {
       // Run the handlers inside the identity context so appendAudit() records
       // who performed each operation without every route taking a user arg.
       const result = await runAsActor(identity, async () => (
+        // Flow routes are a distinct surface; handle them before the repo
+        // routes, which answer 403 for any /api path without ?repo=.
+        await handleFlowsRoute(ctx)
+      ) || (
         await handleGitRoute(ctx)
       ) || (
         await handleGithubRoute(ctx)
@@ -297,6 +327,28 @@ server.keepAliveTimeout = 60_000;
 server.headersTimeout = 65_000;
 
 await ensureDataPermissions();
+
+// D-006-v3: load the local credentials file (created via a read-only
+// `vercel env pull` into ~/.pr-helper-git/credentials.env) and inject any
+// keys the process does not already have — GITHUB_TOKEN, GITHUB_APP_* etc.
+// The file is 0600, lives in the data dir, and is excluded from backups'
+// plaintext output by the secret-shape redaction rule.
+try {
+  const credsPath = path.join(os.homedir(), '.pr-helper-git', 'credentials.env');
+  if (existsSync(credsPath)) {
+    for (const line of readFileSync(credsPath, 'utf8').split('\n')) {
+      const match = line.match(/^([A-Z_]+)="?(.*)"?$/);
+      if (match && match[2] && match[2] !== '[SENSITIVE]' && process.env[match[1]] === undefined) {
+        process.env[match[1]] = match[2];
+      }
+    }
+  }
+} catch { /* credentials are optional */ }
+
+// Automation engine schedulers are opt-in at boot (PR_HELPER_GIT_AUTOMATION=1)
+// so throwaway servers (e2e, smoke tests) never touch the automation database.
+// Headless launchd runs and desktop sessions that want the engine set the flag.
+if (process.env.PR_HELPER_GIT_AUTOMATION === '1') startAutomation();
 
 server.listen(PORT, HOST, async () => {
   const address = server.address();
