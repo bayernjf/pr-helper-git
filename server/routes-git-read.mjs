@@ -442,8 +442,8 @@ export async function handleGitRead({ method, pathname, query, body, identity },
             git(['diff', '--numstat', '-M', firstParent, sha], repo),
           ])
         : await Promise.all([
-            git(['diff-tree', '--no-commit-id', '--name-status', '-r', '-M', sha], repo),
-            git(['diff-tree', '--no-commit-id', '--numstat', '-r', '-M', sha], repo),
+            git(['diff-tree', '--root', '--no-commit-id', '--name-status', '-r', '-M', sha], repo),
+            git(['diff-tree', '--root', '--no-commit-id', '--numstat', '-r', '-M', sha], repo),
           ]);
       const stats = new Map();
       for (const line of numstat.split('\n')) {

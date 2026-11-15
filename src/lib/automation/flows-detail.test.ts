@@ -41,6 +41,18 @@ describe('buildStageDetails', () => {
     expect(stage.pullNumber).toBeNull();
   });
 
+  it('keeps an open pull visible on first paint when the projection has a head sha', () => {
+    const [stage] = buildStageDetails(stateWith([
+      row({
+        stageId: 's-d-1', pullState: 'open', checksState: 'failure', pullNumber: 217,
+        checksPassed: 6, checksTotal: 12, headSha: '5ac5f268b2f18f1748c9d16ed476ca4a04b18e13',
+      }),
+    ]), FLOW, []);
+    expect(stage.stateText).toBe('checks failed');
+    expect(stage.pullNumber).toBe(217);
+    expect(stage.pullUrl).toBe('https://github.com/octo/detail/pull/217');
+  });
+
   it('reports merged with post-merge verification on the persisted row', () => {
     const [stage] = buildStageDetails(stateWith([
       row({ stageId: 's-d-1', pullState: 'merged', checksState: 'success', pullNumber: 12, checksPassed: 5, checksTotal: 5 }),

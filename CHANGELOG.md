@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- fix(git): include the root commit in commit-file listings (`diff-tree
+  --root`), so the first commit no longer reports zero changed files.
+- fix(flows): carry `headSha`/`mergedAt` into the detail first paint, so an
+  open PR with failed checks no longer reads “waiting to create a PR”.
 - test: pin `jsdom` to exact 26.1.0 — the host Node drifts between 20.x and
   26.x and jsdom 31 only loads on Node ≥22.22 (undici import crash under
   Node 20); the Node ≥22 `localStorage` shadowing is handled by
