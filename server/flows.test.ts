@@ -21,11 +21,25 @@ vi.mock('./workflows-store.mjs', () => ({
     return [{ workflowId: 'w1', stageIndex: 0, source: 'dev', state: 'queued' }];
   }),
   listWorkflows: vi.fn(async () => [{ id: 'w1', name: '主干发布', repository: 'octo/app', stages: [] }]),
+  // Teams (P2-8)
+  listTeams: vi.fn(async () => [{ id: 't1', name: '核心团队', role: 'owner', createdAt: '2026-11-15T00:00:00.000Z' }]),
+  listTeamMembers: vi.fn(async () => [{ githubLogin: 'bayernjf', role: 'owner' }]),
+  createTeam: vi.fn(async (_env, _identity, name) => ({ id: 't2', name, role: 'owner' })),
+  addTeamMember: vi.fn(async () => undefined),
+  removeTeamMember: vi.fn(async () => undefined),
+  shareWorkflowWithTeam: vi.fn(async () => undefined),
   listOperationAuditLogs: vi.fn(async (_env, _identity, limit) => {
     void limit;
     return [{ action: 'workflow-saved', outcome: 'success' }];
   }),
   codexRepairContext: vi.fn(async (_env, _identity, _workflowId, _stageIndex, source) => ({ title: '修复任务', source: source ?? null, steps: [] })),
+  preflightWorkflow: vi.fn(async (_env, _identity, workflowId) => ({
+    workflowId,
+    repository: 'octo/app',
+    checkedAt: '2026-11-15T00:00:00.000Z',
+    ok: true,
+    findings: [{ category: 'app', code: 'app-ok', status: 'pass', title: 'GitHub App access', detail: '', suggestion: '' }],
+  })),
   // Workflow payload writes (P3-4)
   upsertWorkflow: vi.fn(async (_env, _identity, workflow) => ({
     workflow,
@@ -175,6 +189,27 @@ describe('handleFlowsRoute', () => {
     );
   });
 
+  it('reconciles inline only for an explicit queue refresh', async () => {
+    const result = await handleFlowsRoute(ctx({
+      query: new URLSearchParams('refresh=1&repository=octo/app'),
+    }));
+    expect(result?.status).toBe(200);
+    expect(store.reconcileRealtime).toHaveBeenCalledWith(
+      expect.anything(),
+      { installationId: '149185475', repository: 'octo/app', eventName: 'inbox_refresh' },
+      'inbox_refresh',
+    );
+    expect(result?.json.reconciliationScheduled).toBe(true);
+    expect(result?.json.reconciliation).toEqual({ reconciled: 0, outcome: 'completed' });
+  });
+
+  it('keeps page loads on the persisted projection without GitHub reconciliation', async () => {
+    const result = await handleFlowsRoute(ctx());
+    expect(store.reconcileRealtime).not.toHaveBeenCalled();
+    expect(result?.json.reconciliationScheduled).toBe(false);
+    expect(result?.json.reconciliation).toBeNull();
+  });
+
   it('degrades a credential-dependent read to empty + warning instead of failing the board', async () => {
     (store.listWorkflowStageStates as any).mockRejectedValueOnce(new Error('缺少 GitHub App 配置：GITHUB_APP_ID'));
     const result = await handleFlowsRoute(ctx());
@@ -228,6 +263,51 @@ describe('flows write routes (P3-3)', () => {
     );
   });
 
+  it('serves teams and their members', async () => {
+    const teams = await handleFlowsRoute(ctx({ pathname: '/api/flows/teams' }));
+    expect(teams?.json.teams[0]).toMatchObject({ id: 't1', role: 'owner' });
+    const members = await handleFlowsRoute(ctx({
+      pathname: '/api/flows/teams', query: new URLSearchParams('teamId=t1'),
+    }));
+    expect(members?.json.members).toEqual([{ githubLogin: 'bayernjf', role: 'owner' }]);
+    expect(store.listTeamMembers).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1');
+  });
+
+  it('creates a team and passes owner-only membership/share writes', async () => {
+    const created = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams', body: { action: 'create', name: '核心团队' },
+    }));
+    expect(created?.status).toBe(201);
+    expect(store.createTeam).toHaveBeenCalledWith(expect.anything(), expect.anything(), '核心团队');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'member', teamId: 't1', githubLogin: 'octocat', role: 'operator' },
+    }));
+    expect(store.addTeamMember).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'octocat', 'operator');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'remove-member', teamId: 't1', githubLogin: 'octocat' },
+    }));
+    expect(store.removeTeamMember).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'octocat');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'share-workflow', teamId: 't1', workflowId: 'w1' },
+    }));
+    expect(store.shareWorkflowWithTeam).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'w1');
+  });
+
+  it('rejects malformed team writes without touching the engine', async () => {
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'member', teamId: 't1', githubLogin: 'octocat' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.addTeamMember).not.toHaveBeenCalled();
+  });
+
   it('passes execute/regenerate/takeover through with a numeric actionId', async () => {
     const execute = await handleFlowsRoute(ctx({
       method: 'POST', pathname: '/api/flows/automation',
@@ -270,6 +350,23 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json).toEqual({ ok: true });
+  });
+
+  it('runs the read-only flow preflight and rejects an empty workflow id', async () => {
+    const good = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { workflowId: 'w1' },
+    }));
+    expect(good?.status).toBe(200);
+    expect(good?.json.preflight).toMatchObject({ workflowId: 'w1', ok: true });
+    expect(store.preflightWorkflow).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), 'w1',
+    );
+    (store.preflightWorkflow as any).mockClear();
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { workflowId: '   ' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.preflightWorkflow).not.toHaveBeenCalled();
   });
 
   it('generates the Codex repair context via POST', async () => {
@@ -320,6 +417,14 @@ describe('flows write routes (P3-3)', () => {
       body: { workflowId: 'w1', stageIndex: 0, source: 'dev' },
     }));
     expect(good?.json.result).toEqual({ rerun: 'dev', count: 2 });
+
+    (store.rerunFailedActions as any).mockClear();
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/rerun-actions',
+      body: { workflowId: 'w1', stageIndex: '0', source: 'dev' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.rerunFailedActions).not.toHaveBeenCalled();
   });
 });
 

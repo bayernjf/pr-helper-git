@@ -17,6 +17,10 @@ var requiredSettings = [
   ["APP_ORIGIN", "appOrigin"]
 ];
 function parseGithubAppConfig(environment) {
+  // D-006-v3: a user PAT is a complete alternative to the GitHub App. When it
+  // is present, skip the App-settings requirements so callers that parse the
+  // config before installationRequest can still reach the PAT branch.
+  if (environment.GITHUB_TOKEN?.trim?.()) return {};
   const result = {};
   for (const [environmentName, configName] of requiredSettings) {
     const value = environment[environmentName]?.trim();
@@ -2558,6 +2562,256 @@ async function listDeploymentOptions(environment, identity, repository) {
     environments: environments.values
   };
 }
+/**
+ * Read-only flow preflight (P3-13). Evaluates the same six surfaces the
+ * original control tower checked — app access, branches, PR mergeability,
+ * upstream dependencies, Actions workflows and GitHub Environments — and
+ * returns findings with fix suggestions. It never mutates the workflow.
+ *
+ * Pure so the route layer can test the semantics without GitHub or Postgres.
+ */
+function workflowPreflight(workflow, states, remote) {
+  const findings = [];
+  const workflowStates = (Array.isArray(states) ? states : []).filter((state) => state.workflowId === workflow.id);
+  const deployment = deploymentConfigs(workflow);
+  const configuredWorkflows = Array.isArray(remote.workflows) ? remote.workflows : [];
+  const workflowExists = (value) => configuredWorkflows.some((candidate) => candidate.name === value || candidate.path === value);
+  const add = (category, code, status, title, detail, suggestion, extra = {}) => findings.push({
+    category, code, status, title, detail, suggestion, ...extra,
+  });
+
+  // 1. App permissions / repository metadata access.
+  if (!remote.installationId) {
+    add('app', 'app-not-configured', 'fail', 'GitHub App access',
+      'No GitHub App installation is configured, so repository permissions, branches, Actions and Environments cannot be read.',
+      'Configure the migrated GitHub App credentials and grant the installation access to this repository (P2-1).');
+  } else if (!remote.actionsAvailable) {
+    add('app', 'actions-unreadable', 'fail', 'GitHub App access',
+      'The installation cannot read Actions metadata for this repository.',
+      'Check that the GitHub App installation has Actions read permission and repository access, then rerun the preflight.');
+  } else {
+    add('app', 'app-ok', 'pass', 'GitHub App access',
+      'The installation can read repository metadata.', '');
+  }
+
+  // 2. Branch existence: every target must exist; a static source must exist,
+  // and a wildcard source must match at least one branch.
+  if (!remote.installationId || !remote.branchesAvailable) {
+    add('branch', 'branches-unreadable', 'skip', 'Branches',
+      'Branches could not be read, so branch existence was not checked.',
+      'Fix GitHub App access first; the branch check reruns automatically.');
+  } else {
+    let branchOk = true;
+    const branches = Array.isArray(remote.branches) ? remote.branches : [];
+    workflow.stages.forEach((stage, stageIndex) => {
+      if (!branches.includes(stage.target)) {
+        branchOk = false;
+        add('branch', 'target-missing', 'fail', `Target branch ${stage.target}`,
+          `Stage ${stageIndex + 1} targets ${stage.target}, which does not exist in the repository.`,
+          `Create ${stage.target} or change the stage target to an existing branch.`, { stageIndex });
+      }
+      const sourceMatches = branches.filter((branch) => branchRuleMatches(stage.source, branch));
+      if (sourceMatches.length === 0) {
+        branchOk = false;
+        add('branch', 'source-missing', 'fail', `Source branch ${stage.source}`,
+          `Stage ${stageIndex + 1} uses source ${stage.source}, which matches no branch.`,
+          stage.source.endsWith('*')
+            ? `Create a branch matching ${stage.source} or narrow the source rule.`
+            : `Create ${stage.source} or change the stage source.`, { stageIndex });
+      }
+    });
+    if (branchOk) {
+      add('branch', 'branches-ok', 'pass', 'Branches',
+        'All stage targets exist and every source rule resolves to at least one branch.', '');
+    }
+  }
+
+  // 3. PR conflicts: a dirty PR is a hard failure; an indeterminate mergeable
+  // flag is a warning because GitHub computes it asynchronously.
+  const openPulls = workflowStates.filter((state) => state.pullNumber
+    && !['merged', 'closed'].includes(String(state.pullState || '').toLowerCase()));
+  if (!openPulls.length) {
+    add('pr', 'no-open-pulls', 'pass', 'Pull requests',
+      'No open pull request is projected for this flow.', '');
+  } else {
+    openPulls.forEach((state) => {
+      const pullLabel = `PR #${state.pullNumber}`;
+      const mergeableState = String(state.mergeableState || 'unknown').toLowerCase();
+      if (mergeableState === 'dirty' || (state.mergeable === false && mergeableState === 'dirty')) {
+        add('pr', 'pull-conflict', 'fail', `${pullLabel} mergeability`,
+          `${pullLabel} has conflicts with ${state.target || 'its target branch'}.`,
+          'Resolve the conflicts on the source branch and push; GitHub will recompute mergeability, then rerun the preflight.',
+          { stageIndex: state.stageIndex, pullNumber: state.pullNumber });
+      } else if (state.mergeable === null || state.mergeable === undefined || mergeableState === 'unknown') {
+        add('pr', 'pull-unknown', 'warn', `${pullLabel} mergeability`,
+          `${pullLabel} mergeability is not available yet (${mergeableState}).`,
+          'Wait for GitHub to finish computing mergeability, then rerun the preflight.',
+          { stageIndex: state.stageIndex, pullNumber: state.pullNumber });
+      } else if (state.mergeable === false) {
+        add('pr', 'pull-blocked', 'warn', `${pullLabel} mergeability`,
+          `${pullLabel} is not mergeable (state: ${mergeableState}).`,
+          'Review branch protection, required approvals and failing checks; resolve what blocks the merge.',
+          { stageIndex: state.stageIndex, pullNumber: state.pullNumber });
+      } else {
+        add('pr', 'pull-ok', 'pass', `${pullLabel} mergeability`,
+          `${pullLabel} is mergeable.`, '', { stageIndex: state.stageIndex, pullNumber: state.pullNumber });
+      }
+    });
+  }
+
+  // 4. Explicit upstream dependencies (waitFor); implicit sequential order is
+  // not treated as a dependency because independent stages are valid.
+  const dependencyStages = workflow.stages
+    .map((stage, stageIndex) => ({ stage, stageIndex }))
+    .filter(({ stage }) => Array.isArray(stage.waitFor) && stage.waitFor.length > 0);
+  if (!dependencyStages.length) {
+    add('dependency', 'no-dependencies', 'pass', 'Upstream dependencies',
+      'No stage declares an explicit upstream dependency.', '');
+  } else {
+    dependencyStages.forEach(({ stage, stageIndex }) => {
+      stage.waitFor.forEach((dependency) => {
+        const upstreamStates = workflowStates.filter((state) => state.stageIndex === dependency);
+        if (!upstreamStates.length) {
+          add('dependency', 'dependency-missing', 'fail', `Stage ${stageIndex + 1} dependency`,
+            `Stage ${stageIndex + 1} waits for stage ${dependency + 1}, which has no projected state.`,
+            'Run a reconcile for the upstream stage, or remove the dependency if it is no longer required.',
+            { stageIndex });
+        } else if (!upstreamStates.every((state) => String(state.pullState || '').toLowerCase() === 'merged')) {
+          add('dependency', 'dependency-open', 'fail', `Stage ${stageIndex + 1} dependency`,
+            `Stage ${stageIndex + 1} waits for stage ${dependency + 1}, but its pull request is not merged yet.`,
+            `Merge stage ${dependency + 1} first, or remove the waitFor entry if the stages can run independently.`,
+            { stageIndex });
+        } else {
+          add('dependency', 'dependency-ok', 'pass', `Stage ${stageIndex + 1} dependency`,
+            `Stage ${stageIndex + 1}'s dependency on stage ${dependency + 1} is satisfied.`,
+            '', { stageIndex });
+        }
+      });
+    });
+  }
+
+  // 5. Actions workflows referenced by deployment configs.
+  if (!deployment.length) {
+    add('actions', 'no-deployments', 'pass', 'Actions',
+      'No deployment targets are configured; there is no Actions workflow to resolve.', '');
+  } else if (!remote.actionsAvailable) {
+    add('actions', 'actions-unavailable', 'fail', 'Actions',
+      'Actions workflows could not be read for this repository.',
+      'Grant the GitHub App Actions read permission and retry.');
+  } else {
+    let actionsOk = true;
+    deployment.forEach((config) => {
+      if (!workflowExists(config.workflowName)) {
+        actionsOk = false;
+        add('actions', 'workflow-missing', 'fail', `Actions ${config.workflowName}`,
+          `Deployment target ${config.target} references ${config.workflowName}, which is not an active workflow.`,
+          `Create or rename ${config.workflowName}, or update the deployment config.`);
+      }
+      if (config.rollbackWorkflowName && !workflowExists(config.rollbackWorkflowName)) {
+        actionsOk = false;
+        add('actions', 'rollback-missing', 'fail', `Rollback ${config.rollbackWorkflowName}`,
+          `Deployment target ${config.target} references rollback workflow ${config.rollbackWorkflowName}, which is not active.`,
+          `Create ${config.rollbackWorkflowName} or remove the rollback workflow reference.`);
+      }
+    });
+    if (actionsOk) {
+      add('actions', 'actions-ok', 'pass', 'Actions',
+        'All configured deployment and rollback workflows resolve.', '');
+    }
+  }
+
+  // 6. GitHub Environments bound to deployment configs.
+  if (!deployment.length) {
+    add('environment', 'no-deployments', 'pass', 'Environments',
+      'No deployment targets are configured; there is no GitHub Environment to resolve.', '');
+  } else {
+    let environmentOk = true;
+    deployment.forEach((config) => {
+      if (!config.githubEnvironment) {
+        environmentOk = false;
+        add('environment', 'environment-unset', 'warn', `Environment for ${config.target}`,
+          `Deployment target ${config.target} has no GitHub Environment configured.`,
+          'Set githubEnvironment in the deployment config so the run is tied to a protected environment.');
+      } else if (!remote.environmentsAvailable) {
+        environmentOk = false;
+        add('environment', 'environments-unreadable', 'warn', `Environment ${config.githubEnvironment}`,
+          `GitHub Environments could not be read, so ${config.githubEnvironment} was not verified.`,
+          'Grant the GitHub App Environments read permission, then rerun the preflight.');
+      } else if (!(remote.environments || []).includes(config.githubEnvironment)) {
+        environmentOk = false;
+        add('environment', 'environment-missing', 'fail', `Environment ${config.githubEnvironment}`,
+          `Deployment target ${config.target} references ${config.githubEnvironment}, which does not exist.`,
+          `Create ${config.githubEnvironment} in GitHub Environments, or update the deployment config.`);
+      }
+    });
+    if (environmentOk) {
+      add('environment', 'environment-ok', 'pass', 'Environments',
+        'All configured GitHub Environments exist.', '');
+    }
+  }
+
+  return {
+    workflowId: workflow.id,
+    repository: workflow.repository,
+    checkedAt: new Date().toISOString(),
+    ok: !findings.some((finding) => finding.status === 'fail'),
+    findings,
+  };
+}
+
+async function preflightWorkflow(environment, identity, workflowId) {
+  if (!workflowId) throw new Error("无效的流程预检请求");
+  const [workflows, states] = await Promise.all([
+    listWorkflows(environment, identity),
+    listWorkflowStageStates(environment, identity)
+  ]);
+  const workflow = workflows.find((candidate) => candidate.id === workflowId);
+  if (!workflow) throw new Error("未找到对应流程");
+  const noOptions = { actionsAvailable: false, workflows: [], environmentsAvailable: false, environments: [] };
+  const repositoryOptions = identity.installationId
+    ? await listDeploymentOptions(environment, identity, workflow.repository).catch(() => noOptions)
+    : noOptions;
+  let liveStates = states;
+  let branchesAvailable = false;
+  let branches = [];
+  if (identity.installationId) {
+    try {
+      const config = parseGithubAppConfig(environment);
+      const { owner, name } = ownerAndName(workflow.repository);
+      // PR mergeability is computed by GitHub asynchronously and the local
+      // projection can lag a merge/close. Refresh only the open PRs the
+      // preflight is about to judge; fall back to the projection if a read
+      // fails. This keeps the check read-only while avoiding stale conflicts.
+      liveStates = await Promise.all(states.map(async (state) => {
+        if (!Number.isInteger(state.pullNumber) || state.pullNumber <= 0
+          || ['merged', 'closed'].includes(String(state.pullState || '').toLowerCase())) return state;
+        try {
+          const pull = await installationRequest(config, identity.installationId, `/repos/${owner}/${name}/pulls/${state.pullNumber}`);
+          return {
+            ...state,
+            pullState: pull.merged_at ? 'merged' : (pull.state || state.pullState),
+            mergeable: pull.mergeable ?? state.mergeable,
+            mergeableState: pull.mergeable_state ?? state.mergeableState,
+          };
+        } catch {
+          return state;
+        }
+      }));
+      const result = await installationRequest(config, identity.installationId, `/repos/${owner}/${name}/branches?per_page=100`);
+      branches = (Array.isArray(result) ? result : []).map((branch) => branch?.name).filter(Boolean);
+      branchesAvailable = true;
+    } catch {
+      branchesAvailable = false;
+    }
+  }
+  return workflowPreflight(workflow, liveStates, {
+    installationId: identity.installationId,
+    branchesAvailable,
+    branches,
+    ...repositoryOptions,
+  });
+}
+
 async function listWorkflowConfigurationWarnings(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId);
   const sql = query(environment);
@@ -3082,6 +3336,8 @@ export {
   withStageDeadline,
   workflowArchiveTransition,
   workflowConfigurationWarnings,
+  workflowPreflight,
+  preflightWorkflow,
   workflowFromRows,
   workflowRunCompletionState,
   workflowSaveConflicts,

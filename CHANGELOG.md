@@ -4,10 +4,33 @@
 
 ## [Unreleased]
 
-- test: pin `jsdom` to exact 26.1.0 — the host Node drifts between 20.x and
-  26.x and jsdom 31 only loads on Node ≥22.22 (undici import crash under
-  Node 20); the Node ≥22 `localStorage` shadowing is handled by
-  `src/test-setup.ts`
+## [0.3.0] - 2026-11-15
+
+### 新增
+- **pr-helper 自动化控制塔迁入**（迁移主体收口）：把被归档的 pr-helper 产品全部业务功能迁入本地，新增「Flows」顶层视图——Lane board（六筛选/搜索/聚合条/活动条/卡片）、流程详情（投影直出 + 30s TTL + 手动 Refresh live 对账）、步骤抽屉（创建 PR/合并/重跑/部署卡/时间线）、流程编辑器（步骤/路由/门禁/恢复策略 + 上移下移重排 + 换仓库确认）、失败中心（三段聚合 + AI 接管 + Codex 修复包）、归档/静音、运行历史、PR 引用复制、流程审计（CSV 导出）、同步健康度、只读流程预检（六类检查）、团队四角色管理。
+- **本地自动化引擎**：本地 Postgres（OrbStack 单容器）+ 幂等动作队列（create-pr/merge-pr/advance-stage）+ drain 执行器 + 对账引擎（租约/公平轮转/分级预算）+ 触发器三通道（fs.watch / HMAC webhook 接收端 / 定时对账）+ AI 失败接管 + Actions 重跑 + 部署门禁跟踪与确认式回滚 + 影子模式（只读观测）。
+- **团队四角色**：owner/editor/operator/viewer，创建团队、成员管理、个人流程共享，`TeamsModal` UI 与角色矩阵。
+- **launchd 常驻**：`launchd/` install/uninstall 脚本，KeepAlive 崩溃自愈，开机自启。
+- **失败通知**：macOS 本地通知（osascript）+ 可选飞书 webhook（`PR_HELPER_GIT_FEISHU_WEBHOOK`）。
+
+### 修复
+- fix(git): include the root commit in commit-file listings (`diff-tree
+  --root`), so the first commit no longer reports zero changed files.
+- fix(github): use the server PAT from either `config.json` or the
+  `GITHUB_TOKEN` injected from `credentials.env`, so an existing local PAT
+  powers the PR pages and GitHub proxy without re-entering it.
+- fix(config): resolve `credentials.env` under the effective data directory
+  (`PR_HELPER_HOME` aware), so isolated homes do not read real credentials.
+- fix(flows): carry `headSha`/`mergedAt` into the detail first paint, so an
+  open PR with failed checks no longer reads “waiting to create a PR”.
+- fix(migration): persist the auto-advance stage flag locally（迁移 048）+ 扩审计 CHECK 白名单（迁移 049）。
+- fix(server): make PAT fallback reachable for deployment checks。
+
+### 测试
+- 随迁 pr-helper 引擎测试网（418 store 不变量 + workflow-rows + github-api + ai-credentials）+ 143 域测试 + Phase 3 语义模块 + 9 webhook 契约测试 + 3 团队权限测试 + 3 凭据解析测试。
+- E2E 扩展到 **155 通过**（补分支 checkout/rename/delete、stash pop）。
+- 单元/路由测试 **1040 / 55 文件**。
+- test: pin `jsdom` to exact 26.1.0。
 
 ## [0.2.6] - 2026-11-12
 

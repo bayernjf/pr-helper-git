@@ -22,7 +22,7 @@
 // Values are never printed.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 
 const TABLES = [
@@ -94,6 +94,13 @@ const INSERT_CHUNK_SIZE = 500;
 async function resetSequences(tx, tables) {
   const reset = [];
   for (const table of tables) {
+    // Some mirror tables use a composite key and have no id column at all
+    // (workflow_stages is the canonical case); asking pg_get_serial_sequence
+    // for a missing column is an error, not a null result.
+    const hasId = await tx`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = ${table} AND column_name = 'id'`;
+    if (!hasId.length) continue;
     const seq = await tx`SELECT pg_get_serial_sequence(${'public.' + table}, 'id') AS seq`;
     if (!seq[0]?.seq) continue;
     const max = await tx`SELECT max(id)::text AS max FROM ${tx(table)}`;
@@ -149,69 +156,6 @@ function parseCloudUrl(url) {
 }
 
 /**
- * Fast path: the local OrbStack Postgres container ships a psql client. One
- * session can export every core table as a single json_agg row, avoiding the
- * read-only runner's per-table/per-page connection setup (which dominates a
- * full sync). The password is passed through the Docker client environment,
- * never on the command line; values are never printed.
- */
-function readCloudTablesViaPsql(tables, attempt = 1) {
-  const container = process.env.PR_HELPER_GIT_PSQL_CONTAINER || 'pr-helper-pg';
-  const hostaddr = process.env.PR_HELPER_GIT_CLOUD_HOSTADDR;
-  const conninfo = [
-    `host=${cloud.host}`,
-    `port=${cloud.port}`,
-    `dbname=${cloud.database}`,
-    `user=${cloud.user}`,
-    ...(hostaddr ? [`hostaddr=${hostaddr}`] : []),
-    'sslmode=require',
-  ].join(' ');
-  const args = [
-    'exec', '-e', 'PGPASSWORD', '-e', 'PGSSLMODE', container,
-    'psql', conninfo, '-t', '-A', '-v', 'ON_ERROR_STOP=1',
-  ];
-  for (const table of tables) {
-    args.push('-c', `SELECT '__TABLE__${table}'`);
-    args.push('-c', `SELECT coalesce(json_agg(t), '[]'::json) FROM ${table} t`);
-  }
-  try {
-    const out = execFileSync('docker', args, {
-      encoding: 'utf8',
-      timeout: 600_000,
-      maxBuffer: 512 * 1024 * 1024,
-      env: { ...process.env, PGPASSWORD: cloud.password, PGSSLMODE: 'require' },
-    });
-
-    const parsed = {};
-    let current = null;
-    for (const line of out.split('\n')) {
-      if (line.startsWith('__TABLE__')) {
-        current = line.slice('__TABLE__'.length);
-        parsed[current] = [];
-        continue;
-      }
-      if (!current || line.trim() === '') continue;
-      const rows = JSON.parse(line);
-      if (!Array.isArray(rows)) throw new Error(`shadow-sync: unexpected payload for ${current}`);
-      parsed[current] = rows;
-    }
-    for (const table of tables) {
-      if (!parsed[table]) throw new Error(`shadow-sync: psql export missing ${table}`);
-    }
-    return parsed;
-  } catch (err) {
-    // The Supabase pooler rate-limits new clients after a burst of runner
-    // connections. A short backoff and a fresh session usually succeeds; if
-    // all attempts fail the caller falls back to the paged runner.
-    if (attempt < 3) {
-      execFileSync('sleep', [String(10 * attempt)]);
-      return readCloudTablesViaPsql(tables, attempt + 1);
-    }
-    throw err;
-  }
-}
-
-/**
  * Cloud reads go through the owner's verified readonly runner
  * (~/.local/bin/prh-sql.mjs) as a subprocess: the session pooler is flaky
  * under long-lived in-process connections (P0-3 lesson), and this runner's
@@ -223,7 +167,7 @@ function readCloudTable(table, attempt = 1) {
 
   try {
     for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
-      const query = `SELECT * FROM ${table} LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
+      const query = `SELECT * FROM ${table} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
       const out = execFileSync('node', [prhSql, query], {
         encoding: 'utf8',
         timeout: 180_000,
@@ -235,15 +179,32 @@ function readCloudTable(table, attempt = 1) {
     }
     return rows;
   } catch (err) {
-    // Supabase's pooler occasionally stalls on a page. One bounded retry is
-    // enough; the whole sync is still all-or-nothing because the local rebuild
-    // starts only after every table has been fetched.
-    if (attempt < 2 && (err?.code === 'ETIMEDOUT' || err?.signal === 'SIGTERM')) {
+    // Supabase's pooler occasionally stalls or closes a page connection. One
+    // bounded retry is enough; the whole sync is still all-or-nothing because
+    // the local rebuild starts only after every table has been fetched.
+    if (attempt < 2) {
       execFileSync('sleep', ['3']);
       return readCloudTable(table, attempt + 1);
     }
     throw err;
   }
+}
+
+function readCloudTableSince(table, minId) {
+  const prhSql = `${process.env.HOME}/.local/bin/prh-sql.mjs`;
+  const rows = [];
+  for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
+    const query = `SELECT * FROM ${table} WHERE id > ${Number(minId)} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
+    const out = execFileSync('node', [prhSql, query], {
+      encoding: 'utf8',
+      timeout: 180_000,
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    const page = JSON.parse(out);
+    rows.push(...page);
+    if (page.length < CLOUD_PAGE_SIZE) break;
+  }
+  return rows;
 }
 
 const counts = [];
@@ -272,21 +233,65 @@ try {
       console.error(`  snapshot failed tables (ignored by core sync): ${snapshot.failed.join(', ')}`);
     }
   } else {
-    try {
+    cloudRows = {};
+    for (const table of SYNC_TABLES) {
       const t0 = Date.now();
-      cloudRows = readCloudTablesViaPsql(SYNC_TABLES);
-      const total = SYNC_TABLES.reduce((sum, table) => sum + cloudRows[table].length, 0);
-      console.error(`  psql fast path: ${SYNC_TABLES.length} tables / ${total} rows (${Date.now() - t0}ms)`);
-    } catch (err) {
-      console.error('  psql fast path unavailable after retries; falling back to per-table runner');
-      cloudRows = {};
-      for (const table of SYNC_TABLES) {
-        const t0 = Date.now();
-        cloudRows[table] = readCloudTable(table);
-        console.error(`  read ${table}: ${cloudRows[table].length} rows (${Date.now() - t0}ms)`);
-      }
+      cloudRows[table] = readCloudTable(table);
+      console.error(`  read ${table}: ${cloudRows[table].length} rows (${Date.now() - t0}ms)`);
     }
   }
+
+  // automation_actions are read after automation_runs, so a run created while
+  // the sync is in flight can be referenced by an action but absent from the
+  // earlier runs page. Top up only the new run ids; this is a few rows, not a
+  // second full read of the 3.6k-row table.
+  const automationRuns = cloudRows.workflow_automation_runs || [];
+  if (!SNAPSHOT_SYNC && automationRuns.length) {
+    const maxRunId = Math.max(...automationRuns.map((row) => Number(row.id) || 0));
+    const newerRuns = readCloudTableSince('workflow_automation_runs', maxRunId);
+    if (newerRuns.length) {
+      cloudRows.workflow_automation_runs.push(...newerRuns);
+      console.error(`  workflow_automation_runs: topped up ${newerRuns.length} new rows (id > ${maxRunId})`);
+    }
+  }
+
+  // If the cloud deleted a parent between paginated reads (or a snapshot
+  // predates a run), keep the mirror referentially valid rather than aborting
+  // the whole rebuild: drop the few child rows whose parent is absent and log
+  // them. The next sync picks the pair up once the cloud is consistent.
+  const runIds = new Set((cloudRows.workflow_automation_runs || []).map((row) => String(row.id)));
+  const actionRows = cloudRows.workflow_automation_actions || [];
+  const orphanActions = actionRows.filter((row) => !runIds.has(String(row.run_id)));
+  if (orphanActions.length) {
+    cloudRows.workflow_automation_actions = actionRows.filter((row) => runIds.has(String(row.run_id)));
+    console.error(`  workflow_automation_actions: dropped ${orphanActions.length} rows with missing run`);
+  }
+
+  // Early reads used unordered LIMIT/OFFSET pages, so a scan could return the
+  // same row on two pages; explicit-id inserts then failed the local primary
+  // key. Drop exact duplicates before the rebuild, and log how many were seen.
+  for (const table of SYNC_TABLES) {
+    const rows = cloudRows[table];
+    const seen = new Set();
+    const unique = [];
+    for (const row of rows) {
+      const key = Object.prototype.hasOwnProperty.call(row, 'id') ? `id:${row.id}` : JSON.stringify(row);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(row);
+    }
+    if (unique.length !== rows.length) {
+      console.error(`  ${table}: dropped ${rows.length - unique.length} duplicate rows`);
+      cloudRows[table] = unique;
+    }
+  }
+
+  // Keep the freshly fetched rows so a local-schema/insert problem can be
+  // retried with `--snapshot` without another 15-minute cloud read. The file
+  // contains mirror data, so it is written owner-only and never printed.
+  const latestSnapshot = `${process.env.HOME}/.pr-helper-git/shadow-latest.json`;
+  writeFileSync(latestSnapshot, JSON.stringify({ exportedAt: new Date().toISOString(), tables: cloudRows }), { encoding: 'utf8', mode: 0o600 });
+  console.error(`  wrote ${latestSnapshot}`);
 
   // One transaction for the whole rebuild: either the mirror is fully
   // replaced or the previous mirror survives. The auto_advance snapshot is
@@ -306,8 +311,33 @@ try {
       await tx`TRUNCATE TABLE ${tx(table)} CASCADE`;
     }
 
+    // Local schema has deliberately diverged from the cloud schema (for
+    // example workflow_stages keeps a composite key and dropped the cloud
+    // id column). Project cloud rows onto the local column set so a full
+    // mirror can still be rebuilt without inventing local-only values.
+    const localColumns = await tx`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema NOT IN ('pg_catalog', 'information_schema')`;
+    const allowedByTable = new Map();
+    for (const { table_name, column_name } of localColumns) {
+      if (!allowedByTable.has(table_name)) allowedByTable.set(table_name, new Set());
+      allowedByTable.get(table_name).add(column_name);
+    }
+
     for (const table of SYNC_TABLES) {
-      const rows = cloudRows[table];
+      const allowed = allowedByTable.get(table);
+      if (!allowed || allowed.size === 0) throw new Error(`shadow-sync: local table ${table} has no columns`);
+      const dropped = new Set();
+      const rows = cloudRows[table].map((row) => {
+        const filtered = {};
+        for (const [key, value] of Object.entries(row)) {
+          if (allowed.has(key)) filtered[key] = value;
+          else dropped.add(key);
+        }
+        return filtered;
+      });
+      if (dropped.size) console.error(`  ${table}: dropped cloud-only columns ${[...dropped].join(', ')}`);
       for (let offset = 0; offset < rows.length; offset += INSERT_CHUNK_SIZE) {
         const chunk = rows.slice(offset, offset + INSERT_CHUNK_SIZE);
         await tx`INSERT INTO ${tx(table)} ${tx(chunk)}`;

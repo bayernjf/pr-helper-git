@@ -32,6 +32,8 @@ export type WorkflowStageStateRow = {
   target: string;
   pullNumber?: number | null;
   pullState?: string;
+  mergedAt?: string | null;
+  headSha?: string | null;
   checksState?: string;
   checksPassed?: number;
   checksTotal?: number;

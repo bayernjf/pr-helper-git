@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { randomToken } from './security.mjs';
 import { runAsActor } from './actor.mjs';
+import { parseCredentialEnv } from './credentials-env.mjs';
 import { resolveToken } from './identity.mjs';
 import { handleGitRoute } from './routes-git.mjs';
 import { startAutomation, handleGithubWebhook } from './automation.mjs';
@@ -22,7 +23,7 @@ import {
   stopAllWatching,
   watchedCount,
 } from './watcher.mjs';
-import { ensureDataPermissions, listRepos } from './store.mjs';
+import { configPaths, ensureDataPermissions, listRepos } from './store.mjs';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIST_DIR = path.join(REPO_ROOT, 'dist');
@@ -334,13 +335,11 @@ await ensureDataPermissions();
 // The file is 0600, lives in the data dir, and is excluded from backups'
 // plaintext output by the secret-shape redaction rule.
 try {
-  const credsPath = path.join(os.homedir(), '.pr-helper-git', 'credentials.env');
+  const credsPath = path.join(configPaths().CONFIG_DIR, 'credentials.env');
   if (existsSync(credsPath)) {
-    for (const line of readFileSync(credsPath, 'utf8').split('\n')) {
-      const match = line.match(/^([A-Z_]+)="?(.*)"?$/);
-      if (match && match[2] && match[2] !== '[SENSITIVE]' && process.env[match[1]] === undefined) {
-        process.env[match[1]] = match[2];
-      }
+    const values = parseCredentialEnv(readFileSync(credsPath, 'utf8'));
+    for (const [key, value] of Object.entries(values)) {
+      if (process.env[key] === undefined) process.env[key] = value;
     }
   }
 } catch { /* credentials are optional */ }

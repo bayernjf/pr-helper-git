@@ -50,6 +50,37 @@ export type DeploymentOptions = {
   environments: string[];
 };
 
+export type FlowPreflightCategory = 'app' | 'branch' | 'pr' | 'dependency' | 'actions' | 'environment';
+export type FlowPreflightStatus = 'pass' | 'warn' | 'fail' | 'skip';
+
+export type FlowPreflightFinding = {
+  category: FlowPreflightCategory;
+  code: string;
+  status: FlowPreflightStatus;
+  title: string;
+  detail: string;
+  suggestion: string;
+  stageIndex?: number;
+  pullNumber?: number;
+};
+
+export type FlowPreflightResult = {
+  workflowId: string;
+  repository: string;
+  checkedAt: string;
+  ok: boolean;
+  findings: FlowPreflightFinding[];
+};
+
+/** POST /api/flows/preflight — read-only P3-13 flow check. */
+export function fetchFlowPreflight(workflowId: string): Promise<{ preflight: FlowPreflightResult }> {
+  return request<{ preflight: FlowPreflightResult }>('/api/flows/preflight', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ workflowId }),
+  });
+}
+
 export type WorkflowRunRow = {
   id: string;
   workflowId: string;
@@ -106,14 +137,80 @@ export type InboxPayload = {
   recoveryStatuses: Array<import('../lib/automation/flows-board').RecoveryStatusRow>;
   automation: AutomationActionRow[];
   readWarnings?: Array<{ source: string; message: string }>;
+  reconciliationScheduled?: boolean;
+  reconciliation?: { outcome?: string; reconciled?: number } | null;
 };
 
-export function fetchInbox(): Promise<InboxPayload> {
-  return request<InboxPayload>('/api/flows/inbox');
+export type InboxRequest = {
+  /** Trigger an inline realtime reconcile (manual queue refresh). */
+  refresh?: boolean;
+  /** Restrict the reconcile to one managed repository. */
+  repository?: string;
+};
+
+export function fetchInbox(options: InboxRequest = {}): Promise<InboxPayload> {
+  const params = new URLSearchParams();
+  if (options.refresh) params.set('refresh', '1');
+  if (options.repository) params.set('repository', options.repository);
+  const query = params.toString();
+  return request<InboxPayload>(`/api/flows/inbox${query ? `?${query}` : ''}`);
 }
 
 export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
   return request<{ workflows: Workflow[] }>('/api/flows/workflows');
+}
+
+// Teams (P2-8): the engine's four-role model. Owner-only writes; members and
+// shared workflows are scoped per team.
+export type TeamSummary = {
+  id: string;
+  name: string;
+  role: import('../lib/automation/team-permissions').TeamRole;
+  createdAt?: string;
+};
+export type TeamMemberRow = {
+  githubLogin: string;
+  role: import('../lib/automation/team-permissions').TeamRole;
+};
+
+export function fetchTeams(): Promise<{ teams: TeamSummary[] }> {
+  return request<{ teams: TeamSummary[] }>('/api/flows/teams');
+}
+
+export function fetchTeamMembers(teamId: string): Promise<{ members: TeamMemberRow[] }> {
+  return request<{ members: TeamMemberRow[] }>(`/api/flows/teams?teamId=${encodeURIComponent(teamId)}`);
+}
+
+export function createTeam(name: string): Promise<{ team: TeamSummary }> {
+  return request<{ team: TeamSummary }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'create', name }),
+  });
+}
+
+export function addTeamMember(input: { teamId: string; githubLogin: string; role: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'member', ...input }),
+  });
+}
+
+export function removeTeamMember(input: { teamId: string; githubLogin: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'remove-member', ...input }),
+  });
+}
+
+export function shareWorkflowWithTeam(input: { teamId: string; workflowId: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'share-workflow', ...input }),
+  });
 }
 
 // AI automation credentials (M-E5 tail): drive auto-create PR message

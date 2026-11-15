@@ -596,6 +596,15 @@ describe('write routes', () => {
     expect(head.body).toBe('Real body');
   });
 
+  it('lists files for a root commit', async () => {
+    const rootSha = git(['rev-list', '--max-parents=0', 'HEAD'], repoDir).trim().split('\n')[0];
+    const r = await get(`/api/commit-files?repo=${q(repoDir)}&sha=${rootSha}`);
+    expect(r.status).toBe(200);
+    expect(r.json.files).toContainEqual({
+      status: 'A', path: 'a.txt', renamedFrom: null, additions: 1, deletions: 0,
+    });
+  });
+
   it('creates and deletes a branch without switching', async () => {
     const created = await post('/api/branch/create', { repo: repoDir, name: 'tmp-branch', noCheckout: true });
     expect(created.status).toBe(200);

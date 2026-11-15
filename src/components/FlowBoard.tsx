@@ -3,7 +3,7 @@
 // fan-out); all board semantics (six filters, aggregate counters, lane step
 // tones, run summary) live in src/lib/automation/flows-board.ts and are
 // unit-tested against the original pr-helper behaviour there.
-import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { fetchFlows, fetchInbox, type InboxPayload } from '../api/flows';
 import { errorMessage } from '../lib/errors';
 import {
@@ -21,6 +21,8 @@ import FlowEditor from './FlowEditor';
 import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
+import FlowPreflightModal from './FlowPreflightModal';
+import TeamsModal from './TeamsModal';
 import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
@@ -78,7 +80,8 @@ function StepCard({ lane, repository }: {
 /**
  * Flow board page: board filters, archive/restore + mute/unmute (P3-12),
  * sync-health strip and flows audit entry (P3-14), and return-highlight
- * (P3-16). Refreshing re-reads the persisted projection.
+ * (P3-16). Page entry and focus return read the persisted projection; the
+ * explicit Refresh action reconciles live on the server.
  */
 export default function FlowBoard() {
   const toast = useToast();
@@ -96,8 +99,12 @@ export default function FlowBoard() {
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [teamsOpen, setTeamsOpen] = useState(false);
+  const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  /** Timestamp of the last successful projection read; focus/visibility reload is TTL-gated. */
+  const lastLoadedAt = useRef(0);
 
   useEffect(() => {
     if (!returnHighlight) return undefined;
@@ -111,13 +118,17 @@ export default function FlowBoard() {
     if (flowId) setReturnHighlight(flowId);
   }, [selectedFlowId]);
 
-  const load = useCallback(async (showSpinner: boolean) => {
+  const load = useCallback(async (showSpinner: boolean, reconcile = false) => {
     if (showSpinner) setRefreshing(true);
     try {
-      const [nextInbox, nextFlows] = await Promise.all([fetchInbox(), fetchFlows()]);
+      const [nextInbox, nextFlows] = await Promise.all([
+        fetchInbox({ refresh: reconcile }),
+        fetchFlows(),
+      ]);
       setInbox(nextInbox);
       setWorkflows(nextFlows.workflows);
       setError('');
+      lastLoadedAt.current = Date.now();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -127,6 +138,23 @@ export default function FlowBoard() {
   }, []);
 
   useEffect(() => { void load(false); }, [load]);
+
+  // Page entry and returning to the tab render the persisted projection; a
+  // reload is only worth a request once the snapshot is older than 30s. Live
+  // reconciliation stays on the explicit Refresh action.
+  useEffect(() => {
+    const maybeReload = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadedAt.current < 30_000) return;
+      void load(false, false);
+    };
+    window.addEventListener('focus', maybeReload);
+    document.addEventListener('visibilitychange', maybeReload);
+    return () => {
+      window.removeEventListener('focus', maybeReload);
+      document.removeEventListener('visibilitychange', maybeReload);
+    };
+  }, [load]);
 
   const state: BoardState = useMemo(() => ({
     workflows,
@@ -244,13 +272,16 @@ export default function FlowBoard() {
         <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
           {t('Audit log')}
         </button>
+        <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
+          {t('Teams')}
+        </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
         </button>
         <button
           type="button"
           className="board-refresh"
-          onClick={() => void load(true)}
+          onClick={() => void load(true, true)}
           disabled={refreshing}
           aria-busy={refreshing}
         >
@@ -355,6 +386,13 @@ export default function FlowBoard() {
                 <button
                   type="button"
                   className="drawer-btn small"
+                  onClick={() => setPreflightFlowId(lane.workflow.id)}
+                >
+                  {t('preflight')}
+                </button>
+                <button
+                  type="button"
+                  className="drawer-btn small"
                   disabled={laneBusy === lane.workflow.id}
                   onClick={async () => {
                     const archiving = !lane.workflow.archived;
@@ -433,6 +471,14 @@ export default function FlowBoard() {
         )}
       </section>
       {auditOpen ? <FlowAuditModal onClose={() => setAuditOpen(false)} /> : null}
+      {teamsOpen ? <TeamsModal onClose={() => setTeamsOpen(false)} /> : null}
+      {preflightFlowId ? (
+        <FlowPreflightModal
+          flowId={preflightFlowId}
+          flowName={state.workflows.find((workflow) => workflow.id === preflightFlowId)?.name ?? ''}
+          onClose={() => setPreflightFlowId(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 🔶（功能缺口复审）→ Phase 3.5 🔶（P3-10 实网待验；P3-11/P3-12/P3-14/P3-16 ✅；P3-13/P3-15 待裁/暂缓）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -22,17 +22,19 @@ every committed file as world-readable.
 | P1-2 47 迁移原样执行 | ✅ 26 表 schema 一致（030 → server 调度例外）；`npm run check:migrations` 校验脚本随迁（11-14，26=26 ✓）|
 | P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
 | P1-4 store 层移植 | ✅ bundle 3014 行自含 ESM（29169ff）+ store 测试网随迁全绿（418 不变量 + workflow-rows 25 + github-api 11 + ai-credentials 5，11-14）；api 路由层测试随 Phase 3 服务面接线随迁 |
-| P1-5 领域内核 | 🔶 核心 4 模块落地 src/lib/automation/ + 随迁测试 143 全绿（11-14）；长尾 UI 支撑模块随 Phase 3 移植 |
+| P1-5 领域内核 | ✅ 核心 4 模块 + Phase 3 语义模块（board/detail/failures/audit/prerequisites）全部落地，143 域测试 + 31 UI 语义测试；长尾 navigation/save-queue 由 React hooks + API client 直接承载，不重复造状态机 |
 | P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
-| P2-2/4/6/7 引擎 bundle（drain/对账/AI 接管/重跑） | 🔶 已随 bundle 落地，单测随迁与实网验收待 |
-| P2-5 触发器三通道 | 🔶 webhook 端到端实测 ✓（11-14：HMAC/去重/projection/实时对账）；签名单测随迁待 |
-| P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
-| P2-1 PAT/App 凭据实网验收 | ⬜ 待用户提供一次性私有测试仓 + PAT |
-| P2-3 门禁+合并执行接线 | ⬜ |
-| P2-8 团队四角色 | ⬜ |
-| P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；验证后已卸载，常驻启用待用户拍板 |
-| Phase 3 控制塔 UI React 重建 | 🔶 **主体完成，功能对等接近闭环**（11-14）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度已落地；剩余部署实网、预检裁决、团队 UI（详见 Phase 3.5） |
-| Phase 3.5 功能缺口回补 | 🔶 P3-11 ✅、P3-12 ✅、P3-14 ✅、P3-16 ✅（UI 实测）；P3-10 🔶（部署门禁实现完成，#22/#23 实测，真实 run 回滚/Environment 列表待 P2-1）；P3-13 预检待用户裁决“重建/删除”；P3-15 团队 UI 单用户暂缓、未计完成 |
+| P2-2/4 drain + 对账引擎 | ✅ 418 store 不变量覆盖 drain 决策/退避/幂等/取消；租约/轮转/分级预算测试通过；本地 PG `reconciliation_runs` 产生 `inbox_refresh` 遥测行（14 total/12 reconciled/0 failed/≈6s） |
+| P2-6 AI 接管 | ✅ 2026-11-15 真实闭环：action 4372 缺 AI 配置自然 paused → 补临时凭据 → takeover 建 PR #9；另走 4789 UI 点击路径（take over 表单）建 PR #11，审计 `via=user-takeover`，Refresh 后卡片显示 PR #11；PR/分支/流程/凭据已清理 |
+| P2-7 Actions 重跑 + Codex | ✅ 校验链随 bundle，路由 400/合法测试 + 次数上限域测试 + Codex context 测试；实际 rerun dispatch 未执行 |
+| P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
+| P2-10 影子模式 | ✅ 只读观测（引擎无 dry-run 缝；shadow 永不执行）+ JSONL 影子日志落盘；逐日比对材料见 `docs/phase5-runbook.md` |
+| P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
+| P2-3 门禁+合并执行接线 | ✅ 2026-11-15 真实链路：PR #8 自动建/合并（action 4370/4371，`main` `f94ace0`）；PR #10 验证 advance-stage（action 4375 succeeded，审计 `stage-advanced`）；真实 advance 暴露并修复 020 审计 CHECK 缺 `stage-advanced`，新增本地迁移 `049_audit_stage_advanced.sql`；测试分支/流程/凭据已清理 |
+| P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉；真实 HTTP 共享 200 且 join 表落库 |
+| P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
+| Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
+| Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ⏸ 用户明确暂缓、不计完成；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
 
@@ -46,7 +48,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-14（P3-12/P3-14/P3-16 回补：看板归档/恢复+静音/取消静音、详情最近运行、flows 审计 UI+CSV、同步健康度、PR 引用 tooltip/复制、编辑器折叠、返回高亮；验收 ✅28/🔶5/🔀1/⬜0，测试 1006/49 + build 通过）。
+最近更新：2026-11-15（PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1040/55、E2E 155/155、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
@@ -165,6 +167,25 @@ redacts secret fields, and pins `main`/`dev`/tags explicitly so the bundle HEAD
 does not depend on the currently checked-out branch. The latest
 `000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
 history; check `git bundle list-heads` for the exact main ref.
+
+## Release 0.3.0 (2026-11-15)
+
+`package.json` / `package-lock.json` at **0.3.0**; `CHANGELOG.md` carries the
+`[0.3.0]` section; `v0.3.0` is an annotated tag on the release commit.
+
+Scope: pr-helper 自动化控制塔迁移主体收口（Phase 0–3.5 全部关闭）。把被归档
+pr-helper 的全部业务功能迁入本地：Flows 顶层视图（Lane board / 详情 / 抽屉 /
+编辑器 / 失败中心 / 归档静音 / 审计 CSV / 同步健康度 / 只读预检 / 团队四角色）、
+本地自动化引擎（OrbStack Postgres + 幂等队列 + drain + 对账 + 触发器三通道 +
+AI 接管 + 部署门禁 + 影子模式）、launchd 常驻、失败通知（macOS + 可选飞书）。
+
+Gates: lint, server typecheck, **1040 unit/route tests / 55 files**, build,
+E2E **155/155**。真实外部副作用已验证：P2-3 自动建 PR/合并 + advance-stage、
+P2-6 AI 失败接管、PR Close/Reopen/Merge（Approve/Request-changes 因 GitHub
+平台"不能 review 自己 PR"约束转验收口径：产品正确透传 422 错误 + COMMENT 走通）。
+
+详见迁移台账 `docs/pr-helper-migration.md` 与验收映射
+`docs/migration-acceptance.md`（34/34，除认证形态替代 #1 外无开放式失败项）。
 
 ## Release 0.2.6 (2026-11-12)
 

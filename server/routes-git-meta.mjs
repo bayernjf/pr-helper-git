@@ -16,6 +16,7 @@ import {
   rotateAudit,
   updateConfig,
 } from './store.mjs';
+import { hasServerPat } from './pat.mjs';
 import { createUser, listUsers, removeUser } from './identity.mjs';
 import { complete, isAiConfigured, loadAiConfig, normalizeAiConfig, publicAiConfig, saveAiConfig, validateAiConfig }from './ai.mjs'
 import { ensureWatching, reconcileWatching, stopWatching } from './watcher.mjs';
@@ -158,12 +159,12 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
       delete config.github;
     });
     await appendAudit({ ok: true, action: 'pat.remove' });
-    return ok({ hasServerPat: false });
+    return ok({ hasServerPat: hasServerPat(await loadConfig()) });
   }
 
   if (pathname === '/api/pat/status' && method === 'GET') {
     const config = await loadConfig();
-    return ok({ hasServerPat: Boolean(config.github?.token) });
+    return ok({ hasServerPat: hasServerPat(config) });
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
