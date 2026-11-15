@@ -48,7 +48,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（团队四角色收口 + P5-1 影子同步跑通。团队：`/api/flows/teams`、`team-permissions` 矩阵、`TeamsModal`，4791 实测 Owner/成员/角色，真实 HTTP 共享 200 且 join 表落库；P2-8/P3-15 ✅。同步：逐表 500 行有序分页绕开 Supabase pooler 300 秒断连，本地镜像 14 workflows / 14 stages / 3,647 runs+actions / 8,372 audit，4789 重启后 trackedWorkflows=14；P5-1 仍待 5–7 天比对。测试 1035/54、E2E 145/145、build 通过）。
+最近更新：2026-11-15（终验走查补强：分支 checkout/删除/重命名 + stash pop 的 E2E 断言补齐 10 条——`e2e/run.sh` 从 145 升到 **155 通过**；Settings AI 配置保存路径（GET/POST/clearKey、key 永不回传）与 Teams 创建/成员 Owner 列表（`action=create` 契约）在隔离 server + 真实本地 PG 实测 12/12 通过，测试团队已 SQL 清理、`pr_helper_teams` 归零。测试 1040/55、E2E 155/155、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
