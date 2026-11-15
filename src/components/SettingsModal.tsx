@@ -1,7 +1,10 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import {
-  getAiConfig, getMe, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos, type StorageInfo,
+  getAiConfig, getMe, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos,
+  getGithubAuthStatus, getGithubInstallations, logoutGithub, pollGithubDeviceFlow, startGithubDeviceFlow,
+  getA2aStatus, generateA2aToken, revokeA2aToken,
+  type A2aStatus, type GithubAuthStatus, type GithubDeviceStart, type GithubInstallation, type StorageInfo,
 } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
@@ -24,6 +27,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [savingAi, setSavingAi] = useState(false);
   const [testing, setTesting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [github, setGithub] = useState<GithubAuthStatus | null>(null);
+  const [device, setDevice] = useState<GithubDeviceStart | null>(null);
+  const [deviceBusy, setDeviceBusy] = useState(false);
+  const [deviceError, setDeviceError] = useState('');
+  const [installations, setInstallations] = useState<GithubInstallation[]>([]);
+  const [installUrl, setInstallUrl] = useState<string | null>(null);
+  const [a2a, setA2a] = useState<A2aStatus | null>(null);
+  const [a2aToken, setA2aToken] = useState('');
+  const [a2aBusy, setA2aBusy] = useState(false);
   useEscape(onClose);
 
   // The key itself is never returned, so the field starts empty and a blank
@@ -43,9 +55,129 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           })
           .catch(() => { /* settings are optional */ });
         getStorage().then(setStorage).catch(() => { /* maintenance is optional */ });
+        getGithubAuthStatus()
+          .then((status) => {
+            setGithub(status);
+            if (status.connected) {
+              getGithubInstallations()
+                .then((payload) => {
+                  setInstallations(payload.installations);
+                  setInstallUrl(payload.installUrl);
+                })
+                .catch(() => { /* installations need App access; identity still works */ });
+            }
+          })
+          .catch(() => { /* GitHub connection is optional */ });
+        getA2aStatus().then(setA2a).catch(() => { /* A2A is optional */ });
       })
       .catch(() => { /* keep the conservative member view */ });
   }, []);
+
+  // Device Flow polling: one poll per interval, stopping on any terminal state
+  // or when the modal unmounts. slow_down increases the interval by 5s.
+  useEffect(() => {
+    if (!device) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    let interval = Math.max(5, device.interval || 5);
+    const poll = async () => {
+      try {
+        const result = await pollGithubDeviceFlow(device.flowId);
+        if (cancelled) return;
+        if (result.state === 'connected') {
+          setDevice(null);
+          setDeviceError('');
+          toast(`GitHub connected${result.login ? ` as @${result.login}` : ''}`, 'success');
+          const status = await getGithubAuthStatus();
+          setGithub(status);
+          getGithubInstallations()
+            .then((payload) => {
+              setInstallations(payload.installations);
+              setInstallUrl(payload.installUrl);
+            })
+            .catch(() => { /* installations are optional */ });
+          return;
+        }
+        if (result.state === 'denied' || result.state === 'expired' || result.state === 'error') {
+          setDevice(null);
+          setDeviceError(result.message || t('GitHub authorization did not complete. Try again.'));
+          return;
+        }
+        if (result.state === 'slow_down') interval += 5;
+        timer = window.setTimeout(poll, interval * 1000);
+      } catch (err) {
+        if (cancelled) return;
+        setDevice(null);
+        setDeviceError(errorMessage(err));
+      }
+    };
+    timer = window.setTimeout(poll, interval * 1000);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [device]);
+
+  async function copyText(value: string, message: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast(message, 'success');
+    } catch {
+      toast(t('Copy failed'), 'error');
+    }
+  }
+
+  async function connectGithub() {
+    setDeviceBusy(true);
+    setDeviceError('');
+    try {
+      setDevice(await startGithubDeviceFlow());
+    } catch (err) {
+      setDeviceError(errorMessage(err));
+    } finally {
+      setDeviceBusy(false);
+    }
+  }
+
+  async function disconnectGithub() {
+    try {
+      await logoutGithub();
+      setGithub(await getGithubAuthStatus());
+      setInstallations([]);
+      setInstallUrl(null);
+      toast(t('GitHub account disconnected'), 'success');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+  }
+
+  async function generateA2a() {
+    setA2aBusy(true);
+    try {
+      const generated = await generateA2aToken();
+      setA2aToken(generated.token);
+      setA2a(await getA2aStatus());
+      toast(t('A2A token generated'), 'success');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setA2aBusy(false);
+    }
+  }
+
+  async function revokeA2a() {
+    setA2aBusy(true);
+    try {
+      await revokeA2aToken();
+      setA2aToken('');
+      setA2a(await getA2aStatus());
+      toast(t('A2A token revoked'), 'success');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setA2aBusy(false);
+    }
+  }
 
   async function saveAi(event: React.MouseEvent) {
     event.preventDefault();
@@ -185,6 +317,74 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
           {isAdmin && (
             <>
+          <h3 className="settings-section">{t("GitHub account")}</h3>
+          <div className="hint" style={{ marginBottom: 10 }}>
+            {t('Optional GitHub App Device Flow connection. It proves your GitHub identity and lists App installations; GitHub writes still use the PAT and automation credentials.')}
+          </div>
+          {!github ? (
+            <div className="hint">{t('Loading…')}</div>
+          ) : device ? (
+            <div className="form-group">
+              <div className="hint">{t('Open the verification page and enter this code:')}</div>
+              <div className="settings-row" style={{ alignItems: 'center', gap: 8 }}>
+                <code style={{ fontSize: 18, letterSpacing: 2 }}>{device.userCode}</code>
+                <button type="button" className="btn" onClick={() => copyText(device.userCode, t('Device code copied'))}>
+                  {t('Copy code')}
+                </button>
+                <a className="btn" href={device.verificationUri} target="_blank" rel="noreferrer">{t('Open GitHub')}</a>
+                <button type="button" className="btn" onClick={() => setDevice(null)}>{t('Cancel')}</button>
+              </div>
+              <div className="hint">{t('Waiting for authorization…')}</div>
+            </div>
+          ) : github.connected ? (
+            <>
+              <div className="settings-row" style={{ alignItems: 'center', gap: 10 }}>
+                {github.avatarUrl && (
+                  <img src={github.avatarUrl} alt="" width={28} height={28} style={{ borderRadius: '50%' }} />
+                )}
+                <span>@{github.login}</span>
+                <button type="button" className="btn" onClick={disconnectGithub}>{t('Disconnect')}</button>
+              </div>
+              {github.expired ? (
+                <div className="hint" style={{ color: 'var(--danger, #d05c5c)' }}>
+                  {t('GitHub authorization expired — reconnect to refresh access.')}{' '}
+                  <button type="button" className="btn" onClick={connectGithub}>{t('Reconnect')}</button>
+                </div>
+              ) : github.expiresAt ? (
+                <div className="hint">{t('Access expires')}: {new Date(github.expiresAt).toLocaleString()}</div>
+              ) : null}
+              <div className="form-group" style={{ marginTop: 10 }}>
+                <label>{t('GitHub App installations')}</label>
+                {installations.length ? (
+                  <div className="hint">
+                    {installations.map((item) => (
+                      <div key={item.id}>
+                        {item.account || `#${item.id}`} · {item.repositorySelection || t('selected repositories')}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="hint">{t('No App installation found. Install the App to grant repository access.')}</div>
+                )}
+                {installUrl && (
+                  <a href={installUrl} target="_blank" rel="noreferrer">{t('Install the GitHub App')}</a>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn" disabled={!github.configured || deviceBusy} onClick={connectGithub}>
+                {deviceBusy ? t('Starting…') : t('Connect GitHub')}
+              </button>
+              {!github.configured && (
+                <div className="hint">
+                  {t('Set GITHUB_APP_CLIENT_ID in ~/.pr-helper-git/credentials.env, then restart the server.')}
+                </div>
+              )}
+            </>
+          )}
+          {deviceError && <div className="hint" style={{ color: 'var(--danger, #d05c5c)' }}>{deviceError}</div>}
+
           <h3 className="settings-section">{t("Server-side PAT")}</h3>
           <div className="form-group">
             <div className="hint">
@@ -352,6 +552,52 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {configured ? t('Configured') : t('Not configured yet')}
             </span>
           </div>
+
+          <h3 className="settings-section">{t("A2A / Agent Card")}</h3>
+          <div className="hint" style={{ marginBottom: 10 }}>
+            {a2a?.configured
+              ? t('A2A is enabled for bearer-token clients. Plan mode is the default; execute mode enqueues real automation actions.')
+              : t('A2A is disabled until you generate a token or set PR_HELPER_GIT_A2A_TOKEN in ~/.pr-helper-git/credentials.env.')}
+          </div>
+          {a2a && (
+            <div className="form-group">
+              <label>{t('Agent card')}</label>
+              <div className="settings-row">
+                <input readOnly value={a2a.cardUrl} />
+                <button type="button" className="btn" onClick={() => copyText(a2a.cardUrl, t('Agent card URL copied'))}>
+                  {t('Copy')}
+                </button>
+              </div>
+              <div className="hint">{t('Skills')}: {a2a.skills.join(', ')}</div>
+              <div className="hint" style={{ marginTop: 8 }}>
+                {a2a.configured
+                  ? (a2a.source === 'env' ? t('Configured via credentials.env') : t('Configured in config.json'))
+                  : t('No A2A token configured yet.')}
+                {a2a.hint ? ` · ${t('Token hint')}: …${a2a.hint}` : ''}
+              </div>
+              <div className="settings-row" style={{ marginTop: 8 }}>
+                <button type="button" className="btn" disabled={a2aBusy} onClick={generateA2a}>
+                  {a2a.configured ? t('Regenerate token') : t('Generate token')}
+                </button>
+                {a2a.configured && a2a.source === 'config' && (
+                  <button type="button" className="btn" disabled={a2aBusy} onClick={revokeA2a}>
+                    {t('Revoke token')}
+                  </button>
+                )}
+              </div>
+              {a2aToken && (
+                <div className="hint" style={{ marginTop: 8 }}>
+                  <div>{t('Copy it now — the token is not shown again.')}</div>
+                  <div className="settings-row">
+                    <input readOnly value={a2aToken} />
+                    <button type="button" className="btn" onClick={() => copyText(a2aToken, t('A2A token copied'))}>
+                      {t('Copy')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
             </>
           )}
         </div>

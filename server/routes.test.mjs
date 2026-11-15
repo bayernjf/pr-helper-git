@@ -169,9 +169,16 @@ beforeAll(async () => {
   git(['commit', '-m', 'merge main'], mergeDir);
 
   await new Promise((resolve, reject) => {
-    serverProc = spawn(process.execPath, [serverPath, '--port=0'], {
-      env: { ...process.env, GIT2_DEV: '1', PR_HELPER_HOME: homeDir },
-    });
+    const env = { ...process.env, GIT2_DEV: '1', PR_HELPER_HOME: homeDir };
+    // Keep the throwaway server deterministic even when the developer shell
+    // exports credentials used by the new OAuth/A2A assertions.
+    for (const name of [
+      'GITHUB_APP_CLIENT_ID',
+      'PR_HELPER_GIT_A2A_TOKEN',
+      'ZEUS_A2A_TOKEN',
+      'PR_HELPER_GIT_A2A_ALLOW_INSECURE_ANONYMOUS',
+    ]) delete env[name];
+    serverProc = spawn(process.execPath, [serverPath, '--port=0'], { env });
     let output = '';
     const timer = setTimeout(() => reject(new Error('server did not start in time')), 15_000);
     serverProc.stdout.on('data', (chunk) => {
@@ -1662,5 +1669,84 @@ describe('compare against the working tree and arbitrary commits', () => {
     expect((await cmp(':worktree', '--help')).status).toBe(400);
     expect((await cmp(':worktree-ish', 'main')).status).toBe(400);
     expect((await cmp('main..main', ':worktree')).status).toBe(400);
+  });
+});
+
+describe('GitHub Device Flow and A2A surfaces', () => {
+  const bare = (reqPath, options) => fetch(`http://127.0.0.1:${port}${reqPath}`, options);
+
+  it('requires the local token for the OAuth status', async () => {
+    const response = await bare('/api/auth/github/status');
+    expect(response.status).toBe(401);
+  });
+
+  it('reports OAuth as unconfigured and refuses to start a flow', async () => {
+    const status = await get('/api/auth/github/status');
+    expect(status.status).toBe(200);
+    expect(status.json.configured).toBe(false);
+    expect(status.json.missingEnv).toContain('GITHUB_APP_CLIENT_ID');
+    const started = await post('/api/auth/github/device/start', {});
+    expect(started.status).toBe(409);
+  });
+
+  it('serves the public A2A card and fails closed without a token', async () => {
+    const card = await bare('/api/a2a/agent-card');
+    expect(card.status).toBe(200);
+    expect(card.headers.get('access-control-allow-origin')).toBe('*');
+    const body = await card.json();
+    expect(body.name).toBe('pr-helper-git');
+    expect(body.skills).toHaveLength(5);
+
+    expect((await bare('/.well-known/agent-card.json')).status).toBe(200);
+
+    const rpc = await bare('/api/a2a/agent-card', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tasks/send', params: {} }),
+    });
+    expect(rpc.status).toBe(503);
+  });
+
+  it('reports A2A status to an authenticated member', async () => {
+    const response = await get('/api/a2a/status');
+    expect(response.status).toBe(200);
+    expect(response.json.configured).toBe(false);
+    expect(response.json.skills).toHaveLength(5);
+  });
+
+  it('generates, uses and revokes an A2A token through the admin route', async () => {
+    const generated = await post('/api/a2a/token', {});
+    expect(generated.status).toBe(200);
+    expect(typeof generated.json.token).toBe('string');
+    expect(generated.json.token.length).toBeGreaterThan(20);
+
+    const status = await get('/api/a2a/status');
+    expect(status.json).toMatchObject({ configured: true, source: 'config' });
+    expect(JSON.stringify(status.json)).not.toContain(generated.json.token);
+
+    const rpc = await bare('/api/a2a/agent-card', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${generated.json.token}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tasks/send',
+        params: {
+          message: {
+            role: 'user',
+            parts: [{ kind: 'data', data: { skill: 'create-pr', owner: 'octo', repo: 'app', head: 'dev', base: 'main' } }],
+          },
+        },
+      }),
+    });
+    expect(rpc.status).toBe(200);
+    expect((await rpc.json()).result.status.state).toBe('completed');
+
+    const revoked = await api('/api/a2a/token', { method: 'DELETE' });
+    expect(revoked.status).toBe(200);
+    expect(revoked.json).toMatchObject({ configured: false, source: null });
   });
 });

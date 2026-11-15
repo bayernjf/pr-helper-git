@@ -342,6 +342,23 @@ application never pushes it for you.
   fallback. In server-side mode the token lives in
   `~/.pr-helper-git/config.json`, never in the repository or a log.
 
+### GitHub account + A2A
+
+- Optional GitHub App **Device Flow** connection under Settings → GitHub
+  account: the app shows an 8-character code, opens `github.com/login/device`
+  in the browser and polls until authorization completes. It displays the
+  connected login/avatar and App installations; it never replaces the local
+  token or the PAT used for GitHub writes.
+- **A2A / Agent Card**: a public card at `/api/a2a/agent-card` (aliases
+  `/.well-known/agent-card.json` and `/.well-known/agent.json`) and JSON-RPC
+  `POST` on the same path (`tasks/send`, `tasks/sendSubscribe`, `tasks/get`,
+  `tasks/cancel`). The POST is fail-closed behind a bearer token:
+  `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`) or one generated in
+  Settings → A2A / Agent Card (only its SHA-256 hash is stored in
+  `config.json`; the plaintext is shown once). Plan mode is the default,
+  execute mode enqueues real engine actions, and production rollback always
+  escalates to the operator.
+
 ### Phone view (`/m`)
 
 Opening `/m` (or any URL with `?mobile=1`) renders a read-only, single-column
@@ -365,8 +382,9 @@ it publicly. The one-time token in the URL is still the only credential.
 ### Deliberately out of scope
 
 Worktrees, adding or updating submodules (status is read-only), creating GPG
-signatures (verification is supported), GitHub App OAuth, webhooks, a
-database, web push and deployment gates.
+signatures (verification is supported), and web push. The GitHub App Device
+Flow connection is optional and identity-only: local token auth stays the
+boundary and GitHub writes keep using the PAT/automation credentials.
 Conflicts are handled per file from the in-app panel (Use current / Use
 incoming / Mark resolved) plus the three-way merge editor for
 region-by-region resolution.
@@ -533,6 +551,24 @@ setup, notarization, verification and publishing steps.
   supported as a fallback. All write actions are appended to an audit log
   under `~/.pr-helper-git/audit.log`, which is size-bounded by automatic
   rotation.
+- The optional GitHub App connection uses **Device Flow**, not a callback
+  URL: enable Device Flow in the GitHub App settings, keep
+  `GITHUB_APP_CLIENT_ID` in `credentials.env` (the slug is optional), restart
+  the server, then use Settings → GitHub account. The user access token is
+  stored in `config.json` (0600), never returned to the browser, and is used
+  only for identity and App installation/repository discovery; GitHub writes
+  still use the PAT/engine credentials. The two OAuth calls to `github.com`
+  use the system proxy (`HTTPS_PROXY` or macOS `scutil --proxy`) because Node
+  fetch does not honour proxy settings.
+- The A2A surface is opt-in and fail-closed: `GET /api/a2a/agent-card` (plus
+  `/.well-known/agent-card.json` and `/.well-known/agent.json`) is public,
+  while `POST` is JSON-RPC behind a bearer token: `PR_HELPER_GIT_A2A_TOKEN`
+  (legacy `ZEUS_A2A_TOKEN`) or a Settings-generated token whose SHA-256 hash
+  lives in `config.json` (env wins; the plaintext is shown once). Plan mode is
+  the default; execute mode enqueues real engine actions and production
+  rollback always escalates to the operator.
+  `PR_HELPER_GIT_A2A_ALLOW_INSECURE_ANONYMOUS=1` is honoured only on a
+  loopback bind. Task storage is in memory (30 min TTL).
 - The AI key lives in `~/.pr-helper-git/config.json` on the server and is
   never echoed back: the config endpoint returns only `hasKey`, so a compromised
   browser session cannot read the credential. The base URL must be a valid
@@ -578,10 +614,13 @@ server/
   routes-git-write-network.mjs   Tag push, fetch, pull, push
   routes-git-write-stash.mjs     Stash create/apply/drop
   routes-github.mjs  GitHub proxy, GraphQL merge/ready, remote URL parsing
+  github-oauth.mjs   GitHub App Device Flow connection (identity/discovery)
+  github-http.mjs    proxy-aware HTTPS client for the github.com OAuth endpoints
+  a2a.mjs            Agent Card + JSON-RPC task surface (opt-in, fail-closed)
 src/
   app-state.tsx      central data/state provider
   api/               typed API client, split by domain (core, git-read,
-                     git-write, repos, github, team, ai)
+                     git-write, repos, github, team, ai, github-auth, a2a)
   components/        UI components, inline SVG icons, context menu, modals
   hooks/             resize, escape, focus-trap and keyboard interaction hooks
   lib/               graph layout, formatting, file tree, diff, review, fuzzy (pure)
@@ -596,7 +635,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (337 tests, 34 files)
+npm test           # Vitest unit + route-level HTTP tests (1089 tests, 59 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

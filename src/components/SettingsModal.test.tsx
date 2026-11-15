@@ -17,6 +17,36 @@ vi.mock('../api', () => ({
   testAi: vi.fn(),
   rotateAudit: vi.fn(),
   pruneRepos: vi.fn(),
+  getGithubAuthStatus: vi.fn(() => Promise.resolve({
+    configured: true,
+    appSlug: 'pr-helper-by-test',
+    installUrl: 'https://github.com/apps/pr-helper-by-test/installations/new',
+    missingEnv: [],
+    connected: false,
+    login: null,
+    avatarUrl: null,
+    githubUserId: null,
+    connectedAt: null,
+    expiresAt: null,
+    expired: false,
+  })),
+  getGithubInstallations: vi.fn(() => Promise.resolve({ installations: [], installUrl: null })),
+  logoutGithub: vi.fn(),
+  pollGithubDeviceFlow: vi.fn(),
+  startGithubDeviceFlow: vi.fn(),
+  getA2aStatus: vi.fn(() => Promise.resolve({
+    configured: true,
+    source: 'config',
+    hint: 'abcd',
+    createdAt: '2026-11-15T00:00:00.000Z',
+    allowAnonymous: false,
+    cardUrl: 'http://127.0.0.1:4789/api/a2a/agent-card',
+    skills: ['create-pr', 'merge-pr'],
+    tokenEnv: 'PR_HELPER_GIT_A2A_TOKEN',
+    legacyTokenEnv: 'ZEUS_A2A_TOKEN',
+  })),
+  generateA2aToken: vi.fn(),
+  revokeA2aToken: vi.fn(),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -77,6 +107,9 @@ describe('SettingsModal role gating', () => {
     expect(headings()).toContain('Server-side PAT');
     expect(headings()).toContain('Server data');
     expect(headings()).toContain('AI generation');
+    expect(headings()).toContain('GitHub account');
+    expect(headings()).toContain('A2A / Agent Card');
+    expect(document.body.textContent).toContain('Connect GitHub');
     expect(vi.mocked(getAiConfig)).toHaveBeenCalled();
     expect(vi.mocked(getStorage)).toHaveBeenCalled();
   });
@@ -86,6 +119,8 @@ describe('SettingsModal role gating', () => {
     expect(headings()).not.toContain('Server-side PAT');
     expect(headings()).not.toContain('Server data');
     expect(headings()).not.toContain('AI generation');
+    expect(headings()).not.toContain('GitHub account');
+    expect(headings()).not.toContain('A2A / Agent Card');
     expect(vi.mocked(getAiConfig)).not.toHaveBeenCalled();
     expect(vi.mocked(getStorage)).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain('managed by the owner');

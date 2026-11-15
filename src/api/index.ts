@@ -7,6 +7,26 @@
 export { ApiError } from './core';
 
 export {
+  getGithubAuthStatus,
+  getGithubInstallations,
+  logoutGithub,
+  pollGithubDeviceFlow,
+  startGithubDeviceFlow,
+  type GithubAuthStatus,
+  type GithubDevicePoll,
+  type GithubDeviceStart,
+  type GithubInstallation,
+} from './github-auth';
+
+export {
+  generateA2aToken,
+  getA2aStatus,
+  revokeA2aToken,
+  type A2aStatus,
+  type A2aToken,
+} from './a2a';
+
+export {
   addRepo,
   cloneRepo,
   getRepos,

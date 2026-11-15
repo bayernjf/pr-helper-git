@@ -90,6 +90,14 @@ function environment() {
 }
 
 /**
+ * Identity + environment for callers outside the HTTP flow routes (the A2A
+ * surface). Keeps the single-user identity bridge in one place.
+ */
+export async function engineContext() {
+  return { identity: await flowIdentity(), env: environment() };
+}
+
+/**
  * Control-tower routes. Auth is enforced by the caller (main.mjs runs this
  * after token resolution). Returns null when the path is not ours.
  *
