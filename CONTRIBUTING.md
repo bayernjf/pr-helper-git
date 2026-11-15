@@ -189,7 +189,10 @@ configured with `APPLE_SIGNING_IDENTITY` and `APPLE_NOTARY_PROFILE`; see
    git push origin vX.Y.Z
    ```
 
-8. Run the backup and verify `main`, `dev`, and the new tag in the bundle.
+8. Sync the local `main` first (`git fetch origin main:main`): the backup
+   bundles local refs and a remote automation merge never moves the local
+   branch. Then run the backup and verify `main`, `dev`, and the new tag
+   in the bundle.
 
 ## Documentation
 
