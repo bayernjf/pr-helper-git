@@ -302,97 +302,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         webView?.reload()
     }
 
-    // Lightweight update check: read the latest GitHub Release and offer the
-    // release page. It never downloads or replaces the app; that remains a
-    // deliberate manual action until signed artifacts are available.
+    // Update check: read the latest GitHub Release, download the dmg, verify its
+    // SHA-256 against the published SHA256SUMS, and hand off to a detached
+    // helper that swaps the app and relaunches. Integrity is anchored on the
+    // checksums rather than a Developer ID signature, so no certificate or
+    // notarization is required.
     @objc private func checkForUpdates() {
-        let currentVersion = Bundle.main.object(
-            forInfoDictionaryKey: "CFBundleShortVersionString",
-        ) as? String ?? "0.0.0"
-        guard let url = URL(string: "https://api.github.com/repos/bayernjf/pr-helper-git/releases/latest") else {
-            presentUpdateAlert(
-                title: "Update check failed",
-                message: "The release endpoint is not a valid URL.",
-            )
-            return
-        }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 15
-        request.setValue("PR Helper Git/\(currentVersion)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if let error = error {
-                    self.presentUpdateAlert(
-                        title: "Update check failed",
-                        message: "Could not reach GitHub Releases: \(error.localizedDescription)",
-                    )
-                    return
-                }
-                guard let http = response as? HTTPURLResponse else {
-                    self.presentUpdateAlert(
-                        title: "Update check failed",
-                        message: "GitHub Releases returned an invalid response.",
-                    )
-                    return
-                }
-                if http.statusCode == 404 {
-                    self.presentUpdateAlert(
-                        title: "No releases found",
-                        message: "This repository has no published GitHub Release yet.",
-                    )
-                    return
-                }
-                guard (200..<300).contains(http.statusCode) else {
-                    self.presentUpdateAlert(
-                        title: "Update check failed",
-                        message: "GitHub Releases returned HTTP \(http.statusCode).",
-                    )
-                    return
-                }
-                guard
-                    let data = data,
-                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                    let tag = json["tag_name"] as? String,
-                    let releaseURLString = json["html_url"] as? String,
-                    let releaseURL = URL(string: releaseURLString)
-                else {
-                    self.presentUpdateAlert(
-                        title: "Update check failed",
-                        message: "The GitHub Releases response did not contain a release tag and URL.",
-                    )
-                    return
-                }
-                if isVersionNewer(tag, than: currentVersion) {
-                    self.presentUpdateAlert(
-                        title: "A new version is available",
-                        message: "\(tag) is available. You are running \(currentVersion).",
-                        openURL: releaseURL,
-                    )
-                } else {
-                    self.presentUpdateAlert(
-                        title: "You're up to date",
-                        message: "You are running \(currentVersion), the latest published release.",
-                    )
-                }
-            }
-        }.resume()
-    }
-
-    private func presentUpdateAlert(title: String, message: String, openURL: URL? = nil) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        if let openURL = openURL {
-            alert.addButton(withTitle: "Open Release Page")
-            alert.addButton(withTitle: "Later")
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(openURL)
-            }
-        } else {
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-        }
+        UpdateManager().check(from: window)
     }
 
     @objc private func chooseRepository() {
