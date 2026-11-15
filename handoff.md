@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 🔶（P2-10 影子模式待 Phase 5 收口；P2-3/P2-6 已真实通过）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -28,9 +28,9 @@ every committed file as world-readable.
 | P2-6 AI 接管 | ✅ 2026-11-15 真实闭环：action 4372 缺 AI 配置自然 paused → 补临时凭据 → takeover 建 PR #9，审计 `via=user-takeover`；PR 已关闭、分支/流程/凭据已清理 |
 | P2-7 Actions 重跑 + Codex | ✅ 校验链随 bundle，路由 400/合法测试 + 次数上限域测试 + Codex context 测试；实际 rerun dispatch 未执行 |
 | P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
-| P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
+| P2-10 影子模式 | ✅ 只读观测（引擎无 dry-run 缝；shadow 永不执行）+ JSONL 影子日志落盘；逐日比对材料见 `docs/phase5-runbook.md` |
 | P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
-| P2-3 门禁+合并执行接线 | ✅ 2026-11-15 真实链路：`bayernjf/git-e2e-test` 临时分支 2 提交 → 对账 ahead_by=2/checks success → action 4370 自动建 PR #8 → action 4371 自动合并；`main` 新提交 `f94ace0`；测试分支/流程/临时 AI 凭据已清理 |
+| P2-3 门禁+合并执行接线 | ✅ 2026-11-15 真实链路：PR #8 自动建/合并（action 4370/4371，`main` `f94ace0`）；PR #10 验证 advance-stage（action 4375 succeeded，审计 `stage-advanced`）；真实 advance 暴露并修复 020 审计 CHECK 缺 `stage-advanced`，新增本地迁移 `049_audit_stage_advanced.sql`；测试分支/流程/凭据已清理 |
 | P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉；真实 HTTP 共享 200 且 join 表落库 |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
 | Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
