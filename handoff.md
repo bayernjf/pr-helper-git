@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 🔶（P2-6 真实 dispatch 待；P2-3 已真实通过）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 🔶（P2-10 影子模式待 Phase 5 收口；P2-3/P2-6 已真实通过）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -25,7 +25,7 @@ every committed file as world-readable.
 | P1-5 领域内核 | ✅ 核心 4 模块 + Phase 3 语义模块（board/detail/failures/audit/prerequisites）全部落地，143 域测试 + 31 UI 语义测试；长尾 navigation/save-queue 由 React hooks + API client 直接承载，不重复造状态机 |
 | P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
 | P2-2/4 drain + 对账引擎 | ✅ 418 store 不变量覆盖 drain 决策/退避/幂等/取消；租约/轮转/分级预算测试通过；本地 PG `reconciliation_runs` 产生 `inbox_refresh` 遥测行（14 total/12 reconciled/0 failed/≈6s） |
-| P2-6 AI 接管 | 🔶 接管/重生成路由与 domain 解析已测；paused→unpause 实网端到端待 |
+| P2-6 AI 接管 | ✅ 2026-11-15 真实闭环：action 4372 缺 AI 配置自然 paused → 补临时凭据 → takeover 建 PR #9，审计 `via=user-takeover`；PR 已关闭、分支/流程/凭据已清理 |
 | P2-7 Actions 重跑 + Codex | ✅ 校验链随 bundle，路由 400/合法测试 + 次数上限域测试 + Codex context 测试；实际 rerun dispatch 未执行 |
 | P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |

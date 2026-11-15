@@ -151,7 +151,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P2-3 | 自动创建 PR（阈值 + 四项 AI 前置）+ 自动合并（门禁全绿 + sha 幂等 + behind 暂停）+ advance-stage | api/_lib/workflows-store.ts | server | 端到端：push → 阈值 → PR → 门禁 → 合并 → 推进 | ✅ 完成（2026-11-15）：在 `bayernjf/git-e2e-test` 建临时源分支 2 提交，临时流程触发对账（ahead_by=2、checks_state=success、PR #8 clean）；action 4370 create-pr 成功建 PR #8，action 4371 merge-pr 成功合并，`main` 新提交 `f94ace0`；测试分支/流程/临时 AI 凭据已清理，测试仓无 open PR。advance-stage 由 3 个 store 测试覆盖，本次单阶段 fixture 未产生下一阶段 |
 | P2-4 | 对账引擎移植（租约/公平轮转/分级预算 webhook 25s/inbox 6s/manual 8s/cron 40s、阶段校准、ETag 遥测） | api/_lib/workflows-store.ts | server | sweep 遥测行产生；预算语义一致 | ✅ 完成（2026-11-15）：418 store 测试覆盖公平轮转（never→stale→pending）、批大小、分支作用域、租约 TTL/续租、abandoned/deferred、`realtimeReconcileBudgetMs` 分级预算（webhook > manual > inbox_refresh）与 ceiling；本地 PG `reconciliation_runs` 实测产生 `inbox_refresh` 行（id=3，state=degraded，stages_total=14，reconciled=12，failed=0，duration≈6.0s），遥测链路闭合 |
 | P2-5 | 触发器三通道：fs.watch（本地 push 即时）+ webhook 接收端（D-004）+ 定时对账（D-008） | api/github/webhook.ts、api/_lib/github-webhook.ts、api/cron/* | server `POST /api/github-webhook`（HMAC 验签，raw body，401 fail-closed） | webhook 签名校验单测随迁；可达时 1–3s 触发实测 | ✅ 完成（2026-11-15）：webhook 端到端实测（11-14：HMAC/去重/projection/实时对账 202 流程，本地 PG）；**新增 9 个契约单测**覆盖非 webhook 路由、缺 raw body 400、无 secret 503 fail-closed、坏签名 401 且不触库、缺 delivery/event 头 400、坏 JSON 400、shadow 模式 200 且不投影、合法 PR delivery 投影 + 分支级 reconcile 202、重复 delivery 202 不投影不对账；fs.watch=既有 `reconcileWatching`、定时对账=`automation.mjs` 调度器 |
-| P2-6 | AI 失败接管（regenerate/takeover/unpause）+ 消息解析（剥围栏/部分 JSON） | api/_lib/workflows-store.ts | server + 引擎 | 接管单测随迁；paused→unpause 端到端 | 🔶 部分（2026-11-15）：`parseAutomationMessage`/`jsonFromModelText` 解析测试（围栏/部分 JSON/超长/空内容/格式无效）已随迁；`regenerate`/`takeover` 路由测试覆盖 numeric actionId、title/body 透传、未知子动作 400；`takeoverAutomationAction` 的 paused→建 PR 闭环需真实 GitHub dispatch，按影子期约束未执行 |
+| P2-6 | AI 失败接管（regenerate/takeover/unpause）+ 消息解析（剥围栏/部分 JSON） | api/_lib/workflows-store.ts | server + 引擎 | 接管单测随迁；paused→unpause 端到端 | ✅ 完成（2026-11-15）：解析/route 测试已随迁；真实闭环在 `bayernjf/git-e2e-test` 完成——临时分支 `p2-6-takeover-test` 2 提交，临时流程对账 ahead_by=2；action 4372 因缺少 AI 配置自然失败进入 paused（run 4374 paused）；补临时 AI 凭据后 `POST /api/flows/automation?action=takeover` 返回 succeeded，真实创建 PR #9，审计 `pull-created / via=user-takeover`；PR #9 已关闭、分支/流程/凭据已清理 |
 | P2-7 | Actions 重跑（次数/冷却/提交校验）+ Codex 修复包 | api/_lib/workflows-store.ts、api/[action].ts | server | rerun 校验单测随迁 | ✅ 完成（2026-11-15）：`rerunFailedActions` 校验链（workflowId/source/stageIndex 类型、recoveryPolicy maxRetries、cooldownSeconds、head_sha 存在、失败 run 过滤）已随 bundle；路由测试覆盖合法请求与 `stageIndex: '0'` 非法请求 400 且不触引擎；`automationRetryIsExhausted` 域测试覆盖次数上限；`codexRepairContext` 合法/缺 workflowId 400 路由测试；实际 rerun dispatch 需真失败 run，按影子期约束未执行 |
 | P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ✅ 完成（2026-11-15）：引擎 bundle 已含四角色成员/共享/账号删除函数；新增 `/api/flows/teams` 路由（GET 团队/成员、POST create/member/remove-member/share-workflow），3 个路由测试；`src/lib/automation/team-permissions.ts` 角色矩阵 + 3 测试；`TeamsModal` 接入 FlowBoard；隔离 4791 UI 实测创建团队→自动 Owner、成员区 `@bayernjf Owner`、Owner 管理表单与四角色选项；真实 HTTP 共享流程返回 200 且 `pr_helper_team_workflows` 落库；生产合并/回滚仅 Owner 的规则由矩阵覆盖 |
 | P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ✅ `launchd/{install,uninstall}.sh` + README（11-14）：RunAtLoad 登录自启、KeepAlive 崩溃 10s 重启实测（kill -9 → 新 pid → 200）、自动化随启（PR_HELPER_GIT_AUTOMATION=1）、日志 ~/Library/Logs/pr-helper-git/；11-15 常驻运行于 4789（shadow 模式） |
@@ -243,9 +243,9 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 - 换仓库确认交互 → P3-11 ✅；档案/恢复、静音、运行历史 → P3-12 ✅；流程预检 → P3-13 ✅ 重建；PR 引用/审计 CSV/同步健康度 → P3-14 ✅；团队四角色 UI → P2-8/P3-15 ✅（2026-11-15）。
 - Lane 展开区差异 → P3-6 判定为设计偏差，详情页/抽屉承载；编辑器折叠/return-highlight → P3-16 ✅。
 
-**仍未闭合（影子期约束）**：
+**影子期外部副作用验收（2026-11-15 已闭合）**：
 - P2-3 自动建 PR/合并已真实通过（PR #8）；advance-stage 由 store 测试覆盖。
-- P2-6 `paused→unpause` 真实接管建 PR：🔶，解析与路由测试已覆盖，外部副作用未执行。
+- P2-6 `paused→unpause` 真实接管建 PR 已通过（PR #9，action 4372、run 4374，审计 `via=user-takeover`）。
 
 
 **原版本身就是半成品/非核心，不列为“误砍”**：A2A/Agent Card（原版无前端入口、
@@ -255,7 +255,7 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 **复审结论（2026-11-14，2026-11-15 复核更新）**：按原版 `feature-catalog.md` 全 17 节 + 34 条验收 +
 台账全部 🚫/⏸/🔀 行逐条核对，**未发现新的“因产品自身不上生产”被砍项**；
 此前同类误砍集中在**部署域**与**换仓库交互**，已分别由 P3-10/P3-11 补齐；团队四角色 UI
-由 P2-8/P3-15 于 2026-11-15 补齐。剩余 P2-3/P2-6 是影子期外部副作用未执行，不是 D-002 误读。
+由 P2-8/P3-15 于 2026-11-15 补齐。P2-3/P2-6 已于 2026-11-15 完成真实外部副作用验收，不是 D-002 误读。
 
 **本地修复的原版缺陷**（迁移增益）：
 - 推进开关持久化（D-015：048 列 + 读写往返）
@@ -613,3 +613,4 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | 2026-11-15 | **P5-1 影子同步收口**：`sync:shadow` 从「单会话导出 22 表」改为逐表、500 行有序分页（`ORDER BY 1`），单条 SQL 不再触发 Supabase pooler 约 300 秒断连；读取完成后写 `~/.pr-helper-git/shadow-latest.json`（0600）供 `--snapshot` 离线重试；本地写入按 `information_schema` 列集投影（丢弃云端独有 `workflow_stages.id` 等）、按 id 去重、对同步窗口内新增的 `workflow_automation_runs` 做 id 增量补齐、对父行缺失的 action 行跳过，并修复无 id 表的序列重置错误。实测 22 表读取约 15 分钟，本地单事务重建成功：14 workflows / 14 stages / 3,359 events / 3,647 runs + actions / 8,372 audit；重启 4789 后 `trackedWorkflows=14`。P5-1 仍为 🔶（等待连续 5–7 天比对），D-018 同步材料已就绪 | P5-1 仅剩日历期；D-018 全量同步阻塞 | 用户（“继续搞”） |
 | 2026-11-15 | **P2-8/P3-15 团队四角色收口**：新增 `/api/flows/teams`（GET 团队/成员、POST create/member/remove-member/share-workflow）+ 3 路由测试；新增 `team-permissions` 四角色矩阵（生产合并/回滚仅 Owner）+ 3 测试；`TeamsModal` 挂入 FlowBoard，支持创建/切换团队、成员列表与角色、Owner-only 添加/移除、个人流程共享；隔离 4791 UI 实测创建团队→Owner、成员区 `@bayernjf Owner`、四角色下拉可见，测试团队已清理。P2-8/P3-15 转 ✅；门禁 1035 tests/54 files + build + E2E 145/145 全绿 | 用户“继续，把剩下的搞了”；团队引擎函数已在 bundle，仅缺本地路由/UI/矩阵测试 | 用户 |
 | 2026-11-15 | **P2-3 真实自动建 PR/合并链路收口**：在 `TEST-REPOS.md` 登记的 `bayernjf/git-e2e-test` 建临时分支 `p2-3-automation-test`（`26bc46d`、`3385bfe`，基线 `a838a29`）并 push；本地临时流程单 stage（source 该分支 → `main`，autoCreate+autoMerge，threshold 2，executionMode server）。服务端对账得到 `ahead_by=2`、`checks_state=success`、PR #8 `open/clean`；action 4370 create-pr 以 mock LLM 生成标题「P2-3 自动化验收 PR」并成功建 PR #8；对账后 action 4371 merge-pr 执行成功，PR #8 合并，`main` 新提交 `f94ace0`。测试分支、临时流程、临时 AI 凭据均已清理，测试仓 open PR 为空。advance-stage 由 3 个 store 测试覆盖，本次单阶段 fixture 无下一阶段可推进 | 用户“你来搞”；P2-3 真实外部副作用已获宽泛授权，仅限已登记测试仓 | 用户 |
+| 2026-11-15 | **P2-6 真实接管闭环**：在 `bayernjf/git-e2e-test` 建临时分支 `p2-6-takeover-test`（`ccc93f9`、`6898c56`，基线 `f94ace0`）并 push；临时流程单 stage 对账得到 ahead_by=2。先不配 AI 凭据直接执行 create-pr，action 4372/run 4374 因「服务端 AI 自动生成或自动确认设置未开启」自然失败并进入 paused；补回环 mock AI 凭据后调用 `POST /api/flows/automation?action=takeover`，返回 succeeded 并真实创建 PR #9，审计 `pull-created / via=user-takeover`。PR #9 已关闭、临时分支/流程/凭据已清理，测试仓 open PR 为空 | 用户“那你搞，需要的话，你用浏览器测试”；P2-6 真实外部副作用按宽泛授权，仅限登记测试仓 | 用户 |
