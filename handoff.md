@@ -168,6 +168,25 @@ does not depend on the currently checked-out branch. The latest
 `000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
 history; check `git bundle list-heads` for the exact main ref.
 
+## Release 0.3.0 (2026-11-15)
+
+`package.json` / `package-lock.json` at **0.3.0**; `CHANGELOG.md` carries the
+`[0.3.0]` section; `v0.3.0` is an annotated tag on the release commit.
+
+Scope: pr-helper 自动化控制塔迁移主体收口（Phase 0–3.5 全部关闭）。把被归档
+pr-helper 的全部业务功能迁入本地：Flows 顶层视图（Lane board / 详情 / 抽屉 /
+编辑器 / 失败中心 / 归档静音 / 审计 CSV / 同步健康度 / 只读预检 / 团队四角色）、
+本地自动化引擎（OrbStack Postgres + 幂等队列 + drain + 对账 + 触发器三通道 +
+AI 接管 + 部署门禁 + 影子模式）、launchd 常驻、失败通知（macOS + 可选飞书）。
+
+Gates: lint, server typecheck, **1040 unit/route tests / 55 files**, build,
+E2E **155/155**。真实外部副作用已验证：P2-3 自动建 PR/合并 + advance-stage、
+P2-6 AI 失败接管、PR Close/Reopen/Merge（Approve/Request-changes 因 GitHub
+平台"不能 review 自己 PR"约束转验收口径：产品正确透传 422 错误 + COMMENT 走通）。
+
+详见迁移台账 `docs/pr-helper-migration.md` 与验收映射
+`docs/migration-acceptance.md`（34/34，除认证形态替代 #1 外无开放式失败项）。
+
 ## Release 0.2.6 (2026-11-12)
 
 > **发布状态（2026-11-12 更新）**：draft 已 publish 为正式版（draft=false,
