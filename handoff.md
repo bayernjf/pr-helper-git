@@ -50,6 +50,22 @@ P3-4 编辑器 → P3-5 失败中心。
 
 最近更新：2026-11-15（PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1040/55、E2E 155/155、build 通过）。
 
+## Desktop bundle dependency fix (2026-11-15)
+
+用户报「app 启动报错」。根因：迁移引入 `postgres`/`web-push` 运行时依赖后，
+`scripts/desktop-build.mjs` 仍只复制 `server/` + `dist/`，装到 `/Applications`
+的 bundle 以 `ERR_MODULE_NOT_FOUND: postgres` 秒退，shell 弹 "Local server
+stopped"。**自迁移起所有桌面构建均带此缺陷**；dev/launchd 正常是因为跑在仓库
+树内。修复：构建用 `npm ls --omit=dev --all --parseable` 计算生产闭包并拷入
+`Resources/app/node_modules`（21 包，bundle 1.5MB → 14MB）。
+
+教训（冒烟假绿两层）：旧 `desktop:smoke` 只做 `node --check`（不解析导入）；
+加上真实启动后仍假绿——在 `build/` 内启动时 Node 沿目录向上命中**仓库的**
+`node_modules`。现冒烟先把 app 拷到仓库外临时目录、用隔离 `PR_HELPER_HOME`
+真实启动并断言 READY，且已对坏 bundle 证明其会红。注意：GitHub v0.3.0 的
+dmg/zip 仍是坏 bundle，需随 0.3.1 重新发布。门禁：1040/55、E2E 155/0、
+desktop native-test/smoke 通过。
+
 ## D-002-v2 功能缺口复审（2026-11-14）
 
 用户纠正：“pr-helper-git 产品自身不上生产、不部署到 Cloudflare/Vercel”不等于“不管理
