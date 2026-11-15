@@ -6,6 +6,11 @@
 
 - fix(git): include the root commit in commit-file listings (`diff-tree
   --root`), so the first commit no longer reports zero changed files.
+- fix(github): use the server PAT from either `config.json` or the
+  `GITHUB_TOKEN` injected from `credentials.env`, so an existing local PAT
+  powers the PR pages and GitHub proxy without re-entering it.
+- fix(config): resolve `credentials.env` under the effective data directory
+  (`PR_HELPER_HOME` aware), so isolated homes do not read real credentials.
 - fix(flows): carry `headSha`/`mergedAt` into the detail first paint, so an
   open PR with failed checks no longer reads “waiting to create a PR”.
 - test: pin `jsdom` to exact 26.1.0 — the host Node drifts between 20.x and

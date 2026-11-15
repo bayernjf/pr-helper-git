@@ -3,6 +3,7 @@
 // can be reached.
 import { git } from './git.mjs';
 import { appendAudit, listRepos, loadConfig } from './store.mjs';
+import { serverPatFrom } from './pat.mjs';
 import { fail, ok } from './http.mjs';
 
 const GITHUB_API = 'https://api.github.com';
@@ -70,7 +71,7 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
   // The stored credential is instance-wide, so only the owner (admin) may use
   // it implicitly; members must present their own PAT header.
   if (identity?.role === 'admin' && !String(headers['x-github-pat'] || '').trim()) {
-    const stored = (await loadConfig()).github?.token;
+    const stored = serverPatFrom(await loadConfig());
     if (stored) headers['x-github-pat'] = stored;
   }
   if (pathname === '/api/remote' && method === 'GET') {
