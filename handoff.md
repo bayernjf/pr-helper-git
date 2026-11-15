@@ -31,7 +31,7 @@ every committed file as world-readable.
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
 | P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
 | P2-3 门禁+合并执行接线 | ⬜ |
-| P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉 |
+| P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉；真实 HTTP 共享 200 且 join 表落库 |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
 | Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ⏸ 用户明确暂缓、不计完成；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
@@ -48,7 +48,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（团队四角色收口：新增 `/api/flows/teams` 路由、`team-permissions` 角色矩阵和 `TeamsModal`，隔离 4791 实测创建团队→Owner、成员列表与四角色下拉；P2-8/P3-15 转 ✅。测试 1035/54、E2E 145/145、build 通过）。
+最近更新：2026-11-15（团队四角色收口 + P5-1 影子同步跑通。团队：`/api/flows/teams`、`team-permissions` 矩阵、`TeamsModal`，4791 实测 Owner/成员/角色，真实 HTTP 共享 200 且 join 表落库；P2-8/P3-15 ✅。同步：逐表 500 行有序分页绕开 Supabase pooler 300 秒断连，本地镜像 14 workflows / 14 stages / 3,647 runs+actions / 8,372 audit，4789 重启后 trackedWorkflows=14；P5-1 仍待 5–7 天比对。测试 1035/54、E2E 145/145、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 

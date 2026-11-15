@@ -34,6 +34,12 @@ npm run sync:shadow
 同步是**单事务全量重建**：云端 22 张核心表按页读取（500 行/页）后，本地
 `TRUNCATE + 分批 INSERT` 在一个事务内完成，中途失败整体回滚；本地增量列
 `workflow_stages.auto_advance`（D-015）在重建前快照、重建后回填，不会被同步抹掉。
+Supabase pooler 对单条查询约 300 秒即断连（2026-11-15 实测），因此不能用一个
+psql 会话一次导出全表；同步器逐表、500 行分页读取。每次云端读取成功后先写
+`~/.pr-helper-git/shadow-latest.json`（0600，含镜像数据，不得外传），本地写入失败时
+可用 `PR_HELPER_GIT_SHADOW_SNAPSHOT=$HOME/.pr-helper-git/shadow-latest.json npm run sync:shadow -- --snapshot`
+直接重试，不必重读云端。云端行可能比本地多列（如 `workflow_stages.id`），写入时按
+本地 `information_schema` 列集投影并打印被丢弃的列名。
 4 张遥测表（`github_webhook_deliveries`、`reconciliation_runs`、
 `pr_helper_notification_deliveries`、`data_retention_runs`）默认跳过，避免每日同步
 跑数小时；需要一次性全量时用 `npm run sync:shadow -- --full`。
@@ -48,10 +54,10 @@ npm run sync:shadow
 同步器在事务末尾对本表 `id` 序列做 `setval`，避免快照/增量显式 id 让下一次
 审计写入撞主键（2026-11-14 的 PUT 500 就是这个原因）。
 
-**当前本地镜像（2026-11-14 18:xx）**：14 workflows / 14 stages（auto_create、
-auto_merge 各 14 true）/ actions 3,568 / runs 3,568 / audit 8,313 / events 3,256；
-`auto_advance` 本地为 0，等切换日显式开启。重启 4789 后影子日志首轮
-`queue 1 queued / 0 running / 4 paused，trackedWorkflows=14`，与本地库分布一致。
+**当前本地镜像（2026-11-15 16:04）**：14 workflows / 14 stages / 3,359 events /
+3,647 automation runs + actions / 449 deployment runs / 8,372 audit；`auto_advance`
+本地为 0，等切换日显式开启。重启 4789 后影子日志
+`queued 0 / running 0 / paused 2，trackedWorkflows=14`。
 
 > **代码更新后必须重启 4789 影子服务**（`launchctl kickstart -k gui/$(id -u)/local.pr-helper-git.server`）。
 > launchd 只在进程退出时重读代码；常驻进程会继续跑旧 bundle。D-015 验收就踩过：
