@@ -48,7 +48,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（终验走查补强：分支 checkout/删除/重命名 + stash pop 的 E2E 断言补齐 10 条——`e2e/run.sh` 从 145 升到 **155 通过**；Settings AI 配置保存路径（GET/POST/clearKey、key 永不回传）与 Teams 创建/成员 Owner 列表（`action=create` 契约）在隔离 server + 真实本地 PG 实测 12/12 通过，测试团队已 SQL 清理、`pr_helper_teams` 归零。测试 1040/55、E2E 155/155、build 通过）。
+最近更新：2026-11-15（PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1040/55、E2E 155/155、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
