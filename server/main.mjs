@@ -16,6 +16,8 @@ import { handleGitRoute } from './routes-git.mjs';
 import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import { handleFlowsRoute } from './flows.mjs';
+import { handleGithubOAuthRoute } from './github-oauth.mjs';
+import { handleA2aPublicRoute, handleA2aStatusRoute, isA2aPublicPath } from './a2a.mjs';
 import {
   addClient,
   reconcileWatching,
@@ -121,6 +123,18 @@ async function readJsonBody(req, limit = MAX_BODY_BYTES) {
   }
 }
 
+/** Raw text body for surfaces that own their parsing (A2A JSON-RPC). */
+async function readRawBody(req, limit = MAX_BODY_BYTES) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > limit) return { tooLarge: true };
+    chunks.push(chunk);
+  }
+  return { value: Buffer.concat(chunks).toString('utf8') };
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
   const pathname = url.pathname;
@@ -143,6 +157,40 @@ const server = http.createServer(async (req, res) => {
         'set-cookie': `pr_helper_git_token=${given}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`,
       });
       return res.end();
+    }
+
+    if (isA2aPublicPath(pathname)) {
+      // A2A owns its bearer authentication (fail-closed) and sits before the
+      // local token guard, exactly like the HMAC webhook. /.well-known card
+      // aliases must also be answered before static hosting.
+      const raw = req.method === 'POST' ? await readRawBody(req, MAX_BODY_BYTES) : { value: '' };
+      if (raw.tooLarge) {
+        res.writeHead(413, {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+          connection: 'close',
+          ...NOSNIFF,
+        });
+        res.end(JSON.stringify({ error: 'request body too large' }));
+        res.on('finish', () => req.destroy());
+        return;
+      }
+      const result = await handleA2aPublicRoute({
+        method: req.method,
+        pathname,
+        headers: req.headers,
+        rawBody: raw.value,
+      });
+      if (result) {
+        res.writeHead(result.status, {
+          'content-type': result.contentType || 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+          ...NOSNIFF,
+          ...(result.headers || {}),
+        });
+        if (req.method === 'HEAD') return res.end();
+        return res.end(result.raw ?? JSON.stringify(result.json));
+      }
     }
 
     if (pathname.startsWith('/api/')) {
@@ -227,6 +275,13 @@ const server = http.createServer(async (req, res) => {
       // Run the handlers inside the identity context so appendAudit() records
       // who performed each operation without every route taking a user arg.
       const result = await runAsActor(identity, async () => (
+        // GitHub App Device Flow routes (identity connection only) are not
+        // repo-scoped, so they must run before handleGitRoute's repo guard.
+        await handleGithubOAuthRoute(ctx)
+      ) || (
+        // A2A status is a small authenticated companion to the public card.
+        await handleA2aStatusRoute(ctx)
+      ) || (
         // Flow routes are a distinct surface; handle them before the repo
         // routes, which answer 403 for any /api path without ?repo=.
         await handleFlowsRoute(ctx)

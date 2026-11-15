@@ -40,8 +40,15 @@ wins; otherwise this file is the default contract.
   - **Database**: only that local Postgres (the automation engine's store);
   - **Webhooks**: only the local HMAC-verified receiver
     (`POST /api/github-webhook`);
-  - **GitHub App**: no OAuth login flow — the migrated App credentials live
-    server-side solely for engine GitHub calls (D-006-v2);
+  - **GitHub App**: local token auth remains the only sign-in boundary. An
+    optional Device Flow connection (identity display plus App
+    installation/repository discovery) was added on 2026-11-15 (D-020); it
+    must never take over GitHub write credentials, which stay with the
+    PAT/engine path (D-006-v2/v3);
+  - **A2A**: an opt-in, fail-closed machine surface behind
+    `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`). Plan mode is the
+    default; execute mode may enqueue engine actions; production rollback
+    always escalates to the operator (D-021);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
   - **Worktrees, submodule writes, GPG signing**: still prohibited outright.
@@ -78,6 +85,9 @@ server/                 Node HTTP server and Git/GitHub routes
   routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
   automation.mjs        engine bridge: schedulers, webhook receiver
   flows.mjs             control-tower routes (inbox fan-out, automation ops, saves)
+  github-oauth.mjs      GitHub App Device Flow connection (identity/discovery only)
+  github-http.mjs       proxy-aware client for the github.com OAuth endpoints
+  a2a.mjs               Agent Card + JSON-RPC task surface (opt-in, fail-closed)
   workflows-store.mjs   bundled pr-helper automation engine (frozen source transform)
 e2e/run.sh              curl-driven E2E against a throwaway server
 scripts/                dev launcher, desktop build, migration tooling
@@ -208,7 +218,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of the pr-helper migration Phase 1/2 work (2026-11-15):
 
-- unit/route tests: **1040 tests / 55 files** (includes the migrated pr-helper
+- unit/route tests: **1085 tests / 59 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
@@ -216,9 +226,12 @@ As of the pr-helper migration Phase 1/2 work (2026-11-15):
   tests in `server/workflow-preflight.test.ts`, 33 control-tower route tests in
   `server/flows.test.ts`, 3 team-permission tests in
   `src/lib/automation/team-permissions.test.ts`, 9 webhook contract tests in
-  `server/automation-webhook.test.mjs`, and 3 credentials-file parsing tests in
-  `server/credentials-env.test.mjs`)
-- E2E: **155 passed / 0 failed**
+  `server/automation-webhook.test.mjs`, 3 credentials-file parsing tests in
+  `server/credentials-env.test.mjs`, plus the GitHub Device Flow / A2A /
+  proxy-client suites in `server/github-oauth.test.mjs`,
+  `server/github-http.test.mjs`, `server/a2a.test.mjs` and
+  `server/pat-oauth-merge.test.mjs`)
+- E2E: **162 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs
 

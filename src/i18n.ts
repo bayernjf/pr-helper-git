@@ -1023,6 +1023,34 @@ export const ZH: Record<string, string> = {
   'Fix': '修复',
   'Read-only check — the flow is not modified.': '只读检查 — 不会修改流程。',
   'Run again': '重新检查',
+  // GitHub Device Flow connection + A2A settings (2026-11-15)
+  'GitHub account': 'GitHub 账号',
+  'Optional GitHub App Device Flow connection. It proves your GitHub identity and lists App installations; GitHub writes still use the PAT and automation credentials.':
+    '可选的 GitHub App Device Flow 连接：用于确认 GitHub 身份并列出 App 安装；GitHub 写操作仍走 PAT 与自动化凭据。',
+  'Disconnect': '断开连接',
+  'GitHub App installations': 'GitHub App 安装',
+  'selected repositories': '指定仓库',
+  'No App installation found. Install the App to grant repository access.':
+    '未找到 App 安装。安装 App 后才能访问仓库。',
+  'Install the GitHub App': '安装 GitHub App',
+  'Open the verification page and enter this code:': '打开验证页面并输入此代码：',
+  'Copy code': '复制代码',
+  'Device code copied': '设备代码已复制',
+  'Open GitHub': '打开 GitHub',
+  'Waiting for authorization…': '等待授权…',
+  'Connect GitHub': '连接 GitHub',
+  'Set GITHUB_APP_CLIENT_ID in ~/.pr-helper-git/credentials.env, then restart the server.':
+    '在 ~/.pr-helper-git/credentials.env 设置 GITHUB_APP_CLIENT_ID，然后重启服务。',
+  'GitHub authorization did not complete. Try again.': 'GitHub 授权未完成，请重试。',
+  'GitHub account disconnected': 'GitHub 账号已断开',
+  'A2A / Agent Card': 'A2A / Agent Card',
+  'A2A is enabled for bearer-token clients. Plan mode is the default; execute mode enqueues real automation actions.':
+    'A2A 已启用（Bearer Token 客户端）。默认 plan 模式；execute 模式会入队真实自动化动作。',
+  'A2A is disabled until PR_HELPER_GIT_A2A_TOKEN is set in ~/.pr-helper-git/credentials.env.':
+    'A2A 未启用：需在 ~/.pr-helper-git/credentials.env 设置 PR_HELPER_GIT_A2A_TOKEN。',
+  'Agent card': 'Agent Card',
+  'Agent card URL copied': 'Agent Card 地址已复制',
+  'Skills': '技能',
 };
 
 /** Counted UI copy, e.g. "12 commits" — handled by rules, not by dictionary keys. */

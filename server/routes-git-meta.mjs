@@ -147,7 +147,9 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
     const pat = typeof body.pat === 'string' ? body.pat.trim() : '';
     if (!pat || pat.length > 255) return fail(400, 'invalid PAT');
     await updateConfig((config) => {
-      config.github = { token: pat };
+      // Merge instead of replacing: config.github also carries the optional
+      // GitHub OAuth connection written by server/github-oauth.mjs.
+      config.github = { ...(config.github && typeof config.github === 'object' ? config.github : {}), token: pat };
     });
     await appendAudit({ ok: true, action: 'pat.store' });
     return ok({ hasServerPat: true });
@@ -156,7 +158,9 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   if (pathname === '/api/pat' && method === 'DELETE') {
     if (!isAdmin(identity)) return fail(403, 'admin access required');
     await updateConfig((config) => {
-      delete config.github;
+      if (!config.github || typeof config.github !== 'object') return;
+      delete config.github.token;
+      if (!config.github.oauth) delete config.github;
     });
     await appendAudit({ ok: true, action: 'pat.remove' });
     return ok({ hasServerPat: hasServerPat(await loadConfig()) });

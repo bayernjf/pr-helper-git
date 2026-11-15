@@ -11,7 +11,7 @@
 
 | # | 原版断言 | 判定 | 承接 |
 |---|---|---|---|
-| 1 | GitHub App 授权返回后载入工作台并显示仓库管理入口 | 🔀 | 本地产品用 token bootstrap + PAT/App 服务端凭据（e2e 已有 token/cookie 用例）；无 GitHub App OAuth 用户流程，属认证形态替代，不是功能误砍 |
+| 1 | GitHub App 授权返回后载入工作台并显示仓库管理入口 | 🔀 | **D-020 已实现 Device Flow 连接**（Settings → GitHub account：设备码 + 浏览器授权 + 应用内轮询；显示账号/头像/App 安装），本地 token 仍是认证边界。仍按替代实现计；实网需用户在 App 设置启用 Device Flow 后走查，通过后可评估转 ✅ |
 | 2 | 账户菜单可查询最近操作审计记录 | ✅ | UI 实测（11-14）：FlowBoard「Audit log」→ 500 行 (上限 500) 表格 + 文本筛选 + 导出 CSV（`pr-helper-flows-audit-2026-11-14.csv`，90,686 bytes，表头/转义校验通过）；`GET /api/flows/audit` 路由测试 ✓ |
 | 3 | 新建流程保存到本地 PG 并在刷新后恢复 | ✅ | `createWorkflow` 纯函数测试（随迁 143）+ PUT 路由测试；本地持久化 = 本地 PG，刷新即投影 |
 | 4 | 编辑流程可重新排序步骤并保存新顺序 | ✅ | 11-15 UI 实测：新建流程加第二步后，展开第二步点「上移步骤」，`feature → main` 变为第 1 步、`dev → main` 变第 2 步，展开状态随 stageId 保留；顺序经既有 `PUT /api/flows/workflows` + `workflowToRows(stage_index)` 持久化（`reorderStages` 纯函数测试覆盖依赖索引重写）。pointer 拖拽未做，显式上/下移为等价入口 |

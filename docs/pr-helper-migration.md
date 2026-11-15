@@ -232,7 +232,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 - ~~部署跟踪 + Environment + 部署回滚（🚫，M-C 处置；D 决策）~~ **D-002-v2 撤销，改为必迁（P3-10）**
 - 云同步 encrypted-sync（🚫，D-003：本地存储即权威）
 - Web Push（⏸→🔀，D-005/D-017：macOS 通知 + 飞书通道保留代码）
-- GitHub App OAuth 登录流（🚫，D-006-v2/v3：本地 token + PAT；验收 #1 改为替代实现）
+- ~~GitHub App OAuth 登录流（🚫，D-006-v2/v3：本地 token + PAT；验收 #1 改为替代实现）~~ **D-020 回补（Device Flow，identity-only；本地 token 仍是认证边界）**
 - ~~团队多人协作 UI（P2-8 ⬜，单用户暂缓）~~ **已迁移（2026-11-15，P2-8/P3-15 ✅）**
 - 移动状态监控 gh-status（⏸→✅ 随迁 scripts/，低优备用）
 - 旧 Playwright e2e 直接执行（🔀→✅ 34 条语义映射 docs/migration-acceptance.md）
@@ -249,7 +249,8 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 
 **原版本身就是半成品/非核心，不列为“误砍”**：A2A/Agent Card（原版无前端入口、
-execute 未实现、文档端点 404）、账户删除（原版对团队创建者有级联缺陷）、生成规则
+execute 未实现、文档端点 404）——**2026-11-15 已由 D-021 回补**（Agent Card +
+JSON-RPC 真接线，生产回滚仍升级）；账户删除（原版对团队创建者有级联缺陷）、生成规则
 删除入口缺失。它们不因“本产品不上生产”被裁，迁不迁需单独裁决，不阻塞功能对等。
 
 **复审结论（2026-11-14，2026-11-15 复核更新）**：按原版 `feature-catalog.md` 全 17 节 + 34 条验收 +
@@ -344,7 +345,7 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | M-D1 | GitHub App 配置解析（7 环境变量） | api/_lib/github-app.ts | 🔁P2 | github-app.ts 直迁；凭据迁入本地 config（0600） | 配置解析单测 |
 | M-D2 | App JWT（RS256）签发 | api/_lib/github-app.ts | 🔁P2 | 同上 | JWT 单测随迁 |
 | M-D3 | 签名会话/OAuth state（HMAC cookie） | api/_lib/github-app.ts | 🔀P2 | git2 token cookie（HttpOnly SameSite）已等价 | e2e 现有 |
-| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🔁P2 | 同上（本机 server 承载，本机浏览器授权） | OAuth 流 e2e |
+| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🔁P3.5 | **D-020 回补**：Device Flow（start/poll/status/installations/logout），无回调 URL；identity-only，不接管写凭据 | 单测/路由/e2e；实网待用户启用 Device Flow |
 | M-D5 | installation token 缓存（500 上限/60s 刷新/并发去重） | api/_lib/github-api.ts | 🔁P2 | github-api 层直迁 | 缓存单测 |
 | M-D6 | 统一 GitHub 请求封装（15s 超时/错误分类/version 头） | api/_lib/github-api.ts githubFetch | ✅ | pr-helper-git github-api 层已有等价封装 | 对齐确认（Phase 2 核对错误分类语义） |
 | M-D7 | ETag 遥测（304 可行性观测） | api/_lib/github-api.ts | ⏸P2 | server（低优，先记录） | 遥测行 |
@@ -617,3 +618,5 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | 2026-11-15 | **P2-6 UI 点击路径走查**：在 4789 真实控制塔打开 `P2-6 UI takeover acceptance` 步骤抽屉，点击 `take over`，填入标题/正文后 `save takeover`；UI 调 `takeoverAutomationAction` 真实创建 PR #11（action 4376 / run 4378，审计 `pull-created / via=user-takeover`）。抽屉动作显示 `done`，页面 Refresh 后阶段卡更新为 `PR #11 checks passed`；PR #11 已关闭，UI 测试分支与流程已清理。未配置 AI 凭据，走的是人工标题/正文路径 | 用户批注“那你做UI点击路径的浏览器走查”；验证 UI 表单到真实 GitHub 副作用 | 用户 |
 | 2026-11-15 | **D-019 + P2-3 advance-stage 真实闭环**：真实 advance 首次执行暴露原版 schema 缺口——TS `OperationAuditAction` 含 `stage-advanced`，但 020 迁移的 `workflow_operation_audit_logs_action_check` 不含该值，审计写入把 action 4375 打成 paused。按 D-015 本地增量迁移协议新增 `scripts/migration/local-migrations/049_audit_stage_advanced.sql`（仅扩 CHECK 白名单，表集不变；云端 pr-helper 按 D-011 不修），应用后重置 action 4375 重试成功。fixture：`p2-3-advance-test` 2 提交 → PR #10 自动建/合并 → 对账自动入队 advance → action 4375 succeeded、run 4377 succeeded，审计 `stage-advanced`；PR #10 合并提交 `da284ca`，测试分支/流程/凭据已清理 | 用户批注“那你搞吧”；advance 真实 dispatch 首次暴露迁移缺口 | 用户 |
 | 2026-11-15 | **PR 写操作终验（Close/Reopen/Merge 真实通过；Approve/Request-changes 确认 GitHub 平台边界）**：在 `bayernjf/git-e2e-test`（TEST-REPOS.md 已登记）走产品真实路径——`/api/github` 代理（`POST /repos/{o}/{r}/pulls`、`PATCH /pulls/{n}` state、`POST /pulls/{n}/reviews`）+ `/api/merge-pull` 路由（GraphQL squash merge）——建 PR #12 后**真实执行 Close→Reopen→Merge 全成功**，PR 合并、`main` 前进、本地 reset 回 `da284ca`、临时分支/PR 清理。**关键边界发现**：Approve（event=APPROVE）与 Request-changes（event=REQUEST_CHANGES）对自己 PR 被 GitHub 硬性拒绝 422（"Cannot approve/request changes on your own pull request"）——这是 GitHub 平台约束、非产品缺陷；产品正确透传了 GitHub 的 422 错误与 message（`/api/github` 代理把上游 error 原样返回），UI 的 `submitReview` 已对 REQUEST_CHANGES 缺 body 做前置校验、对 APPROVE/COMMENT 无额外门槛。COMMENT review 对自己 PR 走通（200/COMMENTED）。**验收口径**：单账号环境下 approve/request-changes 无法真实验证，接受“产品正确透传 GitHub 422 错误 + COMMENT 走通 + Close/Reopen/Merge 全成功”作为 PR 写操作验收；需多账号才能做 approve/request-changes 的端到端真实通过，不阻塞迁移 | 用户授权“只要是测试仓，你都可以用”；闭合“PR Merge/Close/Approve/Request changes”终验项 | 用户 |
+| 2026-11-15 | **D-020 GitHub Device Flow 身份连接**：用户裁决采用 Device Flow（不做授权码回调，现有 App 也缺 client secret）；user token 只用于身份展示与 App 安装/仓库发现，本地 token 仍是唯一认证边界，GitHub 写操作保持 PAT/引擎凭据；token 存 `config.github.oauth`（0600），永不回传浏览器；`github.com` 两个 OAuth 端点经系统代理（HTTPS_PROXY 优先，macOS 回退 `scutil --proxy`）。实现 `server/github-oauth.mjs` + `server/github-http.mjs` + SettingsModal「GitHub account」区块；`/api/pat` 改为合并 `config.github`，避免覆盖 oauth。**实网待办**：用户在 GitHub App 设置启用 Device Flow 后走查 | 用户“GitHub App OAuth 登录 这个搞下”；实测 `device_flow_disabled` | 用户 |
+| 2026-11-15 | **D-021 A2A / Agent Card 真接线**：公开卡片 `GET /api/a2a/agent-card`（别名 `/.well-known/agent-card.json`、`agent.json`）+ JSON-RPC `POST`（tasks/send、sendSubscribe、get、cancel）；bearer fail-closed（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`），匿名逃生门仅 loopback；默认 plan，execute 经引擎 enqueue create-pr/merge-pr、直调 rerun-actions、只读 deployment-health、production-rollback 永远升级；任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。实现 `server/a2a.mjs` + `server/flows.mjs` `engineContext()` + SettingsModal「A2A / Agent Card」区块 + 7 条 E2E | 用户“A2A / Agent Card 这个搞下” | 用户 |

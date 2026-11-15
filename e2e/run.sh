@@ -148,6 +148,9 @@ cd - >/dev/null
 # Server
 # ---------------------------------------------------------------------------
 rm -f /tmp/prh2-e2e-server.log
+# Keep the throwaway server deterministic even when the developer shell has
+# A2A or GitHub App credentials exported.
+unset PR_HELPER_GIT_A2A_TOKEN ZEUS_A2A_TOKEN PR_HELPER_GIT_A2A_ALLOW_INSECURE_ANONYMOUS GITHUB_APP_CLIENT_ID
 PR_HELPER_HOME="$HOME_DIR" GIT2_DEV=1 node server/main.mjs --port=$PORT \
   > /tmp/prh2-e2e-server.log 2>&1 &
 SERVER_PID=$!
@@ -524,6 +527,16 @@ echo "=== E2E: Deregister ==="
 check "remove repo B" "200" "$(post repos/remove "$(printf '{"repo":"%s"}' "$REPO_B")")"
 check "repo list has five entries after removing B" "5" "$(getq repos | json 'len(d["repos"])')"
 check "removed repo is gone" "False" "$(getq repos | json 'any("e2e-repo-b" in r for r in d["repos"])')"
+
+echo ""
+echo "=== E2E: GitHub Device Flow + A2A ==="
+check "github oauth status requires token" "401" "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/auth/github/status")"
+check "github oauth status is unconfigured" "True" "$(getq auth/github/status | json 'not d["configured"]')"
+check "github oauth device start is 409 without a client id" "409" "$(post auth/github/device/start '{}')"
+check "a2a card is public" "200" "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/a2a/agent-card")"
+contains "a2a card names the product" 'pr-helper-git' "$(curl -s "$BASE/api/a2a/agent-card")"
+check "a2a well-known alias is public" "200" "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/.well-known/agent-card.json")"
+check "a2a rpc fails closed without a token" "503" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tasks/send","params":{}}' "$BASE/api/a2a/agent-card")"
 
 echo ""
 echo "=== E2E Results: $PASS passed, $FAIL failed, $TOTAL total ==="
