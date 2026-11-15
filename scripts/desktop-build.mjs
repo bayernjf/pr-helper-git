@@ -1,8 +1,8 @@
-// Builds a self-contained macOS .app bundle with zero third-party UI/runtime
-// dependencies. The bundle hosts the built client and the Node server, while
-// a Swift-compiled WKWebView shell supplies the native window and manages the
-// server process. Set BUNDLE_NODE=1 to include an official standalone Node.js
-// runtime so the app does not depend on the machine's Node installation.
+// Builds a self-contained macOS .app bundle. The bundle hosts the built client,
+// the Node server and its production npm dependencies, while a Swift-compiled
+// WKWebView shell supplies the native window and manages the server process.
+// Set BUNDLE_NODE=1 to include an official standalone Node.js runtime so the
+// app does not depend on the machine's Node installation.
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fsp from 'node:fs/promises';
@@ -193,6 +193,24 @@ await copyTree(
   path.join(appDir, 'dist'),
   (name, isDirectory) => isDirectory && name === `${appName}.app`,
 );
+
+// 3b. Copy the production dependency closure (npm computes it from the
+//     lockfile). The server imports npm packages at runtime, and once the
+//     bundle leaves the repo tree there is no node_modules above it to fall
+//     back on — without this the app dies with ERR_MODULE_NOT_FOUND on launch.
+const nmRoot = path.join(root, 'node_modules');
+const listing = execFileSync('npm', ['ls', '--omit=dev', '--all', '--parseable'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+const pkgDirs = listing.split('\n').map((line) => line.trim()).filter((line) => line && line !== root);
+if (pkgDirs.length === 0) throw new Error('npm ls reported no production packages');
+for (const dir of pkgDirs) {
+  const rel = path.relative(nmRoot, dir);
+  if (rel.startsWith('..')) throw new Error(`unexpected production package path: ${dir}`);
+  await copyTree(dir, path.join(appDir, 'node_modules', rel));
+}
+log(`bundled ${pkgDirs.length} production packages`);
 
 // 4. Write Info.plist.
 await fsp.writeFile(path.join(contents, 'Info.plist'), infoPlist, 'utf8');

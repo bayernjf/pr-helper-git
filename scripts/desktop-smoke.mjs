@@ -1,8 +1,10 @@
 // Verifies the assembled macOS bundle without launching the GUI. This is the
 // CI-safe half of the desktop smoke test: it catches stale Info.plist fields,
-// missing bundle resources and a missing native executable.
-import { execFileSync } from 'node:child_process';
+// missing bundle resources, a missing native executable, and a bundled server
+// that cannot actually start (e.g. runtime dependencies missing from the bundle).
+import { execFileSync, spawn } from 'node:child_process';
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,6 +85,62 @@ if (minos !== info.LSMinimumSystemVersion) {
 execFileSync(process.execPath, ['--check', path.join(contents, 'Resources', 'app', 'server', 'main.mjs')], {
   stdio: 'inherit',
 });
+
+// A syntax check cannot catch missing runtime dependencies: launch the bundled
+// server exactly like the native shell does (random port, desktop env) against
+// a throwaway PR_HELPER_HOME and require the readiness line. The app must be
+// copied OUT of the repo first — inside build/, Node's upward node_modules
+// walk silently resolves dependencies from the repo and masks a broken bundle.
+async function requireServerStarts() {
+  const nodeBin = bundledNode ? runtimeNode : process.execPath;
+  const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'pr-helper-smoke-'));
+  const isolatedApp = path.join(home, 'app');
+  await fsp.cp(path.join(contents, 'Resources', 'app'), isolatedApp, { recursive: true });
+  const serverScript = path.join(isolatedApp, 'server', 'main.mjs');
+  try {
+    await new Promise((resolve, reject) => {
+      const child = spawn(nodeBin, [serverScript, '--port=0'], {
+        env: { ...process.env, PR_HELPER_GIT_DESKTOP: '1', GIT2_DESKTOP: '1', PR_HELPER_HOME: home },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '';
+      let stderr = '';
+      let readyPort = null;
+      let settled = false;
+      const settle = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn(arg);
+      };
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        settle(reject, new Error(`bundled server did not become ready in 20s\n${stderr}`));
+      }, 20000);
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk;
+        if (readyPort !== null) return;
+        const line = stdout.split('\n').find((l) => l.startsWith('PR_HELPER_GIT_READY ') || l.startsWith('GIT2_READY '));
+        if (!line) return;
+        // Never print the readiness token; the port alone identifies the run.
+        readyPort = JSON.parse(line.slice(line.indexOf(' ') + 1)).port;
+        child.kill('SIGTERM');
+        setTimeout(() => child.kill('SIGKILL'), 3000).unref();
+      });
+      child.stderr.on('data', (chunk) => { stderr += chunk; });
+      child.on('error', (err) => settle(reject, err));
+      child.on('exit', (code) => {
+        if (readyPort !== null) settle(resolve, readyPort);
+        else settle(reject, new Error(`bundled server exited with status ${code} before ready\n${stderr}`));
+      });
+    }).then((port) => {
+      console.log(`[desktop-smoke] bundled server started and became ready (port ${port})`);
+    });
+  } finally {
+    await fsp.rm(home, { recursive: true, force: true });
+  }
+}
+await requireServerStarts();
 
 console.log(
   `[desktop-smoke] bundle OK: ${appName} ${info.CFBundleShortVersionString} (${info.CFBundleIdentifier})`,

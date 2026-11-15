@@ -382,8 +382,9 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.2.6**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
-- 应用内 **Check for Updates…** 读取 `releases/latest`，有新正式版时打开下载页
+- 当前最新：**v0.3.1**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
+  校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
 
 ## Quick start
@@ -412,12 +413,12 @@ The desktop shell is maintained again. It is a thin native shell over the same
 React client and Node server: product behaviour stays in the web UI, while
 Swift owns only the window, process lifetime and macOS integration.
 
-A native macOS desktop build is available without bundling any third-party
-runtime by default. It uses the system `WKWebView` (no embedded Chromium) and a
-`swiftc`-compiled native shell, and it reuses the Node.js already installed on
-the machine. For a distribution build, `BUNDLE_NODE=1` embeds the official
-Node.js runtime so the recipient does not need Node installed. Requires macOS
-11.3 or later.
+A native macOS desktop build is available. It uses the system `WKWebView` (no
+embedded Chromium) and a `swiftc`-compiled native shell, reuses the Node.js
+already installed on the machine, and bundles the server's production npm
+dependencies inside the app so it runs outside the repo tree. For a
+distribution build, `BUNDLE_NODE=1` embeds the official Node.js runtime so the
+recipient does not need Node installed. Requires macOS 11.3 or later.
 
 ```bash
 npm run desktop              # builds build/PR Helper Git.app (uses system Node)
@@ -440,9 +441,11 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   preferences survive restarts;
 - provides standard macOS menus (app, File, Edit, View, Window) and sends
   non-localhost links to the default browser instead of replacing the app view;
-- **Check for Updates…** in the app menu reads GitHub `releases/latest` and
-  offers the release page when a newer version exists; it never downloads or
-  replaces the app automatically;
+- **Check for Updates…** in the app menu reads GitHub `releases/latest`,
+  downloads the dmg plus `SHA256SUMS`, verifies the SHA-256 and hands off to a
+  detached helper that swaps the app and relaunches it; a 403 from the API
+  (shared proxy egress rate limit) retries once without the system proxy, and
+  asset names are matched with GitHub's space-to-dot sanitization;
 - **File > Open Repository…** opens a native folder panel and pre-fills the
   existing add-repository dialog; no second registration path is introduced;
 - handles web downloads (for example the team config export) into
@@ -459,8 +462,9 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   `minos` matches `LSMinimumSystemVersion` instead of inheriting the build
   machine's newer SDK.
 
-The default bundle is about 1.5 MB. With `BUNDLE_NODE=1` the official Node
-runtime adds roughly 108 MB, for a total around 114 MB. An unsigned, locally
+The default bundle is about 14 MB, including roughly 12 MB of production npm
+dependencies. With `BUNDLE_NODE=1` the official Node runtime adds roughly
+108 MB, for a total around 122 MB. An unsigned, locally
 built app may need a one-time Gatekeeper approval under **System Settings →
 Privacy & Security**.
 
@@ -547,7 +551,7 @@ setup, notarization, verification and publishing steps.
 | Layer | Implementation |
 | --- | --- |
 | Client | React 19 + TypeScript, Vite build, plain CSS |
-| Server | Node.js built-in `http`, zero runtime dependencies |
+| Server | Node.js built-in `http` plus the `postgres` and `web-push` npm packages (bundled into the desktop app) |
 | Desktop | Swift `WKWebView` shell (`desktop/main.swift`), icon rendered by `desktop/make-icon.swift`, bundled by `scripts/desktop-build.mjs` |
 | Git | `execFile('git', argv)` with parsers for porcelain v2, log, refs and blame |
 | GitHub | REST allowlist proxy plus GraphQL merge/ready endpoints |
@@ -635,5 +639,5 @@ Component tests render key React components with `react-dom/server`
 (`renderToString`) against a mock app context, covering empty states,
 masked/binary handling, the conflict panel and the toolbar and audit modal.
 
-All checks are run with zero third-party runtime dependencies; the test and
-build tooling is the only dev dependency set.
+The test and build tooling is the only dev dependency set; the runtime npm
+dependencies (`postgres`, `web-push`) ship inside the desktop bundle.

@@ -10,7 +10,8 @@ wins; otherwise this file is the default contract.
 `pr-helper-git` is a local-first Git and GitHub PR workbench:
 
 - React 19 + TypeScript client, built by Vite.
-- Node.js built-in `http` server, zero third-party runtime dependencies.
+- Node.js built-in `http` server; runtime npm dependencies are `postgres` and
+  `web-push`, bundled into the desktop app by `scripts/desktop-build.mjs`.
 - Single-user, loopback-first; no database, no container runtime.
 - Tier 1 in `bayjf/docs/PROJECT-TIER-CONVENTION.md` (not Tier 0/0.5).
 - Desktop shell is maintained again, but stays thin: product behaviour lives
