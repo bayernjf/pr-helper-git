@@ -382,8 +382,7 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.3.0**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）。
-  注意：v0.3.0 的 dmg/zip 早于桌面依赖打包修复，安装后无法启动；修复版随 0.3.1 发布。
+- 当前最新：**v0.3.1**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
   校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start

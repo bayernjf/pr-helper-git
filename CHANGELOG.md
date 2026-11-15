@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
-## [Unreleased]
+## [0.3.1] - 2026-11-15
 
 ### 新增
 - **桌面端应用内更新**：`Check for Updates…` 从「只跳转下载页」升级为完整更新流程——读取 `releases/latest`，下载 dmg + `SHA256SUMS`，校验 SHA-256，再交给一个 detached 辅助脚本替换运行中的 app 并重启。完整性锚定在发布时附带的校验和，无需 Developer ID 证书或公证。

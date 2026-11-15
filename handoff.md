@@ -50,6 +50,19 @@ P3-4 编辑器 → P3-5 失败中心。
 
 最近更新：2026-11-15（PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1040/55、E2E 155/155、build 通过）。
 
+## Release 0.3.1 (2026-11-15)
+
+范围：两个桌面修复随正式发行出去——① 生产 npm 依赖闭包入 bundle（修
+`/Applications` 安装后启动即崩）；② 更新检查 403 直连回退 + 资产/校验和
+space→dot 归一化（修应用内更新在系统代理环境下必失败）。含冒烟真实启动断言
+与 UpdateFetchTest（stub + 变异证明 + 可选 live）。v0.3.0 的 dmg/zip 为坏
+bundle，0.3.1 产物为修复后首批可分发 artifact（BUNDLE_NODE=1，内含官方 Node 22）。
+发布前 dev 与 origin/main 因 PR #7/#8/#9 的 merge commit 偏离，已用普通 merge
+集成（不重写已 push 的 dev 历史）。门禁：1040/55、E2E 155/0、native-test
+（含 update-fetch stub）通过；`BUNDLE_NODE=1 desktop:dist` 产出 0.3.1 dmg/zip
+（内含官方 Node 22.23.5，未签名），`BUNDLE_NODE=1 desktop:smoke` 通过，
+SHA256SUMS 经 `shasum -a 256 -c` 独立复核 OK。
+
 ## Desktop bundle dependency fix (2026-11-15)
 
 用户报「app 启动报错」。根因：迁移引入 `postgres`/`web-push` 运行时依赖后，
