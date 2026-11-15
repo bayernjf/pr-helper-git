@@ -21,6 +21,13 @@ vi.mock('./workflows-store.mjs', () => ({
     return [{ workflowId: 'w1', stageIndex: 0, source: 'dev', state: 'queued' }];
   }),
   listWorkflows: vi.fn(async () => [{ id: 'w1', name: '主干发布', repository: 'octo/app', stages: [] }]),
+  // Teams (P2-8)
+  listTeams: vi.fn(async () => [{ id: 't1', name: '核心团队', role: 'owner', createdAt: '2026-11-15T00:00:00.000Z' }]),
+  listTeamMembers: vi.fn(async () => [{ githubLogin: 'bayernjf', role: 'owner' }]),
+  createTeam: vi.fn(async (_env, _identity, name) => ({ id: 't2', name, role: 'owner' })),
+  addTeamMember: vi.fn(async () => undefined),
+  removeTeamMember: vi.fn(async () => undefined),
+  shareWorkflowWithTeam: vi.fn(async () => undefined),
   listOperationAuditLogs: vi.fn(async (_env, _identity, limit) => {
     void limit;
     return [{ action: 'workflow-saved', outcome: 'success' }];
@@ -254,6 +261,51 @@ describe('flows write routes (P3-3)', () => {
       expect.anything(), expect.anything(),
       expect.objectContaining({ kind: 'create-pr', idempotencyKey: '' }),
     );
+  });
+
+  it('serves teams and their members', async () => {
+    const teams = await handleFlowsRoute(ctx({ pathname: '/api/flows/teams' }));
+    expect(teams?.json.teams[0]).toMatchObject({ id: 't1', role: 'owner' });
+    const members = await handleFlowsRoute(ctx({
+      pathname: '/api/flows/teams', query: new URLSearchParams('teamId=t1'),
+    }));
+    expect(members?.json.members).toEqual([{ githubLogin: 'bayernjf', role: 'owner' }]);
+    expect(store.listTeamMembers).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1');
+  });
+
+  it('creates a team and passes owner-only membership/share writes', async () => {
+    const created = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams', body: { action: 'create', name: '核心团队' },
+    }));
+    expect(created?.status).toBe(201);
+    expect(store.createTeam).toHaveBeenCalledWith(expect.anything(), expect.anything(), '核心团队');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'member', teamId: 't1', githubLogin: 'octocat', role: 'operator' },
+    }));
+    expect(store.addTeamMember).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'octocat', 'operator');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'remove-member', teamId: 't1', githubLogin: 'octocat' },
+    }));
+    expect(store.removeTeamMember).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'octocat');
+
+    await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'share-workflow', teamId: 't1', workflowId: 'w1' },
+    }));
+    expect(store.shareWorkflowWithTeam).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1', 'w1');
+  });
+
+  it('rejects malformed team writes without touching the engine', async () => {
+    const bad = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/teams',
+      body: { action: 'member', teamId: 't1', githubLogin: 'octocat' },
+    }));
+    expect(bad?.status).toBe(400);
+    expect(store.addTeamMember).not.toHaveBeenCalled();
   });
 
   it('passes execute/regenerate/takeover through with a numeric actionId', async () => {

@@ -160,6 +160,59 @@ export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
   return request<{ workflows: Workflow[] }>('/api/flows/workflows');
 }
 
+// Teams (P2-8): the engine's four-role model. Owner-only writes; members and
+// shared workflows are scoped per team.
+export type TeamSummary = {
+  id: string;
+  name: string;
+  role: import('../lib/automation/team-permissions').TeamRole;
+  createdAt?: string;
+};
+export type TeamMemberRow = {
+  githubLogin: string;
+  role: import('../lib/automation/team-permissions').TeamRole;
+};
+
+export function fetchTeams(): Promise<{ teams: TeamSummary[] }> {
+  return request<{ teams: TeamSummary[] }>('/api/flows/teams');
+}
+
+export function fetchTeamMembers(teamId: string): Promise<{ members: TeamMemberRow[] }> {
+  return request<{ members: TeamMemberRow[] }>(`/api/flows/teams?teamId=${encodeURIComponent(teamId)}`);
+}
+
+export function createTeam(name: string): Promise<{ team: TeamSummary }> {
+  return request<{ team: TeamSummary }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'create', name }),
+  });
+}
+
+export function addTeamMember(input: { teamId: string; githubLogin: string; role: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'member', ...input }),
+  });
+}
+
+export function removeTeamMember(input: { teamId: string; githubLogin: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'remove-member', ...input }),
+  });
+}
+
+export function shareWorkflowWithTeam(input: { teamId: string; workflowId: string }): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/flows/teams', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'share-workflow', ...input }),
+  });
+}
+
 // AI automation credentials (M-E5 tail): drive auto-create PR message
 // generation. Stored server-side, encrypted with the local key.
 export type AiAutomationCredential = {

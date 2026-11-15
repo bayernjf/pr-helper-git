@@ -22,6 +22,7 @@ import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Work
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
 import FlowPreflightModal from './FlowPreflightModal';
+import TeamsModal from './TeamsModal';
 import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
 import { IconRefresh, IconSearch } from './icons';
@@ -98,6 +99,7 @@ export default function FlowBoard() {
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [teamsOpen, setTeamsOpen] = useState(false);
   const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -269,6 +271,9 @@ export default function FlowBoard() {
         </label>
         <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
           {t('Audit log')}
+        </button>
+        <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
+          {t('Teams')}
         </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
@@ -466,6 +471,7 @@ export default function FlowBoard() {
         )}
       </section>
       {auditOpen ? <FlowAuditModal onClose={() => setAuditOpen(false)} /> : null}
+      {teamsOpen ? <TeamsModal onClose={() => setTeamsOpen(false)} /> : null}
       {preflightFlowId ? (
         <FlowPreflightModal
           flowId={preflightFlowId}

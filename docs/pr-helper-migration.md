@@ -153,7 +153,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P2-5 | 触发器三通道：fs.watch（本地 push 即时）+ webhook 接收端（D-004）+ 定时对账（D-008） | api/github/webhook.ts、api/_lib/github-webhook.ts、api/cron/* | server `POST /api/github-webhook`（HMAC 验签，raw body，401 fail-closed） | webhook 签名校验单测随迁；可达时 1–3s 触发实测 | ✅ 完成（2026-11-15）：webhook 端到端实测（11-14：HMAC/去重/projection/实时对账 202 流程，本地 PG）；**新增 9 个契约单测**覆盖非 webhook 路由、缺 raw body 400、无 secret 503 fail-closed、坏签名 401 且不触库、缺 delivery/event 头 400、坏 JSON 400、shadow 模式 200 且不投影、合法 PR delivery 投影 + 分支级 reconcile 202、重复 delivery 202 不投影不对账；fs.watch=既有 `reconcileWatching`、定时对账=`automation.mjs` 调度器 |
 | P2-6 | AI 失败接管（regenerate/takeover/unpause）+ 消息解析（剥围栏/部分 JSON） | api/_lib/workflows-store.ts | server + 引擎 | 接管单测随迁；paused→unpause 端到端 | 🔶 部分（2026-11-15）：`parseAutomationMessage`/`jsonFromModelText` 解析测试（围栏/部分 JSON/超长/空内容/格式无效）已随迁；`regenerate`/`takeover` 路由测试覆盖 numeric actionId、title/body 透传、未知子动作 400；`takeoverAutomationAction` 的 paused→建 PR 闭环需真实 GitHub dispatch，按影子期约束未执行 |
 | P2-7 | Actions 重跑（次数/冷却/提交校验）+ Codex 修复包 | api/_lib/workflows-store.ts、api/[action].ts | server | rerun 校验单测随迁 | ✅ 完成（2026-11-15）：`rerunFailedActions` 校验链（workflowId/source/stageIndex 类型、recoveryPolicy maxRetries、cooldownSeconds、head_sha 存在、失败 run 过滤）已随 bundle；路由测试覆盖合法请求与 `stageIndex: '0'` 非法请求 400 且不触引擎；`automationRetryIsExhausted` 域测试覆盖次数上限；`codexRepairContext` 合法/缺 workflowId 400 路由测试；实际 rerun dispatch 需真失败 run，按影子期约束未执行 |
-| P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ⬜ |
+| P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ✅ 完成（2026-11-15）：引擎 bundle 已含四角色成员/共享/账号删除函数；新增 `/api/flows/teams` 路由（GET 团队/成员、POST create/member/remove-member/share-workflow），3 个路由测试；`src/lib/automation/team-permissions.ts` 角色矩阵 + 3 测试；`TeamsModal` 接入 FlowBoard；隔离 4791 UI 实测创建团队→自动 Owner、成员区 `@bayernjf Owner`、Owner 管理表单与四角色选项；生产合并/回滚仅 Owner 的规则由矩阵覆盖 |
 | P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ✅ `launchd/{install,uninstall}.sh` + README（11-14）：RunAtLoad 登录自启、KeepAlive 崩溃 10s 重启实测（kill -9 → 新 pid → 200）、自动化随启（PR_HELPER_GIT_AUTOMATION=1）、日志 ~/Library/Logs/pr-helper-git/；11-15 常驻运行于 4789（shadow 模式） |
 | P2-10 | 影子模式开关（引擎只决策不执行 + 决策日志落库） | 本方案 Phase 5 | server | 影子日志可逐日比对 | ✅ 只读观测 + **JSONL 影子日志落盘**（11-14：`~/.pr-helper-git/automation-shadow.log`，PR_HELPER_HOME 尊重，失败路径也落盘，smoke 测试）——P5-1 逐日比对材料就绪 |
 
@@ -184,7 +184,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 | P3-12 | 流程归档/恢复、静音/取消静音、最近运行历史入口 | FlowBoard/FlowDetail | 原功能目录 §2 的 ✔ 项走查；归档可逆、静音只影响通知 | ✅ 完成（11-14 UI 实测）：FlowBoard lane 归档（确认弹窗）→ Archived 筛选计数 1 → restore 回 0；静音 → Muted 徽标/按钮变 unmute，取消后恢复；详情页确认删除 → lane 15→14；FlowDetail「Recent runs」显示 zeus #192/#55（44 条 inbox runs 中按 workflowId 取前 10）；PUT 复用 `upsertWorkflow` 的 archive transition 与 muted 列 |
 | P3-13 | 流程预检（App 权限/分支/PR 冲突/上游依赖/Actions/Environment） | `server/flows.mjs` + FlowBoard | 先裁决“重建”还是“正式删除”；若重建，每项给修复建议 | ✅ 重建预检完成（2026-11-15 用户裁决“重建预检”）：`POST /api/flows/preflight` 只读检查六类项（GitHub App 权限、分支存在性/通配源分支、PR mergeable/dirty、`waitFor` 上游依赖、部署/回滚 Actions workflow、GitHub Environment），每项返回 `pass/warn/fail/skip` + 修复建议；`workflowPreflight` 纯函数 + `preflightWorkflow` 读取投影/仓库元数据，并对 open PR 实时读 `/pulls/{number}` 覆盖滞后投影；FlowBoard lane「preflight」→ `FlowPreflightModal` 分组展示/重跑，页脚明确“只读检查不修改流程”；5 个语义单测 + 路由 400 校验；11-15 实网 `POST /api/flows/preflight` 对 bayjf 返回六类全 pass；完整门禁 1015 tests/51 files + build 绿 |
 | P3-14 | PR 引用复制/tooltip、flows 操作审计 UI+CSV、同步健康度 UI | `src/lib` + `AuditModal`/FlowBoard | 验收 #2/#32；CSV 导出可验证；过时阶段可见 | ✅ 完成（11-14 UI 实测）：`FlowAuditModal` 500 行表格+筛选+CSV（90,686 bytes，RFC4180 转义）；`PullReference` 悬停完整 URL + Open PR、点击复制 toast；FlowBoard「Sync health」显示 last reconcile / 14 stale stage(s) / 0 webhook/24h |
-| P3-15 | 团队管理 UI（四角色/共享） | TeamModal | 单用户可暂缓，但不得计完成；若恢复，角色矩阵走查 | ⏸ 用户裁决本期暂缓（2026-11-15）：单用户场景，P2-8 四角色后端未接线；现有 TeamModal 是旧 admin/member UI，不冒充四角色完成；Phase 3.5 关闭条件按“用户明确暂缓”处理，不计完成 |
+| P3-15 | 团队管理 UI（四角色/共享） | TeamModal | 角色矩阵走查 | ✅ 完成（2026-11-15）：新增 `TeamsModal`（与旧 admin/member TeamModal 分离）并挂到 FlowBoard「Teams」；团队创建/切换、成员列表与角色徽标、Owner-only 添加/移除、个人流程共享；`team-permissions` 四角色矩阵与生产合并/回滚 Owner 限制 3 测试；隔离 4791 UI 实测创建团队→Owner、成员区 `@bayernjf Owner`、四角色下拉与共享区可见；测试团队已清理 |
 | P3-16 | 编辑器折叠、return-highlight 等 UI 细节 | FlowEditor/FlowBoard | 验收 #5/#6/#24 | ✅ 完成（11-14 UI 实测）：编辑既有流程 0 个展开表单、新建默认展开；展开后 1 个 body，add step 后 2 个折叠头/0 body；详情返回 lane 立即 `.is-return-highlight`，1.6s 自动清除 |
 
 **Phase 3.5 关闭条件**：P3-10/P3-11 必须 ✅；P3-12…P3-16 每项要么 ✅，要么有用户明确的
@@ -233,221 +233,20 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 - 云同步 encrypted-sync（🚫，D-003：本地存储即权威）
 - Web Push（⏸→🔀，D-005/D-017：macOS 通知 + 飞书通道保留代码）
 - GitHub App OAuth 登录流（🚫，D-006-v2/v3：本地 token + PAT；验收 #1 改为替代实现）
-- 团队多人协作 UI（P2-8 ⬜，单用户暂缓；引擎函数已迁移；不计完成）
+- ~~团队多人协作 UI（P2-8 ⬜，单用户暂缓）~~ **已迁移（2026-11-15，P2-8/P3-15 ✅）**
 - 移动状态监控 gh-status（⏸→✅ 随迁 scripts/，低优备用）
 - 旧 Playwright e2e 直接执行（🔀→✅ 34 条语义映射 docs/migration-acceptance.md）
 - ~~换仓库交互/部署表单（编辑器内，随构建裁剪）~~ **误裁：换仓库非云依赖，改为 P3-11 恢复；部署表单随部署门禁 P3-10 恢复**
 
-**未完成/漏项（非 D-002 排除，不能计完成）**：
-- **部署门禁全链路**：配置表单、默认 provider、Environment 可选值/警告、StepDrawer 部署卡、
-  Actions run 跟踪、健康探测、失败摘要、最近 8 次运行、重新部署、确认式回滚、回滚 HTTP 路由。
-- **换仓库交互**：验收 #7/#8；编辑既有流程时仓库字段锁定，确认后转为新建流程。
-- **流程归档/恢复、静音/取消静音**：原功能目录 §2 标 ✔；当前 `FlowBoard` 只读，只有
-  `archived`/`muted` 徽标，无写入口。
-- **流程预检**：原版一键检查 App 权限、分支存在性、PR 冲突、上游依赖、Actions/Environment；
-  原版入口本身疑似 404（§16），当前无实现，需决定“重建”还是“正式删除”。
-- **PR 引用复制/tooltip**：验收 #32 🔶；M-F19 未落地，看板当前普通外链。
-- **操作审计 UI + CSV 导出**：`GET /api/flows/audit` 已有；M-F14 的 flows 审计对话框与 CSV
-  未接（现有 `AuditModal` 是 git 操作审计，不是同一套）。
-- **同步健康度/过时阶段**：`/api/flows/inbox` 已返回 `syncHealth`，组件层未使用（M-C10）。
-- **团队管理 UI**：引擎四角色/共享函数在；P2-8/M-F21 UI 未做，单用户可暂缓但不得计完成。
-- **运行历史/版本快照 UI**：M-A19 表与写入在；看板/详情无最近运行历史入口。
-- **Lane 展开区/最近动态**：P3-6 判定为设计偏差（详情页/抽屉承载），不是遗漏，但与原版布局
-  不完全无感，需在验收口径中注明。
-- **编辑器折叠交互、return-highlight**：验收 #5/#6/#24，UI 细节待补。
+**早期漏项已补齐（2026-11-14/15，不再计为未完成）**：
+- 部署门禁全链路（配置表单、Environment、StepDrawer 部署卡、Actions run 跟踪、健康探测、失败摘要、最近 8 次、重新部署、确认式回滚）→ P3-10 ✅，实网走查完成。
+- 换仓库确认交互 → P3-11 ✅；档案/恢复、静音、运行历史 → P3-12 ✅；流程预检 → P3-13 ✅ 重建；PR 引用/审计 CSV/同步健康度 → P3-14 ✅；团队四角色 UI → P2-8/P3-15 ✅（2026-11-15）。
+- Lane 展开区差异 → P3-6 判定为设计偏差，详情页/抽屉承载；编辑器折叠/return-highlight → P3-16 ✅。
 
-**原版本身就是半成品/非核心，不列为“误砍”**：A2A/Agent Card（原版无前端入口、
-execute 未实现、文档端点 404）、账户删除（原版对团队创建者有级联缺陷）、生成规则
-删除入口缺失。它们不因“本产品不上生产”被裁，迁不迁需单独裁决，不阻塞功能对等。
+**仍未闭合（影子期约束）**：
+- P2-3 自动建 PR/合并与 advance-stage 的真实端到端 dispatch：⬜，需在影子期结束后按 D-016 逐项审批执行。
+- P2-6 `paused→unpause` 真实接管建 PR：🔶，解析与路由测试已覆盖，外部副作用未执行。
 
-**复审结论（2026-11-14）**：按原版 `feature-catalog.md` 全 17 节 + 34 条验收 +
-台账全部 🚫/⏸/🔀 行逐条核对，**未发现新的“因产品自身不上生产”被砍项**；
-已确认的同类误砍仍集中在**部署域**与**换仓库交互**。其余未完成项属于“未做/设计
-偏差/单用户暂缓”，不是 D-002 误读，但同样不能计入迁移完成。
-
-**本地修复的原版缺陷**（迁移增益）：
-- 推进开关持久化（D-015：048 列 + 读写往返）
-- webhook 路由死路（D-004 实测修正）
-- /m?token= 不种 cookie
-
-
-
-> 处置图例：🔁 迁移（Phase n）· ✅ 已存在（pr-helper-git 已有等价）· 🔀 替代实现 ·
-> ⏸ 缓办 · 🚫 不迁移（理由）· 部分 = 拆分处置（各行单独标注）
-
-### A. 工作流定义与规则（16 行 → 全部迁移，Phase 1/2）
-
-| ID | 能力 | 源文件（pr-helper） | 处置 | 目标（pr-helper-git） | 验收 |
-|---|---|---|---|---|---|
-| M-A1 | Workflow 领域模型 + 纯函数操作集 | src/lib/workflow.ts (+test) | 🔁P1 | src/lib/automation/domain.ts | 随迁单测全绿 |
-| M-A2 | 阶段路由三模式（sequential/independent/waitFor + 互斥） | 同上 | 🔁P1 | 同上 | 互斥校验单测 |
-| M-A3 | 动态分支规则匹配（feature/* 通配） | src/lib/workflow.ts + api/_lib/workflows-store.ts | 🔁P1+P2 | client lib + server store | 通配命中单测 |
-| M-A4 | 阶段自动化开关（autoCreate/Merge/Advance） | src/lib/workflow.ts | 🔁P1 | domain.ts | 开关语义单测 |
-| M-A5 | 勾选即动作预判确认 | src/lib/workflow.ts immediateAutomationEffect | 🔁P3 | FlowEditor | 确认弹窗语义 |
-| M-A6 | 部署门禁配置模型/派生 | src/lib/workflow.ts deploymentsForRepository 等 | 🔁P3 | 模型已随 M-A1 迁移；配置表单/派生/警告 UI 与回滚路由随 P3-10（D-002-v2） | 模型单测 + 配置表单走查 |
-| M-A7 | 生成规则本地 CRUD/导入 | src/lib/generation-rules.ts (+test) | 🔁P1 | src/lib/automation/generation-rules.ts | 随迁单测 |
-| M-A8 | 规则内容服务端存储（hash 去 payload） | api/_lib/workflows-store.ts | 🔁P2 | server/workflows-store.mjs | hash 往返单测 |
-| M-A9 | stage 级规则快照 | api/_lib/workflow-rows.ts | 🔁P2 | 同上（036/040 schema） | 快照列映射单测 |
-| M-A10 | Workflow↔行双向映射（往返恒等） | api/_lib/workflow-rows.ts (+test) | 🔁P2 | server（036–044 关系表） | 往返恒等单测 |
-| M-A11 | StoredWorkflow 校验/排序/去水合 | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 校验单测 |
-| M-A12 | 流程 CRUD + version 乐观锁 + 归档转换 | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 乐观锁单测 |
-| M-A13 | 流程排序/位置持久化 | src/lib/workflow.ts reorder 系列 | 🔁P2 | server store | 拖拽排序 E2E |
-| M-A14 | 收敛阶段决策模型（7 态单一判定源） | api/_lib/workflows-store.ts deriveStageDecision 等 | 🔁P2 | 同上（引擎核心） | 决策单测全绿 |
-| M-A15 | 上游解锁判定（废弃路线排除） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 解锁判定单测 |
-| M-A16 | stageId 稳定身份 | src/lib/workflow.ts + workflows-store.ts（018/019） | 🔁P1+P2 | domain + schema | 身份单测 + schema 对照 |
-| M-A17 | 保存队列（串行 + 失败清 dirty） | src/lib/workflow-save-queue.ts (+test) | 🔁P3 | WorkPanel 流程保存路径 | 队列单测 |
-| M-A18 | 在途保存合并/权威结果应用 | src/lib/workflow.ts | 🔁P3 | FlowEditor 保存路径 | 合并语义单测 |
-| M-A19 | 版本快照 + 运行实例（015） | api/_lib/workflows-store.ts | 🔁P2 | server（015 表）；最近运行历史 UI 随 P3-12 补 | 快照/运行行写入验证 + UI 走查 |
-
-### B. 自动化引擎（16 行 → 全部迁移，Phase 2；展示判定 Phase 3）
-
-| ID | 能力 | 源文件 | 处置 | 目标 | 验收 |
-|---|---|---|---|---|---|
-| M-B1 | 幂等动作队列（create-pr/merge-pr/advance-stage，幂等键钉 head sha） | api/_lib/workflows-store.ts | 🔁P2 | server + 025 表 | 幂等单测 |
-| M-B2 | 队列 drain（唯一执行入口，execute/reclaim/requeue/cancel/skip） | 同上 + api/cron/drain.ts | 🔁P2 | server 定时器 | drain 决策逐条一致（影子比对） |
-| M-B3 | 瞬时失败重排（15min 冷却 ×3、12h stale 取消） | 同上 | 🔁P2 | 同上 | 重试语义单测 |
-| M-B4 | 自动创建 PR（aheadBy 阈值 1–20 + 四项 AI 前置） | 同上 | 🔁P2 | 同上 | 端到端用例 |
-| M-B5 | 自动合并（门禁全绿 + sha 幂等 + behind 暂停） | 同上 | 🔁P2 | 同上 | 端到端用例 |
-| M-B6 | 合并后自动推进（advance-stage） | 同上 | 🔁P2 | 同上 | 推进语义单测 |
-| M-B7 | AI 失败接管（regenerate/takeover/unpause） | 同上 + src/main.ts takeover | 🔁P2+P3 | server + FailureCenter | 接管端到端 |
-| M-B8 | AI 消息解析（剥围栏/部分 JSON 容错） | api/_lib/workflows-store.ts | 🔁P1 | server 纯逻辑 | 解析单测 |
-| M-B9 | Actions 失败重跑（次数/冷却/当前提交校验） | api/_lib/workflows-store.ts + api/[action].ts | 🔁P2 | server | 校验单测 |
-| M-B10 | 部署回滚（确认式 + workflow_dispatch） | api/[action].ts + src/main.ts 回滚弹窗 | 🔁P3 | server `requestDeploymentRollback` 已在；回滚 HTTP 路由 + StepDrawer 二次确认 UI 随 P3-10（D-002-v2） | 回滚路由/确认走查 |
-| M-B11 | 失败恢复策略（3 次/300s + 失败中心展示） | api/_lib/workflows-store.ts DEFAULT_RECOVERY_POLICY + src/main.ts | 🔁P2+P3 | server + FailureCenter | 策略单测 |
-| M-B12 | Codex 修复包（PR/失败 Job/错误摘要/diff 的 Markdown） | api/_lib/workflows-store.ts + src/main.ts | 🔁P2 | server + FailureCenter | 生成内容单测 |
-| M-B13 | webhook 触发投影（PR 状态/内联校准/delivery 去重） | api/github/webhook.ts + api/_lib/workflows-store.ts + github-webhook.ts | 🔁P2 | server `POST /api/github-webhook` | 签名/去重/投影单测 |
-| M-B14 | 勾选/保存触发实时校准 | api/workflows.ts PUT 后 reconcile + store | 🔁P2 | server（PUT 后 reconcile 语义） | 单测 |
-| M-B15 | 前端动作队列请求串行化（180s 超时） | src/lib/action-queue-request-queue.ts (+test) | 🔁P3 | client lib 直拷 | 随迁单测 |
-| M-B16 | 自动化展示判定（失败中心/计数/徽标/进度条共用） | src/lib/workflow-run.ts (+test) | 🔁P3 | client lib 直拷 | 随迁单测 |
-
-### C. 持久化与对账（20 行 → store 层全部 🔁P2；部署跟踪 🔁P3-10；Push ⏸；云同步 🚫）
-
-| ID | 能力 | 源文件 | 处置 | 目标 | 验收 |
-|---|---|---|---|---|---|
-| M-C1 | 数据访问层（postgres.js 全部 SQL/事务/锁集中） | api/_lib/workflows-store.ts（2882 行） | 🔁P2 | server/workflows-store.mjs（postgres 客户端，SQL 直迁） | store 单测全绿 |
-| M-C2 | cron drain 触发（*/2） | api/cron/drain.ts | 🔀P2 | server 定时器（同间隔语义） | 定时触发日志 |
-| M-C3 | cron reconcile 触发（*/5→*/30）+ 保留清理 | api/cron/reconcile.ts + store cleanupRetainedData | 🔀P2 | server 定时器（5min 对齐） | 清理 run 遥测 |
-| M-C4 | 收敛健康检查（不健康 503） | api/cron/health.ts | 🔁P2 | server | 健康端点语义一致 |
-| M-C5 | 对账引擎（租约/公平轮转/分级预算 25s/6s/8s/40s/deferred 让出） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 预算/租约单测 |
-| M-C6 | 阶段校准（PR/checks/reviews/protection/mergeable 投影，sha 钉目标分支） | api/_lib/workflows-store.ts reconcile 系列 | 🔁P2 | 同上 | 校准单测 |
-| M-C7 | 部署跟踪（Vercel/Cloudflare runs + 健康探测 + 失败摘要） | api/_lib/workflows-store.ts | 🔁P3 | 引擎逻辑已在（`reconcileStageDeployments` / `deploymentStateWithHealth` / `deploymentFailureSummary`）；产品面 StepDrawer 部署卡、run 历史、失败摘要入口随 P3-10（D-002-v2） | 部署 run/健康/失败摘要走查 |
-| M-C8 | webhook delivery 去重落库 | api/_lib/workflows-store.ts recordWebhookDelivery | 🔁P2 | 同上（003 表） | 去重单测 |
-| M-C9 | 阶段事件/时间线落库 | api/_lib/workflows-store.ts | 🔁P2 | 同上（008 表） | 事件写入验证 |
-| M-C10 | 同步健康度（过时阶段/webhook 计数） | api/_lib/workflows-store.ts | 🔁P2 | `/api/flows/inbox` 返回 `syncHealth`；FlowBoard UI 已接（P3-14） | 健康度单测 + UI 走查 |
-| M-C11 | 对账遥测（GitHub 调用数/耗时/ETag 命中） | api/_lib/github-api.ts noteEtag + store | ⏸P2 | server（低优，先记录后可视化） | 遥测行存在 |
-| M-C12 | 操作审计（9 类 action 全量留痕 + CSV 导出） | api/_lib/workflows-store.ts recordOperationAudit + src/app/ui/audit.ts | 🔁P2+P3 | Postgres 表（020 原样）+ git2 AuditModal 扩展 | 审计行/导出验证 |
-| M-C13 | 数据保留清理（webhook 30/密文 30/对账 90/事件 180/部署 180/审计 365 天） | api/_lib/workflows-store.ts cleanupRetainedData | 🔁P2 | 同上（022 表） | 保留预算单测 |
-| M-C14 | 加密云同步（PBKDF2 600k + revision 乐观并发） | api/encrypted-sync.ts + src/lib/encrypted-sync.ts (+tests) | 🚫 | —（本地存储即权威，无云同步需求，D-003） | — |
-| M-C15 | 团队/成员/共享（四角色） | api/_lib/workflows-store.ts listTeams 等（023 表） | 🔁P2 | server（023 表 + git2 identity 合并） | 团队路由 e2e |
-| M-C16 | 角色权限矩阵（owner/editor/operator/viewer） | src/lib/team-permissions.ts (+test) | 🔁P2 | git2 identity 扩展为四角色 | 权限矩阵单测 |
-| M-C17 | 共享流程操作授权（mutation 前强制） | api/_lib/workflows-store.ts authorizeWorkflowOperation + api/github/[action].ts | 🔁P2 | server | 授权单测 |
-| M-C18 | 账号删除（RESTRICT 外键级联，041a 索引） | api/_lib/workflows-store.ts deleteAccount + api/account.ts | 🔁P2 | server | 删除级联 e2e |
-| M-C19 | Push 订阅存取（006 表） | api/_lib/workflows-store.ts + api/notifications/[action].ts | ⏸ | 表照建（47 迁移原样）；功能随 Web Push 缓办（D-005） | — |
-| M-C20 | inbox 聚合读（11 路并联 + 去重，egress 优化） | api/[action].ts | 🔁P2 | server | 聚合读单测 |
-
-### D. GitHub 集成（18 行 → PAT 替代 6 行 🚫/🔀；webhook/白名单迁移；其余已有或对齐）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-D1 | GitHub App 配置解析（7 环境变量） | api/_lib/github-app.ts | 🔁P2 | github-app.ts 直迁；凭据迁入本地 config（0600） | 配置解析单测 |
-| M-D2 | App JWT（RS256）签发 | api/_lib/github-app.ts | 🔁P2 | 同上 | JWT 单测随迁 |
-| M-D3 | 签名会话/OAuth state（HMAC cookie） | api/_lib/github-app.ts | 🔀P2 | git2 token cookie（HttpOnly SameSite）已等价 | e2e 现有 |
-| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🔁P2 | 同上（本机 server 承载，本机浏览器授权） | OAuth 流 e2e |
-| M-D5 | installation token 缓存（500 上限/60s 刷新/并发去重） | api/_lib/github-api.ts | 🔁P2 | github-api 层直迁 | 缓存单测 |
-| M-D6 | 统一 GitHub 请求封装（15s 超时/错误分类/version 头） | api/_lib/github-api.ts githubFetch | ✅ | pr-helper-git github-api 层已有等价封装 | 对齐确认（Phase 2 核对错误分类语义） |
-| M-D7 | ETag 遥测（304 可行性观测） | api/_lib/github-api.ts | ⏸P2 | server（低优，先记录） | 遥测行 |
-| M-D8 | Webhook 签名校验（HMAC 常数时间） | api/_lib/github-webhook.ts (+test) | 🔁P2 | server `POST /api/github-webhook`（M-B13 一部分） | 签名单测随迁 |
-| M-D9 | Webhook 路由（raw body、401 fail-closed） | api/github/webhook.ts | 🔁P2 | 同上 | 验签失败 401 e2e |
-| M-D10 | GitHub App 订阅事件集（Push/PR/review/check/status/workflow run） | docs（GitHub App 配置） | 🔀P2 | PAT 权限映射文档（PAT scope ↔ 事件覆盖） | 文档段落 |
-| M-D11 | installation 归属/仓库归属校验 | api/_lib/installations.ts (+test) | 🔁P2 | 同上 | 归属校验单测 |
-| M-D12 | 浏览器 GitHub 代理白名单（method/path、dot-segment 拒绝） | api/github/[action].ts request-policy | ✅ | pr-helper-git github-allowlist.mjs 已有等价（对齐确认） | 对齐核对 |
-| M-D13 | 代理 mutation 审计（created/merged/rerun） | api/github/[action].ts | ✅ | git2 appendAudit 已有（对齐确认） | 对齐核对 |
-| M-D14 | GitHub 会话状态查询（connected/login/avatar） | api/github/[action].ts sessionHandler | 🔀P2 | git2 identity/me 已等价 | 路由核对 |
-| M-D15 | 客户端 GitHub fetch（20s 超时，无 token 走代理） | src/lib/github.ts (+test) | ✅ | git2 github-allowlist 客户端已等价 | 对齐核对 |
-| M-D16 | 门禁原语（五类门禁汇总/mergeable/canMergeOpenPull） | src/lib/domain.ts (+test) | 🔁P1 | domain.ts 直拷 | 随迁单测 |
-| M-D17 | 生产回滚 workflow_dispatch（仓库侧 yml） | .github/workflows/rollback-frontend-deployment.yml | 🔀P3 | 不把 pr-helper 仓自身 yml 塞进本产品 CI；被管理仓库按配置的 `rollbackWorkflowName` 执行。模板/文档随 P3-10（D-002-v2） | 回滚 workflow 文档 + 路由走查 |
-| M-D18 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | client lib 直拷 | 组件测试 |
-
-### E. AI 能力（9 行 → 已有 5 + 迁移 3 + 替代 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-E1 | AI 连接测试 + PR 提示词（redirect:'error' 防带 key 302） | src/lib/ai.ts (+test) | ✅ | git2 ai.ts 已有等价（对齐确认） | 对齐核对 |
-| M-E2 | SSE 流式生成 + 部分 JSON 解析（含 unicode 代理对边界） | src/lib/ai-stream.ts (+test) | 🔁P1 | git2 ai-stream 比对：缺 unicode 边界解析则补 | 解析单测 |
-| M-E3 | AI Key 服务端加密（AES-256-GCM v1 + key hint/mask） | api/_lib/ai-credentials.ts (+test) | 🔀P2 | 0600 config.json 替代（D-007）；AES 加密列为可选增强，暂缓 | 存取 e2e |
-| M-E4 | AI Base URL SSRF 防护（IPv4/IPv6/mapped/NAT64） | api/_lib/ai-credentials.ts validateAiBaseUrl | 🔁P2 | server | SSRF 单测随迁 |
-| M-E5 | AI 凭据 API（保存/读取/删除/测试，key ≤4096） | api/workflows.ts resource=ai-credentials | 🔀P2 | git2 AI 配置路由已等价 + 024 表照建（服务端自动化用） | e2e |
-| M-E6 | 自动化 AI 前置偏好（026 列） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 偏好单测 |
-| M-E7 | 客户端 AI 配置（sessionStorage） | src/main.ts loadAiConfig | ✅ | git2 AI 配置 UI 已等价 | 对齐核对 |
-| M-E8 | AI 生成弹窗（24h 草稿回填/规则单选/覆盖确认） | src/main.ts showCreateDialog 等 | ✅/🔁P3 | git2 CreatePrModal AI 已有；24h 草稿/规则单选语义比对补齐 | 组件测试 |
-| M-E9 | AI 失败接管弹窗（paused 脱敏 + 确认恢复） | src/main.ts showTakeoverDialog | 🔁P3 | FailureCenter（M-B7） | 接管端到端 |
-
-### F. 视图层（27 行 → React 重建 🔁P3 为主体；已有 7；不迁移 4；替代 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-F1 | 编排入口（渲染/对话框/轮询/刷新全状态机，2968 行） | src/main.ts | 🔁P3 | React 组件树（App/FlowBoard/FlowDetail/…） | 34 条 e2e 语义映射（P3-9） |
-| M-F2 | DOM 工具（escape/app） | src/app/dom.ts | 🚫 | React 自带转义 | — |
-| M-F3 | 全量类型投影（30+ 类型） | src/app/types.ts | 🔁P3 | src/types 迁移合并 | tsc |
-| M-F4 | Lane 看板（六筛选/搜索/展开/聚合条） | src/main.ts overview/projectLane | 🔁P3 | DashboardPage 扩展或独立 FlowBoard | 筛选语义走查 |
-| M-F5 | Lane 拖拽排序（手柄/位置输入/键盘兜底） | src/app/ui/lane-sorting.ts | 🔁P3 | FlowBoard | 排序 E2E |
-| M-F6 | 失败处理中心（四段聚合） | src/main.ts failureCenterPanel | 🔁P3 | FailureCenter | 四段走查 |
-| M-F7 | 流程详情（SWR 投影直出 + live 校正 + 30s TTL） | src/main.ts detail + projected-stage | 🔁P3 | FlowDetail | TTL 语义走查 |
-| M-F8 | 步骤抽屉 | src/main.ts showProjectStepDrawer | 🔁P3 | StepDrawer | 操作集走查 |
-| M-F9 | 只读进度条 | src/main.ts flowProgressBar + workflow-run.ts | 🔁P3 | FlowDetail | 进度走查 |
-| M-F10 | 时间线（Lane + 抽屉 + 图标映射） | src/main.ts + app/ui/format.ts | 🔁P3 | FlowTimeline | 走查 |
-| M-F11 | 流程编辑器（步骤/路由/部署/恢复策略表单） | src/main.ts editor 系列 | 🔁P3 | FlowEditor | 表单走查（**含部署表单**，随 P3-10） |
-| M-F12 | 合并弹窗/菜单（merge commit 仅 head sha） | src/main.ts showMergeDialog + confirm.ts | ✅ | git2 合并弹窗已等价 | 对齐核对 |
-| M-F13 | 确认对话框（自动化执行/换仓库） | src/app/ui/confirm.ts | ✅/🔶 | git2 ConfirmProvider 已等价（执行确认语义对齐 P3）；**换仓库确认的业务接线待 P3-11** | 对齐核对 + 换仓库走查 |
-| M-F14 | 操作审计对话框 + CSV 导出 | src/app/ui/audit.ts | 🔁P3 | flows 审计路由已在；flows 审计对话框 + CSV 未接（现有 AuditModal 是 git 审计） | 导出验证 |
-| M-F15 | 状态文案/门禁披露（details 分组） | src/app/ui/format.ts | 🔁P3 | FailureCenter/StepDrawer | 文案走查 |
-| M-F16 | 主题切换（light/dark）+ token 守卫 | src/app/ui/theme.ts + style-theme-tokens.test.ts | ✅ | git2 主题已等价；**token 守卫测试模式可借鉴（可选）** | — |
-| M-F17 | Toast（Popover API，undo 7s） | src/app/ui/toast.ts | ✅ | git2 ToastProvider 已等价 | — |
-| M-F18 | 原生 tooltip | src/app/ui/tooltip.ts | ✅ | git2 design/tooltip.ts 已等价（共享文件） | — |
-| M-F19 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | React `PullReference` 组件（tooltip + copy）；验收 #32 ✅ | 组件测试 |
-| M-F20 | 账户菜单/权限说明/断开/删号/隐私页 | src/main.ts + public/privacy.html | 🔀P3 | git2 identity/Settings 已等价；隐私页按需移植 | 走查 |
-| M-F21 | 团队管理对话框 | src/main.ts showTeamsDialog | 🔁P3 | 引擎四角色/共享函数已在；TeamModal 扩展（四角色）未做；单用户暂缓但不得计完成 | 走查 |
-| M-F22 | 云同步对话框（解锁/推拉/轮换） | src/main.ts showCloudSyncDialog 系列 | 🚫 | 本地存储即权威（D-003，无同步需求） | — |
-| M-F23 | Web Push 前端（SW + 订阅） | src/main.ts + public/push-sw.js | ⏸ | D-005 缓办；macOS 通知替代 | — |
-| M-F24 | 移动端 700px 统一断点 | src/style.css | 🔁P3 | FlowBoard/详情响应式 | 390×844 走查 |
-| M-F25 | 飞书通知（workflow 失败 curl） | .github/workflows/reconcile-pr-helper.yml | 🔁P4 | server 通知通道 | 通知实测 |
-| M-F26 | 移动状态监控脚本（gh-status-summary/page） | scripts/gh-status-*.sh | ⏸ | 低优，按需 | — |
-| M-F27 | 定时对账兜底 workflow（*/10 + 健康上报） | .github/workflows/reconcile-pr-helper.yml | 🔀P2 | server 定时器替代 | 定时日志 |
-
-### G. 本地 WIP 总览（7 行 → ✅ 全部已吸收）
-
-| ID | 能力 | 源文件 | 处置 | 备注 |
-|---|---|---|---|---|
-| M-G1 | WIP 入口页（双入口） | wip.html + src/wip/main.ts | ✅ | pr-helper-git 主应用即其超集演化 |
-| M-G2 | WIP 前端（列表/diff/写操作） | src/wip/main.ts + style.css | ✅ | 同上 |
-| M-G3 | WIP 本地服务（token/diff/stage/commit/discard + SSE + 审计 + 遮罩） | scripts/wip-server.mjs (+test) | ✅ | pr-helper-git server 同能力更强 |
-| M-G4 | 写动作 argv 固定构造 | scripts/wip-actions.mjs (+test) | ✅ | 同上 |
-| M-G5 | 敏感路径判定 | src/lib/wip/mask.ts (+test) | ✅ | pr-helper-git mask.mjs 同源且更全 |
-| M-G6 | numstat/porcelain/paths/sort 纯函数（4 测试） | src/lib/wip/*.ts | ✅ | 同上 |
-| M-G7 | 主应用 vs WIP 差异说明 | — | ✅ | 文档级：本地客户端 = WIP 超集 + 主应用 |
-
-### H. 横切（16 行 → 已有 6 + 迁移/核对 9 + 不迁移 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-H1 | i18n（en/zh 词典 + detectLocale） | src/lib/i18n.ts + translations | ✅ | git2 i18n 已等价（~600 条 ZH 词典） | — |
-| M-H2 | 屏幕导航（overview/editor/detail/back） | src/lib/navigation.ts (+test) | ✅/🔁P3 | git2 view 切换已等价；语义比对 | 对齐核对 |
-| M-H3 | 动作队列请求串行化 | src/lib/action-queue-request-queue.ts | 🔁P3 | client lib 直拷（= M-B15） | 随迁单测 |
-| M-H4 | 加密同步客户端（PBKDF2/v2/轮换） | src/lib/encrypted-sync.ts (+test) | 🚫 | 本地即权威，无同步需求 | — |
-| M-H5 | 请求来源校验（CSRF：APP_ORIGIN + 白名单） | api/_lib/http.ts assertRequestOrigin | 🔁P2 | server 核对补齐（cookie 模式 mutation 需 Origin 校验） | 校验单测 |
-| M-H6 | 错误→HTTP 状态映射（403/429/409/401/503） | api/_lib/http.ts requestErrorStatus | ✅/🔁P2 | git2 错误映射比对补齐 | 单测 |
-| M-H7 | 登录级限流（60 req/min） | api/_lib/rate-limit.ts (+test) | 🔁P2 | server（低优，滥用兜底） | 限流单测 |
-| M-H8 | 会话入口（identity/session 双层） | api/_lib/session.ts | 🔀P2 | git2 identity 已等价 | 对齐核对 |
-| M-H9 | 应用名常量 | src/lib/app-name.ts | ✅ | 改名后常量 = pr-helper-git | — |
-| M-H10 | CSS token 守卫（var 可解析/无字面兜底） | src/style-theme-tokens.test.ts | 🔁P3 | git2 加同款守卫测试（token 体系配套） | 守卫测试 |
-| M-H11 | 迁移基线校验脚本 | tools/check-migrations.sh + baseline.txt | 🔁P1 | scripts/ 随迁 | 脚本通过 |
-| M-H12 | E2E 回归（34 用例 Playwright） | e2e/pr-helper.spec.ts | 🔁P3 | 语义映射清单（P3-9） | 映射 34/34 |
-| M-H13 | 部署流水线（Vercel/Cloudflare/CI workflows） | .github/workflows/deploy-*.yml、ci.yml | 🚫 | pr-helper 仓自身 CI，随归档仓保留 | — |
-| M-H14 | Supabase 迁移执行纪律 | supabase/README.md + tools | 🔁P1 | 本地 Postgres 同纪律（P1-2/6） | — |
-| M-H15 | 团队权限语义（服务端强制） | 见 M-C16/C17 | 🔁P2 | server | 同上 |
-| M-H16 | 主应用窄屏适配（统一 700px） | src/style.css | ✅/🔁P3 | git2 已有响应式；控制塔视图对齐 | 走查 |
-
----
 
 ## 7. Supabase 迁移处置矩阵（47 项 → 全部原样执行于本地 Postgres，例外 1）
 
@@ -618,3 +417,4 @@ execute 未实现、文档端点 404）、账户删除（原版对团队创建�
 | 2026-11-15 | **P2-2/P2-4 收口**：bundle 的 drain/对账执行器已由 418 条 store 不变量覆盖（drain execute/skip/cancel、gate-wait 退避与 ceiling、瞬时失败 requeue 冷却/3 次上限、幂等键、取消原因；对账公平轮转/批大小/分支作用域/租约/abandoned/deferred/分级预算/ceiling）；本地 PG 实测 `reconciliation_runs` 产出 `inbox_refresh` 行（id=3，state=degraded，stages_total=14，stages_reconciled=12，stages_failed=0，duration≈6.0s），遥测与预算语义闭合；P2-2/P2-4 转 ✅ | 阶段状态复核：实现与测试已在 bundle，仅缺台账映射 | 用户（“继续”） |
 | 2026-11-15 | **P1-5 收口**：核心 4 域模块 + Phase 3 语义模块（flows-board 13 / flows-detail 8 / flows-failures 5 / flow-audit / editor-prerequisites 3）全部落地；长尾 `navigation`/`workflow-save-queue`/`action-queue-request-queue` 判定为不单独移植——React hooks + typed API client 已直接承载，避免复制第二套状态机（与 AGENTS 不复制业务逻辑一致）；P1-5 转 ✅ | Phase 3 完成后复核长尾模块 | 用户（“继续”） |
 | 2026-11-15 | **P2-7 收口**：`rerunFailedActions` 校验链（参数类型、recoveryPolicy maxRetries、cooldownSeconds、head_sha、失败 run 过滤）随 bundle；`server/flows.test.ts` 补非法 `stageIndex` 400 且不触引擎断言；`automationRetryIsExhausted` 覆盖次数上限；Codex 修复包合法/缺 workflowId 400 已测；实际 rerun dispatch 未执行（影子期 + 无需真失败 run）；P2-7 转 ✅ | P2-7 验收为校验单测随迁 | 用户（“继续”） |
+| 2026-11-15 | **P2-8/P3-15 团队四角色收口**：新增 `/api/flows/teams`（GET 团队/成员、POST create/member/remove-member/share-workflow）+ 3 路由测试；新增 `team-permissions` 四角色矩阵（生产合并/回滚仅 Owner）+ 3 测试；`TeamsModal` 挂入 FlowBoard，支持创建/切换团队、成员列表与角色、Owner-only 添加/移除、个人流程共享；隔离 4791 UI 实测创建团队→Owner、成员区 `@bayernjf Owner`、四角色下拉可见，测试团队已清理。P2-8/P3-15 转 ✅；门禁 1035 tests/54 files + build + E2E 145/145 全绿 | 用户“继续，把剩下的搞了”；团队引擎函数已在 bundle，仅缺本地路由/UI/矩阵测试 | 用户 |

@@ -298,6 +298,38 @@ export async function handleFlowsRoute(ctx) {
       return { status: 405, json: { error: 'method not allowed' } };
     }
 
+    // Teams (P2-8): the migrated engine already owns the four-role model and
+    // membership checks; these routes expose the original api/workflows.ts
+    // `resource=teams` contract (GET list/members, POST create/member/
+    // remove-member/share-workflow).
+    if (pathname === '/api/flows/teams') {
+      const teamId = query.get('teamId') || undefined;
+      if (method === 'GET') {
+        if (teamId) return { status: 200, json: { members: await store.listTeamMembers(env, identity, teamId) } };
+        return { status: 200, json: { teams: await store.listTeams(env, identity) } };
+      }
+      if (method !== 'POST') return null;
+      if (payload.action === 'create' && typeof payload.name === 'string') {
+        return { status: 201, json: { team: await store.createTeam(env, identity, payload.name) } };
+      }
+      if (payload.action === 'member' && typeof payload.teamId === 'string'
+        && typeof payload.githubLogin === 'string' && typeof payload.role === 'string') {
+        await store.addTeamMember(env, identity, payload.teamId, payload.githubLogin, payload.role);
+        return { status: 200, json: { ok: true } };
+      }
+      if (payload.action === 'remove-member' && typeof payload.teamId === 'string'
+        && typeof payload.githubLogin === 'string') {
+        await store.removeTeamMember(env, identity, payload.teamId, payload.githubLogin);
+        return { status: 200, json: { ok: true } };
+      }
+      if (payload.action === 'share-workflow' && typeof payload.teamId === 'string'
+        && typeof payload.workflowId === 'string') {
+        await store.shareWorkflowWithTeam(env, identity, payload.teamId, payload.workflowId);
+        return { status: 200, json: { ok: true } };
+      }
+      return { status: 400, json: { error: '无效的团队请求' } };
+    }
+
     // Generation rules library (M-E tail): the local PG carries the migrated
     // rules (hash+content, no name column — the original kept names client
     // side); list them so the editor can pin one when enabling auto-create.

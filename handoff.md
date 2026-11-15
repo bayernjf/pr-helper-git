@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 接线完成（引擎运行时就绪）→ Phase 3 ✅（P3-1…P3-16 逐项裁决收口，P3-15 暂缓不计完成；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 🔶（P2-3/P2-6 真实 dispatch 待）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
 
 | 任务 | 状态 |
 |---|---|
@@ -31,9 +31,9 @@ every committed file as world-readable.
 | P2-10 影子模式 | 🔶 重定义为只读观测（引擎无 dry-run 缝；shadow 永不执行）；决策日志落库待 Phase 5 |
 | P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
 | P2-3 门禁+合并执行接线 | ⬜ |
-| P2-8 团队四角色 | ⬜ |
+| P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉 |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
-| Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查完成；团队 UI P3-15 按用户裁决暂缓、不计完成 |
+| Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ⏸ 用户明确暂缓、不计完成；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
@@ -48,7 +48,7 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（Phase 3 已收口；补 P2-5 webhook 验签契约 9 单测：无 secret 503、坏签名 401 不触库、缺头/坏 JSON 400、shadow 不投影、合法 PR 投影+分支级 reconcile 202、重复 delivery 去重。验收 ✅33/🔶0/🔀1/⬜0，测试 1029/53、E2E 145/145、build 通过）。
+最近更新：2026-11-15（团队四角色收口：新增 `/api/flows/teams` 路由、`team-permissions` 角色矩阵和 `TeamsModal`，隔离 4791 实测创建团队→Owner、成员列表与四角色下拉；P2-8/P3-15 转 ✅。测试 1035/54、E2E 145/145、build 通过）。
 
 ## D-002-v2 功能缺口复审（2026-11-14）
 
