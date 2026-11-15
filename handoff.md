@@ -63,6 +63,21 @@ bundle，0.3.1 产物为修复后首批可分发 artifact（BUNDLE_NODE=1，内�
 （内含官方 Node 22.23.5，未签名），`BUNDLE_NODE=1 desktop:smoke` 通过，
 SHA256SUMS 经 `shasum -a 256 -c` 独立复核 OK。
 
+发布执行：dev 四提交（`477b78d`/`010e4d6`/`25df6cd`/`01774b1`）推送后由
+pr-helper 自动化开 PR #10；标题/描述重写覆盖全部 hash 与实测数字后 CI
+（test×2、desktop×2）全绿，**由自动化合并**（merge commit `1eb3db7`，非
+本地执行）。annotated tag `v0.3.1` 打在 release commit `01774b1`。GitHub
+Release v0.3.1 已发布，仅含 0.3.1 三资产（dmg/zip/SHA256SUMS；GitHub 侧
+资产名为 dot-sanitized，大小与本地一致，上传前 `shasum -c` 复核）。本地
+`/Applications` 已替换为 0.3.1 并验证：server 跑 bundle 内置 Node
+22.23.5，loopback 入口 200、无 token 401（鉴权正常）。备份
+`source-20261115-2155.bundle` heads：main=dev=`1eb3db7`、含 `v0.3.1`。
+
+教训（备份带旧 main）：备份脚本打的是**本地 refs**，自动化在远端合并
+不会移动本地 `main`——首次备份 bundle 里 main 仍是 `60e256f`。发布后备份
+前先 `git fetch origin main:main`（AGENTS.md 第 8 步已更新），再核验
+bundle heads。旧 0.3.0 app 暂存 `/tmp/pr-helper-git-0.3.0-old.app` 可回滚。
+
 ## Desktop bundle dependency fix (2026-11-15)
 
 用户报「app 启动报错」。根因：迁移引入 `postgres`/`web-push` 运行时依赖后，
@@ -76,7 +91,8 @@ stopped"。**自迁移起所有桌面构建均带此缺陷**；dev/launchd 正�
 加上真实启动后仍假绿——在 `build/` 内启动时 Node 沿目录向上命中**仓库的**
 `node_modules`。现冒烟先把 app 拷到仓库外临时目录、用隔离 `PR_HELPER_HOME`
 真实启动并断言 READY，且已对坏 bundle 证明其会红。注意：GitHub v0.3.0 的
-dmg/zip 仍是坏 bundle，需随 0.3.1 重新发布。门禁：1040/55、E2E 155/0、
+dmg/zip 是坏 bundle，已随 v0.3.1 重新发布（release notes 顶部要求覆盖安装）。
+门禁：1040/55、E2E 155/0、
 desktop native-test/smoke 通过。
 
 同日续：应用内更新检查报 403。根因两层：① URLSession 走系统代理

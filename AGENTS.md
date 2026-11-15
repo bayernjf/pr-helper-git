@@ -183,8 +183,10 @@ it never reads or writes `~/.pr-helper-git`.
    git push origin vX.Y.Z
    ```
 
-8. Refresh the backup and verify the bundle heads include `main`, `dev`, and
-   the new tag:
+8. Sync the local `main` first (`git fetch origin main:main`) — the backup
+   bundles **local** refs, and a remote automation merge never moves the
+   local `main`. Then refresh the backup and verify the bundle heads
+   include `main`, `dev`, and the new tag:
 
    ```bash
    bash /Users/jiangfeng/000mycodes-backups/pr-helper-backup.sh
