@@ -523,8 +523,9 @@ setup, notarization, verification and publishing steps.
   well as staging, commit, move, remove, `clean`, untracked stash and AI
   commit-message generation. The path check is independent of the UI.
 - GitHub calls go through a method/path allowlist. A PAT can be stored
-  server-side (`/api/pat`) and injected into the proxy; the value never
-  round-trips to the browser. A request-scoped `x-github-pat` header remains
+  server-side (`/api/pat`) or loaded from `credentials.env` as `GITHUB_TOKEN`;
+  either value is injected into the proxy when the browser sends none, and it
+  never round-trips to the browser. A request-scoped `x-github-pat` header remains
   supported as a fallback. All write actions are appended to an audit log
   under `~/.pr-helper-git/audit.log`, which is size-bounded by automatic
   rotation.
