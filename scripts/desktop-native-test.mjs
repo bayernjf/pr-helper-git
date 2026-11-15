@@ -13,6 +13,7 @@ try {
   execFileSync('/usr/bin/swiftc', [
     path.join(root, 'desktop/DownloadDestination.swift'),
     path.join(root, 'desktop/UpdateCheck.swift'),
+    path.join(root, 'desktop/UpdateChecksum.swift'),
     path.join(root, 'desktop/DownloadDestinationTest.swift'),
     '-o', binary,
   ], { stdio: 'inherit' });

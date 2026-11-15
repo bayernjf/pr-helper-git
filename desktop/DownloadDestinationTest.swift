@@ -52,6 +52,24 @@ struct DownloadDestinationTest {
             fatalError("expected prerelease not to outrank the release")
         }
 
+        // SHA256SUMS parsing: the filename may contain spaces, so the digest
+        // must still resolve against the full name, not the first word.
+        let sums = """
+        0695a27d9cb3443c1e4add6e0780e86b06e5441ad8cd825f2cf3e492b8bdc2e9  PR Helper Git-0.3.0-macos.zip
+        03ca392f742fce41edf0908b05277dbc46fc52359d42ae43d4a52a0c07a86489  PR Helper Git-0.3.0-macos.dmg
+        """
+        guard sha256Entry(for: "PR Helper Git-0.3.0-macos.dmg", in: sums)
+            == "03ca392f742fce41edf0908b05277dbc46fc52359d42ae43d4a52a0c07a86489" else {
+            fatalError("expected checksum lookup to handle a spaced filename")
+        }
+        guard sha256Entry(for: "PR Helper Git-0.3.0-macos.zip", in: sums)
+            == "0695a27d9cb3443c1e4add6e0780e86b06e5441ad8cd825f2cf3e492b8bdc2e9" else {
+            fatalError("expected the zip checksum to resolve too")
+        }
+        guard sha256Entry(for: "missing.dmg", in: sums) == nil else {
+            fatalError("expected a missing file to return no checksum")
+        }
+
         print("download destination and update-check tests OK")
     }
 }
