@@ -18,7 +18,13 @@ export {
   type GithubInstallation,
 } from './github-auth';
 
-export { getA2aStatus, type A2aStatus } from './a2a';
+export {
+  generateA2aToken,
+  getA2aStatus,
+  revokeA2aToken,
+  type A2aStatus,
+  type A2aToken,
+} from './a2a';
 
 export {
   addRepo,

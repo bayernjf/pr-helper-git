@@ -1051,6 +1051,22 @@ export const ZH: Record<string, string> = {
   'Agent card': 'Agent Card',
   'Agent card URL copied': 'Agent Card 地址已复制',
   'Skills': '技能',
+  'GitHub authorization expired — reconnect to refresh access.': 'GitHub 授权已过期 — 请重新连接以刷新访问。',
+  'Reconnect': '重新连接',
+  'Access expires': '访问有效期至',
+  'A2A token generated': 'A2A Token 已生成',
+  'A2A token revoked': 'A2A Token 已撤销',
+  'Generate token': '生成 Token',
+  'Regenerate token': '重新生成 Token',
+  'Revoke token': '撤销 Token',
+  'Copy it now — the token is not shown again.': '立即复制 — 该 Token 不会再次显示。',
+  'Configured via credentials.env': '已通过 credentials.env 配置',
+  'Configured in config.json': '已配置在 config.json',
+  'No A2A token configured yet.': '尚未配置 A2A Token。',
+  'Token hint': 'Token 提示',
+  'A2A token copied': 'A2A Token 已复制',
+  'A2A is disabled until you generate a token or set PR_HELPER_GIT_A2A_TOKEN in ~/.pr-helper-git/credentials.env.':
+    'A2A 未启用：请生成 Token，或在 ~/.pr-helper-git/credentials.env 设置 PR_HELPER_GIT_A2A_TOKEN。',
 };
 
 /** Counted UI copy, e.g. "12 commits" — handled by rules, not by dictionary keys. */

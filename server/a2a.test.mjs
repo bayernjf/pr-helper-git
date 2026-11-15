@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
+  config: /** @type {any} */ ({}),
   audits: /** @type {any[]} */ ([]),
 }));
 
 vi.mock('./store.mjs', () => ({
+  loadConfig: vi.fn(async () => structuredClone(state.config)),
+  updateConfig: vi.fn(async (mutator) => {
+    const config = structuredClone(state.config);
+    const outcome = await mutator(config);
+    state.config = config;
+    return outcome;
+  }),
   appendAudit: vi.fn(async (entry) => {
     state.audits.push(entry);
   }),
@@ -37,8 +45,8 @@ import * as store from './workflows-store.mjs';
 import {
   buildAgentCard,
   evaluateA2aAccess,
+  handleA2aAdminRoute,
   handleA2aPublicRoute,
-  handleA2aStatusRoute,
   isA2aPublicPath,
 } from './a2a.mjs';
 
@@ -58,6 +66,7 @@ function message(skill, skillParams) {
 }
 
 beforeEach(() => {
+  state.config = {};
   state.audits = [];
   vi.mocked(store.enqueueWorkflowAutomationAction).mockClear();
   vi.mocked(store.rerunFailedActions).mockClear();
@@ -333,18 +342,73 @@ describe('status route', () => {
     const previous = process.env.PR_HELPER_GIT_A2A_TOKEN;
     process.env.PR_HELPER_GIT_A2A_TOKEN = TOKEN;
     try {
-      const result = await handleA2aStatusRoute({
+      const result = await handleA2aAdminRoute({
         method: 'GET',
         pathname: '/api/a2a/status',
         headers: { host: '127.0.0.1:4789' },
+        identity: { role: 'admin' },
       });
       expect(result.status).toBe(200);
-      expect(result.json).toMatchObject({ configured: true, tokenEnv: 'PR_HELPER_GIT_A2A_TOKEN' });
+      expect(result.json).toMatchObject({
+        configured: true,
+        source: 'env',
+        tokenEnv: 'PR_HELPER_GIT_A2A_TOKEN',
+      });
       expect(result.json.skills).toHaveLength(5);
       expect(JSON.stringify(result.json)).not.toContain(TOKEN);
     } finally {
       if (previous === undefined) delete process.env.PR_HELPER_GIT_A2A_TOKEN;
       else process.env.PR_HELPER_GIT_A2A_TOKEN = previous;
     }
+  });
+
+  it('generates a config-backed token once and authenticates with it', async () => {
+    const generated = await handleA2aAdminRoute({
+      method: 'POST',
+      pathname: '/api/a2a/token',
+      headers: {},
+      identity: { role: 'admin' },
+    });
+    expect(generated.status).toBe(200);
+    expect(generated.json.token.length).toBeGreaterThan(20);
+    expect(state.config.a2a.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(state.config.a2a.hint).toBe(generated.json.token.slice(-4));
+    expect(state.audits.at(-1)).toMatchObject({ action: 'a2a.token.generate' });
+
+    const status = await handleA2aAdminRoute({
+      method: 'GET', pathname: '/api/a2a/status', headers: {}, identity: { role: 'admin' },
+    });
+    expect(status.json).toMatchObject({ configured: true, source: 'config', hint: state.config.a2a.hint });
+    expect(JSON.stringify(status.json)).not.toContain(generated.json.token);
+
+    const plan = await handleA2aPublicRoute({
+      method: 'POST',
+      pathname: '/api/a2a/agent-card',
+      headers: { host: '127.0.0.1:4789', authorization: `Bearer ${generated.json.token}` },
+      rawBody: rpc('tasks/send', { message: message('create-pr', { owner: 'octo', repo: 'app', head: 'dev', base: 'main' }) }),
+      env: {},
+    });
+    expect(plan.status).toBe(200);
+    expect(plan.json.result.status.state).toBe('completed');
+  });
+
+  it('lets only the owner generate or revoke the token', async () => {
+    const denied = await handleA2aAdminRoute({
+      method: 'POST', pathname: '/api/a2a/token', headers: {}, identity: { role: 'member' },
+    });
+    expect(denied.status).toBe(403);
+
+    await handleA2aAdminRoute({ method: 'POST', pathname: '/api/a2a/token', headers: {}, identity: { role: 'admin' } });
+    const revoked = await handleA2aAdminRoute({
+      method: 'DELETE', pathname: '/api/a2a/token', headers: {}, identity: { role: 'admin' },
+    });
+    expect(revoked.json).toMatchObject({ ok: true, configured: false, source: null });
+    expect(state.config.a2a).toBeUndefined();
+
+    const rpcAfter = await handleA2aPublicRoute({
+      method: 'POST', pathname: '/api/a2a/agent-card', headers: HEADERS,
+      rawBody: rpc('tasks/send', {}), env: {},
+    });
+    expect(rpcAfter.status).toBe(503);
   });
 });

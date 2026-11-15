@@ -1713,4 +1713,40 @@ describe('GitHub Device Flow and A2A surfaces', () => {
     expect(response.json.configured).toBe(false);
     expect(response.json.skills).toHaveLength(5);
   });
+
+  it('generates, uses and revokes an A2A token through the admin route', async () => {
+    const generated = await post('/api/a2a/token', {});
+    expect(generated.status).toBe(200);
+    expect(typeof generated.json.token).toBe('string');
+    expect(generated.json.token.length).toBeGreaterThan(20);
+
+    const status = await get('/api/a2a/status');
+    expect(status.json).toMatchObject({ configured: true, source: 'config' });
+    expect(JSON.stringify(status.json)).not.toContain(generated.json.token);
+
+    const rpc = await bare('/api/a2a/agent-card', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${generated.json.token}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tasks/send',
+        params: {
+          message: {
+            role: 'user',
+            parts: [{ kind: 'data', data: { skill: 'create-pr', owner: 'octo', repo: 'app', head: 'dev', base: 'main' } }],
+          },
+        },
+      }),
+    });
+    expect(rpc.status).toBe(200);
+    expect((await rpc.json()).result.status.state).toBe('completed');
+
+    const revoked = await api('/api/a2a/token', { method: 'DELETE' });
+    expect(revoked.status).toBe(200);
+    expect(revoked.json).toMatchObject({ configured: false, source: null });
+  });
 });

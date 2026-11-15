@@ -352,10 +352,12 @@ application never pushes it for you.
 - **A2A / Agent Card**: a public card at `/api/a2a/agent-card` (aliases
   `/.well-known/agent-card.json` and `/.well-known/agent.json`) and JSON-RPC
   `POST` on the same path (`tasks/send`, `tasks/sendSubscribe`, `tasks/get`,
-  `tasks/cancel`). The POST is fail-closed behind
-  `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`); plan mode is the
-  default, execute mode enqueues real engine actions, and production rollback
-  always escalates to the operator.
+  `tasks/cancel`). The POST is fail-closed behind a bearer token:
+  `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`) or one generated in
+  Settings → A2A / Agent Card (only its SHA-256 hash is stored in
+  `config.json`; the plaintext is shown once). Plan mode is the default,
+  execute mode enqueues real engine actions, and production rollback always
+  escalates to the operator.
 
 ### Phone view (`/m`)
 
@@ -560,9 +562,11 @@ setup, notarization, verification and publishing steps.
   fetch does not honour proxy settings.
 - The A2A surface is opt-in and fail-closed: `GET /api/a2a/agent-card` (plus
   `/.well-known/agent-card.json` and `/.well-known/agent.json`) is public,
-  while `POST` is JSON-RPC behind `PR_HELPER_GIT_A2A_TOKEN` (legacy
-  `ZEUS_A2A_TOKEN`). Plan mode is the default; execute mode enqueues real
-  engine actions and production rollback always escalates to the operator.
+  while `POST` is JSON-RPC behind a bearer token: `PR_HELPER_GIT_A2A_TOKEN`
+  (legacy `ZEUS_A2A_TOKEN`) or a Settings-generated token whose SHA-256 hash
+  lives in `config.json` (env wins; the plaintext is shown once). Plan mode is
+  the default; execute mode enqueues real engine actions and production
+  rollback always escalates to the operator.
   `PR_HELPER_GIT_A2A_ALLOW_INSECURE_ANONYMOUS=1` is honoured only on a
   loopback bind. Task storage is in memory (30 min TTL).
 - The AI key lives in `~/.pr-helper-git/config.json` on the server and is
@@ -631,7 +635,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (1085 tests, 59 files)
+npm test           # Vitest unit + route-level HTTP tests (1089 tests, 59 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

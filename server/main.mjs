@@ -17,7 +17,7 @@ import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import { handleFlowsRoute } from './flows.mjs';
 import { handleGithubOAuthRoute } from './github-oauth.mjs';
-import { handleA2aPublicRoute, handleA2aStatusRoute, isA2aPublicPath } from './a2a.mjs';
+import { handleA2aPublicRoute, handleA2aAdminRoute, isA2aPublicPath } from './a2a.mjs';
 import {
   addClient,
   reconcileWatching,
@@ -279,8 +279,9 @@ const server = http.createServer(async (req, res) => {
         // repo-scoped, so they must run before handleGitRoute's repo guard.
         await handleGithubOAuthRoute(ctx)
       ) || (
-        // A2A status is a small authenticated companion to the public card.
-        await handleA2aStatusRoute(ctx)
+        // A2A status/token management is a small authenticated companion to
+        // the public card.
+        await handleA2aAdminRoute(ctx)
       ) || (
         // Flow routes are a distinct surface; handle them before the repo
         // routes, which answer 403 for any /api path without ?repo=.

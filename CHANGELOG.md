@@ -6,11 +6,12 @@
 
 ### 新增
 - **GitHub App Device Flow 登录（可选）**：Settings → GitHub account 显示 8 位设备码，打开 `github.com/login/device` 授权，应用内轮询直到完成；连接后显示账号/头像与 App 安装列表。只用于身份与仓库发现，本地 token 仍是唯一认证边界，GitHub 写操作继续走 PAT/引擎凭据；user token 存于 `config.json`（0600），永不回传浏览器。
-- **A2A / Agent Card**：公开卡片 `GET /api/a2a/agent-card`（含 `/.well-known/agent-card.json` 与 `agent.json` 别名）+ JSON-RPC `POST`（tasks/send、sendSubscribe、get、cancel）。默认 plan 模式；execute 模式经本地引擎 enqueue 真实 create-pr/merge-pr、直接重跑 Actions、读取部署健康投影；生产回滚永远升级人工审批。鉴权 fail-closed（`PR_HELPER_GIT_A2A_TOKEN`，兼容 `ZEUS_A2A_TOKEN`），任务存内存（30 分钟 TTL）。
+- **A2A / Agent Card**：公开卡片 `GET /api/a2a/agent-card`（含 `/.well-known/agent-card.json` 与 `agent.json` 别名）+ JSON-RPC `POST`（tasks/send、sendSubscribe、get、cancel）。默认 plan 模式；execute 模式经本地引擎 enqueue 真实 create-pr/merge-pr、直接重跑 Actions、读取部署健康投影；生产回滚永远升级人工审批。鉴权 fail-closed（`PR_HELPER_GIT_A2A_TOKEN`，兼容 `ZEUS_A2A_TOKEN`，或 Settings 生成的 token；config.json 只存 SHA-256 哈希，明文只显示一次），任务存内存（30 分钟 TTL）。
 
 ### 修复
 - **服务端 PAT 与 GitHub OAuth 连接互不覆盖**：`/api/pat` 的写入改为合并 `config.github`，删除只移除 token，避免抹掉 `github.oauth`。
 - **github.com OAuth 端点代理支持**：Node fetch 不走系统代理，新增 CONNECT 代理客户端（`HTTPS_PROXY` 优先，macOS 回退 `scutil --proxy`），仅用于 Device Flow 两个端点。
+- **GitHub 连接过期可见**：状态返回 `expired` 与 `expiresAt`，Settings 显示访问有效期，过期后提示重新连接。
 
 ## [0.3.1] - 2026-11-15
 

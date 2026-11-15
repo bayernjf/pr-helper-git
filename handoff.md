@@ -36,7 +36,7 @@ every committed file as world-readable.
 | Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ⏸ 用户明确暂缓、不计完成；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
-| GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1085/59 + E2E 162/162 + build 绿。实网 Device Flow 待用户在 App 设置启用后走查 |
+| GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。实网 Device Flow 待用户在 App 设置启用后走查 |
 | Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
@@ -49,17 +49,17 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1085/59、E2E 162/162、build 通过）。
+最近更新：2026-11-15（GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1089/59、E2E 162/162、build 通过）。
 
 ## GitHub Device Flow + A2A（2026-11-15，D-020/D-021）
 
 用户把两项“有意不迁移”能力重新拉入范围：GitHub App OAuth 登录、A2A / Agent Card。
 
 - **D-020 Device Flow**：现有 App 的 `GITHUB_APP_CLIENT_SECRET` / `PRIVATE_KEY` / `AUTH_SESSION_SECRET` 均为 Vercel `[SENSITIVE]` 占位，且 Device Flow 未启用，因此不用授权码回调；`github.com` 直连超时，新增 `server/github-http.mjs`（`HTTPS_PROXY` 优先、macOS 回退 `scutil --proxy` 的 CONNECT 隧道），仅服务两个 OAuth 端点。`server/github-oauth.mjs` 提供 start/poll/status/installations/logout；user token 存 `config.github.oauth`（0600），只做身份与安装/仓库发现，写操作仍走 PAT/引擎。`/api/pat` 改为合并 `config.github`，避免覆盖 oauth。
-- **D-021 A2A 真接线**：`server/a2a.mjs` 提供公开 Agent Card（`/api/a2a/agent-card` + `/.well-known/agent-card.json`/`agent.json`）与 fail-closed JSON-RPC（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`）。plan 默认；execute 经 `enqueueWorkflowAutomationAction` 入队 create-pr/merge-pr、直调 `rerunFailedActions`、只读部署投影；merge 需 `confirm=true`，production-rollback 永远 `input-required` 升级。任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。
-- **UI**：SettingsModal 新增「GitHub account」（设备码/复制/浏览器打开/轮询/断开/安装列表）与「A2A / Agent Card」（configured、卡片 URL、技能列表）；文案中英双语补齐（i18n 字典门禁）。
-- **验证**：`npm test` 1085/59、`npm run e2e` 162/162（新增 7 条）、lint/typecheck:server/build 通过；Device Flow 的 `device_flow_disabled` 作为明确错误透传。
-- **实网待办（需用户）**：① GitHub App 设置启用 Device Flow → 重启 4789 → Settings 连接并核对 login/avatar/installations；② 设 `PR_HELPER_GIT_A2A_TOKEN` 后 curl 卡片 + `tasks/send`（plan/execute 各一次），核对 `audit.log` 的 `a2a.execute`。
+- **D-021 A2A 真接线**：`server/a2a.mjs` 提供公开 Agent Card（`/api/a2a/agent-card` + `/.well-known/agent-card.json`/`agent.json`）与 fail-closed JSON-RPC（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`，或 Settings 生成、仅存 SHA-256 哈希的 token，env 优先）。plan 默认；execute 经 `enqueueWorkflowAutomationAction` 入队 create-pr/merge-pr、直调 `rerunFailedActions`、只读部署投影；merge 需 `confirm=true`，production-rollback 永远 `input-required` 升级。任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。
+- **UI**：SettingsModal 新增「GitHub account」（设备码/复制/浏览器打开/轮询/断开/安装列表/有效期与过期重连）与「A2A / Agent Card」（configured/source/hint、生成/重新生成/撤销 token、明文只显示一次、卡片 URL、技能列表）；文案中英双语补齐（i18n 字典门禁）。
+- **验证**：`npm test` 1089/59、`npm run e2e` 162/162（新增 7 条）、lint/typecheck:server/build 通过；Device Flow 的 `device_flow_disabled` 作为明确错误透传。
+- **实网待办（需用户）**：① GitHub App 设置启用 Device Flow → 重启 4789 → Settings 连接并核对 login/avatar/installations；② Settings → A2A 生成 token（或设 `PR_HELPER_GIT_A2A_TOKEN`）后 curl 卡片 + `tasks/send`（plan/execute 各一次），核对 `audit.log` 的 `a2a.execute`。
 - 图拖拽按用户裁决暂不做，保留后续再议。
 
 ## Release 0.3.1 (2026-11-15)

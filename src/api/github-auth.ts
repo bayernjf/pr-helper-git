@@ -11,6 +11,7 @@ export interface GithubAuthStatus {
   githubUserId: number | null;
   connectedAt: string | null;
   expiresAt: string | null;
+  expired: boolean;
 }
 
 export interface GithubDeviceStart {

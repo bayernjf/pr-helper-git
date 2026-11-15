@@ -46,9 +46,10 @@ wins; otherwise this file is the default contract.
     must never take over GitHub write credentials, which stay with the
     PAT/engine path (D-006-v2/v3);
   - **A2A**: an opt-in, fail-closed machine surface behind
-    `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`). Plan mode is the
-    default; execute mode may enqueue engine actions; production rollback
-    always escalates to the operator (D-021);
+    `PR_HELPER_GIT_A2A_TOKEN` (legacy `ZEUS_A2A_TOKEN`) or a Settings-generated
+    token whose SHA-256 hash lives in `config.json` (env wins; the plaintext is
+    shown once). Plan mode is the default; execute mode may enqueue engine
+    actions; production rollback always escalates to the operator (D-021);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
   - **Worktrees, submodule writes, GPG signing**: still prohibited outright.
@@ -218,7 +219,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of the pr-helper migration Phase 1/2 work (2026-11-15):
 
-- unit/route tests: **1085 tests / 59 files** (includes the migrated pr-helper
+- unit/route tests: **1089 tests / 59 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor

@@ -12,8 +12,8 @@
 // Task storage is in memory (30 min TTL, 500 tasks); tasks/get after a restart
 // is best-effort, matching the original product.
 
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { appendAudit } from './store.mjs';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { appendAudit, loadConfig, updateConfig } from './store.mjs';
 import { runAsActor } from './actor.mjs';
 import { fail, ok } from './http.mjs';
 import { engineContext } from './flows.mjs';
@@ -23,6 +23,7 @@ const CARD_PATH = '/api/a2a/agent-card';
 const CARD_ALIASES = ['/.well-known/agent-card.json', '/.well-known/agent.json'];
 const PUBLIC_PATHS = new Set([CARD_PATH, ...CARD_ALIASES]);
 const STATUS_PATH = '/api/a2a/status';
+const TOKEN_PATH = '/api/a2a/token';
 const CARD_VERSION = '0.1.0';
 const TASK_TTL_MS = 30 * 60_000;
 const MAX_TASKS = 500;
@@ -146,13 +147,75 @@ export function a2aConfig(env = process.env) {
   };
 }
 
+export function hashToken(value) {
+  return createHash('sha256').update(String(value)).digest('hex');
+}
+
+/** Token generated from the settings UI: only its hash is persisted. */
+export async function readStoredA2aToken() {
+  const config = await loadConfig();
+  const stored = config && typeof config === 'object' ? config.a2a : null;
+  if (!stored || typeof stored.tokenHash !== 'string' || !/^[a-f0-9]{64}$/i.test(stored.tokenHash)) return null;
+  return {
+    tokenHash: stored.tokenHash,
+    hint: typeof stored.hint === 'string' ? stored.hint : '',
+    createdAt: typeof stored.createdAt === 'string' ? stored.createdAt : null,
+  };
+}
+
+/**
+ * Effective A2A authentication: an env token wins (it cannot be revoked from
+ * the UI), otherwise the stored hash from config.json is used.
+ */
+export async function resolveA2aAuth(env = process.env) {
+  const base = a2aConfig(env);
+  if (base.token) return { ...base, source: 'env', tokenHash: null, hint: null, createdAt: null };
+  const stored = await readStoredA2aToken();
+  return {
+    ...base,
+    source: stored ? 'config' : null,
+    tokenHash: stored?.tokenHash ?? null,
+    hint: stored?.hint ?? null,
+    createdAt: stored?.createdAt ?? null,
+  };
+}
+
+export async function generateA2aToken() {
+  const token = randomBytes(24).toString('base64url');
+  const createdAt = new Date().toISOString();
+  const hint = token.slice(-4);
+  await updateConfig((config) => {
+    config.a2a = { tokenHash: hashToken(token), hint, createdAt };
+  });
+  return { token, hint, createdAt };
+}
+
+export async function revokeA2aToken() {
+  await updateConfig((config) => {
+    if (config.a2a) delete config.a2a;
+  });
+}
+
+/** @param {string} left @param {string} right */
+function safeHashEquals(left, right) {
+  if (typeof right !== 'string' || !/^[a-f0-9]{64}$/i.test(right)) return false;
+  const a = Buffer.from(left, 'hex');
+  const b = Buffer.from(right, 'hex');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 /**
  * Fail-closed access decision: no configured token means 503 unless the
- * explicit loopback-only anonymous escape hatch is on.
+ * explicit loopback-only anonymous escape hatch is on. Accepts either a
+ * plaintext env token or a stored SHA-256 hash.
  */
-export function evaluateA2aAccess({ presentedToken, expectedToken, allowAnonymous }) {
-  if (!expectedToken) return allowAnonymous ? 'allow' : 'unconfigured';
-  return bearerMatches(presentedToken, expectedToken) ? 'allow' : 'unauthorized';
+export function evaluateA2aAccess({ presentedToken, expectedToken, expectedTokenHash, allowAnonymous }) {
+  if (expectedToken) return bearerMatches(presentedToken, expectedToken) ? 'allow' : 'unauthorized';
+  if (expectedTokenHash) {
+    if (!presentedToken) return 'unauthorized';
+    return safeHashEquals(hashToken(presentedToken), expectedTokenHash) ? 'allow' : 'unauthorized';
+  }
+  return allowAnonymous ? 'allow' : 'unconfigured';
 }
 
 /* -------------------------------------------------------------------------- */
@@ -656,10 +719,11 @@ export async function handleA2aPublicRoute({ method, pathname, headers, rawBody,
     return { status: 405, json: { error: 'method not allowed' }, headers: cors };
   }
 
-  const config = a2aConfig(env);
+  const config = await resolveA2aAuth(env);
   const decision = evaluateA2aAccess({
     presentedToken: bearerToken(headers),
     expectedToken: config.token,
+    expectedTokenHash: config.tokenHash,
     allowAnonymous: config.allowAnonymous,
   });
   if (decision === 'unconfigured') {
@@ -698,14 +762,34 @@ export async function handleA2aPublicRoute({ method, pathname, headers, rawBody,
   return { status: 200, json: await handleJsonRpc(taskStore, payload), headers: cors };
 }
 
-/** Authenticated status route for the settings UI. */
-export async function handleA2aStatusRoute({ method, pathname, headers }) {
-  if (pathname !== STATUS_PATH) return null;
+/** Authenticated status + token management routes for the settings UI. */
+export async function handleA2aAdminRoute({ method, pathname, headers, identity }) {
+  if (pathname !== STATUS_PATH && pathname !== TOKEN_PATH) return null;
+  const auth = await resolveA2aAuth();
+
+  if (pathname === TOKEN_PATH) {
+    if (identity?.role !== 'admin') return fail(403, 'admin access required');
+    if (method === 'POST') {
+      const generated = await generateA2aToken();
+      await appendAudit({ ok: true, action: 'a2a.token.generate', hint: generated.hint });
+      return ok({ ...generated, source: 'config' });
+    }
+    if (method === 'DELETE') {
+      await revokeA2aToken();
+      await appendAudit({ ok: true, action: 'a2a.token.revoke' });
+      const next = await resolveA2aAuth();
+      return ok({ ok: true, configured: next.source !== null, source: next.source });
+    }
+    return fail(405, 'method not allowed');
+  }
+
   if (method !== 'GET') return fail(405, 'method not allowed');
-  const config = a2aConfig();
   return ok({
-    configured: config.configured,
-    allowAnonymous: config.allowAnonymous,
+    configured: auth.source !== null,
+    source: auth.source,
+    hint: auth.hint,
+    createdAt: auth.createdAt,
+    allowAnonymous: auth.allowAnonymous,
     cardUrl: cardUrl(headers),
     skills: skillIds(),
     tokenEnv: 'PR_HELPER_GIT_A2A_TOKEN',

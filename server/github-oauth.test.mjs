@@ -147,6 +147,16 @@ describe('connection state', () => {
     expect(state.config.github).toEqual({ token: 'ghp_keep' });
     await expect(readOauthState()).resolves.toBeNull();
   });
+
+  it('flags an expired user token in the status payload', async () => {
+    await saveOauthState({
+      accessToken: 'ghu_x',
+      login: 'octocat',
+      connectedAt: '2026-11-15T00:00:00.000Z',
+      expiresAt: '2020-01-01T00:00:00.000Z',
+    });
+    await expect(githubOauthStatus(ENV)).resolves.toMatchObject({ connected: true, expired: true });
+  });
 });
 
 describe('handleGithubOAuthRoute', () => {

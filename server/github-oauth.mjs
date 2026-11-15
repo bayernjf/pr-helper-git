@@ -285,6 +285,7 @@ export async function listUserInstallations(token, fetchImpl = fetch) {
 export async function githubOauthStatus(env = process.env) {
   const config = oauthConfig(env);
   const oauth = await readOauthState();
+  const expiresAt = oauth?.expiresAt ?? null;
   return {
     configured: config.configured,
     appSlug: config.appSlug || null,
@@ -295,7 +296,8 @@ export async function githubOauthStatus(env = process.env) {
     avatarUrl: oauth?.avatarUrl ?? null,
     githubUserId: oauth?.githubUserId ?? null,
     connectedAt: oauth?.connectedAt ?? null,
-    expiresAt: oauth?.expiresAt ?? null,
+    expiresAt,
+    expired: Boolean(expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) <= Date.now()),
   };
 }
 

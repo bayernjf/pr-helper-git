@@ -28,6 +28,7 @@ vi.mock('../api', () => ({
     githubUserId: null,
     connectedAt: null,
     expiresAt: null,
+    expired: false,
   })),
   getGithubInstallations: vi.fn(() => Promise.resolve({ installations: [], installUrl: null })),
   logoutGithub: vi.fn(),
@@ -35,12 +36,17 @@ vi.mock('../api', () => ({
   startGithubDeviceFlow: vi.fn(),
   getA2aStatus: vi.fn(() => Promise.resolve({
     configured: true,
+    source: 'config',
+    hint: 'abcd',
+    createdAt: '2026-11-15T00:00:00.000Z',
     allowAnonymous: false,
     cardUrl: 'http://127.0.0.1:4789/api/a2a/agent-card',
     skills: ['create-pr', 'merge-pr'],
     tokenEnv: 'PR_HELPER_GIT_A2A_TOKEN',
     legacyTokenEnv: 'ZEUS_A2A_TOKEN',
   })),
+  generateA2aToken: vi.fn(),
+  revokeA2aToken: vi.fn(),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
