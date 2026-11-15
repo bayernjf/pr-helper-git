@@ -59,15 +59,33 @@ struct UpdateManager {
 
     // MARK: Fetch + parse
 
+    // Shared proxy egress IPs exhaust GitHub's unauthenticated API quota
+    // (60/h per IP), so a proxied check can 403 while a direct one succeeds.
+    // Retry once without the system proxy before giving up.
+    static let directSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.connectionProxyDictionary = [:]
+        return URLSession(configuration: configuration)
+    }()
+
     private func fetchLatest(completion: @escaping (Result<Release, UpdateError>) -> Void) {
         guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else {
             completion(.failure(UpdateError(message: "The release endpoint is not a valid URL.")))
             return
         }
+        fetchLatest(url: url, session: URLSession.shared, fallbackSession: Self.directSession, completion: completion)
+    }
+
+    func fetchLatest(
+        url: URL,
+        session: URLSession,
+        fallbackSession: URLSession?,
+        completion: @escaping (Result<Release, UpdateError>) -> Void
+    ) {
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
         request.setValue("PR Helper Git/\(currentVersion)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(UpdateError(message: "Could not reach GitHub Releases: \(error.localizedDescription)")))
                 return
@@ -76,12 +94,18 @@ struct UpdateManager {
                 completion(.failure(UpdateError(message: "GitHub Releases returned an invalid response.")))
                 return
             }
+            if http.statusCode == 403, let fallbackSession = fallbackSession {
+                self.fetchLatest(url: url, session: fallbackSession, fallbackSession: nil, completion: completion)
+                return
+            }
             if http.statusCode == 404 {
                 completion(.failure(UpdateError(message: "This repository has no published GitHub Release yet.")))
                 return
             }
             guard (200..<300).contains(http.statusCode) else {
-                completion(.failure(UpdateError(message: "GitHub Releases returned HTTP \(http.statusCode).")))
+                let detail = (data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any])?["message"] as? String
+                let suffix = detail.map { " \($0)" } ?? ""
+                completion(.failure(UpdateError(message: "GitHub Releases returned HTTP \(http.statusCode).\(suffix)")))
                 return
             }
             guard let data = data,
@@ -96,7 +120,7 @@ struct UpdateManager {
                 return
             }
             let dmgName = "\(appName)-\(version)-macos.dmg"
-            guard let dmg = assets.first(where: { ($0["name"] as? String) == dmgName }),
+            guard let dmg = assets.first(where: { ($0["name"] as? String).map(githubSanitized) == githubSanitized(dmgName) }),
                   let dmgURLString = dmg["browser_download_url"] as? String,
                   let dmgURL = URL(string: dmgURLString) else {
                 completion(.failure(UpdateError(message: "The \(dmgName) asset is missing from this release.")))

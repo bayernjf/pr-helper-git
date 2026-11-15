@@ -1,5 +1,6 @@
-// Compiles and runs the pure-Swift download destination tests. This does not
-// launch the GUI, so it works in CI and on locked machines.
+// Compiles and runs the pure-Swift desktop tests (download destinations and
+// the update-check fetch fallback). This does not launch the GUI, so it works
+// in CI and on locked machines.
 import { execFileSync } from 'node:child_process';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -18,6 +19,16 @@ try {
     '-o', binary,
   ], { stdio: 'inherit' });
   execFileSync(binary, [], { stdio: 'inherit' });
+
+  const updateBinary = path.join(work, 'update-fetch-test');
+  execFileSync('/usr/bin/swiftc', [
+    path.join(root, 'desktop/UpdateCheck.swift'),
+    path.join(root, 'desktop/UpdateChecksum.swift'),
+    path.join(root, 'desktop/UpdateManager.swift'),
+    path.join(root, 'desktop/UpdateFetchTest.swift'),
+    '-o', updateBinary,
+  ], { stdio: 'inherit' });
+  execFileSync(updateBinary, [], { stdio: 'inherit', env: { ...process.env } });
 } finally {
   await fsp.rm(work, { recursive: true, force: true });
 }

@@ -382,8 +382,10 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.2.6**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
-- 应用内 **Check for Updates…** 读取 `releases/latest`，有新正式版时打开下载页
+- 当前最新：**v0.3.0**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）。
+  注意：v0.3.0 的 dmg/zip 早于桌面依赖打包修复，安装后无法启动；修复版随 0.3.1 发布。
+- 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
+  校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
 
 ## Quick start
@@ -440,9 +442,11 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   preferences survive restarts;
 - provides standard macOS menus (app, File, Edit, View, Window) and sends
   non-localhost links to the default browser instead of replacing the app view;
-- **Check for Updates…** in the app menu reads GitHub `releases/latest` and
-  offers the release page when a newer version exists; it never downloads or
-  replaces the app automatically;
+- **Check for Updates…** in the app menu reads GitHub `releases/latest`,
+  downloads the dmg plus `SHA256SUMS`, verifies the SHA-256 and hands off to a
+  detached helper that swaps the app and relaunches it; a 403 from the API
+  (shared proxy egress rate limit) retries once without the system proxy, and
+  asset names are matched with GitHub's space-to-dot sanitization;
 - **File > Open Repository…** opens a native folder panel and pre-fills the
   existing add-repository dialog; no second registration path is introduced;
 - handles web downloads (for example the team config export) into

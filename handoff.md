@@ -66,6 +66,18 @@ stopped"。**自迁移起所有桌面构建均带此缺陷**；dev/launchd 正�
 dmg/zip 仍是坏 bundle，需随 0.3.1 重新发布。门禁：1040/55、E2E 155/0、
 desktop native-test/smoke 通过。
 
+同日续：应用内更新检查报 403。根因两层：① URLSession 走系统代理
+（127.0.0.1:7900），共享出口 IP 的 GitHub 未认证配额（60/h/IP）被耗尽→403，
+直连 IP 配额充足→200；② 即使过了 403，GitHub 上传资产名把空格 sanitise 成点
+（`PR.Helper.Git-0.3.0-macos.dmg`），与带空格本地名精确匹配必落空，SHA256SUMS
+条目 likewise。修复：403 时用 `connectionProxyDictionary = [:]` 的会话直连重试
+一次；资产/校验和匹配按 space→dot 归一化（`githubSanitized`）；错误弹窗附
+GitHub 原文。下载链路仍走系统代理（直连 github.com/releases/download 被墙，
+HTTP 000；代理 200）。证明：新增 `desktop/UpdateFetchTest.swift`（POSIX socket
+stub 以 absolute-form/origin-form 区分代理与直连；NWListener 在本机 macOS 27
+返回 EINVAL 不可用），对删除回退分支的变异体证明会红；`PR_HELPER_UPDATE_LIVE=1`
+用生产会话对真实 GitHub 走通 403→直连→资产解析。
+
 ## D-002-v2 功能缺口复审（2026-11-14）
 
 用户纠正：“pr-helper-git 产品自身不上生产、不部署到 Cloudflare/Vercel”不等于“不管理

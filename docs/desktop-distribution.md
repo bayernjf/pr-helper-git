@@ -148,9 +148,13 @@ team password, or app-specific password. `dist/` is already ignored.
   entitlements because WKWebView content runs in WebKit's own process. If a
   future macOS build reports a separate JIT failure in the app process, add
   the relevant entitlement to the outer signing step.
-- The desktop shell has only a lightweight **Check for Updates…** action: it
-  reads the latest GitHub Release and offers the release page. It does not
-  download, replace, or roll back the app; a full auto-updater still needs a
-  stable feed, signing/notarization and a rollback plan.
+- The desktop shell's **Check for Updates…** reads the latest GitHub Release,
+  downloads the dmg and `SHA256SUMS`, verifies the checksum and installs via a
+  detached helper after the app quits. Integrity is anchored on the published
+  checksums, not on Developer ID signing. The API check retries once without
+  the system proxy on HTTP 403 (shared proxy egress IPs exhaust GitHub's
+  unauthenticated quota); asset and checksum names are compared with GitHub's
+  space-to-dot sanitization. Rollback remains manual (reinstall an older
+  release).
 - Local unsigned builds and distribution builds can use different bundle ids;
   preferences are intentionally separate.

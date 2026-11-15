@@ -9,6 +9,7 @@
 
 ### 修复
 - **桌面 app 启动即崩**：迁移后 server 依赖 `postgres`/`web-push` npm 包，但桌面构建只复制 `server/` 与 `dist/`，装到 `/Applications` 后以 `ERR_MODULE_NOT_FOUND` 退出（弹窗 "Local server stopped"）。构建脚本现在把全部生产依赖闭包打进 bundle；冒烟测试改为把 bundle 拷出仓库树后真实启动 server 并断言 READY（此前在 `build/` 内启动会沿目录向上命中仓库的 `node_modules`，坏 bundle 也能假绿）。
+- **应用内更新检查失败（HTTP 403 / 资产缺失）**：系统代理的共享出口 IP 耗尽 GitHub 未认证 API 配额导致 403——现在 403 自动绕过系统代理直连重试一次，错误弹窗附 GitHub 原文；GitHub 上传资产名把空格替换为点（`PR.Helper.Git-0.3.0-macos.dmg`），与带空格的本地名精确匹配必然落空——资产与 SHA256SUMS 匹配统一按该 sanitization 归一化。
 
 ## [0.3.0] - 2026-11-15
 

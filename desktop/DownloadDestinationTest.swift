@@ -69,6 +69,10 @@ struct DownloadDestinationTest {
         guard sha256Entry(for: "missing.dmg", in: sums) == nil else {
             fatalError("expected a missing file to return no checksum")
         }
+        guard sha256Entry(for: "PR.Helper.Git-0.3.0-macos.dmg", in: sums)
+            == "03ca392f742fce41edf0908b05277dbc46fc52359d42ae43d4a52a0c07a86489" else {
+            fatalError("expected GitHub's dot-sanitized asset name to resolve against a spaced SHA256SUMS entry")
+        }
 
         print("download destination and update-check tests OK")
     }
