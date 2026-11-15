@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
-## [Unreleased]
+## [0.3.2] - 2026-11-15
 
 ### 新增
 - **GitHub App Device Flow 登录（可选）**：Settings → GitHub account 显示 8 位设备码，打开 `github.com/login/device` 授权，应用内轮询直到完成；连接后显示账号/头像与 App 安装列表。只用于身份与仓库发现，本地 token 仍是唯一认证边界，GitHub 写操作继续走 PAT/引擎凭据；user token 存于 `config.json`（0600），永不回传浏览器。

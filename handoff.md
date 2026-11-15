@@ -62,6 +62,20 @@ P3-4 编辑器 → P3-5 失败中心。
 - **实网待办（需用户）**：① GitHub App 设置启用 Device Flow → 重启 4789 → Settings 连接并核对 login/avatar/installations；② Settings → A2A 生成 token（或设 `PR_HELPER_GIT_A2A_TOKEN`）后 curl 卡片 + `tasks/send`（plan/execute 各一次），核对 `audit.log` 的 `a2a.execute`。
 - 图拖拽按用户裁决暂不做，保留后续再议。
 
+## Release 0.3.2 (2026-11-15)
+
+范围：两项新能力随正式发行——① GitHub App Device Flow 身份连接（identity-only，
+token 0600 落 config，永不回传）；② A2A / Agent Card + JSON-RPC 真接线（fail-closed
+bearer；execute enqueue 引擎动作；production-rollback 永远升级）。同时包含 Settings
+的 A2A token 生成/撤销（只存 SHA-256 哈希，明文一次）、GitHub 连接有效期/过期提示、
+`github.com` OAuth 端点代理客户端，以及 `/api/pat` 与 `github.oauth` 互不覆盖的修复。
+
+门禁：lint / typecheck:server / **1089 tests / 59 files** / build / **E2E 162/162**；
+desktop native-test、`BUNDLE_NODE=1 desktop:dist`、`desktop:smoke`、SHA256SUMS 复核。
+实网 Device Flow 需用户在 GitHub App 设置启用后走查；A2A 可在 Settings 生成 token 后
+用 curl 走 plan/execute 各一次并核对 `a2a.execute` 审计（验收 #1 暂保持 🔀，实网通过
+后再转 ✅）。
+
 ## Release 0.3.1 (2026-11-15)
 
 范围：两个桌面修复随正式发行出去——① 生产 npm 依赖闭包入 bundle（修
