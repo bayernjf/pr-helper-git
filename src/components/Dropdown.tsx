@@ -4,8 +4,34 @@
 // Keyboard: Enter/Space opens, ArrowUp/Down + Enter select, Esc closes.
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type DropdownOption = { value: string; label: string };
+
+type MenuPlacement = {
+  left: number;
+  width: number;
+  up: boolean;
+  top: number;
+  bottom: number;
+  maxHeight: number;
+};
+
+function measure(trigger: HTMLElement | null): MenuPlacement | null {
+  if (!trigger) return null;
+  const r = trigger.getBoundingClientRect();
+  const below = window.innerHeight - r.bottom - 8;
+  const above = r.top - 8;
+  const up = below < 200 && above > below;
+  return {
+    left: r.left,
+    width: r.width,
+    up,
+    top: r.bottom + 4,
+    bottom: window.innerHeight - r.top + 4,
+    maxHeight: Math.max(120, Math.min(280, up ? above : below)),
+  };
+}
 
 export function Dropdown({
   value,
@@ -25,6 +51,7 @@ export function Dropdown({
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<MenuPlacement | null>(null);
   const [active, setActive] = useState(() => Math.max(0, options.findIndex((o) => o.value === value)));
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -32,11 +59,13 @@ export function Dropdown({
 
   const current = options.find((o) => o.value === value);
 
-  // Close on outside click / Escape.
+  // Close on outside click / Escape. The menu lives in a portal, so it is not
+  // inside wrapRef and has to be checked separately.
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!wrapRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -55,6 +84,18 @@ export function Dropdown({
     menuRef.current?.querySelector('.dropdown-item.active')?.scrollIntoView({ block: 'nearest' });
   }, [open, active]);
 
+  // Keep the portaled menu anchored when the window or a scroll container moves.
+  useEffect(() => {
+    if (!open) return;
+    const reposition = () => setPlacement(measure(wrapRef.current));
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open]);
+
   // Move focus into the menu when it opens so Arrow/Enter reach onMenuKey;
   // otherwise the trigger keeps focus and keyboard navigation is dead.
   useEffect(() => {
@@ -66,11 +107,23 @@ export function Dropdown({
     if (option.value !== value) onChange(option.value);
   };
 
+  function toggle() {
+    if (disabled) return;
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const next = measure(wrapRef.current);
+    if (!next) return;
+    setPlacement(next);
+    setOpen(true);
+  }
+
   const onTriggerKey = (e: React.KeyboardEvent) => {
     if (open) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setOpen(true);
+      toggle();
     }
   };
 
@@ -98,21 +151,31 @@ export function Dropdown({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={toggle}
         onKeyDown={onTriggerKey}
       >
         <span className="dropdown-value">{current?.label ?? value}</span>
         <span className="dropdown-caret" aria-hidden="true">▾</span>
       </button>
-      {open && (
+      {open && placement && createPortal(
         <div
           className="dropdown-menu"
           role="listbox"
           ref={menuRef}
           tabIndex={-1}
+          style={{
+            position: 'fixed',
+            left: placement.left,
+            top: placement.up ? 'auto' : placement.top,
+            bottom: placement.up ? placement.bottom : 'auto',
+            minWidth: placement.width,
+            maxHeight: placement.maxHeight,
+            zIndex: 1200,
+          }}
           onKeyDown={onMenuKey}
           onBlur={(e) => {
-            if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+            const next = e.relatedTarget as Node | null;
+            if (!wrapRef.current?.contains(next) && !menuRef.current?.contains(next)) setOpen(false);
           }}
         >
           {options.map((o, i) => (
@@ -129,7 +192,8 @@ export function Dropdown({
             </div>
           ))}
           {options.length === 0 && <div className="dropdown-empty">—</div>}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
