@@ -1,6 +1,18 @@
 @import './design/tokens.css';
 @import './design/accents.css';
 
+/* UI v3: baseline motion for every interactive element — hover states stop
+   snapping and start easing, without touching 50+ individual rules. */
+button, input, select, textarea, [role='button'], .btn, .icon-btn, .chip, a.text-link {
+  transition: var(--motion-transition);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, input, select, textarea, [role='button'], .btn, .icon-btn, .chip, a.text-link {
+    transition: none;
+  }
+}
+
 /* Legacy variable aliases — git2's own names now resolve to the shared
    design tokens; theme flips cascade automatically via var() indirection. */
 :root {
@@ -8,6 +20,12 @@
   --success: var(--green);
   --danger: var(--red);
   --warning: var(--amber);
+  /* UI v3 motion system: one duration scale + one easing for the whole app. */
+  --dur-fast: 120ms;
+  --dur: 170ms;
+  --dur-slow: 240ms;
+  --ease: cubic-bezier(0.25, 0.6, 0.3, 1);
+  --motion-transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
   --bg: var(--bg0);
   --panel: var(--bg1);
   --panel-2: var(--bg2);
@@ -132,10 +150,10 @@ button {
   font-size: var(--fs-body);
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.13s, border-color 0.13s, transform 0.08s;
+  transition: background var(--dur-fast), border-color 0.13s, transform var(--dur-fast);
 }
 .btn:hover { background: var(--hover); border-color: var(--btn-border-hover); }
-.btn:active { transform: translateY(0.5px); }
+.btn:active { filter: brightness(0.92); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-primary {
@@ -185,7 +203,7 @@ button {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
-  transition: background 0.13s, color 0.13s;
+  transition: background var(--dur-fast), color 0.13s;
 }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 
@@ -260,7 +278,7 @@ button {
   color: var(--muted);
   font-weight: 600;
   font-size: var(--fs-body);
-  transition: background 0.13s, color 0.13s;
+  transition: background var(--dur-fast), color 0.13s;
 }
 .segmented button.active {
   background: var(--accent);
@@ -620,7 +638,7 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
   height: 100%;
   border-radius: var(--radius-xs);
   background: transparent;
-  transition: background 0.12s ease;
+  transition: background var(--dur-fast) ease;
 }
 .col-resize:hover::after,
 .col-resize:focus-visible::after,
@@ -714,7 +732,7 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
   height: 3px;
   border-radius: var(--radius-xs);
   background: var(--border);
-  transition: background 0.13s;
+  transition: background var(--dur-fast);
 }
 
 .work-tabs {
@@ -1340,9 +1358,9 @@ pre.diff {
   background: var(--panel-2);
   text-align: left;
   width: 100%;
-  transition: border-color 0.13s, transform 0.1s;
+  transition: border-color var(--dur-fast), transform 0.1s;
 }
-.pr-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.pr-card:hover { border-color: var(--accent); background: var(--panel-2); }
 .pr-card .pr-title {
   font-weight: 600;
   font-size: var(--fs-body);
@@ -1512,7 +1530,7 @@ pre.diff {
   color: var(--muted);
   font-size: var(--fs-body);
   font-weight: 600;
-  transition: background 0.13s, color 0.13s;
+  transition: background var(--dur-fast), color 0.13s;
 }
 .repo-mode-tab.active {
   background: var(--accent);
@@ -1617,7 +1635,7 @@ pre.diff {
   font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
-  transition: background 0.13s, color 0.13s;
+  transition: background var(--dur-fast), color 0.13s;
 }
 .scope-toggle button.active {
   background: var(--accent);
@@ -2197,7 +2215,7 @@ pre.diff {
   font-size: var(--fs-ui);
   line-height: 1;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: background var(--dur-fast), border-color 0.12s, color 0.12s;
 }
 .compare-swap:hover:not(:disabled) { background: var(--hover); border-color: var(--border-strong); color: var(--accent); }
 .compare-swap:disabled { opacity: 0.45; cursor: default; }
@@ -2366,7 +2384,7 @@ pre.diff {
   border-radius: var(--radius);
   background: var(--panel-2);
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color var(--dur-fast) ease, background 0.12s ease;
 }
 .merge-option:hover { border-color: var(--faint); }
 .merge-option.selected {
@@ -3431,7 +3449,7 @@ pre.diff {
   color: var(--text);
   font-size: var(--fs-body); font-family: inherit;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background var(--dur-fast), border-color 0.12s;
   max-width: 280px;
 }
 .dropdown-trigger:hover { background: var(--hover); border-color: var(--border-strong); }
@@ -3538,7 +3556,7 @@ pre.diff {
   position: relative; display: flex; flex-direction: column; gap: 8px;
   background: var(--panel); border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm); padding: 14px 16px 12px 18px;
-  cursor: pointer; transition: box-shadow 0.14s, transform 0.14s;
+  cursor: pointer; transition: box-shadow var(--dur-fast), transform 0.14s;
 }
 .dash-card:hover { box-shadow: 0 0 0 1px var(--hairline), 0 10px 30px rgba(0, 0, 0, 0.32); transform: translateY(-1px); }
 .dash-card.is-active { box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-sm); }
@@ -3803,7 +3821,7 @@ pre.diff {
 .flow-detail-page .detail-progress { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 14px; }
 .flow-detail-page .detail-progress-label { font-size: var(--fs-ui); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .flow-detail-page .detail-progress-bar { position: relative; flex: 1; height: 6px; background: var(--hover); border-radius: var(--radius-pill, 999px); }
-.flow-detail-page .detail-progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: var(--radius-pill, 999px); max-width: 100%; transition: width 0.2s; }
+.flow-detail-page .detail-progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: var(--radius-pill, 999px); max-width: 100%; transition: width var(--dur-slow); }
 .flow-detail-page .detail-progress-bar i { position: absolute; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--panel); transform: translateX(-50%); background: var(--border-strong); }
 .flow-detail-page .detail-progress-bar i.succeeded { background: var(--green); }
 .flow-detail-page .detail-progress-bar i.failed { background: var(--red); }
