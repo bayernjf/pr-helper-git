@@ -2,6 +2,11 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.4] - 2026-11-16
+
+### 修复
+- **工具栏仓库下拉框选项被裁剪**：菜单此前渲染在 40px 高、`overflow: hidden` 的包装层和横向滚动的工具栏内，几乎全部选项不可见。现在所有 Dropdown 菜单通过 portal 渲染到 `body`，以固定定位锚定触发按钮；下方空间不足时自动向上翻转，窗口缩放或滚动时重新定位。仓库选择器样式也改为作用在触发按钮上，不再出现双层边框。
+
 ## [0.3.3] - 2026-11-16
 
 ### 新增
