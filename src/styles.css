@@ -222,25 +222,11 @@ button {
 .repo-select {
   min-width: 190px;
   max-width: 280px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
-  color: var(--text);
+}
+.repo-select > .dropdown-trigger {
+  width: 100%;
   font-weight: 600;
-  font-size: var(--fs-body);
-  overflow: hidden;
-  white-space: nowrap;
 }
-.repo-select option {
-  color: var(--text);
-  background: var(--panel-2);
-}
-.repo-select .repo-name { overflow: hidden; text-overflow: ellipsis; }
-.repo-select svg { color: var(--faint); flex: 0 0 auto; }
 
 .branch-pill {
   display: inline-flex;
@@ -3453,10 +3439,8 @@ pre.diff {
 .dropdown-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .dropdown-caret { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 .dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 200;
+  position: fixed;
+  z-index: 1200;
   min-width: 100%;
   max-height: 280px;
   overflow-y: auto;
