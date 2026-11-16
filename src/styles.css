@@ -1,6 +1,13 @@
 @import './design/tokens.css';
 @import './design/accents.css';
 
+/* UI v3: a visible, consistent keyboard focus ring everywhere. */
+:where(button, input, select, textarea, [role='button'], .btn, .icon-btn, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
 /* UI v3: baseline motion for every interactive element — hover states stop
    snapping and start easing, without touching 50+ individual rules. */
 button, input, select, textarea, [role='button'], .btn, .icon-btn, .chip, a.text-link {
@@ -12,6 +19,13 @@ button, input, select, textarea, [role='button'], .btn, .icon-btn, .chip, a.text
     transition: none;
   }
 }
+
+/* UI v3 typography baseline: comfortable line-height everywhere, and page
+   headings read as headings. */
+body { line-height: 1.5; }
+h1, h2, h3 { line-height: 1.25; letter-spacing: -0.01em; }
+h1 { font-size: var(--fs-title); font-weight: 650; }
+h2 { font-size: var(--fs-md); font-weight: 600; }
 
 /* Legacy variable aliases — git2's own names now resolve to the shared
    design tokens; theme flips cascade automatically via var() indirection. */
@@ -3553,12 +3567,12 @@ pre.diff {
 .dash-hint { font-size: var(--fs-meta); color: var(--faint); }
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
 .dash-card {
-  position: relative; display: flex; flex-direction: column; gap: 8px;
-  background: var(--panel); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm); padding: 14px 16px 12px 18px;
-  cursor: pointer; transition: box-shadow var(--dur-fast), transform 0.14s;
+  position: relative; display: flex; flex-direction: column; gap: 7px;
+  background: var(--panel); border: 1px solid transparent; border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm); padding: 13px 16px 12px 17px;
+  cursor: pointer; transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color var(--dur-fast) var(--ease);
 }
-.dash-card:hover { box-shadow: 0 0 0 1px var(--hairline), 0 10px 30px rgba(0, 0, 0, 0.32); transform: translateY(-1px); }
+.dash-card:hover { box-shadow: 0 0 0 1px var(--hairline), 0 8px 24px rgba(0, 0, 0, 0.26); border-color: var(--border-strong); background: var(--panel-2); }
 .dash-card.is-active { box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-sm); }
 .dash-card.has-conflict { box-shadow: 0 0 0 1px var(--red-soft), var(--shadow-sm); }
 .repo-panel-activity { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: var(--radius-md) 0 0 var(--radius-md); }
@@ -3686,6 +3700,21 @@ pre.diff {
   cursor: pointer;
 }
 .diff-toolbar-btn:hover { background: var(--hover); }
+
+/* ---------- Empty states (UI v3): icon + copy + optional CTA, centered ---------- */
+.empty-state-visual {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 28px 16px; color: var(--muted);
+}
+.empty-state-visual .empty-icon { color: var(--faint); opacity: 0.75; }
+.empty-state-visual .empty-title { font-size: var(--fs-ui); font-weight: 550; color: var(--text); }
+.empty-state-visual .empty-hint { font-size: var(--fs-meta); color: var(--faint); text-align: center; max-width: 260px; line-height: 1.5; }
+.empty-state-visual .empty-cta {
+  margin-top: 2px; padding: 5px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--panel); color: var(--accent);
+  font-size: var(--fs-ui); cursor: pointer;
+}
+.empty-state-visual .empty-cta:hover { background: var(--accent-soft); border-color: var(--accent-line); }
 
 /* ---------- Flow board (pr-helper migration, Phase 3) ---------- */
 .flow-board-page {

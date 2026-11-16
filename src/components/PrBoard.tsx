@@ -278,8 +278,12 @@ export default function PrBoard() {
                 <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} />
               ))}
               {columns[col.key].length === 0 && (
-                <div className="diff-empty" style={{ height: 80 }}>
-                  {query.trim() ? 'No matches' : 'Nothing here'}
+                <div className="empty-state-visual">
+                  <span className="empty-icon"><IconPullRequest width={26} height={26} /></span>
+                  <span className="empty-title">{query.trim() ? t('No matches') : t('Nothing here')}</span>
+                  {!query.trim() && col.key === 'open' && (
+                    <span className="empty-hint">{t('Create a pull request to see it in this column.')}</span>
+                  )}
                 </div>
               )}
             </div>
