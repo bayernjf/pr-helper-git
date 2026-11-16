@@ -49,9 +49,23 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-16（生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1089/59、E2E 162/162、build 通过）。
+最近更新：2026-11-16（发布 0.3.3：Dashboard 卡片/列表切换 + 统一 WIP/ahead/behind 徽章。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1090/59、E2E 162/162、build 通过）。
 
-**2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；本轮无代码变更。
+**2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.3 (2026-11-16)
+
+范围：Dashboard 新增 **Cards / List** 视图切换（选择持久化到
+`pr-helper-git:dashboard-view`），列表按 Repository / Owner / Branch / Status /
+Last commit 展示，窄窗口自动隐藏 Owner 与 Last commit 列；卡片与列表共用同一套
+状态徽章——铅笔 + 未提交文件总数（tooltip 拆分 staged / modified / untracked）、
+↑ 本地未推送提交数、↓ 远端未拉取提交数、冲突数、开启 PR 数与 clean 状态。
+`RepoBrief` 数据结构未变，纯客户端改动。
+
+门禁：lint / typecheck:server / **1090 tests / 59 files** / build / **E2E 162/162**；
+desktop native-test、`BUNDLE_NODE=1 desktop:dist`、`desktop:smoke`、SHA256SUMS 复核。
+浏览器实测（隔离实例 + 3 个 fixture 仓库）：wip 显示铅笔 3、sync 显示 ↑1 ↓1、
+clean 显示 clean，List 视图 3 行正常。
 
 ## GitHub Device Flow + A2A（2026-11-15，D-020/D-021）
 

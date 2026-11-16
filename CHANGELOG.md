@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
-## [Unreleased]
+## [0.3.3] - 2026-11-16
 
 ### 新增
 - **Dashboard 卡片 / 列表视图切换**：工具栏新增视图切换（选择持久化）。列表视图按仓库逐行显示 Repository / Owner / Branch / Status / Last commit，GitKraken 风格；右键菜单、置顶、移除与 30 秒状态刷新在两种视图下一致。
