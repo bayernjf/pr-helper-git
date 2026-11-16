@@ -28,7 +28,7 @@ describe('appearance preferences', () => {
     localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'bogus', accent: 'bogus' }));
     expect(getThemeMode()).toBe('dark');
     expect(getAccent()).toBe('violet');
-    expect(ACCENTS).toEqual(['violet', 'ocean', 'forest', 'amber']);
+    expect(ACCENTS).toEqual(['violet', 'rose', 'ocean', 'forest', 'amber']);
   });
 
   it('uses matchMedia only in auto mode', () => {

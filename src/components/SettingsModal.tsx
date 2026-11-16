@@ -468,7 +468,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     className="accent-dot"
                     style={{
                       background: {
-                        violet: '#8b6cef', ocean: '#4f8ff7', forest: '#45a06b', amber: '#d79a3c',
+                        violet: '#c3a6f7', rose: '#f5c2e7', ocean: '#89b4fa', forest: '#a6e3a1', amber: '#fab387',
                       }[name],
                     }}
                   />

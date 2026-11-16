@@ -2,40 +2,53 @@
    only the accent family so the surface colors stay untouched. */
 
 html[data-accent='ocean'] {
-  --accent: #4f8ff7;
-  --accent-hover: #70a7ff;
-  --accent-soft: rgba(79, 143, 247, 0.15);
-  --accent-line: rgba(79, 143, 247, 0.4);
+  --accent: #89b4fa;
+  --accent-hover: #a5c6fb;
+  --accent-soft: rgba(137, 180, 250, 0.16);
+  --accent-line: rgba(137, 180, 250, 0.42);
 }
 html[data-theme='light'][data-accent='ocean'] {
-  --accent: #1f6feb;
-  --accent-hover: #1558c4;
+  --accent: #1e66f5;
+  --accent-hover: #1a55d8;
   --accent-soft: rgba(31, 111, 235, 0.1);
   --accent-line: rgba(31, 111, 235, 0.35);
 }
 
 html[data-accent='forest'] {
-  --accent: #45a06b;
-  --accent-hover: #5cbb82;
-  --accent-soft: rgba(69, 160, 107, 0.15);
-  --accent-line: rgba(69, 160, 107, 0.4);
+  --accent: #a6e3a1;
+  --accent-hover: #b9ecb4;
+  --accent-soft: rgba(166, 227, 161, 0.16);
+  --accent-line: rgba(166, 227, 161, 0.42);
 }
 html[data-theme='light'][data-accent='forest'] {
-  --accent: #1a7f37;
-  --accent-hover: #146c2e;
+  --accent: #40a02b;
+  --accent-hover: #34891f;
   --accent-soft: rgba(26, 127, 55, 0.1);
   --accent-line: rgba(26, 127, 55, 0.35);
 }
 
 html[data-accent='amber'] {
-  --accent: #d79a3c;
-  --accent-hover: #e6ae58;
-  --accent-soft: rgba(215, 154, 60, 0.15);
-  --accent-line: rgba(215, 154, 60, 0.4);
+  --accent: #fab387;
+  --accent-hover: #fcc4a0;
+  --accent-soft: rgba(250, 179, 135, 0.16);
+  --accent-line: rgba(250, 179, 135, 0.42);
 }
 html[data-theme='light'][data-accent='amber'] {
-  --accent: #9a6700;
-  --accent-hover: #7d5300;
+  --accent: #df8e1d;
+  --accent-hover: #c67c12;
   --accent-soft: rgba(154, 103, 0, 0.1);
   --accent-line: rgba(154, 103, 0, 0.35);
+}
+
+html[data-accent='rose'] {
+  --accent: #f5c2e7;
+  --accent-hover: #f8d3ee;
+  --accent-soft: rgba(245, 194, 231, 0.16);
+  --accent-line: rgba(245, 194, 231, 0.42);
+}
+html[data-theme='light'][data-accent='rose'] {
+  --accent: #ea76cb;
+  --accent-hover: #d559b6;
+  --accent-soft: rgba(234, 118, 203, 0.12);
+  --accent-line: rgba(234, 118, 203, 0.38);
 }
