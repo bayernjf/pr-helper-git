@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityLevel, relativeAge, sortRepos, summarizeRepos } from './repo-sort';
+import { activityLevel, relativeAge, sortRepos, summarizeRepos, wipCount } from './repo-sort';
 
 const NOW = new Date('2026-11-08T12:00:00Z').getTime();
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -59,6 +59,13 @@ describe('sortRepos', () => {
     const copy = [...repos];
     sortRepos(repos, []);
     expect(repos).toEqual(copy);
+  });
+});
+
+describe('wipCount', () => {
+  it('counts staged, modified and untracked as one working-tree total', () => {
+    expect(wipCount({ staged: 2, unstaged: 1, untracked: 3 })).toBe(6);
+    expect(wipCount({ staged: 0, unstaged: 0, untracked: 0 })).toBe(0);
   });
 });
 

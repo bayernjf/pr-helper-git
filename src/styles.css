@@ -3535,8 +3535,15 @@ pre.diff {
 .dash-pill.behind { color: var(--cyan); }
 .dash-pill.ahead { color: var(--accent); }
 .dash-pill.pr { background: var(--badge-branch-bg); color: var(--badge-branch-text); }
-.dash-pill.modified { background: var(--pill-warn-bg); color: var(--text); }
-.dash-pill.untracked { background: var(--hover); color: var(--muted); }
+.dash-pill.wip { background: var(--pill-warn-bg); color: var(--yellow); gap: 4px; }
+.dash-view-toggle { display: inline-flex; padding: 2px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.dash-view-toggle button {
+  border: none; background: transparent; color: var(--muted);
+  font-family: inherit; font-size: var(--fs-meta); font-weight: 600;
+  padding: 3px 10px; border-radius: calc(var(--radius-sm) - 2px); cursor: pointer;
+}
+.dash-view-toggle button:hover { color: var(--text); }
+.dash-view-toggle button.is-active { background: var(--hover); color: var(--text); }
 .dash-search { display: flex; align-items: center; gap: 6px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 10px; }
 .dash-search input { background: transparent; border: none; outline: none; color: var(--text); font-size: var(--fs-body); width: 200px; }
 .dash-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -3566,6 +3573,48 @@ pre.diff {
 .dash-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dash-card-commit { font-size: var(--fs-body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dash-empty { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 0; color: var(--muted); }
+
+/* List view — one row per repository, GitKraken-style status chips. */
+.dash-list {
+  display: flex; flex-direction: column;
+  background: var(--panel); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm); overflow-x: auto;
+}
+.dash-list-head, .dash-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(90px, 0.7fr) 130px minmax(200px, 1.8fr) minmax(170px, 1.4fr) 30px;
+  align-items: center; gap: 10px; padding: 8px 14px;
+  min-width: 780px;
+}
+.dash-list-head {
+  font-size: var(--fs-meta); color: var(--faint);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+.dash-row {
+  border-bottom: 1px solid var(--hairline);
+  border-left: 3px solid transparent;
+  font-size: var(--fs-body); cursor: pointer;
+}
+.dash-row:last-child { border-bottom: none; }
+.dash-row:hover { background: var(--hover); }
+.dash-row.is-active { background: var(--accent-soft); border-left-color: var(--accent); }
+.dash-row.has-conflict { border-left-color: var(--red); }
+.dash-row-repo { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dash-row-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-row-path { color: var(--faint); font-family: var(--mono); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-row-branch, .dash-row-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.dash-row-commit { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-row .dash-remove { opacity: 0; }
+.dash-row:hover .dash-remove { opacity: 1; }
+@media (max-width: 1080px) {
+  .dash-list-head, .dash-row { grid-template-columns: minmax(150px, 1.2fr) 130px minmax(190px, 1.8fr) minmax(160px, 1.4fr) 30px; min-width: 680px; }
+  .dash-row-path, .dash-list-head > span:nth-child(2) { display: none; }
+}
+@media (max-width: 780px) {
+  .dash-list-head, .dash-row { grid-template-columns: minmax(140px, 1.2fr) 120px minmax(170px, 1.8fr) 30px; min-width: 0; }
+  .dash-row-commit, .dash-list-head > span:nth-child(5) { display: none; }
+}
 
 
 /* ---------- CI status dots on graph rows ---------- */

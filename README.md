@@ -14,12 +14,14 @@ application never pushes it for you.
 
 ### Dashboard (full page)
 
-- **Third top-level view** (`Dashboard | Git | Pull Requests`): card grid of every registered repository
-  with branch chip, staged/unstaged/untracked pills, ↑ahead ↓behind, **open-PR count** (GitHub-hosted repos),
-  last-commit line and freshness bar; conflicted repos sort first, pinned next, then a persisted sort order
-  (name / recent / change count)
-- Right-click card menu: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove from list
-  (`POST /api/repos/open-external`, audited, registered repos only)
+- **Third top-level view** (`Dashboard | Git | Pull Requests`): every registered repository as a
+  **card grid or a GitKraken-style list** (toggle persisted) with repository / owner / branch /
+  status / last-commit columns. Status badges use pencil + **WIP total** (staged / modified /
+  untracked split in the tooltip), **↑ ahead** (local commits not pushed), **↓ behind** (remote
+  commits not pulled), conflicts and **open-PR count** (GitHub-hosted repos); conflicted repos
+  sort first, pinned next, then a persisted sort order (name / recent / change count)
+- Right-click a card or row: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove
+  from list (`POST /api/repos/open-external`, audited, registered repos only)
 - **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
   30-second status auto-refresh
 
@@ -400,7 +402,7 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.3.1**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 当前最新：**v0.3.2**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
   校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
@@ -420,6 +422,13 @@ npm start        # prints a one-time token URL, e.g. http://127.0.0.1:4789/?toke
 ```
 
 Use **+ Add repository…** in the toolbar to register a local Git folder.
+
+The macOS app and the browser UI are two entry points to the **same** backend and
+share one data directory (`~/.pr-helper-git`) and one automation database, so a
+setting changed in one is immediately visible in the other. Open the app, or
+visit the running server's `/?token=…` bootstrap URL once to set the HttpOnly
+cookie; do not start a second server on `:4789` while the desktop app or the
+launchd service is running.
 
 Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can

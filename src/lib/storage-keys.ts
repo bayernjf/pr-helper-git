@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   prefs: `${PREFIX}:prefs`,
   dashboardSort: `${PREFIX}:dashboard-sort`,
   dashboardAutofetch: `${PREFIX}:dashboard-autofetch`,
+  dashboardView: `${PREFIX}:dashboard-view`,
   activeRepo: `${PREFIX}:active-repo`,
   pat: `${PREFIX}:pat`,
   commitHistory: `${PREFIX}:commit-history`,

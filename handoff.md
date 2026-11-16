@@ -13,7 +13,7 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 部分 ✅ → Phase 5 冻结**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
 
 | 任务 | 状态 |
 |---|---|
@@ -34,10 +34,10 @@ every committed file as world-readable.
 | P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉；真实 HTTP 共享 200 且 join 表落库 |
 | P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
 | Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
-| Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ⏸ 用户明确暂缓、不计完成；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
+| Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ✅（11-15 团队 UI 收口，原暂缓裁决已被后续实现覆盖）；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。**A2A 实网 ✅**；Device Flow 实网待账号启用 2FA / 刷新 GitHub 会话后重试 |
-| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中但切换冻结**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；**Phase 3.5 关闭前 P5-2/P5-3 不得开始** |
+| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；P5-2/P5-3 未开始，需 P5-1 连续 5–7 天一致 + D-016 逐动作审批 |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
@@ -49,7 +49,23 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-最近更新：2026-11-15（GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1089/59、E2E 162/162、build 通过）。
+最近更新：2026-11-16（发布 0.3.3：Dashboard 卡片/列表切换 + 统一 WIP/ahead/behind 徽章。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1090/59、E2E 162/162、build 通过）。
+
+**2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.3 (2026-11-16)
+
+范围：Dashboard 新增 **Cards / List** 视图切换（选择持久化到
+`pr-helper-git:dashboard-view`），列表按 Repository / Owner / Branch / Status /
+Last commit 展示，窄窗口自动隐藏 Owner 与 Last commit 列；卡片与列表共用同一套
+状态徽章——铅笔 + 未提交文件总数（tooltip 拆分 staged / modified / untracked）、
+↑ 本地未推送提交数、↓ 远端未拉取提交数、冲突数、开启 PR 数与 clean 状态。
+`RepoBrief` 数据结构未变，纯客户端改动。
+
+门禁：lint / typecheck:server / **1090 tests / 59 files** / build / **E2E 162/162**；
+desktop native-test、`BUNDLE_NODE=1 desktop:dist`、`desktop:smoke`、SHA256SUMS 复核。
+浏览器实测（隔离实例 + 3 个 fixture 仓库）：wip 显示铅笔 3、sync 显示 ↑1 ↓1、
+clean 显示 clean，List 视图 3 行正常。
 
 ## GitHub Device Flow + A2A（2026-11-15，D-020/D-021）
 
@@ -62,6 +78,25 @@ P3-4 编辑器 → P3-5 失败中心。
 - **实网验证（2026-11-16）**：**A2A 通过**——Settings/API 生成 token（config 仅存 SHA-256 哈希，明文不落库），无 token POST 返回 401；带 token 的 `create-pr` plan 返回 `completed`；`deployment-health` execute 返回 1 workflow / 2 deployments / 8 runs；审计记录 `a2a.token.generate` 与两条 `a2a.execute`。**Device Flow 受阻**——GitHub App 已启用 Device Flow，本地也成功拿到设备码，但 GitHub 授权确认页的 `Authorize` 按钮为 `disabled`，页面顶部是 2FA 强制提示（账号未启用 2FA / 会话状态陈旧）；未绕过安全按钮。需用户在 GitHub 启用 2FA 或重新登录刷新会话后重试。
 - **实网待办（需用户）**：① GitHub 启用 2FA 或重新登录后，Settings → GitHub account → Connect 完成一次授权；② 已完成，token 明文在 `~/.pr-helper-git/a2a-token.txt`（0600，建议复制后删除）。
 - 图拖拽按用户裁决暂不做，保留后续再议。
+
+## 生产巡检（2026-11-16，14 个受管仓库）
+
+数据源：本地引擎库 `pr_helper_workflows.repository` 去重，得到 14 个受管仓库：
+agent-dev / agent-world / atlas / bayjf / commerce-os / growth-agent / growth-os /
+job-agent / loom / model-hub / ops-console / pr-helper / pr-helper-git / zeus。
+
+- **开放 PR：14 个仓库全部为 0**。`pr-helper-git` 的自动化 PR #12（docs）已于
+  11-15 16:08Z 合并为 `c0712ab`，本地 `main`/`dev` 已同步，合并后的 main push
+  CI（run 43733749957）test + desktop 均 success。
+- **CI：13 个仓库默认分支最新 commit 的 check-runs 全绿**，最近 5 次 workflow
+  runs 无失败；`atlas` 在 11-12 的 dev 上各有一次 failure/cancelled，已被后续
+  success 覆盖。
+- **唯一异常 `bayernjf/agent-world`**：自托管生产 runner `agent-world-prod` 离线。
+  `Production runner watchdog` 于 11-15 17:36Z / 22:36Z 两次失败；
+  `Deploy production` 于 11-15 15:29–15:48Z 连续 4 次失败，日志均为
+  `production runner: agent-world-prod -> offline` / `0 online production runner(s)`。
+  仓库自身 CI 与 CodeQL 仍为 success。处置：重新上线该 runner，或触发
+  `Deploy production` 时传 `target=hosted` 走 hosted build-only 兜底。
 
 ## Release 0.3.2 (2026-11-15)
 

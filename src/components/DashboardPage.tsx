@@ -8,19 +8,21 @@ import { errorMessage } from '../lib/errors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy } from '../api';
 import { useApp } from '../app-state';
-import { activityLevel, relativeAge } from '../lib/repo-sort';
+import { activityLevel, relativeAge, wipCount } from '../lib/repo-sort';
 import type { RepoBrief } from '../types';
 import { Dropdown } from './Dropdown';
 import { ContextMenu } from './context-menu';
 import type { MenuItem } from './context-menu';
-import { IconBranch, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, IconDownload } from './icons';
+import { IconBranch, IconPencil, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, IconDownload } from './icons';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 
 import { STORAGE_KEYS } from '../lib/storage-keys';
 
 type SortKey = 'conflict' | 'name' | 'recent' | 'changes';
+type ViewMode = 'cards' | 'list';
 const SORT_KEY = STORAGE_KEYS.dashboardSort;
+const VIEW_KEY = STORAGE_KEYS.dashboardView;
 const AUTO_FETCH_KEY = STORAGE_KEYS.dashboardAutofetch;
 const AUTO_FETCH_MS = 10 * 60_000;
 const PIN_KEY = STORAGE_KEYS.pinned;
@@ -45,8 +47,10 @@ export default function DashboardPage() {
   const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem(SORT_KEY) as SortKey) || 'conflict');
+  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards'));
   const [pinned, setPinned] = useState<string[]>(() => loadPinned());
   const [prCounts, setPrCounts] = useState<Record<string, number | null>>({});
+  const [owners, setOwners] = useState<Record<string, string | null>>({});
   const [autoFetch, setAutoFetch] = useState(() => localStorage.getItem(AUTO_FETCH_KEY) !== '0');
   const [fetchingAll, setFetchingAll] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,16 +86,29 @@ export default function DashboardPage() {
     return () => window.clearInterval(timer);
   }, [autoFetch, repos, fetchingAll, refresh]);
 
-  // Open-PR counts: only for GitHub-hosted repos, only when a PAT exists.
+  // Remote identity for every repository (GitHub owner for the list view), and
+  // open-PR counts for GitHub-hosted repos when a PAT exists.
   useEffect(() => {
-    if ((!pat && !hasServerPat) || repos.length === 0) {
+    if (repos.length === 0) {
       setPrCounts({});
+      setOwners({});
       return;
     }
     let alive = true;
     void (async () => {
       const next: Record<string, number | null> = {};
       const identities = await Promise.allSettled(repos.map((r) => getRemote(r.path)));
+      const ownerMap: Record<string, string | null> = {};
+      repos.forEach((r, i) => {
+        const id = identities[i].status === 'fulfilled' ? identities[i].value.remote : null;
+        ownerMap[r.path] = id?.isGithub && id.owner ? id.owner : null;
+      });
+      if (!alive) return;
+      setOwners(ownerMap);
+      if (!pat && !hasServerPat) {
+        setPrCounts({});
+        return;
+      }
       await Promise.allSettled(
         repos.map(async (r, i) => {
           const id = identities[i].status === 'fulfilled' ? identities[i].value.remote : null;
@@ -213,6 +230,53 @@ export default function DashboardPage() {
     else if (id === 'remove') void remove(repo.path, repo.name);
   };
 
+  function changeView(next: ViewMode) {
+    setView(next);
+    localStorage.setItem(VIEW_KEY, next);
+  }
+
+  // Owner column: the GitHub owner when the remote resolves, otherwise the
+  // containing folder — GitKraken's "owner" column shows the remote account.
+  const ownerLabel = (r: RepoBrief) => owners[r.path] || parentDir(r.path).split('/').pop() || parentDir(r.path);
+
+  const statusPills = (r: RepoBrief) => {
+    const wip = wipCount(r);
+    return (
+      <>
+        {r.unmerged > 0 && (
+          <span className="dash-pill conflict" title={t('Conflicts')}>{tp('{count} conflicts', { count: r.unmerged })}</span>
+        )}
+        {wip > 0 && (
+          <span
+            className="dash-pill wip"
+            title={tp('{wip} uncommitted files ({staged} staged, {unstaged} modified, {untracked} untracked)', {
+              wip, staged: r.staged, unstaged: r.unstaged, untracked: r.untracked,
+            })}
+          >
+            <IconPencil width={11} height={11} /> {wip}
+          </span>
+        )}
+        {r.ahead > 0 && <span className="dash-pill ahead" title={t('Local commits not pushed')}>↑{r.ahead}</span>}
+        {r.behind > 0 && <span className="dash-pill behind" title={t('Remote commits not pulled')}>↓{r.behind}</span>}
+      </>
+    );
+  };
+
+  const isClean = (r: RepoBrief) =>
+    wipCount(r) === 0 && r.ahead === 0 && r.behind === 0 && r.unmerged === 0;
+
+  const staleBadge = (r: RepoBrief) => {
+    // Parity with pr-helper-git: repos dormant for 90+ days get a visible stale
+    // badge so abandoned work stands out.
+    const at = r.lastCommit?.at ? Date.parse(r.lastCommit.at) : 0;
+    const days = at ? Math.floor((Date.now() - at) / 86_400_000) : null;
+    return days !== null && days > 90 ? (
+      <span className="dash-pill stale" title={t('No commits in {n} days').replace('{n}', String(days))}>
+        {t('stale')} · {days}d
+      </span>
+    ) : null;
+  };
+
   return (
     <div className="dashboard-page">
       <div className="dash-header">
@@ -236,6 +300,26 @@ export default function DashboardPage() {
             aria-label={t('Filter repositories')}
             onChange={(e) => setQuery(e.target.value)}
           />
+        </div>
+        <div className="dash-view-toggle" role="group" aria-label={t('View mode')}>
+          <button
+            type="button"
+            className={view === 'cards' ? 'is-active' : ''}
+            aria-pressed={view === 'cards'}
+            title={t('Card view')}
+            onClick={() => changeView('cards')}
+          >
+            {t('Cards')}
+          </button>
+          <button
+            type="button"
+            className={view === 'list' ? 'is-active' : ''}
+            aria-pressed={view === 'list'}
+            title={t('List view')}
+            onClick={() => changeView('list')}
+          >
+            {t('List')}
+          </button>
         </div>
         <Dropdown
           value={sortKey}
@@ -276,22 +360,21 @@ export default function DashboardPage() {
         </label>
         {fetchingAll && <span className="dash-fetching">{t('Fetching…')}</span>}
         <span className="spacer" />
-        <span className="dash-hint">{t('Right-click a card for more actions')}</span>
+        <span className="dash-hint">{view === 'cards' ? t('Right-click a card for more actions') : t('Right-click a row for more actions')}</span>
       </div>
 
-      <div className="dash-grid">
-        {repos.length === 0 ? (
-          <div className="dash-empty">
-            <p>{t('No repositories yet. Add one to get started.')}</p>
-            <button type="button" className="btn btn-primary" onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>
-              <IconPlus width={13} height={13} /> {t('Add repository…')}
-            </button>
-          </div>
-        ) : (
-          sorted.map((r) => {
+      {repos.length === 0 ? (
+        <div className="dash-empty">
+          <p>{t('No repositories yet. Add one to get started.')}</p>
+          <button type="button" className="btn btn-primary" onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>
+            <IconPlus width={13} height={13} /> {t('Add repository…')}
+          </button>
+        </div>
+      ) : view === 'cards' ? (
+        <div className="dash-grid">
+          {sorted.map((r) => {
             const isActive = r.path === activeRepo;
             const isPinned = pinned.includes(r.path);
-            const dirty = r.staged + r.unstaged + r.untracked;
             const level = activityLevel(r.lastCommit?.at);
             const prs = prCounts[r.path];
             return (
@@ -320,17 +403,7 @@ export default function DashboardPage() {
                   {prs !== null && prs !== undefined && prs > 0 && (
                     <span className="dash-pill pr" title={t('Open pull requests')}>PR {prs}</span>
                   )}
-                  {(() => {
-                    // Parity with pr-helper-git: repos dormant for 90+ days get
-                    // a visible stale badge so abandoned work stands out.
-                    const at = r.lastCommit?.at ? Date.parse(r.lastCommit.at) : 0;
-                    const days = at ? Math.floor((Date.now() - at) / 86_400_000) : null;
-                    return days !== null && days > 90 ? (
-                      <span className="dash-pill stale" title={t('No commits in {n} days').replace('{n}', String(days))}>
-                        {t('stale')} · {days}d
-                      </span>
-                    ) : null;
-                  })()}
+                  {staleBadge(r)}
                   <span className="spacer" />
                   <button
                     type="button"
@@ -353,15 +426,8 @@ export default function DashboardPage() {
                       ) : (
                         <span className="ref-badge branch"><IconBranch width={11} height={11} /> detached</span>
                       )}
-                      {r.unmerged > 0 && <span className="dash-pill conflict">{tp('{count} conflicts', { count: r.unmerged })}</span>}
-                      {r.staged > 0 && <span className="dash-pill dirty">{r.staged}■</span>}
-                      {r.unstaged > 0 && <span className="dash-pill modified">{r.unstaged}▲</span>}
-                      {r.untracked > 0 && <span className="dash-pill untracked">{r.untracked}?</span>}
-                      {r.ahead > 0 && <span className="dash-pill ahead">↑{r.ahead}</span>}
-                      {r.behind > 0 && <span className="dash-pill behind">↓{r.behind}</span>}
-                      {dirty === 0 && r.ahead === 0 && r.behind === 0 && r.unmerged === 0 && (
-                        <span className="repo-panel-clean">{t('clean')}</span>
-                      )}
+                      {statusPills(r)}
+                      {isClean(r) && <span className="repo-panel-clean">{t('clean')}</span>}
                     </>
                   )}
                 </div>
@@ -370,9 +436,80 @@ export default function DashboardPage() {
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      ) : (
+        <div className="dash-list">
+          <div className="dash-list-head">
+            <span>{t('Repository')}</span>
+            <span>{t('Owner')}</span>
+            <span>{t('Branch')}</span>
+            <span>{t('Status')}</span>
+            <span>{t('Last commit')}</span>
+            <span aria-hidden="true" />
+          </div>
+          {sorted.map((r) => {
+            const isActive = r.path === activeRepo;
+            const isPinned = pinned.includes(r.path);
+            const prs = prCounts[r.path];
+            return (
+              <div
+                key={r.path}
+                className={`dash-row${isActive ? ' is-active' : ''}${r.unmerged > 0 ? ' has-conflict' : ''}`}
+                onClick={() => selectRepo(r.path)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, repo: r });
+                }}
+              >
+                <span className="dash-row-repo">
+                  <button
+                    type="button"
+                    className={`repo-pin${isPinned ? ' is-pinned' : ''}`}
+                    title={isPinned ? t('Unpin') : t('Pin to top')}
+                    aria-pressed={isPinned}
+                    onClick={(e) => { e.stopPropagation(); togglePin(r.path); }}
+                  >
+                    <IconPin width={12} height={12} />
+                  </button>
+                  <span className="dash-row-name" title={r.path}>{r.name}</span>
+                  {isActive && <span className="repo-panel-active">{t('active')}</span>}
+                </span>
+                <span className="dash-row-path" title={r.path}>{ownerLabel(r)}</span>
+                <span className="dash-row-branch">
+                  {r.error ? (
+                    <span className="repo-panel-err" title={r.error}>{t('unavailable')}</span>
+                  ) : r.branch ? (
+                    <span className="ref-badge branch"><IconBranch width={11} height={11} /> {r.branch}</span>
+                  ) : (
+                    <span className="ref-badge branch"><IconBranch width={11} height={11} /> detached</span>
+                  )}
+                </span>
+                <span className="dash-row-status">
+                  {!r.error && statusPills(r)}
+                  {!r.error && isClean(r) && <span className="repo-panel-clean">{t('clean')}</span>}
+                  {prs !== null && prs !== undefined && prs > 0 && (
+                    <span className="dash-pill pr" title={t('Open pull requests')}>PR {prs}</span>
+                  )}
+                  {staleBadge(r)}
+                </span>
+                <span className="dash-row-commit" title={r.lastCommit?.subject || ''}>
+                  {r.lastCommit ? `${relativeAge(r.lastCommit.at)} · ${r.lastCommit.subject}` : t('No commits yet.')}
+                </span>
+                <button
+                  type="button"
+                  className="icon-btn dash-remove"
+                  title={t('Remove from list')}
+                  aria-label={`${t('Remove from list')}: ${r.name}`}
+                  onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
+                >
+                  <IconTrash width={13} height={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {menu && (
         <ContextMenu

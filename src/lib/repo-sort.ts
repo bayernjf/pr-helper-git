@@ -51,6 +51,11 @@ export function relativeAge(at: string | null | undefined, now: number = Date.no
 
 type Sortable = { path: string; name: string; staged: number; unstaged: number; untracked: number };
 
+/** Files with uncommitted changes: staged + modified + untracked. */
+export function wipCount(repo: { staged: number; unstaged: number; untracked: number }): number {
+  return repo.staged + repo.unstaged + repo.untracked;
+}
+
 /**
  * Pinned repositories first, then the ones with work in progress, then by name.
  * Ordering is stable within each group; the caller's array is not mutated.
