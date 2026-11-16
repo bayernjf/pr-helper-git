@@ -190,7 +190,7 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 **Phase 3.5 关闭条件**：P3-10/P3-11 必须 ✅；P3-12…P3-16 每项要么 ✅，要么有用户明确的
 “本期不做”裁决并写入 §12；验收清单不再存在 🚫 类功能缺口。
 
-**阶段状态：✅ 关闭（2026-11-15）**。P3-10/P3-11 ✅；P3-12/P3-13/P3-14/P3-16 ✅；P3-15 按用户裁决 ⏸（不计完成）；P3-9 验收统计 ✅33 / 🔶0 / 🔀1 / ⬜0，除 #1 认证形态替代外无开放式失败项。
+**阶段状态：✅ 关闭（2026-11-15）**。P3-10/P3-11 ✅；P3-12/P3-13/P3-14/P3-16 ✅；P3-15 ✅（团队 UI 11-15 收口，原暂缓裁决已被后续实现覆盖）；P3-9 验收统计 ✅33 / 🔶0 / 🔀1 / ⬜0，除 #1 认证形态替代外无开放式失败项。
 
 ### Phase 4 — 通知、pr-helper 归档、AGENTS 修订（1–2 天）
 
@@ -203,14 +203,15 @@ Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程�
 
 ### Phase 5 — 影子并行 → 切换 → 下线（1 天工作 + 1–2 周日历）
 
-> **状态冻结（2026-11-14，D-002-v2 复审）**：Phase 3.5 功能缺口未关闭前，P5-2 切换与
-> P5-3 下线不得开始；影子期可继续积累比对材料，但不能据此宣布迁移完成。
+> **状态（2026-11-16 复核）**：Phase 3.5 已关闭；P5-2/P5-3 仍未开始——P5-1 需继续积累
+> 连续 5–7 天一致记录，且 D-016 要求每个切换/下线动作逐项审批。影子期可继续积累
+> 比对材料，但不能据此宣布迁移完成。
 
 | # | 任务 | 验收标准 | 状态 |
 |---|---|---|---|
-| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑）；**Phase 3.5 关闭后方可判定切换** | 🔶 **影子期运行中但切换冻结**（11-14 16:24）：launchd 常驻（port 4789，automation=1，shadow=1，KeepAlive）+ 凭据就绪（D-006-v3 PAT fallback，readWarnings 清零）+ 影子日志首行落盘（queue q=0/r=0/p=0，tracked=14）；D-018 同步已跑通（11-15）：22 张核心表有序分页读取 + 单事务重建，本地镜像 14 workflows / 14 stages / 3,359 events / 3,647 automation runs + actions / 8,372 audit，服务重启后 trackedWorkflows=14；逐日比对按 docs/phase5-runbook.md |
-| P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次；Phase 3.5 已关闭 | ⬜ 切换日清单见 runbook（含回滚预案）；全部为用户操作 |
-| P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ 清单见 runbook（冷备导出→Pause/Delete）；切换稳定 1 周后 |
+| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑）；**Phase 3.5 关闭后方可判定切换** | 🔶 **影子期运行中**（11-14 16:24 启动；11-16 复核服务仍运行，最近同步 11-15 16:04，待当日 sync/比对）：launchd 常驻（port 4789，automation=1，shadow=1，KeepAlive）+ 凭据就绪（D-006-v3 PAT fallback，readWarnings 清零）+ 影子日志首行落盘（queue q=0/r=0/p=0，tracked=14）；D-018 同步已跑通（11-15）：22 张核心表有序分页读取 + 单事务重建，本地镜像 14 workflows / 14 stages / 3,359 events / 3,647 automation runs + actions / 8,372 audit，服务重启后 trackedWorkflows=14；逐日比对按 docs/phase5-runbook.md |
+| P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次；Phase 3.5 已关闭 | ⬜ 未开始；切换日清单见 runbook（含回滚预案），需 P5-1 判定 + D-016 逐动作审批；全部为用户操作 |
+| P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ 未开始；清单见 runbook（冷备导出→Pause/Delete），需 P5-2 稳定 1 周 + D-016 逐动作审批 |
 
 ---
 
@@ -620,3 +621,4 @@ JSON-RPC 真接线，生产回滚仍升级）；账户删除（原版对团队�
 | 2026-11-15 | **PR 写操作终验（Close/Reopen/Merge 真实通过；Approve/Request-changes 确认 GitHub 平台边界）**：在 `bayernjf/git-e2e-test`（TEST-REPOS.md 已登记）走产品真实路径——`/api/github` 代理（`POST /repos/{o}/{r}/pulls`、`PATCH /pulls/{n}` state、`POST /pulls/{n}/reviews`）+ `/api/merge-pull` 路由（GraphQL squash merge）——建 PR #12 后**真实执行 Close→Reopen→Merge 全成功**，PR 合并、`main` 前进、本地 reset 回 `da284ca`、临时分支/PR 清理。**关键边界发现**：Approve（event=APPROVE）与 Request-changes（event=REQUEST_CHANGES）对自己 PR 被 GitHub 硬性拒绝 422（"Cannot approve/request changes on your own pull request"）——这是 GitHub 平台约束、非产品缺陷；产品正确透传了 GitHub 的 422 错误与 message（`/api/github` 代理把上游 error 原样返回），UI 的 `submitReview` 已对 REQUEST_CHANGES 缺 body 做前置校验、对 APPROVE/COMMENT 无额外门槛。COMMENT review 对自己 PR 走通（200/COMMENTED）。**验收口径**：单账号环境下 approve/request-changes 无法真实验证，接受“产品正确透传 GitHub 422 错误 + COMMENT 走通 + Close/Reopen/Merge 全成功”作为 PR 写操作验收；需多账号才能做 approve/request-changes 的端到端真实通过，不阻塞迁移 | 用户授权“只要是测试仓，你都可以用”；闭合“PR Merge/Close/Approve/Request changes”终验项 | 用户 |
 | 2026-11-15 | **D-020 GitHub Device Flow 身份连接**：用户裁决采用 Device Flow（不做授权码回调，现有 App 也缺 client secret）；user token 只用于身份展示与 App 安装/仓库发现，本地 token 仍是唯一认证边界，GitHub 写操作保持 PAT/引擎凭据；token 存 `config.github.oauth`（0600），永不回传浏览器；`github.com` 两个 OAuth 端点经系统代理（HTTPS_PROXY 优先，macOS 回退 `scutil --proxy`）。实现 `server/github-oauth.mjs` + `server/github-http.mjs` + SettingsModal「GitHub account」区块；`/api/pat` 改为合并 `config.github`，避免覆盖 oauth。**实网待办**：用户在 GitHub App 设置启用 Device Flow 后走查 | 用户“GitHub App OAuth 登录 这个搞下”；实测 `device_flow_disabled` | 用户 |
 | 2026-11-15 | **D-021 A2A / Agent Card 真接线**：公开卡片 `GET /api/a2a/agent-card`（别名 `/.well-known/agent-card.json`、`agent.json`）+ JSON-RPC `POST`（tasks/send、sendSubscribe、get、cancel）；bearer fail-closed（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`，或 Settings 生成、仅存 SHA-256 哈希的 token，env 优先），匿名逃生门仅 loopback；默认 plan，execute 经引擎 enqueue create-pr/merge-pr、直调 rerun-actions、只读 deployment-health、production-rollback 永远升级；任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。实现 `server/a2a.mjs` + `server/flows.mjs` `engineContext()` + SettingsModal「A2A / Agent Card」区块（含 token 生成/撤销）+ 7 条 E2E | 用户“A2A / Agent Card 这个搞下” | 用户 |
+| 2026-11-16 | **文档状态对齐**：Phase 3.5 已关闭，P3-15 团队 UI 已收口（原暂缓裁决已被后续实现覆盖）；Phase 5 更新为 P5-1 影子期运行中、P5-2/P5-3 未开始且受 D-016 逐项审批约束；本轮无代码变更 | 用户“更新项目文档”；消除 handoff/迁移台账 P3-15 与 Phase 5 状态漂移 | 用户 |

@@ -400,7 +400,7 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.3.1**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 当前最新：**v0.3.2**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
   校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
@@ -420,6 +420,13 @@ npm start        # prints a one-time token URL, e.g. http://127.0.0.1:4789/?toke
 ```
 
 Use **+ Add repository…** in the toolbar to register a local Git folder.
+
+The macOS app and the browser UI are two entry points to the **same** backend and
+share one data directory (`~/.pr-helper-git`) and one automation database, so a
+setting changed in one is immediately visible in the other. Open the app, or
+visit the running server's `/?token=…` bootstrap URL once to set the HttpOnly
+cookie; do not start a second server on `:4789` while the desktop app or the
+launchd service is running.
 
 Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
