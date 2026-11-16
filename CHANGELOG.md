@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [Unreleased]
+
+### 新增
+- **Dashboard 卡片 / 列表视图切换**：工具栏新增视图切换（选择持久化）。列表视图按仓库逐行显示 Repository / Owner / Branch / Status / Last commit，GitKraken 风格；右键菜单、置顶、移除与 30 秒状态刷新在两种视图下一致。
+- **统一的仓库状态徽章**：铅笔图标 + 未提交文件总数（tooltip 拆分已暂存 / 已修改 / 未跟踪）、↑ 本地未推送提交数、↓ 远端未拉取提交数、冲突数与开启 PR 数；卡片与列表共用同一套状态渲染。
+
 ## [0.3.2] - 2026-11-15
 
 ### 新增

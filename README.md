@@ -14,12 +14,14 @@ application never pushes it for you.
 
 ### Dashboard (full page)
 
-- **Third top-level view** (`Dashboard | Git | Pull Requests`): card grid of every registered repository
-  with branch chip, staged/unstaged/untracked pills, ↑ahead ↓behind, **open-PR count** (GitHub-hosted repos),
-  last-commit line and freshness bar; conflicted repos sort first, pinned next, then a persisted sort order
-  (name / recent / change count)
-- Right-click card menu: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove from list
-  (`POST /api/repos/open-external`, audited, registered repos only)
+- **Third top-level view** (`Dashboard | Git | Pull Requests`): every registered repository as a
+  **card grid or a GitKraken-style list** (toggle persisted) with repository / owner / branch /
+  status / last-commit columns. Status badges use pencil + **WIP total** (staged / modified /
+  untracked split in the tooltip), **↑ ahead** (local commits not pushed), **↓ behind** (remote
+  commits not pulled), conflicts and **open-PR count** (GitHub-hosted repos); conflicted repos
+  sort first, pinned next, then a persisted sort order (name / recent / change count)
+- Right-click a card or row: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove
+  from list (`POST /api/repos/open-external`, audited, registered repos only)
 - **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
   30-second status auto-refresh
 
