@@ -25,6 +25,31 @@ application never pushes it for you.
 - **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
   30-second status auto-refresh
 
+### Release control tower (Flows, migrated from pr-helper)
+
+- **Fourth top-level view** (`Flows`): lane board across repositories with six
+  filters (needs attention / running / active / failed / automation blocked /
+  archived), aggregate counters, search, custom/name/created sort with lane
+  up/down ordering, and a failure center aggregating check failures, approvals,
+  post-merge deployment failures and blocked automation
+- **Flow detail + step drawer**: progress bar (unbroken-prefix semantics),
+  per-stage projected status with gates, event timeline, and operations —
+  create PR / merge PR / rerun Actions / AI takeover (with title+body form)
+  through the engine's write routes
+- **Flow editor**: create and edit flows (name, step routes, auto-create
+  threshold + auto-merge + auto-advance toggles with immediate-effect
+  confirmation, recovery policy), plus the **AI automation credential** card
+  (base URL / model / key, server-side encrypted)
+- **AI message drafting**: auto-created PR messages draft from the configured
+  AI credential and generation rules (migrated `pr_helper_generation_rules`
+  library, selectable when enabling auto-create)
+- **Failure notifications**: actionable automation failures (paused / failed
+  actions) push **macOS local notifications**; an optional Feishu webhook
+  activates with `PR_HELPER_GIT_FEISHU_WEBHOOK`
+- **Auto-advance persists**: the legacy pr-helper schema never stored the
+  auto-advance flag (local migration 048 fixes it — a capability the cloud
+  never had)
+
 ### Git client (GitKraken-like core)
 
 - **CI status dots on the commit graph** for open-PR head commits (check runs + statuses rolled up:
@@ -402,7 +427,7 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.3.2**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 当前最新：**v0.3.4**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
   校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
@@ -429,6 +454,16 @@ setting changed in one is immediately visible in the other. Open the app, or
 visit the running server's `/?token=…` bootstrap URL once to set the HttpOnly
 cookie; do not start a second server on `:4789` while the desktop app or the
 launchd service is running.
+
+## Migration shadow period (pr-helper → local)
+
+The automation engine runs locally in **shadow mode** while the cloud
+pr-helper stays the executor: launchd/ keeps a resident server on :4789
+(automation=1, shadow=1, KeepAlive), observations accumulate in
+~/.pr-helper-git/automation-shadow.log, and the daily cloud→local mirror is
+npm run sync:shadow (read-only against Supabase via the owner readonly
+role). Details and the switch-day checklist live in
+[docs/phase5-runbook.md](docs/phase5-runbook.md).
 
 Temporary repositories used for end-to-end testing are registered in
 [test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
