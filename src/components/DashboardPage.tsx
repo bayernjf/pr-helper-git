@@ -216,8 +216,8 @@ export default function DashboardPage() {
     } finally {
       setFetchingAll(false);
     }
-    if (failed === 0) toast(t(`Fetched ${repos.length} repositories`), 'success');
-    else toast(`Fetched ${repos.length - failed}, ${failed} failed`, 'error');
+    if (failed === 0) toast(tp('{count} repositories fetched', { count: repos.length }), 'success');
+    else toast(tp('{ok} fetched, {failed} failed', { ok: repos.length - failed, failed }), 'error');
   }
 
   const cardMenu = (repo: RepoBrief): MenuItem[] => [
@@ -390,8 +390,12 @@ export default function DashboardPage() {
             return (
               <div
                 key={r.path}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isActive}
                 className={`dash-card${isActive ? ' is-active' : ''}${r.unmerged > 0 ? ' has-conflict' : ''}`}
                 onClick={() => selectRepo(r.path)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRepo(r.path); } }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setMenu({ x: e.clientX, y: e.clientY, repo: r });
@@ -465,8 +469,12 @@ export default function DashboardPage() {
             return (
               <div
                 key={r.path}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isActive}
                 className={`dash-row${isActive ? ' is-active' : ''}${r.unmerged > 0 ? ' has-conflict' : ''}`}
                 onClick={() => selectRepo(r.path)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRepo(r.path); } }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setMenu({ x: e.clientX, y: e.clientY, repo: r });

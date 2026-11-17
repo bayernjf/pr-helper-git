@@ -32,7 +32,7 @@ import StashModal from './StashModal';
 import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 import { useConfirm } from './ui';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import {
   IconAudit,
   IconChevronDown,
@@ -171,9 +171,9 @@ export default function Toolbar() {
     else if (id === 'push-lease' || id === 'push-force') {
       const mode: ForcePushMode = id === 'push-lease' ? 'force-with-lease' : 'force';
       const ok = await confirm(
-        `Force push (${mode})?`,
+        tp('Force push ({mode})?', { mode }),
         mode === 'force'
-          ? 'This overwrites the remote ref and can discard others\' commits. Prefer force-with-lease.'
+          ? t('This overwrites the remote ref and can discard other commits. Prefer force-with-lease.')
           : 'This updates the remote only if nobody else pushed in the meantime.',
       );
       if (ok) await runAction(pushRepo(activeRepo, false, mode, true), 'Force pushed');
@@ -294,21 +294,21 @@ export default function Toolbar() {
           className={view === 'dashboard' ? 'active' : ''}
           onClick={() => setView('dashboard')}
         >
-          Dashboard
+          {t('Dashboard')}
         </button>
         <button
           type="button"
           className={view === 'git' ? 'active' : ''}
           onClick={() => setView('git')}
         >
-          Git
+          {t('Git')}
         </button>
         <button
           type="button"
           className={view === 'pr' ? 'active' : ''}
           onClick={() => setView('pr')}
         >
-          Pull Requests
+          {t('Pull Requests')}
         </button>
         <button
           type="button"

@@ -4,7 +4,8 @@
 // runs, health, failure summary, retry and confirmed rollback). Operations
 // ride the write routes landed in server/flows.mjs and fail loudly until P2-1
 // provides the credentials.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEscape } from '../hooks/use-escape';
 import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
 import { stageStateText } from '../lib/automation/flows-detail';
@@ -89,6 +90,14 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
 }) {
   const toast = useToast();
   const confirm = useConfirm();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  useEscape(onClose);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    drawerRef.current?.focus();
+    return () => previousFocus.current?.focus();
+  }, []);
   const [busy, setBusy] = useState<string>('');
   const [error, setError] = useState('');
   const [takeoverFor, setTakeoverFor] = useState<number | null>(null);
@@ -251,6 +260,8 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   return (
     <div className="drawer-backdrop" onClick={onClose} role="presentation">
       <aside
+        ref={drawerRef}
+        tabIndex={-1}
         className="step-drawer"
         role="dialog"
         aria-modal="true"

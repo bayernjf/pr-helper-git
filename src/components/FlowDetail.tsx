@@ -13,7 +13,7 @@ import {
 import { workflowSummary } from '../lib/automation/workflow';
 import { githubPullUrl } from '../lib/domain';
 import type { BoardState } from '../lib/automation/flows-board';
-import { t, tp } from '../i18n';
+import { getLocale, t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
 import PullReference from './PullReference';
 
@@ -21,7 +21,7 @@ import PullReference from './PullReference';
 function formatEventTime(occurredAt: string): string {
   const date = new Date(occurredAt);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat(getLocale() === 'zh' ? 'zh-CN' : 'en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 function AutomationChip({ label, enabled }: { label: string; enabled: boolean }) {

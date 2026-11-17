@@ -369,7 +369,8 @@ const server = http.createServer(async (req, res) => {
       });
       return res.end('not found');
     }
-    return sendJson(res, 500, { error: 'internal error', detail: String(err.message || err) });
+    console.error(`internal error on ${req.method} ${pathname}:`, err);
+    return sendJson(res, 500, { error: 'internal error' });
   }
 });
 
@@ -404,7 +405,11 @@ if (process.env.PR_HELPER_GIT_AUTOMATION === '1') startAutomation();
 server.listen(PORT, HOST, async () => {
   const address = server.address();
   const bound = typeof address === 'object' && address ? address.port : PORT;
-  reconcileWatching(await listRepos());
+  try {
+    reconcileWatching(await listRepos());
+  } catch (err) {
+    console.error('watch setup failed:', err.message);
+  }
   if (isDesktop) {
     // Machine-readable one-line readiness signal for a desktop shell so it
     // can learn the ephemeral port and token without parsing prose.

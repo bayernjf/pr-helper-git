@@ -12,6 +12,8 @@ import { currentActor } from './actor.mjs';
 const LEGACY_DIRNAME = '.pr-helper-git2';
 const CURRENT_DIRNAME = '.pr-helper-git';
 
+let corruptConfig = false;
+
 function resolveConfigDir() {
   if (process.env.PR_HELPER_HOME) return path.resolve(process.env.PR_HELPER_HOME);
   return path.join(os.homedir(), CURRENT_DIRNAME);
@@ -105,10 +107,15 @@ export async function loadConfig() {
     };
   } catch (err) {
     // Never silently replace a corrupt config with an empty one: move it aside
-    // first so the user can recover PAT/AI/user data by hand.
+    // first so the user can recover PAT/AI/user data by hand. Fail closed —
+    // reads return an empty view, but every write is refused until the file is
+    // restored by hand (otherwise the next save would persist the empty view
+    // and silently drop all repos/users).
+    corruptConfig = true;
     const backup = `${CONFIG_FILE}.corrupt-${Date.now()}`;
     await fsp.rename(CONFIG_FILE, backup).catch(() => {});
     console.error(`config parse failed; moved to ${backup}: ${err.message}`);
+    console.error(`config is corrupt: writes are refused until ${backup} is restored as ${CONFIG_FILE}`);
     return { repos: [], users: [] };
   }
 }
@@ -120,6 +127,7 @@ export async function loadConfig() {
  * @returns {Promise<any>}
  */
 export async function updateConfig(mutator) {
+  if (corruptConfig) throw new Error('config.json is corrupt — restore it from the .corrupt-* backup before writing');
   return serializeWrite(async () => {
     const config = await loadConfig();
     const outcome = await mutator(config);
@@ -188,12 +196,17 @@ export async function appendAudit(entry) {
     ...(actor ? { user: actor.name, role: actor.role } : {}),
     ...entry,
   })}\n`;
+  // Serialized on the config write chain so concurrent appends cannot
+  // interleave half-lines or double-rotate — and awaited so callers (and
+  // tests) observe the file after the write+rotate completes.
   try {
-    await ensureConfigDir();
-    await fsp.appendFile(AUDIT_FILE, line, { mode: 0o600 });
-    await fsp.chmod(AUDIT_FILE, 0o600).catch(() => {});
-    const stat = await fsp.stat(AUDIT_FILE);
-    if (stat.size > AUDIT_ROTATE_BYTES) await rotateAudit();
+    await serializeWrite(async () => {
+      await ensureConfigDir();
+      await fsp.appendFile(AUDIT_FILE, line, { mode: 0o600 });
+      await fsp.chmod(AUDIT_FILE, 0o600).catch(() => {});
+      const stat = await fsp.stat(AUDIT_FILE);
+      if (stat.size > AUDIT_ROTATE_BYTES) await rotateAudit();
+    });
   } catch (err) {
     // Audit failure must not crash the request; surface it on stderr.
     console.error(`audit write failed: ${err.message}`);

@@ -163,6 +163,7 @@ export function Dropdown({
           role="listbox"
           ref={menuRef}
           tabIndex={-1}
+          aria-activedescendant={`${reactId}-opt-${active}`}
           style={{
             position: 'fixed',
             left: placement.left,

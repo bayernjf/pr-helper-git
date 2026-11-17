@@ -159,12 +159,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLogScopeState('all');
     setLogPathState('');
     setLogFiltersState({});
+    const seq = loadSeqRef.current;
     setRepoLoading(true);
     loadRepoData(repoPath, LOG_PAGE_SIZE, 'all', '')
       .catch((err) => {
         toastApi.error(errorMessage(err) || 'failed to load repository');
       })
-      .finally(() => setRepoLoading(false));
+      .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [loadRepoData, toastApi]);
 
   const refresh = useCallback(async () => {
@@ -285,12 +286,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const setLogScope = useCallback((scope: 'all' | 'current') => {
     setLogScopeState(scope);
     if (!activeRepo) return;
+    const seq = loadSeqRef.current;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, scope, logPath, logFilters)
       .catch((err) => {
         toastApi.error(errorMessage(err) || 'failed to change history scope');
       })
-      .finally(() => setRepoLoading(false));
+      .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [activeRepo, loadRepoData, logLimit, logPath, logFilters, toastApi]);
 
   const setLogPath = useCallback((pathFilter: string) => {
@@ -299,12 +301,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (pathFilter === logPath) return;
     setLogPathState(pathFilter);
     if (!activeRepo) return;
+    const seq = loadSeqRef.current;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, pathFilter, logFilters)
       .catch((err) => {
         toastApi.error(errorMessage(err) || 'failed to apply path filter');
       })
-      .finally(() => setRepoLoading(false));
+      .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters, toastApi]);
 
   // Apply server-side history filters. Empty fields are dropped so an empty
@@ -317,12 +320,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
     setLogFiltersState(next);
     if (!activeRepo) return;
+    const seq = loadSeqRef.current;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, logPath, next)
       .catch((err) => {
         toastApi.error(errorMessage(err) || 'failed to apply history filters');
       })
-      .finally(() => setRepoLoading(false));
+      .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [activeRepo, loadRepoData, logLimit, logScope, logPath, toastApi]);
 
   // Run a write action, then refresh all data. Errors are surfaced as toasts.

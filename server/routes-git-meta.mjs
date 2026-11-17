@@ -310,11 +310,19 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
     const glob = globParam ? normalizeGrepGlob(globParam) : null;
     if (globParam && !glob) return fail(400, 'invalid glob filter');
     const GLOBAL_MATCH_CAP = 500;
+    // Wall-clock budget for the whole sweep: N repositories x the per-git
+    // timeout could otherwise hang the request for many minutes.
+    const SWEEP_DEADLINE_MS = 30_000;
+    const deadline = Date.now() + SWEEP_DEADLINE_MS;
     const registered = await listRepos();
     const results = [];
     let budget = GLOBAL_MATCH_CAP;
     let truncated = false;
     for (const repo of registered) {
+      if (Date.now() > deadline) {
+        truncated = true;
+        break;
+      }
       let matches;
       try {
         const raw = await git(grepArgv(pattern, { ignoreCase, paths: glob ? [glob] : [] }), repo);
