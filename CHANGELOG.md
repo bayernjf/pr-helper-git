@@ -2,6 +2,11 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.6] - 2026-11-17
+
+### 修复
+- **桌面更新过程不可见**：更新下载现在显示百分比、已下载/总大小和 SHA-256 校验状态；下载校验完成后弹出 `Install & Restart` 确认，不再静默替换。
+
 ## [0.3.5] - 2026-11-17
 
 ### 变更
