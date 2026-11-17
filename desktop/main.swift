@@ -17,7 +17,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
-    private let updateManager = UpdateManager()
+    private var checkUpdatesItem: NSMenuItem?
+    private lazy var updateManager: UpdateManager = {
+        let manager = UpdateManager()
+        manager.onMenuStateChange = { [weak self] state in
+            DispatchQueue.main.async {
+                self?.applyUpdateMenuState(state)
+            }
+        }
+        return manager
+    }()
 
     // MARK: Lifecycle
 
@@ -224,13 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         )
         checkUpdates.target = self
         appMenu.addItem(checkUpdates)
-        let showUpdateProgress = NSMenuItem(
-            title: "Show Update Progress",
-            action: #selector(showUpdateProgress),
-            keyEquivalent: "",
-        )
-        showUpdateProgress.target = self
-        appMenu.addItem(showUpdateProgress)
+        checkUpdatesItem = checkUpdates
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Hide \(appName)",
@@ -316,11 +319,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     // checksums rather than a Developer ID signature, so no certificate or
     // notarization is required.
     @objc private func checkForUpdates() {
-        updateManager.check(from: window)
+        updateManager.checkOrShowProgress(from: window)
     }
 
-    @objc private func showUpdateProgress() {
-        updateManager.showProgressWindow()
+    private func applyUpdateMenuState(_ state: UpdateManager.MenuState) {
+        guard let item = checkUpdatesItem else { return }
+        switch state {
+        case .idle:
+            item.title = "Check for Updates…"
+            item.isEnabled = true
+        case .checking:
+            item.title = "Checking for Updates…"
+            item.isEnabled = false
+        case .downloading(let version, let fraction):
+            let clamped = min(max(fraction, 0), 1)
+            let percent = Int((clamped * 100).rounded())
+            item.title = "Downloading \(version) \(progressBar(clamped)) \(percent)%"
+            item.isEnabled = true
+        case .ready(let version):
+            item.title = "Update ready — v\(version)"
+            item.isEnabled = true
+        case .failed:
+            item.title = "Update failed — Show Details"
+            item.isEnabled = true
+        }
+    }
+
+    private func progressBar(_ fraction: Double) -> String {
+        let slots = 8
+        let filled = min(max(Int((fraction * Double(slots)).rounded()), 0), slots)
+        return "[" + String(repeating: "█", count: filled)
+            + String(repeating: "░", count: slots - filled) + "]"
     }
 
     @objc private func chooseRepository() {
