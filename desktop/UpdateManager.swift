@@ -11,7 +11,7 @@ import Foundation
 import AppKit
 import CommonCrypto
 
-struct UpdateManager {
+final class UpdateManager {
     let repo = "bayernjf/pr-helper-git"
     let appName = "PR Helper Git"
     let currentVersion: String
@@ -35,6 +35,18 @@ struct UpdateManager {
         var description: String { message }
     }
 
+    // MARK: Update progress state
+
+    private var progressAlert: NSAlert?
+    private var progressIndicator: NSProgressIndicator?
+    private var progressStatus: NSTextField?
+    private var progressDetail: NSTextField?
+    private var activeDownloadTask: URLSessionDownloadTask?
+    private var activeDownloadSession: URLSession?
+    private var activeDownloadDelegate: DownloadDelegate?
+    private var activeTemporaryDirectory: URL?
+    private var isCancelling = false
+
     // MARK: Public entry
 
     func check(from window: NSWindow) {
@@ -45,7 +57,7 @@ struct UpdateManager {
                     self.alert(title: "Update check failed", message: error.description)
                 case .success(let release):
                     if isVersionNewer(release.version, than: self.currentVersion) {
-                        self.promptUpdate(release)
+                        self.promptUpdate(release, from: window)
                     } else {
                         self.alert(
                             title: "You're up to date",
@@ -119,7 +131,7 @@ struct UpdateManager {
                 completion(.failure(UpdateError(message: "The GitHub Release has no downloadable assets.")))
                 return
             }
-            let dmgName = "\(appName)-\(version)-macos.dmg"
+            let dmgName = "\(self.appName)-\(version)-macos.dmg"
             guard let dmg = assets.first(where: { ($0["name"] as? String).map(githubSanitized) == githubSanitized(dmgName) }),
                   let dmgURLString = dmg["browser_download_url"] as? String,
                   let dmgURL = URL(string: dmgURLString) else {
@@ -139,18 +151,18 @@ struct UpdateManager {
 
     // MARK: Update flow
 
-    private func promptUpdate(_ release: Release) {
+    private func promptUpdate(_ release: Release, from window: NSWindow) {
         let alert = NSAlert()
         alert.messageText = "A new version is available"
-        alert.informativeText = "\(release.tag) is available. You are running \(currentVersion).\n\nDownload and install it now?"
-        alert.addButton(withTitle: "Download & Install")
+        alert.informativeText = "\(release.tag) is available. You are running \(currentVersion).\n\nDownload it now? You can review progress and confirm installation after the download finishes."
+        alert.addButton(withTitle: "Download")
         alert.addButton(withTitle: "Later")
         if alert.runModal() == .alertFirstButtonReturn {
-            downloadAndInstall(release)
+            downloadAndInstall(release, from: window)
         }
     }
 
-    private func downloadAndInstall(_ release: Release) {
+    private func downloadAndInstall(_ release: Release, from window: NSWindow) {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("pr-helper-git-update-\(UUID().uuidString)")
         do {
@@ -162,45 +174,170 @@ struct UpdateManager {
         let dmgPath = tmp.appendingPathComponent("\(appName)-\(release.version)-macos.dmg")
         let sumsPath = tmp.appendingPathComponent("SHA256SUMS")
 
+        isCancelling = false
+        activeTemporaryDirectory = tmp
+        showProgressAlert(for: release, in: window)
+        updateStatus("Connecting to GitHub Releases…", detail: "Preparing download")
+
         // Download both files, then verify, then hand off to the helper script.
-        download(url: release.dmgURL, to: dmgPath) { dmgError in
-            if let dmgError = dmgError {
-                self.alert(title: "Update failed", message: dmgError)
+        download(url: release.dmgURL, to: dmgPath, progress: { [weak self] fraction, written, expected in
+            self?.updateProgress(fraction: fraction, written: written, expected: expected)
+        }) { [self] dmgResult in
+            guard !isCancelling else { return }
+            if case .failure(let error) = dmgResult {
+                fail(message: error.localizedDescription)
                 return
             }
-            self.download(url: release.checksumsURL, to: sumsPath) { sumsError in
-                if let sumsError = sumsError {
-                    self.alert(title: "Update failed", message: sumsError)
+            updateStatus("Download complete — verifying checksum…", detail: "Checking SHA-256")
+            download(url: release.checksumsURL, to: sumsPath, progress: nil) { [self] sumsResult in
+                guard !isCancelling else { return }
+                if case .failure(let error) = sumsResult {
+                    fail(message: error.localizedDescription)
                     return
                 }
-                self.verifyAndInstall(release: release, dmgPath: dmgPath, sumsPath: sumsPath, tmp: tmp)
+                verifyAndInstall(release: release, dmgPath: dmgPath, sumsPath: sumsPath, tmp: tmp)
             }
         }
     }
 
-    private func download(url: URL, to destination: URL, completion: @escaping (String?) -> Void) {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 120
-        URLSession.shared.downloadTask(with: request) { tempURL, _, error in
-            // URLSession callbacks arrive off the main thread; bounce back so
-            // every downstream UI action (NSAlert, NSApp.terminate) is safe.
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion("Download failed: \(error.localizedDescription)")
-                    return
-                }
-                guard let tempURL = tempURL else {
-                    completion("Download failed: no data received.")
-                    return
-                }
-                do {
-                    try FileManager.default.moveItem(at: tempURL, to: destination)
-                    completion(nil)
-                } catch {
-                    completion("Could not save the download: \(error.localizedDescription)")
-                }
+    private func showProgressAlert(for release: Release, in window: NSWindow) {
+        let alert = NSAlert()
+        alert.messageText = "Downloading \(release.tag)"
+        alert.informativeText = "The update is downloading in the background. You can keep working."
+        alert.addButton(withTitle: "Cancel")
+
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 66))
+
+        let status = NSTextField(labelWithString: "Preparing download…")
+        status.frame = NSRect(x: 0, y: 44, width: 360, height: 18)
+        status.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
+        status.textColor = .labelColor
+        status.lineBreakMode = .byTruncatingTail
+
+        let progress = NSProgressIndicator(frame: NSRect(x: 0, y: 24, width: 360, height: 14))
+        progress.isIndeterminate = false
+        progress.minValue = 0
+        progress.maxValue = 1
+        progress.doubleValue = 0
+        progress.controlSize = .small
+
+        let detail = NSTextField(labelWithString: "Connecting…")
+        detail.frame = NSRect(x: 0, y: 0, width: 360, height: 16)
+        detail.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        detail.textColor = .secondaryLabelColor
+        detail.lineBreakMode = .byTruncatingTail
+
+        accessory.addSubview(status)
+        accessory.addSubview(progress)
+        accessory.addSubview(detail)
+        alert.accessoryView = accessory
+
+        progressAlert = alert
+        progressIndicator = progress
+        progressStatus = status
+        progressDetail = detail
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, self.progressAlert === alert else { return }
+            if response == .alertFirstButtonReturn {
+                self.cancelDownload()
             }
-        }.resume()
+        }
+    }
+
+    private func updateProgress(fraction: Double, written: Int64, expected: Int64) {
+        guard let progressIndicator else { return }
+        let clamped = min(max(fraction, 0), 1)
+        progressIndicator.isIndeterminate = expected <= 0
+        if expected > 0 {
+            progressIndicator.doubleValue = clamped
+        }
+        let percent = Int((clamped * 100).rounded())
+        let writtenText = ByteCountFormatter.string(fromByteCount: written, countStyle: .file)
+        if expected > 0 {
+            let expectedText = ByteCountFormatter.string(fromByteCount: expected, countStyle: .file)
+            progressStatus?.stringValue = "Downloading update… \(percent)%"
+            progressDetail?.stringValue = "\(writtenText) of \(expectedText)"
+        } else {
+            progressStatus?.stringValue = "Downloading update…"
+            progressDetail?.stringValue = writtenText
+        }
+    }
+
+    private func updateStatus(_ status: String, detail: String? = nil) {
+        progressStatus?.stringValue = status
+        if let detail {
+            progressDetail?.stringValue = detail
+        }
+    }
+
+    private func finishProgress() {
+        guard let alert = progressAlert else { return }
+        progressAlert = nil
+        progressIndicator = nil
+        progressStatus = nil
+        progressDetail = nil
+        if let parent = alert.window.sheetParent {
+            parent.endSheet(alert.window)
+        } else {
+            alert.window.orderOut(nil)
+        }
+    }
+
+    private func cancelDownload() {
+        guard !isCancelling else { return }
+        isCancelling = true
+        activeDownloadTask?.cancel()
+        activeDownloadSession?.invalidateAndCancel()
+        activeDownloadSession = nil
+        activeDownloadDelegate = nil
+        activeDownloadTask = nil
+        finishProgress()
+        if let tmp = activeTemporaryDirectory {
+            try? FileManager.default.removeItem(at: tmp)
+            activeTemporaryDirectory = nil
+        }
+    }
+
+    private func fail(message: String) {
+        finishProgress()
+        if let tmp = activeTemporaryDirectory {
+            try? FileManager.default.removeItem(at: tmp)
+            activeTemporaryDirectory = nil
+        }
+        alert(title: "Update failed", message: message)
+    }
+
+    private func finishActiveDownload() {
+        activeDownloadSession?.invalidateAndCancel()
+        activeDownloadSession = nil
+        activeDownloadDelegate = nil
+        activeDownloadTask = nil
+    }
+
+    private func download(
+        url: URL,
+        to destination: URL,
+        progress: ((Double, Int64, Int64) -> Void)?,
+        completion: @escaping (Result<URL, Error>) -> Void
+    ) {
+        let delegate = DownloadDelegate(
+            destination: destination,
+            progress: progress,
+            completion: { [self] result in
+                finishActiveDownload()
+                completion(result)
+            }
+        )
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 120
+        configuration.timeoutIntervalForResource = 600
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: .main)
+        let request = URLRequest(url: url)
+        let task = session.downloadTask(with: request)
+        activeDownloadSession = session
+        activeDownloadDelegate = delegate
+        activeDownloadTask = task
+        task.resume()
     }
 
     private func verifyAndInstall(release: Release, dmgPath: URL, sumsPath: URL, tmp: URL) {
@@ -208,23 +345,35 @@ struct UpdateManager {
             let sums = try String(contentsOf: sumsPath, encoding: .utf8)
             let dmgName = dmgPath.lastPathComponent
             guard let expected = expectedChecksum(for: dmgName, in: sums) else {
-                alert(title: "Update failed", message: "The checksum file does not contain an entry for \(dmgName).")
-                return
+                throw UpdateError(message: "The checksum file does not contain an entry for \(dmgName).")
             }
             let actual = try sha256(of: dmgPath)
             guard actual.lowercased() == expected.lowercased() else {
-                alert(
-                    title: "Update failed",
+                throw UpdateError(
                     message: "Checksum mismatch — the download may be corrupted or tampered with. Aborting."
                 )
-                return
             }
         } catch {
-            alert(title: "Update failed", message: "Could not verify the download: \(error.localizedDescription)")
+            fail(message: "Could not verify the download: \(error)")
             return
         }
 
-        install(release: release, dmgPath: dmgPath, tmp: tmp)
+        finishProgress()
+        promptInstall(release: release, dmgPath: dmgPath, tmp: tmp)
+    }
+
+    private func promptInstall(release: Release, dmgPath: URL, tmp: URL) {
+        let alert = NSAlert()
+        alert.messageText = "Update downloaded and verified"
+        alert.informativeText = "\(release.tag) is ready to install. The app will quit, replace itself, and reopen."
+        alert.addButton(withTitle: "Install & Restart")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            install(release: release, dmgPath: dmgPath, tmp: tmp)
+        } else {
+            try? FileManager.default.removeItem(at: tmp)
+            activeTemporaryDirectory = nil
+        }
     }
 
     private func install(release: Release, dmgPath: URL, tmp: URL) {
@@ -301,5 +450,72 @@ struct UpdateManager {
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    // MARK: Download delegate
+
+    private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
+        private let destination: URL
+        private let progress: ((Double, Int64, Int64) -> Void)?
+        private let completion: (Result<URL, Error>) -> Void
+        private var finished = false
+
+        init(
+            destination: URL,
+            progress: ((Double, Int64, Int64) -> Void)?,
+            completion: @escaping (Result<URL, Error>) -> Void
+        ) {
+            self.destination = destination
+            self.progress = progress
+            self.completion = completion
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64,
+            totalBytesExpectedToWrite: Int64
+        ) {
+            guard let progress else { return }
+            let fraction = totalBytesExpectedToWrite > 0
+                ? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+                : 0
+            progress(fraction, totalBytesWritten, totalBytesExpectedToWrite)
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didFinishDownloadingTo location: URL
+        ) {
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.moveItem(at: location, to: destination)
+                finish(.success(destination))
+            } catch {
+                finish(.failure(error))
+            }
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            didCompleteWithError error: Error?
+        ) {
+            if let error {
+                finish(.failure(error))
+            } else if !finished {
+                finish(.failure(UpdateError(message: "Download completed without a saved file.")))
+            }
+        }
+
+        private func finish(_ result: Result<URL, Error>) {
+            guard !finished else { return }
+            finished = true
+            completion(result)
+        }
     }
 }
