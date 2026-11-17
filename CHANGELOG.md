@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.5] - 2026-11-17
+
+### 变更
+- **主题 v3：面板层次提升与统一动效**：暗色背景梯级整体抬升并拉开层次，面板不再与背景混成黑色；交互元素统一使用平滑的 hover 过渡和一致的时长/缓动曲线，尊重系统“减少动态效果”设置。
+- **主题 v4：Catppuccin 清新护眼可爱主题**：暗色采用暖紫夜底 + 粉彩语义色 + mauve 主色，浅色采用 Latte 奶白系；accent 预设可爱化并新增 Rose 粉色。
+- **排版与交互打磨**：统一正文/标题行高与字号层级，补齐全局键盘焦点环，调整 PrBoard 交互与空态文案，减少布局跳动和视觉噪声。
+
 ## [Unreleased]
 
 ### 新增
