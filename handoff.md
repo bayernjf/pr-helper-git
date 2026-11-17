@@ -55,6 +55,19 @@ P3-4 编辑器 → P3-5 失败中心。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
 
+## Release 0.3.5 (2026-11-17)
+
+范围：`v0.3.4` 之后的 UI 体验版，无后端行为变更。三笔功能性提交：
+① `e39269e` v3 调色板抬升 + 统一动效系统；② `e8e052b` v4 Catppuccin
+清新护眼可爱主题（暗色 Mocha、浅色 Latte、Rose accent）；③ `65396bb`
+排版与交互打磨（全局键盘焦点环、行高/字号层级、PrBoard 交互与空态文案）。
+本版用于把 11-17 凌晨的 UI 变更正式发到桌面端；不是文档更新。
+
+门禁：lint / typecheck:server / **1092 tests / 60 files** / build /
+**E2E 162/162**；desktop native-test、`BUNDLE_NODE=1 desktop:dist`、
+`desktop:smoke`、SHA256SUMS / ZIP / DMG 复核通过。桌面产物未签名（无
+`APPLE_SIGNING_IDENTITY`），首次打开需右键 → 打开绕过 Gatekeeper。
+
 ## Release 0.3.4 (2026-11-16)
 
 范围：修复 0.3.3 桌面端实测发现的仓库选择器缺陷——下拉菜单渲染在 40px 高、
