@@ -96,6 +96,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/add' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
     if (!target) return fail(400, 'repo must be a string path');
     try {
@@ -172,6 +173,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     // Normalise like /api/repos/add so a trailing slash or relative segment in
     // the client's stored path still matches the registered repo.
     const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
@@ -241,6 +243,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/clone' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const url = validateCloneUrl(body.url) ? body.url.trim() : null;
     const name = validateFolderName(body.name);
     if (!url) return fail(400, 'invalid or unsupported clone URL');
@@ -264,6 +267,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/init' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     if (typeof body.path !== 'string' || !body.path.trim()) {
       return fail(400, 'path must be a string');
     }

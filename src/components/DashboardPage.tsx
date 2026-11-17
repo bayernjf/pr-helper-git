@@ -70,21 +70,29 @@ export default function DashboardPage() {
     };
   }, [refresh]);
 
-  // Silent background fetch-all every 10 minutes.
+  // Silent background fetch-all every 10 minutes. The interval is stable —
+  // repos/fetchingAll are read from refs so every status refresh does not
+  // tear down and restart the timer before it ever ticks.
+  const reposRef = useRef(repos);
+  const fetchingRef = useRef(fetchingAll);
+  reposRef.current = repos;
+  fetchingRef.current = fetchingAll;
   useEffect(() => {
     if (!autoFetch) return;
     const timer = window.setInterval(() => {
-      if (document.hidden || fetchingAll || document.querySelector('.modal-backdrop')) return;
+      if (document.hidden || fetchingRef.current || document.querySelector('.modal-backdrop')) return;
       if (Date.now() - lastFetchAll.current < AUTO_FETCH_MS - 1500) return;
       lastFetchAll.current = Date.now();
       setFetchingAll(true);
-      Promise.allSettled(repos.map((r) => fetchRepo(r.path)))
+      Promise.allSettled(reposRef.current.map((r) => fetchRepo(r.path)))
         .then(() => refresh().catch(() => undefined))
         .catch(() => undefined)
         .finally(() => setFetchingAll(false));
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [autoFetch, repos, fetchingAll, refresh]);
+  }, [autoFetch, refresh]);
+
+  const repoKey = repos.map((r) => r.path).join('\u0000');
 
   // Remote identity for every repository (GitHub owner for the list view), and
   // open-PR counts for GitHub-hosted repos when a PAT exists.
@@ -95,9 +103,10 @@ export default function DashboardPage() {
       return;
     }
     let alive = true;
+    const snapshot = repos;
     void (async () => {
       const next: Record<string, number | null> = {};
-      const identities = await Promise.allSettled(repos.map((r) => getRemote(r.path)));
+      const identities = await Promise.allSettled(snapshot.map((r) => getRemote(r.path)));
       const ownerMap: Record<string, string | null> = {};
       repos.forEach((r, i) => {
         const id = identities[i].status === 'fulfilled' ? identities[i].value.remote : null;
@@ -132,7 +141,8 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [pat, hasServerPat, repos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run on repo-set content, not on the refreshed array reference
+  }, [pat, hasServerPat, repoKey]);
 
   function togglePin(path: string) {
     setPinned((prev) => {

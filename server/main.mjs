@@ -198,11 +198,7 @@ const server = http.createServer(async (req, res) => {
       // signature IS the authentication for this endpoint. Sits before the
       // token check because GitHub's delivery carries no session cookie.
       if (pathname === '/api/github-webhook') {
-        const raw = await new Promise((resolve) => {
-          const chunks = [];
-          req.on('data', (c) => chunks.push(c));
-          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-        });
+        const raw = await readRawBody(req, MAX_BODY_BYTES);
         const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || '';
         const result = await handleGithubWebhook({
           method: req.method, pathname, headers: req.headers,
