@@ -11,15 +11,16 @@ import Foundation
 import AppKit
 import CommonCrypto
 
-final class UpdateManager {
+final class UpdateManager: NSObject, NSWindowDelegate {
     let repo = "bayernjf/pr-helper-git"
     let appName = "PR Helper Git"
     let currentVersion: String
 
-    init() {
+    override init() {
         currentVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "0.0.0"
+        super.init()
     }
 
     // A released update, parsed from the /releases/latest JSON.
@@ -37,15 +38,31 @@ final class UpdateManager {
 
     // MARK: Update progress state
 
-    private var progressAlert: NSAlert?
-    private var progressIndicator: NSProgressIndicator?
+    private var progressWindow: NSWindow?
+    private var progressTitle: NSTextField?
     private var progressStatus: NSTextField?
+    private var progressIndicator: NSProgressIndicator?
     private var progressDetail: NSTextField?
+    private var progressNote: NSTextField?
+    private var cancelButton: NSButton?
+    private var installButton: NSButton?
+    private var laterButton: NSButton?
+    private var progressMode: ProgressMode = .downloading
+    private var pendingRelease: Release?
+    private var pendingDmgPath: URL?
+    private var pendingTmp: URL?
+    private var isClosingProgressWindow = false
     private var activeDownloadTask: URLSessionDownloadTask?
     private var activeDownloadSession: URLSession?
     private var activeDownloadDelegate: DownloadDelegate?
     private var activeTemporaryDirectory: URL?
     private var isCancelling = false
+
+    private enum ProgressMode {
+        case downloading
+        case ready
+        case failed
+    }
 
     // MARK: Public entry
 
@@ -176,7 +193,7 @@ final class UpdateManager {
 
         isCancelling = false
         activeTemporaryDirectory = tmp
-        showProgressAlert(for: release, in: window)
+        showProgressWindow(for: release, in: window)
         updateStatus("Connecting to GitHub Releases…", detail: "Preparing download")
 
         // Download both files, then verify, then hand off to the helper script.
@@ -200,52 +217,185 @@ final class UpdateManager {
         }
     }
 
-    private func showProgressAlert(for release: Release, in window: NSWindow) {
-        let alert = NSAlert()
-        alert.messageText = "Downloading \(release.tag)"
-        alert.informativeText = "The update is downloading in the background. You can keep working."
-        alert.addButton(withTitle: "Cancel")
+    private func showProgressWindow(for release: Release, in parent: NSWindow) {
+        if let existing = progressWindow {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
 
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 66))
+        // A real, miniaturizable window, not a sheet. Sheets block the main
+        // window until dismissed; a separate window lets the user minimize the
+        // progress panel, keep working, and reopen it from the Dock / Window
+        // menu while the download continues.
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Downloading \(release.tag)"
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.center()
 
-        let status = NSTextField(labelWithString: "Preparing download…")
-        status.frame = NSRect(x: 0, y: 44, width: 360, height: 18)
-        status.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 240))
+        window.contentView = content
+
+        let title = NSTextField(labelWithString: "Downloading \(release.tag)")
+        title.frame = NSRect(x: 20, y: 198, width: 400, height: 24)
+        title.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+        title.textColor = .labelColor
+        title.lineBreakMode = .byTruncatingTail
+
+        let status = NSTextField(labelWithString: "Connecting to GitHub Releases…")
+        status.frame = NSRect(x: 20, y: 162, width: 400, height: 20)
+        status.font = NSFont.systemFont(ofSize: 13, weight: .medium)
         status.textColor = .labelColor
         status.lineBreakMode = .byTruncatingTail
 
-        let progress = NSProgressIndicator(frame: NSRect(x: 0, y: 24, width: 360, height: 14))
+        let progress = NSProgressIndicator(frame: NSRect(x: 20, y: 136, width: 400, height: 14))
         progress.isIndeterminate = false
         progress.minValue = 0
         progress.maxValue = 1
         progress.doubleValue = 0
         progress.controlSize = .small
 
-        let detail = NSTextField(labelWithString: "Connecting…")
-        detail.frame = NSRect(x: 0, y: 0, width: 360, height: 16)
-        detail.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        let detail = NSTextField(labelWithString: "Preparing download")
+        detail.frame = NSRect(x: 20, y: 112, width: 400, height: 18)
+        detail.font = NSFont.systemFont(ofSize: 12)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingTail
 
-        accessory.addSubview(status)
-        accessory.addSubview(progress)
-        accessory.addSubview(detail)
-        alert.accessoryView = accessory
+        let note = NSTextField(labelWithString: "You can minimize this window and keep working. Restore it from the Dock or Window menu to check progress.")
+        note.frame = NSRect(x: 20, y: 72, width: 400, height: 32)
+        note.font = NSFont.systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
+        note.lineBreakMode = .byWordWrapping
+        note.maximumNumberOfLines = 2
 
-        progressAlert = alert
-        progressIndicator = progress
+        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButtonTapped))
+        cancel.frame = NSRect(x: 328, y: 20, width: 92, height: 32)
+        cancel.bezelStyle = .rounded
+        cancel.keyEquivalent = "\u{1b}"
+
+        let install = NSButton(title: "Install & Restart", target: self, action: #selector(installButtonTapped))
+        install.frame = NSRect(x: 240, y: 20, width: 180, height: 32)
+        install.bezelStyle = .rounded
+        install.isHidden = true
+
+        let later = NSButton(title: "Later", target: self, action: #selector(laterButtonTapped))
+        later.frame = NSRect(x: 140, y: 20, width: 90, height: 32)
+        later.bezelStyle = .rounded
+        later.isHidden = true
+
+        content.addSubview(title)
+        content.addSubview(status)
+        content.addSubview(progress)
+        content.addSubview(detail)
+        content.addSubview(note)
+        content.addSubview(cancel)
+        content.addSubview(install)
+        content.addSubview(later)
+
+        progressWindow = window
+        progressTitle = title
         progressStatus = status
+        progressIndicator = progress
         progressDetail = detail
-        alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self, self.progressAlert === alert else { return }
-            if response == .alertFirstButtonReturn {
-                self.cancelDownload()
-            }
+        progressNote = note
+        cancelButton = cancel
+        installButton = install
+        laterButton = later
+        progressMode = .downloading
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        _ = parent
+    }
+
+    func showProgressWindow() {
+        guard let window = progressWindow else { return }
+        if window.isMiniaturized {
+            window.deminiaturize(nil)
+        }
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func cancelButtonTapped() {
+        switch progressMode {
+        case .downloading:
+            cancelDownload()
+        case .ready:
+            laterButtonTapped()
+        case .failed:
+            closeProgressWindow(removeTemp: true)
+        }
+    }
+
+    @objc private func installButtonTapped() {
+        guard let release = pendingRelease,
+              let dmgPath = pendingDmgPath,
+              let tmp = pendingTmp else { return }
+        install(release: release, dmgPath: dmgPath, tmp: tmp)
+    }
+
+    @objc private func laterButtonTapped() {
+        closeProgressWindow(removeTemp: true)
+    }
+
+    // Called by the title-bar close button. A normal close while downloading
+    // must also cancel the network task; otherwise the progress panel would
+    // disappear while bytes keep arriving with no visible owner.
+    func windowWillClose(_ notification: Notification) {
+        guard !isClosingProgressWindow,
+              let window = notification.object as? NSWindow,
+              window === progressWindow else { return }
+
+        let wasDownloading = progressMode == .downloading
+        clearProgressReferences()
+        if wasDownloading {
+            isCancelling = true
+            stopActiveDownload()
+        }
+        cleanUpTemporaryDirectory()
+    }
+
+    private func closeProgressWindow(removeTemp: Bool) {
+        let window = progressWindow
+        isClosingProgressWindow = true
+        clearProgressReferences()
+        window?.delegate = nil
+        window?.close()
+        isClosingProgressWindow = false
+        if removeTemp {
+            cleanUpTemporaryDirectory()
+        }
+    }
+
+    private func clearProgressReferences() {
+        progressWindow = nil
+        progressTitle = nil
+        progressStatus = nil
+        progressIndicator = nil
+        progressDetail = nil
+        progressNote = nil
+        cancelButton = nil
+        installButton = nil
+        laterButton = nil
+        pendingRelease = nil
+        pendingDmgPath = nil
+        pendingTmp = nil
+    }
+
+    private func cleanUpTemporaryDirectory() {
+        if let tmp = activeTemporaryDirectory {
+            try? FileManager.default.removeItem(at: tmp)
+            activeTemporaryDirectory = nil
         }
     }
 
     private func updateProgress(fraction: Double, written: Int64, expected: Int64) {
-        guard let progressIndicator else { return }
+        guard progressMode == .downloading, let progressIndicator else { return }
         let clamped = min(max(fraction, 0), 1)
         progressIndicator.isIndeterminate = expected <= 0
         if expected > 0 {
@@ -264,47 +414,80 @@ final class UpdateManager {
     }
 
     private func updateStatus(_ status: String, detail: String? = nil) {
+        guard progressMode == .downloading else { return }
         progressStatus?.stringValue = status
         if let detail {
             progressDetail?.stringValue = detail
         }
     }
 
-    private func finishProgress() {
-        guard let alert = progressAlert else { return }
-        progressAlert = nil
-        progressIndicator = nil
-        progressStatus = nil
-        progressDetail = nil
-        if let parent = alert.window.sheetParent {
-            parent.endSheet(alert.window)
+    private func showInstallReady(release: Release, dmgPath: URL, tmp: URL) {
+        pendingRelease = release
+        pendingDmgPath = dmgPath
+        pendingTmp = tmp
+        progressMode = .ready
+        progressTitle?.stringValue = "Update downloaded and verified"
+        progressStatus?.stringValue = "\(release.tag) is ready to install"
+        progressIndicator?.isHidden = false
+        progressIndicator?.doubleValue = 1
+        progressDetail?.stringValue = "SHA-256 checksum verified."
+        progressNote?.stringValue = "Click Install & Restart to quit, replace the app, and reopen. You can minimize this window while you finish up."
+        cancelButton?.isHidden = true
+        installButton?.isHidden = false
+        laterButton?.isHidden = false
+        installButton?.keyEquivalent = "\r"
+        progressWindow?.title = "Update ready — \(release.tag)"
+
+        // Do not yank a minimized window back in front of the user. Bounce the
+        // Dock icon instead so the ready state can be restored when convenient.
+        if let window = progressWindow, window.isMiniaturized {
+            NSApp.requestUserAttention(.informationalRequest)
         } else {
-            alert.window.orderOut(nil)
+            progressWindow?.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    private func showFailure(_ message: String) {
+        guard progressWindow != nil else {
+            alert(title: "Update failed", message: message)
+            return
+        }
+        progressMode = .failed
+        progressTitle?.stringValue = "Update failed"
+        progressStatus?.stringValue = "The update could not be completed."
+        progressIndicator?.isHidden = true
+        progressDetail?.stringValue = message
+        progressNote?.stringValue = "Close this window and run Check for Updates again when you are ready."
+        installButton?.isHidden = true
+        laterButton?.isHidden = true
+        cancelButton?.isHidden = false
+        cancelButton?.title = "Close"
+        cancelButton?.keyEquivalent = "\u{1b}"
+        progressWindow?.title = "Update failed"
+        if let window = progressWindow, window.isMiniaturized {
+            NSApp.requestUserAttention(.informationalRequest)
         }
     }
 
     private func cancelDownload() {
         guard !isCancelling else { return }
         isCancelling = true
-        activeDownloadTask?.cancel()
-        activeDownloadSession?.invalidateAndCancel()
-        activeDownloadSession = nil
-        activeDownloadDelegate = nil
-        activeDownloadTask = nil
-        finishProgress()
-        if let tmp = activeTemporaryDirectory {
-            try? FileManager.default.removeItem(at: tmp)
-            activeTemporaryDirectory = nil
-        }
+        stopActiveDownload()
+        closeProgressWindow(removeTemp: true)
     }
 
     private func fail(message: String) {
-        finishProgress()
-        if let tmp = activeTemporaryDirectory {
-            try? FileManager.default.removeItem(at: tmp)
-            activeTemporaryDirectory = nil
-        }
-        alert(title: "Update failed", message: message)
+        stopActiveDownload()
+        cleanUpTemporaryDirectory()
+        showFailure(message)
+    }
+
+    private func stopActiveDownload() {
+        activeDownloadTask?.cancel()
+        activeDownloadSession?.invalidateAndCancel()
+        activeDownloadDelegate = nil
+        activeDownloadTask = nil
+        activeDownloadSession = nil
     }
 
     private func finishActiveDownload() {
@@ -358,22 +541,7 @@ final class UpdateManager {
             return
         }
 
-        finishProgress()
-        promptInstall(release: release, dmgPath: dmgPath, tmp: tmp)
-    }
-
-    private func promptInstall(release: Release, dmgPath: URL, tmp: URL) {
-        let alert = NSAlert()
-        alert.messageText = "Update downloaded and verified"
-        alert.informativeText = "\(release.tag) is ready to install. The app will quit, replace itself, and reopen."
-        alert.addButton(withTitle: "Install & Restart")
-        alert.addButton(withTitle: "Later")
-        if alert.runModal() == .alertFirstButtonReturn {
-            install(release: release, dmgPath: dmgPath, tmp: tmp)
-        } else {
-            try? FileManager.default.removeItem(at: tmp)
-            activeTemporaryDirectory = nil
-        }
+        showInstallReady(release: release, dmgPath: dmgPath, tmp: tmp)
     }
 
     private func install(release: Release, dmgPath: URL, tmp: URL) {
