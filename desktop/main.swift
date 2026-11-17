@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
+    private let updateManager = UpdateManager()
 
     // MARK: Lifecycle
 
@@ -223,6 +224,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         )
         checkUpdates.target = self
         appMenu.addItem(checkUpdates)
+        let showUpdateProgress = NSMenuItem(
+            title: "Show Update Progress",
+            action: #selector(showUpdateProgress),
+            keyEquivalent: "",
+        )
+        showUpdateProgress.target = self
+        appMenu.addItem(showUpdateProgress)
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Hide \(appName)",
@@ -308,7 +316,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     // checksums rather than a Developer ID signature, so no certificate or
     // notarization is required.
     @objc private func checkForUpdates() {
-        UpdateManager().check(from: window)
+        updateManager.check(from: window)
+    }
+
+    @objc private func showUpdateProgress() {
+        updateManager.showProgressWindow()
     }
 
     @objc private func chooseRepository() {
