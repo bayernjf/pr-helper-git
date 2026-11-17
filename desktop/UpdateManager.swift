@@ -64,18 +64,36 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         case failed
     }
 
+    enum MenuState {
+        case idle
+        case checking
+        case downloading(version: String, fraction: Double)
+        case ready(version: String)
+        case failed
+    }
+
+    var onMenuStateChange: ((MenuState) -> Void)?
+
+    private func notifyMenu(_ state: MenuState) {
+        onMenuStateChange?(state)
+    }
+
     // MARK: Public entry
 
     func check(from window: NSWindow) {
+        notifyMenu(.checking)
         fetchLatest { result in
             DispatchQueue.main.async {
                 switch result {
                 case .failure(let error):
+                    self.notifyMenu(.idle)
                     self.alert(title: "Update check failed", message: error.description)
                 case .success(let release):
                     if isVersionNewer(release.version, than: self.currentVersion) {
+                        self.notifyMenu(.idle)
                         self.promptUpdate(release, from: window)
                     } else {
+                        self.notifyMenu(.idle)
                         self.alert(
                             title: "You're up to date",
                             message: "You are running \(self.currentVersion), the latest published release."
@@ -83,6 +101,14 @@ final class UpdateManager: NSObject, NSWindowDelegate {
                     }
                 }
             }
+        }
+    }
+
+    func checkOrShowProgress(from window: NSWindow) {
+        if progressWindow != nil {
+            showProgressWindow()
+        } else {
+            check(from: window)
         }
     }
 
@@ -185,6 +211,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         do {
             try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         } catch {
+            notifyMenu(.idle)
             alert(title: "Update failed", message: "Could not create a temporary directory: \(error.localizedDescription)")
             return
         }
@@ -193,7 +220,9 @@ final class UpdateManager: NSObject, NSWindowDelegate {
 
         isCancelling = false
         activeTemporaryDirectory = tmp
+        pendingRelease = release
         showProgressWindow(for: release, in: window)
+        notifyMenu(.downloading(version: release.version, fraction: 0))
         updateStatus("Connecting to GitHub Releases…", detail: "Preparing download")
 
         // Download both files, then verify, then hand off to the helper script.
@@ -358,6 +387,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
             stopActiveDownload()
         }
         cleanUpTemporaryDirectory()
+        notifyMenu(.idle)
     }
 
     private func closeProgressWindow(removeTemp: Bool) {
@@ -370,6 +400,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         if removeTemp {
             cleanUpTemporaryDirectory()
         }
+        notifyMenu(.idle)
     }
 
     private func clearProgressReferences() {
@@ -411,6 +442,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
             progressStatus?.stringValue = "Downloading update…"
             progressDetail?.stringValue = writtenText
         }
+        notifyMenu(.downloading(version: pendingRelease?.version ?? "", fraction: clamped))
     }
 
     private func updateStatus(_ status: String, detail: String? = nil) {
@@ -445,10 +477,12 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         } else {
             progressWindow?.makeKeyAndOrderFront(nil)
         }
+        notifyMenu(.ready(version: release.version))
     }
 
     private func showFailure(_ message: String) {
         guard progressWindow != nil else {
+            notifyMenu(.failed)
             alert(title: "Update failed", message: message)
             return
         }
@@ -467,6 +501,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         if let window = progressWindow, window.isMiniaturized {
             NSApp.requestUserAttention(.informationalRequest)
         }
+        notifyMenu(.failed)
     }
 
     private func cancelDownload() {

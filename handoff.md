@@ -51,9 +51,21 @@ P3-4 编辑器 → P3-5 失败中心。
 
 **迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34/34 通过（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（TEST-REPOS.md 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1092/60、E2E 162/162。**
 
-最近更新：2026-11-17（发布 0.3.7：桌面更新进度面板改为独立可最小化窗口，主窗口不再被 sheet 阻塞；最小化后可从 Dock 或菜单 `Show Update Progress` 恢复；下载完成/失败状态内联显示。此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
+最近更新：2026-11-17（发布 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.8 (2026-11-17)
+
+范围：把更新状态直接放进 App 菜单。`Check for Updates…` 不再是静态项：检查时
+显示 `Checking for Updates…`；下载时显示文本进度条和百分比（`Downloading
+0.3.8 [████░░░░] 42%`）；下载完成显示 `Update ready — v0.3.8`；失败显示
+`Update failed — Show Details`。该菜单项同时是恢复进度窗口的入口，因此移除了
+单独的 `Show Update Progress` 菜单项。底层仍是 0.3.7 的独立可最小化窗口。
+
+门禁：desktop native-test、`npm run desktop`、`desktop:smoke`；完整发布门禁与
+ZIP/DMG/SHA256SUMS 见 GitHub Release。桌面产物未签名，首次打开需右键 → 打开
+绕过 Gatekeeper。
 
 ## Release 0.3.7 (2026-11-17)
 

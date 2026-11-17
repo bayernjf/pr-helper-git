@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.8] - 2026-11-17
+
+### 变更
+- **`Check for Updates…` 菜单项随更新状态变化**：检查时显示 `Checking for Updates…`；下载时直接显示文本进度条和百分比（如 `Downloading 0.3.8 [████░░░░] 42%`）；下载完成显示 `Update ready — v0.3.8`；失败显示 `Update failed — Show Details`。
+- 菜单项在更新过程中也是恢复进度窗口的入口，不再需要单独的 `Show Update Progress` 菜单项。
+
 ## [0.3.7] - 2026-11-17
 
 ### 修复
