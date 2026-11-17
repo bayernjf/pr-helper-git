@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.7] - 2026-11-17
+
+### 修复
+- **桌面更新进度窗口可最小化**：下载进度从阻塞式 sheet 改为独立窗口，主窗口保持可用；点黄色最小化按钮后可继续办公，从 Dock 或菜单 `Show Update Progress` 恢复进度窗口。
+- **下载完成/失败状态留在同一窗口**：校验完成后窗口内直接显示 `Install & Restart` 与 `Later`；失败也内联展示并保留 `Close`，不再用阻塞弹窗打断操作。
+
 ## [0.3.6] - 2026-11-17
 
 ### 修复
