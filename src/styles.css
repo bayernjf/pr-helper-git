@@ -4231,3 +4231,9 @@ pre.diff {
   .ci-header-actions { margin-left: 0; }
   .ci-header-actions .btn { margin-left: auto; }
 }
+
+
+/* Lane position badge + jump input (custom sort) */
+.lane-position-badge { font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
+.lane-position-input { width: 42px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--text); font-size: var(--fs-meta); padding: 2px 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.lane-position-input:focus { outline: none; border-color: var(--accent-line); }

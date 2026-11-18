@@ -169,17 +169,30 @@ export default function FlowBoard() {
     () => buildLaneModels(state, filter, search, sortMode, sortDirection),
     [state, filter, search, sortMode, sortDirection],
   );
-  const moveLane = useCallback((flowId: string, delta: number) => {
+  const moveLaneTo = useCallback((flowId: string, to: number) => {
     const order = state.workflows.map((w) => w.id);
     const from = order.indexOf(flowId);
-    const to = Math.min(order.length - 1, Math.max(0, from + delta));
-    if (from === -1 || from === to) return;
-    const ordered = moveWorkflowToPosition(state.workflows, flowId, to);
+    const clamped = Math.min(order.length - 1, Math.max(0, to));
+    if (from === -1 || from === clamped) return;
+    const ordered = moveWorkflowToPosition(state.workflows, flowId, clamped);
     setWorkflows(sortWorkflowsForView(ordered, 'custom', 'asc'));
     // Persist the new custom order through the editor save route.
     const moved = ordered.find((workflow) => workflow.id === flowId);
     if (moved) void saveWorkflowToServer(moved).catch((err) => toast.error(errorMessage(err)));
   }, [state.workflows, toast]);
+
+  const moveLane = useCallback(
+    (flowId: string, delta: number) => {
+      const from = state.workflows.findIndex((w) => w.id === flowId);
+      moveLaneTo(flowId, from + delta);
+    },
+    [state.workflows, moveLaneTo],
+  );
+
+  const setLanePosition = useCallback(
+    (flowId: string, position: number) => moveLaneTo(flowId, position - 1),
+    [state.workflows, moveLaneTo],
+  );
 
   const setLaneFlag = useCallback(async (
     workflow: Workflow,
@@ -361,7 +374,7 @@ export default function FlowBoard() {
       </section>
 
       <section className="project-board">
-        {lanes.length ? lanes.map((lane) => (
+        {lanes.length ? lanes.map((lane, index) => (
           <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}${returnHighlight === lane.workflow.id ? ' is-return-highlight' : ''}`}>
             <header className="lane-header">
               <button
@@ -430,6 +443,7 @@ export default function FlowBoard() {
               <span className="lane-run">
                 {sortMode === 'custom' && filter === 'all' && !search ? (
                   <span className="lane-move">
+                    <span className="lane-position-badge" title={t('custom order')}>#{index + 1}</span>
                     <button
                       type="button"
                       className="lane-move-btn"
@@ -446,6 +460,19 @@ export default function FlowBoard() {
                     >
                       ↓
                     </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={lanes.length}
+                      value={index + 1}
+                      className="lane-position-input"
+                      aria-label={tp('position of {name}', { name: lane.workflow.name })}
+                      title={t('type a position to move the lane there')}
+                      onChange={(event) => {
+                        const pos = Number(event.target.value);
+                        if (pos >= 1 && pos <= lanes.length) setLanePosition(lane.workflow.id, pos);
+                      }}
+                    />
                   </span>
                 ) : null}
                 <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
