@@ -57,9 +57,30 @@ P3-4 编辑器 → P3-5 失败中心。
 提交 `7eb66ad`、`a31b208` 尚未发版（建议 `0.3.9`）。测试已在 `a31b208` 上复跑：1092 tests / 60 files + E2E 162/162，
 build 通过。备份目录最新 `source-*.bundle`（`ls -t`）含 `main`、`dev`、`v0.3.8`。
 
-最近更新：2026-11-17（发布 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
+最近更新：2026-11-18（发布 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.9 (2026-11-18)
+
+范围：把 0.3.8 之后两条深评审修复（`7eb66ad`、`a31b208`）正式发版。
+
+安全/服务端：仓库注册、移除、克隆、初始化以及 control-tower 的
+automation / saves / credentials 写路由改为 admin 必需，member token 在看板
+保持只读；GitHub installations 枚举同样 admin-gated；webhook 接收端改用
+`readRawBody` 的 256KB 上限；`/api/save` 临时文件唯一化；grep-all 增加 30 秒
+墙钟预算；损坏 `config.json` 失败关闭并保留 `.corrupt-*`；audit append+rotate
+串行化并 await；顶层 500 不再回显 `err.message`，listen 回调保护
+`reconcileWatching`。
+
+客户端：Dashboard 30 秒定时器改为稳定依赖，PR 数量/owner 探测按仓库集合内容
+触发；快速切换仓库按 load generation 清理 loading；StepDrawer Escape/焦点、
+Dropdown `aria-activedescendant`、Dashboard 按钮语义、PrBoard 评论摘要懒加载
+（去掉 N+1）、事件时间戳 locale、force-push/toast 翻译、移除 v4 前 `.lv-*` 色块。
+
+门禁：1092 tests / 60 files、E2E 162/162、build 通过；desktop native-test +
+`BUNDLE_NODE=1 npm run desktop` + smoke + dist。桌面产物未签名，首次打开需
+右键 → 打开绕过 Gatekeeper。
 
 ## Release 0.3.8 (2026-11-17)
 

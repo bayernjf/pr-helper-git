@@ -4,8 +4,8 @@
 > `CHANGELOG.md` 和 `handoff.md`；迁移状态看 `docs/pr-helper-migration.md`。
 >
 > 本快照已按仓库实际状态校正：`dev = a31b208`（代码基线，已推送、已备份；
-> 其后另有本地 docs 校正提交），`main = 92d136e`，GitHub latest = `v0.3.8`。
-> `dev` 另有 2 个尚未发布的功能修复。
+> 其后另有本地 docs 校正提交），`main = 92d136e`，本次发布 `v0.3.9`。
+> `dev` 的 2 个尚未发布功能修复（`7eb66ad`、`a31b208`）已进入 0.3.9。
 
 ## 1. 项目一句话
 
@@ -21,13 +21,12 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 |---|---|
 | `dev` | 代码基线 `a31b208`；其后有本地 docs 校正提交（未 push） |
 | `main` | `92d136e`（`Merge pull request #20 from bayernjf/dev`） |
-| GitHub latest | **`v0.3.8`**（2026-11-17 22:59 本地发布） |
-| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.8` |
-| `dev` 领先 `main` | 2 个功能性提交：`7eb66ad`、`a31b208`（**尚未发版**） |
-| 下一次发布 | 建议 `0.3.9`，覆盖上述 2 个提交；按发布 checklist 走 |
+| 本次发布 | **`v0.3.9`**（2026-11-18；覆盖 `7eb66ad`、`a31b208`） |
+| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.9` |
+| `dev` 领先 `main` | 2 个功能性提交，已随 `0.3.9` 发布；等 dev→main PR 合并 |
 | 备份 | `/Users/jiangfeng/000mycodes-backups/pr-helper-git/source-*.bundle`，以 `ls -t` 取最新；含 `main 92d136e`、`dev` 与 `v0.3.8` |
 
-> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.8`
+> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.9`
 > 覆盖；以本表为准。
 
 ## 3. 关键路径速查
@@ -79,7 +78,7 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 - 单元/路由测试：**1092 tests / 60 files**（2026-11-18 在 `a31b208` 上复跑）。
 - E2E：**162 passed / 0 failed**（同次复跑）。
 - `npm run build`：通过。
-- 桌面端：`0.3.8` 已构建、smoke 通过；本条不替代下一次 `0.3.9` 的桌面门禁。
+- 桌面端：`0.3.9` 已构建、smoke 通过、ZIP/DMG/SHA256SUMS 校验通过。
 
 ## 7. 铁律（违反=事故）
 
@@ -101,7 +100,6 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 
 | 优先级 | 事项 | 谁做 | 状态/前置 |
 |---|---|---|---|
-| P1 | 发 `0.3.9`：覆盖 `7eb66ad` + `a31b208` 两个功能性修复 | AI + 用户确认 | 建议尽快；按完整门禁 + dev→main PR + tag + 备份 |
 | P1 | P5-1 影子期判定：约 11-21～11-28 进入判定窗口，连续 5–7 天一致 | 用户 + AI 比对 | 运行中，不提前切换 |
 | P1 | P5-2 切换日：本地转执行 → 摘 webhook → 停 Vercel cron → 端到端真实流程 | 用户逐项审批（D-016） | 4 个动作，每个动作单独审批 |
 | P1 | P5-3 Supabase 下线：冷备导出 → Pause/Delete | 用户审批 | 切换稳定 1 周后 |
