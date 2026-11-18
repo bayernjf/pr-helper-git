@@ -340,7 +340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             item.title = "Update ready — v\(version)"
             item.isEnabled = true
         case .failed:
-            item.title = "Update failed — Show Details"
+            item.title = "Update failed — Retry"
             item.isEnabled = true
         }
     }

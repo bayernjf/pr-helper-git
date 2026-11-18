@@ -47,6 +47,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
     private var cancelButton: NSButton?
     private var installButton: NSButton?
     private var laterButton: NSButton?
+    private var retryButton: NSButton?
     private var progressMode: ProgressMode = .downloading
     private var pendingRelease: Release?
     private var pendingDmgPath: URL?
@@ -57,6 +58,11 @@ final class UpdateManager: NSObject, NSWindowDelegate {
     private var activeDownloadDelegate: DownloadDelegate?
     private var activeTemporaryDirectory: URL?
     private var isCancelling = false
+    // Download speed is sampled roughly once per second and smoothed; it is
+    // reset for every attempt so a retry starts from "calculating", not from
+    // the previous attempt's stale rate.
+    private var lastSpeedSample: (date: Date, bytes: Int64)?
+    private var smoothedBytesPerSecond: Double = 0
 
     private enum ProgressMode {
         case downloading
@@ -105,7 +111,12 @@ final class UpdateManager: NSObject, NSWindowDelegate {
     }
 
     func checkOrShowProgress(from window: NSWindow) {
-        if progressWindow != nil {
+        if progressMode == .failed, pendingRelease != nil {
+            // A failed download keeps the release and the progress window;
+            // the menu item becomes a one-click retry instead of forcing the
+            // user back through Check for Updates and Download.
+            retryDownload(from: window)
+        } else if progressWindow != nil {
             showProgressWindow()
         } else {
             check(from: window)
@@ -222,6 +233,9 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         activeTemporaryDirectory = tmp
         pendingRelease = release
         showProgressWindow(for: release, in: window)
+        resetProgressWindow(for: release)
+        lastSpeedSample = nil
+        smoothedBytesPerSecond = 0
         notifyMenu(.downloading(version: release.version, fraction: 0))
         updateStatus("Connecting to GitHub Releases…", detail: "Preparing download")
 
@@ -317,6 +331,11 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         later.bezelStyle = .rounded
         later.isHidden = true
 
+        let retry = NSButton(title: "Retry", target: self, action: #selector(retryButtonTapped))
+        retry.frame = NSRect(x: 240, y: 20, width: 80, height: 32)
+        retry.bezelStyle = .rounded
+        retry.isHidden = true
+
         content.addSubview(title)
         content.addSubview(status)
         content.addSubview(progress)
@@ -325,6 +344,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         content.addSubview(cancel)
         content.addSubview(install)
         content.addSubview(later)
+        content.addSubview(retry)
 
         progressWindow = window
         progressTitle = title
@@ -335,11 +355,33 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         cancelButton = cancel
         installButton = install
         laterButton = later
+        retryButton = retry
         progressMode = .downloading
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         _ = parent
+    }
+
+    /// Put an existing progress window back into download mode. Used both for
+    /// the first attempt and for a retry after a failure; without this, a
+    /// retry would keep the "Update failed" title and hidden progress bar.
+    private func resetProgressWindow(for release: Release) {
+        progressMode = .downloading
+        progressTitle?.stringValue = "Downloading \(release.tag)"
+        progressStatus?.stringValue = "Connecting to GitHub Releases…"
+        progressIndicator?.isHidden = false
+        progressIndicator?.isIndeterminate = false
+        progressIndicator?.doubleValue = 0
+        progressDetail?.stringValue = "Preparing download"
+        progressNote?.stringValue = "You can minimize this window and keep working. Restore it from the Dock or Window menu to check progress."
+        cancelButton?.isHidden = false
+        cancelButton?.title = "Cancel"
+        cancelButton?.keyEquivalent = "\u{1b}"
+        installButton?.isHidden = true
+        laterButton?.isHidden = true
+        retryButton?.isHidden = true
+        progressWindow?.title = "Downloading \(release.tag)"
     }
 
     func showProgressWindow() {
@@ -370,6 +412,20 @@ final class UpdateManager: NSObject, NSWindowDelegate {
 
     @objc private func laterButtonTapped() {
         closeProgressWindow(removeTemp: true)
+    }
+
+    @objc private func retryButtonTapped() {
+        guard let window = progressWindow else { return }
+        retryDownload(from: window)
+    }
+
+    private func retryDownload(from window: NSWindow) {
+        guard let release = pendingRelease else {
+            check(from: window)
+            return
+        }
+        cleanUpTemporaryDirectory()
+        downloadAndInstall(release, from: window)
     }
 
     // Called by the title-bar close button. A normal close while downloading
@@ -413,9 +469,12 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         cancelButton = nil
         installButton = nil
         laterButton = nil
+        retryButton = nil
         pendingRelease = nil
         pendingDmgPath = nil
         pendingTmp = nil
+        lastSpeedSample = nil
+        smoothedBytesPerSecond = 0
     }
 
     private func cleanUpTemporaryDirectory() {
@@ -434,15 +493,58 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         }
         let percent = Int((clamped * 100).rounded())
         let writtenText = ByteCountFormatter.string(fromByteCount: written, countStyle: .file)
+
+        // Measure transfer rate on a ~1s cadence. A shorter window is noisy
+        // (URLSession can report bursts), while a longer one makes the ETA
+        // feel stale on a slow connection.
+        let now = Date()
+        if let sample = lastSpeedSample {
+            let interval = now.timeIntervalSince(sample.date)
+            if interval >= 1.0 {
+                let delta = max(0, written - sample.bytes)
+                if delta > 0 {
+                    let instantaneous = Double(delta) / interval
+                    smoothedBytesPerSecond = smoothedBytesPerSecond == 0
+                        ? instantaneous
+                        : smoothedBytesPerSecond * 0.7 + instantaneous * 0.3
+                }
+                lastSpeedSample = (now, written)
+            }
+        } else {
+            lastSpeedSample = (now, written)
+        }
+
         if expected > 0 {
             let expectedText = ByteCountFormatter.string(fromByteCount: expected, countStyle: .file)
+            var detail = "\(writtenText) of \(expectedText)"
+            if smoothedBytesPerSecond > 0 {
+                let speedText = ByteCountFormatter.string(
+                    fromByteCount: Int64(smoothedBytesPerSecond.rounded()),
+                    countStyle: .file
+                )
+                detail += " · \(speedText)/s"
+                let remainingSeconds = Double(expected - written) / smoothedBytesPerSecond
+                if remainingSeconds.isFinite, remainingSeconds > 0 {
+                    detail += " · \(remainingTimeText(seconds: remainingSeconds)) left"
+                }
+            }
             progressStatus?.stringValue = "Downloading update… \(percent)%"
-            progressDetail?.stringValue = "\(writtenText) of \(expectedText)"
+            progressDetail?.stringValue = detail
         } else {
             progressStatus?.stringValue = "Downloading update…"
             progressDetail?.stringValue = writtenText
         }
         notifyMenu(.downloading(version: pendingRelease?.version ?? "", fraction: clamped))
+    }
+
+    private func remainingTimeText(seconds: Double) -> String {
+        let total = max(1, Int(seconds.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        if minutes > 0 { return "\(minutes)m \(secs)s" }
+        return "\(secs)s"
     }
 
     private func updateStatus(_ status: String, detail: String? = nil) {
@@ -467,6 +569,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         cancelButton?.isHidden = true
         installButton?.isHidden = false
         laterButton?.isHidden = false
+        retryButton?.isHidden = true
         installButton?.keyEquivalent = "\r"
         progressWindow?.title = "Update ready — \(release.tag)"
 
@@ -482,7 +585,9 @@ final class UpdateManager: NSObject, NSWindowDelegate {
 
     private func showFailure(_ message: String) {
         guard progressWindow != nil else {
-            notifyMenu(.failed)
+            // Without the progress window there is no retry context to keep;
+            // report the error and return the menu to its normal state.
+            notifyMenu(.idle)
             alert(title: "Update failed", message: message)
             return
         }
@@ -491,9 +596,10 @@ final class UpdateManager: NSObject, NSWindowDelegate {
         progressStatus?.stringValue = "The update could not be completed."
         progressIndicator?.isHidden = true
         progressDetail?.stringValue = message
-        progressNote?.stringValue = "Close this window and run Check for Updates again when you are ready."
+        progressNote?.stringValue = "Retry downloads this release again without leaving the window. Close leaves the app unchanged."
         installButton?.isHidden = true
         laterButton?.isHidden = true
+        retryButton?.isHidden = false
         cancelButton?.isHidden = false
         cancelButton?.title = "Close"
         cancelButton?.keyEquivalent = "\u{1b}"
