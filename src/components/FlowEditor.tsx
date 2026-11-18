@@ -11,6 +11,7 @@
 // (the original confirmRepositorySwitch semantics).
 import { useEffect, useMemo, useState } from 'react';
 import { useConfirm, useToast } from './ui';
+import GenerationRulesModal from './GenerationRulesModal';
 import { errorMessage } from '../lib/errors';
 import {
   setStageAutoCreate,
@@ -167,6 +168,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   const [removedDeployment, setRemovedDeployment] = useState<{ deployment: DeploymentConfig; index: number } | null>(null);
   const [ai, setAi] = useState<AiAutomationCredential>(null);
   const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+  const [rulesVersion, setRulesVersion] = useState(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const prerequisites = useMemo(() => automationPrerequisites(inbox, ai, rules), [inbox, ai, rules]);
 
   useEffect(() => {
@@ -193,7 +196,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   useEffect(() => {
     fetchAiCredential().then((res) => setAi(res.credential)).catch(() => setAi(null));
     fetchGenerationRules().then((res) => setRules(res.rules)).catch(() => setRules([]));
-  }, []);
+  }, [rulesVersion]);
 
 
   function patchStage(stageIndex: number, patch: (stage: EditorStage) => EditorStage) {
@@ -935,6 +938,9 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
           <button type="button" className="drawer-btn small" disabled={!ai?.configured || saving} onClick={() => void testAi()}>
             {t('test saved credential')}
           </button>
+          <button type="button" className="drawer-btn small" onClick={() => setRulesOpen(true)}>
+            {t('manage generation rules')}
+          </button>
           {ai?.configured ? (
             <button type="button" className="drawer-btn small" disabled={saving} onClick={() => void removeAi()}>
               {t('delete credential')}
@@ -974,6 +980,11 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
           </label>
         </div>
       </section>
+
+      {rulesOpen ? (
+        <GenerationRulesModal onClose={() => setRulesVersion((v) => v + 1)} />
+      ) : null}
     </div>
   );
 }
+
