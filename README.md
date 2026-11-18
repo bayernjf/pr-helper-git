@@ -14,7 +14,7 @@ application never pushes it for you.
 
 ### Dashboard (full page)
 
-- **Third top-level view** (`Dashboard | Git | Pull Requests`): every registered repository as a
+- **Top-level views** (`Dashboard | Git | Pull Requests | CI Health | Flows`): every registered repository as a
   **card grid or a GitKraken-style list** (toggle persisted) with repository / owner / branch /
   status / last-commit columns. Status badges use pencil + **WIP total** (staged / modified /
   untracked split in the tooltip), **↑ ahead** (local commits not pushed), **↓ behind** (remote
@@ -25,9 +25,23 @@ application never pushes it for you.
 - **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
   30-second status auto-refresh
 
+### CI health (read-only)
+
+- **Fifth top-level view** (`CI Health`): PR-level final CI pass rate across the
+  GitHub repositories owned by the configured PAT — total PRs, passed, failed,
+  pending, CI-blocked open PRs, post-merge default-branch failures, and a
+  7 / 30 / 90-day window
+- **Failure breakdown**: failed checks are grouped into infrastructure,
+  timeout, auth, deploy, dependencies, lint, tests, build and unknown; each
+  failed PR links back to GitHub, and the repository table shows per-repo
+  pass rate and post-merge state
+- **Read-only + local scope**: GitHub REST/GraphQL only; no pr-helper database
+  or workflow config. Repository selection is persisted locally, results are
+  cached for 10 minutes, and refresh bypasses the cache
+
 ### Release control tower (Flows, migrated from pr-helper)
 
-- **Fourth top-level view** (`Flows`): lane board across repositories with six
+- **Flows view**: lane board across repositories with six
   filters (needs attention / running / active / failed / automation blocked /
   archived), aggregate counters, search, custom/name/created sort with lane
   up/down ordering, and a failure center aggregating check failures, approvals,
@@ -427,7 +441,9 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 正式发布版（含官方捆绑 Node 22、dmg/zip 与 SHA256SUMS）从 GitHub Releases 下载：
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
-- 当前最新：**v0.3.10**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 当前最新：**v0.3.11**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 0.3.11 CI 健康看板：PR 级通过率、失败原因分布、CI 阻塞开放 PR、合并后 CI；
+  只读，10 分钟缓存，支持仓库范围与 7/30/90 天窗口
 - 0.3.10 更新器：下载进度显示速度与剩余时间；下载失败时菜单项变为
   `Update failed — Retry`，可在失败窗口直接重试
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`

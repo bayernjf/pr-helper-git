@@ -86,6 +86,7 @@ server/                 Node HTTP server and Git/GitHub routes
   routes-github.mjs     GitHub REST allowlist and GraphQL merge helpers
   automation.mjs        engine bridge: schedulers, webhook receiver
   flows.mjs             control-tower routes (inbox fan-out, automation ops, saves)
+  ci-health.mjs         read-only PR CI aggregation (GitHub GraphQL, no pr-helper DB)
   github-oauth.mjs      GitHub App Device Flow connection (identity/discovery only)
   github-http.mjs       proxy-aware client for the github.com OAuth endpoints
   a2a.mjs               Agent Card + JSON-RPC task surface (opt-in, fail-closed)
@@ -217,10 +218,10 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of 0.3.10 (2026-11-18):
+As of 0.3.11 (2026-11-18):
 
-- unit/route tests: **1093 tests / 60 files** (includes the migrated pr-helper
-  engine test nets: 418 store invariants in `server/workflows-store.test.ts`,
+- unit/route tests: **1099 tests / 61 files** (includes the migrated pr-helper
+  engine test nets: 418 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
   prerequisite tests under `src/lib/automation/`, 5 flow-preflight semantics
