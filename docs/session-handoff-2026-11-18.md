@@ -3,10 +3,9 @@
 > 性质：**时间点快照**，不是实时状态源。实时发布状态看 `package.json`、
 > `CHANGELOG.md` 和 `handoff.md`；迁移状态看 `docs/pr-helper-migration.md`。
 >
-> 本快照按 2026-11-18 发布后的状态记录：0.3.9 之后补发 `0.3.10`
-> （PR #23，发布提交 `067ae83`，tag `v0.3.10`）；**`main = dev = a04ba13`**
-> （0.3.10 发布合并点；本文件的 docs 校正另提交，合并后以实际 `git log` 为准）。
-> 0.3.10 内容：更新器下载速度/剩余时间与失败一键重试、admin/member 权限提示。
+> 本快照按 2026-11-18 发布后的状态记录：`0.3.10` 之后新增 `0.3.11`
+> CI 健康看板；`main`/`dev` 以 0.3.11 发布合并点为准（见实际 `git log`）。
+> 0.3.11 内容：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI）。
 > 实时状态仍以 `package.json`、`CHANGELOG.md`、`handoff.md` 和实际 `git log` 为准。
 
 ## 1. 项目一句话
@@ -21,14 +20,14 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 
 | 项 | 实际值 |
 |---|---|
-| `dev` | `a04ba13`（0.3.10 发布合并点；本 docs 校正提交随后） |
-| `main` | `a04ba13`（Merge PR #23；docs 校正另行合并） |
-| 本次发布 | **`v0.3.10`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.10） |
-| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.10` |
-| `dev` 领先 `main` | 0（`main`/`dev` 均 `a04ba13`；发布后已同步） |
-| 备份 | 最新 `source-20261118-1008.bundle`；含 `main`、`dev`、`v0.3.10` |
+| `dev` | 本次 0.3.11 发布合并点（见 `git log`） |
+| `main` | 本次 0.3.11 发布合并点（见 `git log`） |
+| 本次发布 | **`v0.3.11`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.11） |
+| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.11` |
+| `dev` 领先 `main` | 0（发布合并后同步） |
+| 备份 | 发布后刷新；含 `main`、`dev`、`v0.3.11`（见备份目录） |
 
-> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.10`
+> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.11`
 > 覆盖；以本表为准。
 
 ## 3. 关键路径速查
@@ -42,6 +41,7 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 | 测试仓登记（铁律 + GitHub 8 仓/本地 3 仓双表） | `test-repos.md`（仓库实际小写路径） |
 | 引擎 bundle（pr-helper 冻结源变换，勿手改逻辑） | `server/workflows-store.mjs` |
 | 控制塔路由（inbox/automation/saves/ai-credentials/rules） | `server/flows.mjs` |
+| CI 健康聚合（只读 GitHub GraphQL） | `server/ci-health.mjs` |
 | 影子模式桥（调度器/日志/通知钩子） | `server/automation.mjs` + `server/notifier.mjs` |
 | 影子期云端→本地同步 | `scripts/migration/shadow-sync.mjs`（`npm run sync:shadow`） |
 | 本地增量迁移（048 auto_advance 等） | `scripts/migration/local-migrations/` |
@@ -77,10 +77,10 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 
 ## 6. 当前测试基线
 
-- 单元/路由测试：**1093 tests / 60 files**（2026-11-18 在 0.3.10 上复跑）。
+- 单元/路由测试：**1099 tests / 61 files**（2026-11-18 在 0.3.11 上复跑）。
 - E2E：**162 passed / 0 failed**（同次复跑）。
 - `npm run build`：通过。
-- 桌面端：`0.3.10` 已构建、smoke 通过、ZIP/DMG/SHA256SUMS 校验通过。
+- 桌面端：`0.3.11` 构建后按发布流程刷新、smoke / ZIP / DMG / SHA256SUMS 校验。
 
 ## 7. 铁律（违反=事故）
 

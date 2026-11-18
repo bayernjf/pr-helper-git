@@ -49,18 +49,37 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-**迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1093/60、E2E 162/162。**
+**迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1099/61、E2E 162/162。**
 
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
-已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
-tag `v0.3.10`）；`main`/`dev` = **`a04ba13`**（0.3.10 发布合并点；docs 校正随后合并），
-GitHub latest = **`v0.3.10`**。
-测试：1093 tests / 60 files + E2E 162/162，build 通过。备份目录最新
+已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，tag `v0.3.10`）；
+0.3.11 新增 CI 健康看板；`main`/`dev` 以最新合并点为准，
+GitHub latest = **`v0.3.11`**。
+测试：1099 tests / 61 files + E2E 162/162，build 通过。备份目录最新
 `source-20261118-1008.bundle` 含 `main`、`dev`、`v0.3.10`。
 
-最近更新：2026-11-18（发布 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1093/60、E2E 162/162、build 通过。
+最近更新：2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.11 (2026-11-18)
+
+范围：新增只读的 PR CI 健康看板。
+
+服务端：`server/ci-health.mjs` 通过 GitHub REST `/user/repos` 获取 PAT 账号
+拥有的非 fork/非归档仓库，再对每个候选仓库跑 GraphQL `statusCheckRollup`，
+按 PR 级最终检查状态聚合；开放 PR 始终纳入，已关闭/已合并 PR 仅在创建时间
+落在 7/30/90 天窗口内纳入；默认分支 HEAD 的合并后 CI 单独统计。失败检查按
+名称/标题/描述归类到 infra/timeout/auth/deploy/deps/lint/tests/build/unknown；
+同一检查名的多个 attempt 按最高严重度去重。内存缓存 10 分钟，`refresh=1`
+强制刷新；不读取 pr-helper 生产库，不写 GitHub。
+
+客户端：新增 `CiHealthPage` 与 `CI Health` 顶级视图；指标卡、仓库明细、
+失败原因分布、失败 PR 列表、仓库多选与 localStorage 持久化；命令面板可切换。
+
+验证：1099 tests / 61 files；E2E 162/162；build 通过；真实 loopback
+`GET /api/ci-health?days=30` 返回 200，二次请求命中缓存。视觉点验受本机锁屏/
+浏览器会话限制未执行，页面已过类型检查与生产构建。
 
 ## Release 0.3.10 (2026-11-18)
 

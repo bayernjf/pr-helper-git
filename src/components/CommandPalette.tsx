@@ -26,6 +26,7 @@ import {
   IconPullRequest,
   IconRefresh,
   IconSearch,
+  IconServer,
   IconStash,
   IconUpload,
 } from './icons';
@@ -82,6 +83,13 @@ export default function CommandPalette() {
         search: 'pull requests pr board github',
         icon: <IconPullRequest width={15} height={15} />,
         run: () => setView('pr'),
+      },
+      {
+        id: 'view-ci',
+        label: 'Switch to CI Health',
+        search: 'ci health checks actions pass rate',
+        icon: <IconServer width={15} height={15} />,
+        run: () => setView('ci'),
       },
     ];
 

@@ -2,6 +2,17 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.11] - 2026-11-18
+
+### 新增
+- **CI 健康看板（只读）**：新增第五个顶级视图 `CI Health`，扫描当前 GitHub PAT 账号拥有的非 fork、非归档仓库，按 PR 级最终检查状态统计总数、通过、失败、待定、通过率、被 CI 阻塞的开放 PR，以及默认分支 HEAD 的合并后 CI 失败。
+- **失败原因分布**：失败检查按名称/标题/描述归入基础设施、超时、权限、部署、依赖、Lint、测试、构建、未分类九类，并列出失败 PR、失败检查项和 GitHub 跳转链接。
+- **范围与缓存**：支持 7 / 30 / 90 天窗口、仓库多选（localStorage 持久化）、`refresh=1` 强制刷新；服务端内存缓存 10 分钟，首次扫描约 30–60 秒。
+- **数据边界**：只走 GitHub REST + GraphQL 只读接口，不读取 pr-helper 生产库、不依赖其 14 个流程配置，也不写入 GitHub。
+
+### 验证
+- 1099 tests / 61 files；E2E 162/162；build 通过；`GET /api/ci-health?days=30` 真实 loopback 请求通过，二次请求命中缓存。
+
 ## [0.3.10] - 2026-11-18
 
 ### 变更
