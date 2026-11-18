@@ -120,6 +120,84 @@ export interface CheckRun {
   html_url: string;
 }
 
+export type CiHealthState = 'success' | 'failure' | 'pending' | 'none';
+
+export interface CiFailedCheck {
+  name: string;
+  state: string;
+  detail: string;
+  url: string;
+  category: string;
+}
+
+export interface CiHealthPr {
+  repository: string;
+  number: number;
+  title: string;
+  state: string;
+  merged: boolean;
+  mergedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  url: string;
+  draft: boolean;
+  headSha: string;
+  ciState: CiHealthState;
+  failedChecks: CiFailedCheck[];
+}
+
+export interface CiHealthRepo {
+  repository: string;
+  defaultBranch: string;
+  defaultBranchSha: string;
+  prCount: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  blocked: number;
+  passRate: number | null;
+  failureRate: number | null;
+  postMerge: {
+    state: CiHealthState;
+    sha: string;
+    failedChecks: CiFailedCheck[];
+  };
+  topCategories: string[];
+}
+
+export interface CiFailureCategory {
+  id: string;
+  label: string;
+  count: number;
+  share: number;
+}
+
+export interface CiHealthTotals {
+  prCount: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  blocked: number;
+  postMergeFailures: number;
+  reposWithPrs: number;
+  scannedRepos: number;
+  passRate: number | null;
+  failureRate: number | null;
+}
+
+export interface CiHealthReport {
+  generatedAt: string;
+  windowDays: number;
+  scope: string;
+  prLimitPerRepo: number;
+  totals: CiHealthTotals;
+  repos: CiHealthRepo[];
+  failedPrs: CiHealthPr[];
+  failureCategories: CiFailureCategory[];
+  warnings: string[];
+  cached?: boolean;
+}
+
 // Audit records share a timestamp and a small set of common fields; the
 // remaining keys depend on the action and are kept as an open index.
 export interface AuditEntry {

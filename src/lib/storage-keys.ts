@@ -20,6 +20,8 @@ export const STORAGE_KEYS = {
   pat: `${PREFIX}:pat`,
   commitHistory: `${PREFIX}:commit-history`,
   cloneParent: `${PREFIX}:clone-parent`,
+  ciHealthWindow: `${PREFIX}:ci-health-window`,
+  ciHealthRepos: `${PREFIX}:ci-health-repos`,
 } as const;
 
 // Map of legacy key -> new key (or null for repo-prefixed dynamic keys).

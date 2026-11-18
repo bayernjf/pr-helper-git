@@ -16,6 +16,7 @@ import { handleGitRoute } from './routes-git.mjs';
 import { startAutomation, handleGithubWebhook } from './automation.mjs';
 import { handleGithubRoute } from './routes-github.mjs';
 import { handleFlowsRoute } from './flows.mjs';
+import { handleCiHealthRoute } from './ci-health.mjs';
 import { handleGithubOAuthRoute } from './github-oauth.mjs';
 import { handleA2aPublicRoute, handleA2aAdminRoute, isA2aPublicPath } from './a2a.mjs';
 import {
@@ -278,6 +279,10 @@ const server = http.createServer(async (req, res) => {
         // A2A status/token management is a small authenticated companion to
         // the public card.
         await handleA2aAdminRoute(ctx)
+      ) || (
+        // CI Health is a read-only GitHub aggregation surface; it must run
+        // before the repo-scoped Git route's /api guard.
+        await handleCiHealthRoute(ctx)
       ) || (
         // Flow routes are a distinct surface; handle them before the repo
         // routes, which answer 403 for any /api path without ?repo=.

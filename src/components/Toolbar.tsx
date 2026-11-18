@@ -312,6 +312,13 @@ export default function Toolbar() {
         </button>
         <button
           type="button"
+          className={view === 'ci' ? 'active' : ''}
+          onClick={() => setView('ci')}
+        >
+          {t('CI Health')}
+        </button>
+        <button
+          type="button"
           className={view === 'flows' ? 'active' : ''}
           onClick={() => setView('flows')}
         >

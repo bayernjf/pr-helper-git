@@ -6,6 +6,7 @@ import CommitDetail from './components/CommitDetail';
 import CommitGraph from './components/CommitGraph';
 import { IconFolder } from './components/icons';
 import DashboardPage from './components/DashboardPage';
+import CiHealthPage from './components/CiHealthPage';
 import FlowBoard from './components/FlowBoard';
 import PrBoard from './components/PrBoard';
 import RefSidebar from './components/RefSidebar';
@@ -45,6 +46,8 @@ export default function App() {
       {repoLoading && <div className="loading-bar" />}
       {view === 'dashboard' ? (
         <DashboardPage />
+      ) : view === 'ci' ? (
+        <CiHealthPage />
       ) : view === 'flows' ? (
         <FlowBoard />
       ) : !activeRepo ? (
