@@ -259,6 +259,14 @@ export type GenerationRuleRow = {
   label: string;
 };
 
+export function repairContext(input: { workflowId: string; stageIndex: number; source?: string; pullNumber?: number }) {
+  return request<Record<string, unknown>>('/api/flows/repair-context', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
 export function fetchGenerationRules(): Promise<{ rules: GenerationRuleRow[] }> {
   return request<{ rules: GenerationRuleRow[] }>('/api/flows/rules');
 }

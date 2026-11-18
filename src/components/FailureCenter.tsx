@@ -12,13 +12,14 @@ import { githubPullUrl } from '../lib/domain';
 import PullReference from './PullReference';
 import { t, tp } from '../i18n';
 
-function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover }: {
+function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover, onRepair }: {
   item: FailureItem;
   flowRepository: string;
   busy: string;
   onRerun?: (item: FailureItem) => void;
   onOpenDrawer: (item: FailureItem) => void;
   onTakeover?: (item: FailureItem) => void;
+  onRepair?: (item: FailureItem) => void;
 }) {
   const retry = item.recovery;
   return (
@@ -41,6 +42,16 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover
             {t('take over')}
           </button>
         ) : null}
+        {item.recovery && onRepair ? (
+          <button
+            type="button"
+            className="drawer-btn small"
+            disabled={busy !== ''}
+            onClick={() => onRepair(item)}
+          >
+            {t('Codex repair context')}
+          </button>
+        ) : null}
         {onRerun ? (
           <button
             type="button"
@@ -60,12 +71,14 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover
   );
 }
 
-export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeover }: {
+export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeover, onRepair }: {
   state: BoardState;
   onOpenDrawer: (flowId: string, stageIndex: number) => void;
   onMutated: () => void;
   /** Opens the step drawer preloaded with the paused create-pr action. */
   onTakeover?: (item: FailureItem) => void;
+  /** Opens the Codex repair modal for a check-failure row. */
+  onRepair?: (item: FailureItem) => void;
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState('');
@@ -111,6 +124,7 @@ export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeov
             flowRepository={repositoryFor(item)}
             busy={busy}
             onRerun={(target) => rerun(target)}
+            onRepair={(target) => onRepair?.(target)}
             onOpenDrawer={(target) => onOpenDrawer(target.workflowId, target.stageIndex)}
           />
         ))}

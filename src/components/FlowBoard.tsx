@@ -16,6 +16,7 @@ import {
 import { useToast, useConfirm } from './ui';
 import { t, tp } from '../i18n';
 import { saveWorkflowToServer } from '../api/flows';
+import CodexRepairModal from './CodexRepairModal';
 import FailureCenter from './FailureCenter';
 import FlowEditor from './FlowEditor';
 import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
@@ -105,6 +106,7 @@ export default function FlowBoard() {
   const [collapsedLanes, setCollapsedLanes] = useState<string[]>([]);
   const [returnHighlight, setReturnHighlight] = useState<string | null>(null);
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
+  const [repairTarget, setRepairTarget] = useState<{ flowId: string; stageIndex: number; source: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(false);
@@ -342,6 +344,7 @@ export default function FlowBoard() {
           state={state}
           onOpenDrawer={(flowId, stageIndex) => setDrawerStage({ flowId, stageIndex })}
           onMutated={() => void load(true)}
+          onRepair={(item) => setRepairTarget({ flowId: item.workflowId, stageIndex: item.stageIndex, source: item.source })}
         />
       ) : null}
 
@@ -530,6 +533,14 @@ export default function FlowBoard() {
           </article>
         )}
       </section>
+      {repairTarget ? (
+        <CodexRepairModal
+          workflowId={repairTarget.flowId}
+          stageIndex={repairTarget.stageIndex}
+          source={repairTarget.source}
+          onClose={() => setRepairTarget(null)}
+        />
+      ) : null}
       {auditOpen ? <FlowAuditModal onClose={() => setAuditOpen(false)} /> : null}
       {teamsOpen ? <TeamsModal onClose={() => setTeamsOpen(false)} /> : null}
       {preflightFlowId ? (
