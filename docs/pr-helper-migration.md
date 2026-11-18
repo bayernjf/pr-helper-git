@@ -1,624 +1,1909 @@
-# pr-helper → pr-helper-git 迁移方案与执行台账
-
-> **文档定位**：本文档是 pr-helper → pr-helper-git 全功能迁移的**唯一核心台账**——
-> 迁移方案、能力追踪矩阵、验收标准、决策记录、变更记录全部在此。任何后续调整
-> （范围、验收标准、状态流转）**必须追加到 §12 变更记录**，并同步更新对应条目的
-> 状态列。完成度以 §10 能力追踪矩阵的处置列为准，不以任何口头或会话结论为准。
->
-> **创建**：2026-11-13 · **最后更新**：2026-11-14（D-002-v2 功能缺口复审）· **迁移发起人**：用户
->
-> 状态图例：⬜ 待迁移 · 🔵 进行中 · ✅ 已迁移+验收通过 · 🔀 替代实现 · ⏸ 缓办 · 🚫 不迁移（理由在备注）
-
----
-
-## 0. 文档使用规则
-
-1. 本文档按 **迁移阶段（§5）→ 能力追踪矩阵（§10）→ Supabase 迁移处置（§11）** 三层组织：
-   追溯某个能力 → 查 §10 对应行；核对某条数据库结构 → 查 §11；核对某阶段做什么 → 查 §5。
-2. **每一条能力的处置列是完成度的唯一判据**。`✅` 必须满足该行"验收标准"列的全部条目
-   并注明验证证据（测试/命令/E2E 用例号），否则不得标 ✅。
-3. 范围、验收标准、阶段划分的任何变更 → 追加 §12 变更记录（日期 + 原因 + 批准人 = 用户）。
-4. 与 `AGENTS.md` 的关系：本迁移经用户明确指令**推翻并修订** AGENTS 中的部分禁区
-   （§2 决策记录 D-003/D-004/D-005/D-008）。修订稿在 Phase 2 前提交用户留痕；
-   未列入修订的禁区（云平台 SaaS 能力）仍然有效。
-5. **源仓只读原则（D-011，2026-11-13）**：pr-helper 的本地目录与 GitHub 仓在迁移
-   全程**只读**——不修改任何文件、不提交、不加标注。一切"冻结/迁移中"声明只记录
-   在本台账（本文档即声明载体）。允许的操作仅限：读文件、`git fetch`/`git log`/
-   `git show` 等只读核对。被迁出产品保持原样，归档与删除决策在 Phase 5 之后。
-6. **多会话协作协议（上下文对齐的唯一机制 = 本文档随仓库版本化）**：
-   - 每个迁移会话**开场**：① 读本文档 §0 使用规则与 §12 变更记录（最新状态）→
-     ② 读 §10 追踪矩阵找第一个 ⬜/🔵 条目 → ③ `git -C . log --oneline -5` 核对
-     基线 → ④ 认领任务并在状态列标 🔵。
-   - 每个迁移会话**收尾**：① 更新状态列与验收证据 → ② 追加 §12 变更记录 →
-     ③ 更新根目录 `handoff.md` 的「pr-helper 迁移进度（实时段）」（D-013：实时进度
-     记录在 handoff，方案与验收在本文档——双文档分工）→ ④ Conventional Commit
-     提交并 push dev → ⑤ 跑备份脚本。
-   - 会话中断/换会话不丢上下文：本文件随仓库存在，状态列就是断点。
-
----
-
-## 1. 迁移目标与总范围（D-001，2026-11-10）
-
-**目标**：pr-helper（GitHub-first PR / Release Control Tower）的**全部业务功能**迁入
-pr-helper-git（React 19 客户端 + Node loopback server + 本地 Postgres），业务功能与体验
-对用户**无感**；pr-helper 随即停止迭代并归档。
-
-**范围内（全部迁入）**：工作流定义与规则、自动化引擎（队列/幂等/门禁/自动合并/推进）、
-Actions 重跑与失败中心、AI 生成与失败接管、Lane board 与流程详情/编辑器、收敛路线视图、
-团队与角色、审计、保留清理、通知（macOS + 飞书）、webhook 接收、E2E；**被管理仓库的
-部署门禁**（Actions 部署 run 跟踪、健康探测、失败摘要、确认式回滚、GitHub Environment）。
-
-**范围外（明确排除，D-002-v2，2026-11-14）**：
-- **pr-helper-git 产品自身的托管/部署**：本产品不上生产，不部署到 Cloudflare/Vercel，
-  也不要求本产品接入 Cloudflare/Vercel API；这不等于不管理被管理仓库的部署门禁。
-- 云平台基建本身：Supabase 云、GitHub App OAuth、webhook 公网接收（改本地接收 + 轮询
-  兜底，见 D-004）、Web Push（缓办，D-005）。
-
-> D-002 原文“部署域整体排除”已被 D-002-v2 撤销：CF/Vercel 只是被管理仓库部署的
-> `provider` 标签；实际能力依赖 GitHub Actions run、部署 URL 健康探测和仓库里的
-> rollback workflow，不需要 pr-helper-git 自身部署或持有云平台账号。
-
-**已知不可无感项**（D-008 前提下）：Mac 关机/未开机期间自动化暂停（launchd 常驻 +
-开机自启缓解；恢复后 reconcile 追平）。此为 D-008 方案 B 的既定代价，用户知情。
-
----
-
-## 2. 决策记录（按时间序，全部经用户确认）
-
-| ID | 日期 | 决策 | 影响 |
-|---|---|---|---|
-| D-001 | 2026-11-10 | pr-helper 停止迭代，全功能迁入 pr-helper-git，体验无感 | 本文档成立 |
-| D-002 | 2026-11-10 | ~~部署域排除（Cloudflare/Vercel 门禁、健康检查、回滚不迁）~~ **已被 D-002-v2 撤销** | 仅留历史；相关行改回必迁 |
-| D-002-v2 | 2026-11-14 | **澄清边界**：pr-helper-git 产品自身不部署到 Cloudflare/Vercel ≠ 不管理被管理仓库的部署。部署门禁、健康检查、失败摘要、确认式回滚、GitHub Environment 恢复为必迁；`provider` 只是 `vercel/cloudflare` 标签，实际依赖 GitHub Actions run + HTTP 健康探测 + 仓库 rollback workflow，不要求本产品接 CF/Vercel API，也不要求本产品上生产 | M-A6/M-B10/M-C7/M-D17/P3-4/P3-10；验收 #21/#22/#23/#30/#31 重开；AGENTS 修订 | 用户原话纠正 |
-| D-003 | 2026-11-13 | 持久化 = **OrbStack 本地 Postgres 容器**（仅 localhost），47 个 Supabase 迁移**原样执行**；`postgres` npm 客户端为首个运行时依赖（打破"零依赖"，用户知情确认） | Phase 1 形态；AGENTS 修订 |
-| D-004 | 2026-11-13 | **GitHub webhook 直接使用**（用户纠正"仅局域网"的过度推断）：本地 server 提供接收端点，可达性方案在 Phase 2 接线时选定（现有网络 / cloudflared tunnel / Tailscale）；不可达时轮询兜底 | 触发延迟回到 1–3s；Phase 2 增加接收端移植 |
-| D-005 | 2026-11-13 | Web Push **缓办**（非砍掉）：替代为 macOS 本地通知 + 飞书 webhook；需要时再迁 | C19/F23 ⏸；Phase 4 |
-| D-006 | 2026-11-13 | GitHub App → 个人 PAT 替代。**2026-11-13 修订（v2）**：实测 `vercel env pull` 拉到 GITHUB_APP_* 全套明文凭据 → **GitHub App 凭据随迁移迁入本地 server**（github-app.ts 直迁，App JWT → installation token 流保留，org 级权限与安装边界不损失）；PAT 降级为兜底。受影响矩阵行改为 🔁（M-D1/D2/D4/D5/D11） | D 域 App 相关行 🔁 |
-| D-007 | 2026-11-13 | AI 凭据 → `~/.pr-helper-git/` 0600 config.json（safeStorage 不适用：桌面壳为 Swift 非 Electron） | E3 🔀 |
-| D-008 | 2026-11-13 | 不在场自动化 → **launchd 常驻 headless server**（KeepAlive + 开机自启，复用 v0.2.6 捆绑 runtime/node）；GUI/浏览器为 server 客户端 | Phase 2；唯一无感例外 |
-| D-009 | 2026-11-13 | pr-helper 仓库归档方式 = 推最终状态 → PRIVATE + ARCHIVED（不删除）；Supabase 下线或冷备待定 | Phase 5 |
-| D-010 | 2026-11-13 | E2E 策略：引擎契约 = curl API e2e（对齐现有 121 条模式）；UI = 组件测试 + 手动走查；Playwright 引入推迟 | Phase 3 |
-
----
-
-## 3. 源基线（pr-helper @ `c32c6c6f`，2026-11-13）
-
-- 源仓库：`git@github.com:bayernjf/pr-helper.git`（本地 checkout `000mycodes/pr-helper`，
-  与 origin/main 一致，HEAD = c32c6c6f）。
-- 栈：Vite vanilla-TS 客户端（`index.html` + `wip.html` 双入口）+ Vercel Serverless（`api/`）
-  + Supabase Postgres（47 迁移）+ GitHub App（installation token）。
-- **权威能力目录**：pr-helper `docs/feature-catalog.md`（223 行，717 个 i18n 键前缀为功能地图，
-  逐项带代码证据与状态图例）— Phase 0 随归档迁入本仓 `docs/archive/pr-helper-feature-catalog.md`。
-- **基线疑点（Phase 0 第一项任务核对）**：pr-helper `docs/current-state.md` 与
-  `docs/superpowers/plans/2026-11-12-split-main-ts-handoff.md` 记录 2026-11-13 已完成
-  `src/main.ts` 拆分（2968 → 1794 行、拆入 `src/app/` 32 文件），但本地 main 分支实测
-  `src/main.ts` 仍为 2968 行、`src/app/` 仅 9 文件 — **拆分提交可能在未合并分支**。
-  Phase 0 需在 pr-helper 仓核对分支并确定迁移源基线（以拆分后形态优先）。
-- 测试基线：44 文件 / 857 单测 + Playwright 34 E2E。
-
-**源能力与模块全清单**见 §10 追踪矩阵的"源文件"列（A–H 八域 122 行 + 47 迁移），
-此处不重复；盘点扫描覆盖 `src/`、`api/`（含 `_lib` 8031 行）、`supabase/`、`scripts/`、
-`.github/workflows/`、`docs/`。
-
----
-
-## 4. 目标基线（pr-helper-git @ dev `1adc994`，0.2.6 已发布）
-
-已具备、无需重复迁移的能力（矩阵中标 ✅）：
-
-- GitHub REST/GraphQL 封装 + 代理白名单（`server/github-allowlist.mjs`、routes-github）
-- PR 看板（三列 + 评审汇总 + 文本过滤）、PR 详情八组数据并行加载、close/reopen
-- 合并（merge/squash/rebase）、close/reopen、label/reviewer 增删、行级评论、draft→ready（GraphQL）
-- CI 门禁 + 保护提醒 + 图内 CI 点（`src/lib/ci.ts`）
-- AI 流式生成（commit/PR 描述）、AI 配置（服务端 key）
-- Dashboard 整页（卡片/置顶/冲突优先/PR 数/后台 fetch-all/stale 芯片）
-- WIP 三分区 + 文件树 + hunk/行级暂存 + conflict editor（三路）
-- identity（owner/member token hash）、审计（轮转 + 可视化 + CSV）、E2E 121→144
-- 设计 token 体系（`design/tokens.json` 单一源）、tooltip/toast/confirm 统一契约
-- Node 26/20 双兼容测试基建（jsdom 26.1.0 pin + `src/test-setup.ts` polyfill）
-
----
-
-## 5. 迁移阶段计划
-
-### Phase 0 — 冻结、基线对齐与数据导出（0.5 天）
-
-| # | 任务 | 源/依据 | 验收标准 | 状态 |
-|---|---|---|---|---|
-| P0-1 | ~~pr-helper 标注 frozen~~ **已取消（D-011 源仓只读）**：pr-helper 文件全程不动，frozen 声明以本文档 §1 为准 | 本文档 §1 | 台账含 D-011 声明 | ✅ |
-| P0-2 | **核对 main.ts 拆分分支**（§3 基线疑点）：确定源基线分支（只读操作：`git branch -a` + `git log origin/<branch>`，不改 pr-helper 工作树） | git branch -a | 明确源基线 commit 并记入 §12 | ✅ 源基线=origin/dev@96bd94fe + main 独有修复 709940f3，§12 已记 |
-| P0-3 | Supabase 生产导出 | prh_readonly 只读角色 + session pooler（.env.production 无法取 DATABASE_URL — Sensitive 掩码；凭据在 ~/.config/pr-helper/db.env） | 导出集 `000mycodes-backups/pr-helper-git/supabase-export-20261113.json`：58806 行/26 表，14 流程与文档终态一致 | ✅（例外：reconciliation_runs 遥测表 5×60s 超时未导出，非业务数据，§12 已记） |
-| P0-4 | 47 迁移文件 + feature-catalog.md + current-state.md 快照拷入本仓 `docs/archive/pr-helper-source/` | supabase/migrations | 文件数 = 47 | ✅ 228 文件快照（含 47 迁移 + catalog/current-state），§12 已记 |
-| P0-5 | ~~pr-helper 推最终状态到 origin~~ **已满足**：origin/main = c32c6c6f（#406）= 本地 HEAD，最终状态已在 GitHub | — | ls-remote 核对记录 | ✅ |
-
-### Phase 1 — OrbStack Postgres + 领域内核移植（2–3 天）
-
-| # | 任务 | 源（pr-helper） | 目标（pr-helper-git） | 验收标准 | 状态 |
-|---|---|---|---|---|---|
-| P1-1 | OrbStack 拉 Postgres 容器（版本对齐 Supabase PG 主版本，仅 localhost，volume 持久化，restart 策略） | D-003 | — | `docker ps` 常驻；重启 Mac 后自动恢复 | ✅ pr-helper-pg 运行中（127.0.0.1:54329，unless-stopped）；下次 Mac 重启后补一次实测 |
-| P1-2 | 原样执行 47 迁移（含 030 的函数创建；调度职责由 server 承担，见 §11 例外） | supabase/migrations | 本地 PG schema | `\dt` 表清单与 §11 矩阵一致；迁移基线校验脚本随迁 | ✅ 26 表 schema 与矩阵一致（030 pg_cron/pg_net → server 调度 + no-op stub，§11 例外）；校验脚本已随迁（P1-6） |
-| P1-3 | Supabase 数据导入（P0-3 dump → 本地 PG） | dump | 数据行数与导出一致 | 14 流程/17 stages 逐列对照 | ✅ 58806 行/25 表导入（eb5000e，reconciliation_runs 遥测表例外）；workflows=14 实测确认 |
-| P1-4 | `postgres` npm 客户端接入 + store 层重写（`workflows-store.ts` 的 SQL/事务/锁直迁，Supabase SDK → SQL） | api/_lib/workflows-store.ts | `server/workflows-store.mjs` | store 单测随迁全绿 | ✅ bundle 3014 行自含 ESM（29169ff）；store 测试网随迁全绿（11-14）：418 不变量测试（源级断言指快照 TS，D-011 冻结源=被测对象）+ workflow-rows 25 + github-api 11 + ai-credentials 5；补导出 workflowFromRows/workflowToRows；剩余 api 路由层测试（workflows/inbox-refresh handler 级）随 Phase 3 服务面接线时随迁 |
-| P1-5 | 领域纯逻辑直拷（domain/workflow/workflow-run/generation-rules/projected-stage/…） | src/lib/*.ts + tests | `src/lib/automation/*.ts` | 随迁单测全绿（预计 ~600±） | ✅ 完成（2026-11-15）：核心 4 模块（workflow/workflow-run/projected-stage/generation-rules）+ 143 域测试；Phase 3 语义模块随 UI 落地：`flows-board`（13）、`flows-detail`（8）、`flows-failures`（5）、`flow-audit`、`editor-prerequisites`（3）；长尾 `navigation`/`workflow-save-queue`/`action-queue-request-queue` 不单独移植——React 组件用 hooks + typed API client 直接承载，避免再造第二套状态机（与 AGENTS“不复制业务逻辑”一致）；门禁 1029/53 |
-| P1-6 | 迁移纪律脚本随迁（check-migrations） | tools/check-migrations.sh | scripts/ | `npm run check:migrations` 通过 | ✅ 源前提不成立（快照无 tools/，11-14 查证）→ 重定界为新实现：`scripts/migration/check-migrations.mjs` 解析 47 迁移推导期望表集 vs 本地 PG 实测（26=26 ✓，核心表行数核对 ✓） |
-
-### Phase 2 — 自动化引擎 + webhook 接收端 + launchd（4–5 天，中高风险）
-
-| # | 任务 | 源（pr-helper） | 目标 | 验收标准 | 状态 |
-|---|---|---|---|---|---|
-| P2-1 | PAT 替代 GitHub App：installation token 层删除，REST/GraphQL 走 PAT（对齐 D-006） | api/_lib/github-api.ts | pr-helper-git github-api 层 | 对 14 仓库的读/写/merge 调用全部 200 | ✅ D-006-v3 PAT 实网（11-15）：App 私钥不可用，PAT 同账号同 REST 路径；Actions/Environment/PR/分支读取实测 200；凭据文件引号解析修复后服务端生效 |
-| P2-2 | 队列 + drain 执行器移植（幂等键、execute/reclaim/requeue/cancel/skip、瞬时失败重排 15min×3、12h stale 取消） | api/_lib/workflows-store.ts（drain 相关） | server/workflows-store.mjs | 队列单测随迁全绿；drain 决策与迁移前逐条一致 | ✅ 完成（2026-11-15）：bundle 已含 drain 执行器；418 条 store 不变量覆盖 `automationDrainDecision` 的 execute/skip/cancel、gate-wait 退避与 ceiling、瞬时失败 requeue 冷却与 3 次上限、`automationCancelReason`、`automationIdempotencyKey`、`automationRetryIsExhausted`、`automationAttemptWasReached`；执行入口只在 automation=1 非 shadow 下运行，影子期不执行符合 P2-10 |
-| P2-3 | 自动创建 PR（阈值 + 四项 AI 前置）+ 自动合并（门禁全绿 + sha 幂等 + behind 暂停）+ advance-stage | api/_lib/workflows-store.ts | server | 端到端：push → 阈值 → PR → 门禁 → 合并 → 推进 | ✅ 完成（2026-11-15）：在 `bayernjf/git-e2e-test` 建临时源分支 2 提交，临时流程触发对账（ahead_by=2、checks_state=success、PR #8 clean）；action 4370 create-pr 成功建 PR #8，action 4371 merge-pr 成功合并，`main` 新提交 `f94ace0`；测试分支/流程/临时 AI 凭据已清理，测试仓无 open PR。advance-stage 已真实 dispatch：另建 `p2-3-advance-test` 2 提交 → PR #10 自动建/合并 → 对账自动入队 action 4375 → 执行 succeeded，审计 `stage-advanced`（PR #10、mergedAt 记录）。执行首次撞上原版 schema 缺口 `workflow_operation_audit_logs_action_check` 不含 `stage-advanced`，已用本地迁移 `049_audit_stage_advanced.sql` 扩白名单后重试成功 |
-| P2-4 | 对账引擎移植（租约/公平轮转/分级预算 webhook 25s/inbox 6s/manual 8s/cron 40s、阶段校准、ETag 遥测） | api/_lib/workflows-store.ts | server | sweep 遥测行产生；预算语义一致 | ✅ 完成（2026-11-15）：418 store 测试覆盖公平轮转（never→stale→pending）、批大小、分支作用域、租约 TTL/续租、abandoned/deferred、`realtimeReconcileBudgetMs` 分级预算（webhook > manual > inbox_refresh）与 ceiling；本地 PG `reconciliation_runs` 实测产生 `inbox_refresh` 行（id=3，state=degraded，stages_total=14，reconciled=12，failed=0，duration≈6.0s），遥测链路闭合 |
-| P2-5 | 触发器三通道：fs.watch（本地 push 即时）+ webhook 接收端（D-004）+ 定时对账（D-008） | api/github/webhook.ts、api/_lib/github-webhook.ts、api/cron/* | server `POST /api/github-webhook`（HMAC 验签，raw body，401 fail-closed） | webhook 签名校验单测随迁；可达时 1–3s 触发实测 | ✅ 完成（2026-11-15）：webhook 端到端实测（11-14：HMAC/去重/projection/实时对账 202 流程，本地 PG）；**新增 9 个契约单测**覆盖非 webhook 路由、缺 raw body 400、无 secret 503 fail-closed、坏签名 401 且不触库、缺 delivery/event 头 400、坏 JSON 400、shadow 模式 200 且不投影、合法 PR delivery 投影 + 分支级 reconcile 202、重复 delivery 202 不投影不对账；fs.watch=既有 `reconcileWatching`、定时对账=`automation.mjs` 调度器 |
-| P2-6 | AI 失败接管（regenerate/takeover/unpause）+ 消息解析（剥围栏/部分 JSON） | api/_lib/workflows-store.ts | server + 引擎 | 接管单测随迁；paused→unpause 端到端 | ✅ 完成（2026-11-15）：解析/route 测试已随迁；真实闭环在 `bayernjf/git-e2e-test` 完成——临时分支 `p2-6-takeover-test` 2 提交，临时流程对账 ahead_by=2；action 4372 因缺少 AI 配置自然失败进入 paused（run 4374 paused）；补临时 AI 凭据后 `POST /api/flows/automation?action=takeover` 返回 succeeded，真实创建 PR #9，审计 `pull-created / via=user-takeover`；PR #9 已关闭、分支/流程/凭据已清理。**UI 点击路径走查（4789 + browser_use）**：打开流程步骤抽屉 → 点 `take over` → 填标题/正文 → `save takeover`，真实创建 PR #11（action 4376 / run 4378，审计 `via=user-takeover`）；页面 Refresh 后卡片显示 `PR #11 checks passed`。PR #11 已关闭，UI 测试分支/流程已清理 |
-| P2-7 | Actions 重跑（次数/冷却/提交校验）+ Codex 修复包 | api/_lib/workflows-store.ts、api/[action].ts | server | rerun 校验单测随迁 | ✅ 完成（2026-11-15）：`rerunFailedActions` 校验链（workflowId/source/stageIndex 类型、recoveryPolicy maxRetries、cooldownSeconds、head_sha 存在、失败 run 过滤）已随 bundle；路由测试覆盖合法请求与 `stageIndex: '0'` 非法请求 400 且不触引擎；`automationRetryIsExhausted` 域测试覆盖次数上限；`codexRepairContext` 合法/缺 workflowId 400 路由测试；实际 rerun dispatch 需真失败 run，按影子期约束未执行 |
-| P2-8 | 团队四角色 + 共享授权 + 账号删除（级联） | api/_lib/workflows-store.ts、api/account.ts | server + identity 扩展 | 角色矩阵单测随迁 | ✅ 完成（2026-11-15）：引擎 bundle 已含四角色成员/共享/账号删除函数；新增 `/api/flows/teams` 路由（GET 团队/成员、POST create/member/remove-member/share-workflow），3 个路由测试；`src/lib/automation/team-permissions.ts` 角色矩阵 + 3 测试；`TeamsModal` 接入 FlowBoard；隔离 4791 UI 实测创建团队→自动 Owner、成员区 `@bayernjf Owner`、Owner 管理表单与四角色选项；真实 HTTP 共享流程返回 200 且 `pr_helper_team_workflows` 落库；生产合并/回滚仅 Owner 的规则由矩阵覆盖 |
-| P2-9 | launchd LaunchAgent（常驻 + KeepAlive + 开机自启，复用捆绑 runtime/node） | D-008 | `launchd/` plist 随仓 | Mac 重启后 server 自动恢复；崩溃 10s 内重启 | ✅ `launchd/{install,uninstall}.sh` + README（11-14）：RunAtLoad 登录自启、KeepAlive 崩溃 10s 重启实测（kill -9 → 新 pid → 200）、自动化随启（PR_HELPER_GIT_AUTOMATION=1）、日志 ~/Library/Logs/pr-helper-git/；11-15 常驻运行于 4789（shadow 模式） |
-| P2-10 | 影子模式开关（引擎只决策不执行 + 决策日志落库） | 本方案 Phase 5 | server | 影子日志可逐日比对 | ✅ 只读观测 + **JSONL 影子日志落盘**（11-14：`~/.pr-helper-git/automation-shadow.log`，PR_HELPER_HOME 尊重，失败路径也落盘，smoke 测试）——P5-1 逐日比对材料就绪 |
-
-### Phase 3 — 控制塔视图 React 重建（4–5 天，量大但机械）
-
-| # | 任务 | 源（pr-helper） | 目标 | 验收标准 | 状态 |
-|---|---|---|---|---|---|
-| P3-1 | 流程看板（Lane board 页面化：六筛选/搜索/聚合条/活动条/卡片） | src/main.ts overview/projectLane | `src/components/FlowBoard.tsx` | 筛选/排序/聚合与 pr-helper 行为一致 | ✅ 完成（2026-11-15）：六筛选计数/搜索/聚合条/活动条/卡片；归档/恢复、静音、运行历史由 P3-12 补齐；新建/编辑由 P3-4 补齐；步骤重排入口为显式上/下移（原版键盘兜底的等价入口，pointer 拖拽未做） |
-| P3-2 | 流程详情（投影直出 + live 校正 + 30s TTL） | src/main.ts detail、src/lib/projected-stage.ts | `src/components/FlowDetail.tsx` | 投影 TTL 语义一致 | ✅ 完成（2026-11-15）：详情页继续直出投影；看板**页面进入/重回标签页只读投影**，快照超过 30s 才重读（TTL 守卫）；**手动 Refresh 带 `?refresh=1`**，服务端调 `reconcileRealtime` 在 realtime 预算内 live 对账，余额留给定时 sweep，并回传 `reconciliationScheduled`/`reconciliation`。隔离实例实测：页面加载 `reconciliationScheduled=false`、14 states；手动刷新 `reconciliationScheduled=true`、`reconciled=12`、`outcome=deferred`、14 states、0 warnings。新增 2 个路由测试，门禁 1020 tests/52 files + build 绿 |
-| P3-3 | 步骤抽屉（创建 PR/合并/重跑/部署卡/时间线） | src/main.ts 抽屉 | `src/components/StepDrawer.tsx` | 操作集与 pr-helper 一致 | ✅ 完成（2026-11-15）：服务面路由 + StepDrawer UI（状态头 + PR/门禁 + 创建 PR/合并/重跑 + 自动化块 + 事件时间线）；**部署卡、健康状态、失败摘要、最近 8 次 run、回滚按钮已补**；实网走查 bayjf 步骤抽屉：Cloudflare Pages / Vercel 两张 gate 卡均为 `deployed`，`open site`/`open logs` 可见，最近 4 条真实 run（`43622001752`、`43622001707`、`43617220484`、`43617220447`）正常渲染；retry/rollback 按 run 状态与 `rollbackWorkflowName` 条件显示，本轮数据无失败 run/回滚工作流，实际 dispatch 按 P3-10 用户裁决 #21 不执行 |
-| P3-4 | 流程编辑器（步骤/路由/门禁/恢复策略表单 + 拖拽排序） | src/main.ts editor | `src/components/FlowEditor.tsx` | 表单语义一致；互斥校验随迁 | ✅ 完成（2026-11-15）：编辑+新建双模式、加/删步骤、恢复策略、自动化三开关+阈值、部署表单、换仓库确认均已落地；**步骤重排入口补齐**：每个展开步骤提供「上移/下移」按钮，调用 `reorderStages` 保留 stageId 与依赖索引，UI 实测顺序反转且展开状态跟随；保存经既有 PUT + `workflowToRows(stage_index)`。pointer 拖拽未做，显式按钮为原版键盘兜底的等价入口 |
-| P3-5 | 失败中心（四段聚合 + AI 接管 + Codex 修复包 + 恢复策略设置） | src/main.ts 失败中心 | `src/components/FailureCenter.tsx` | 四段聚合语义一致；接管端到端 | ✅ 完成（2026-11-15）：三段聚合（检查失败✗/待审批⏳ + 合并后部署失败🔴 + 受阻自动化⏸✗）+ 计数头 + recovery 徽章；实网看板顶部失败中心显示 `Needs attention 5`，含 ops-console 的 `第 1 步 Actions 失败`（`retries exhausted`，rerun 禁用）与 loom/zeus/pr-helper 受阻自动化；步骤抽屉 `take over` 入口可见；Codex 修复包路由（repair-context→codexRepairContext）已落地，实际 AI 执行依赖服务端 AI 凭据（与 P3-7 同前置） |
-| P3-6 | 时间线 + 只读进度条 | src/main.ts 时间线段 | `src/components/FlowTimeline.tsx` | 连续前缀计数语义一致 | ✅ 语义已承载（11-14 判定）：详情页=进度条（flowProgress 连续前缀，3 测试明确覆盖）+ 分步时间线卡 + 每步事件流；抽屉=事件列表；**设计偏差**：lane 内不再嵌时间线段（信息已由详情页/抽屉承载，React 版 lane 保持单行紧凑）——独立 FlowTimeline 组件不建 |
-| P3-7 | 自动化开关 UI（四项前置 + 勾选即动作确认） | src/lib/workflow.ts immediateAutomationEffect | FlowEditor 内 | 确认交互与 pr-helper 一致 | ✅ 完成（2026-11-15）：勾选即动作确认已落地（open+pr→合并确认 / ahead≥阈值→立即建 PR 确认）；四项前置按原版 `autoCreatePrerequisites()` 补齐——服务端 AI 凭据、auto-generate、auto-confirm、至少一条生成规则，缺任一项 auto-create/auto-merge/auto-advance 与阈值全部 `disabled` 并逐条列出缺项。新增 `src/lib/automation/editor-prerequisites.ts` + 3 个纯函数测试；隔离服务 UI 实测通过；门禁 1018 tests/52 files + build 绿 |
-| P3-8 | /m 手机适配（700px 断点对齐） | src/style.css 700px 方案 | FlowBoard/FlowDetail 响应式 | 390×844 无横向溢出 | ✅ MobileApp 接入 Flows 完成（11-14）：header segmented「Repository/Flows」切换（偏好持久化 mobile.tab），Flows tab 复用 FlowBoard 组件全宽渲染；顺带修复 /m?token= 不种 cookie 的既有缺口（bootstrap 放宽到 /m，e2e 断言随行为更新 144→145）；Chrome headless 手机仿真 390×844 截图验收：14 lane 无横向溢出 |
-| P3-9 | 34 条 Playwright e2e 断言语义逐条映射为组件测试/手动走查清单 | e2e/pr-helper.spec.ts | `docs/migration-acceptance.md` 附录 | 映射清单 34/34 完整；D-002-v2 后必须补部署/换仓断言 | ✅ 映射与验收闭合（2026-11-15）：✅33 / 🔶0 / 🔀1 / ⬜0；#30/#31 实网转 ✅，#21 按用户裁决转 ✅（确认 UX/路由，dispatch 范围例外），#19 四项前置禁用与 #34 手机竖屏走查同日通过；#1 为认证形态替代（🔀，非功能误砍）。**“映射 34/34”不等于“通过 34/34”，但除 #1 的有意替代外已无开放式失败项** |
-
-### Phase 3.5 — 功能缺口回补（D-002-v2，2026-11-14 新增）
-
-> 这一阶段是“功能对等”闸门：不关闭它，Phase 4/5 不能宣布迁移完成，Phase 5 不能切换。
-> 背景：D-002 把“产品自身不部署”误扩成“不管理被管理仓库的部署”，并把换仓库、
-> 归档/静音等产品 UI 一并裁掉；本次复审把缺口恢复为必做项。
-
-| # | 任务 | 目标 | 验收标准 | 状态 |
-|---|---|---|---|---|
-| P3-10 | 部署门禁全链路恢复（配置表单/Environment/警告/StepDrawer 部署卡/健康状态/失败摘要/最近 8 次 run/回滚二次确认 + HTTP 路由） | FlowEditor + StepDrawer + `server/flows.mjs` + `src/api/flows.ts` | 验收 #21/#22/#23/#30/#31 重开；配置→保存→run 跟踪→健康红/绿→回滚确认全链路走查 | ✅ 收口（2026-11-15，用户裁决 #21 不实际 dispatch）：修复 D-006-v3 PAT 接线（`parseGithubAppConfig` 在 `GITHUB_TOKEN` 存在时跳过 App 配置；`main.mjs` 凭据加载剥离引号）后，`GET /deployment-options` 对 bayjf 返回 Actions 4 / Environment 5、对 pr-helper-git 返回空 Environment；手动对账 bayjf/pr-helper 得到 4 条真实成功部署 run（`43617220484`/`43617220447`、`43614810334`/`43614810330`），`/api/flows/inbox` 已返回 `deploymentRuns=4`。验收 #30/#31 ✅；#21 以确认 UX + 不可变 runId + 路由测试收口，实际 dispatch 为范围例外不执行 |
-| P3-11 | 换仓库确认交互（编辑既有流程换仓库 → 确认 → 转为新建流程） | FlowEditor | 验收 #7/#8 通过；不误改原流程 | ✅ 完成（11-14）：仓库字段编辑态可改；确认框「Change this flow to …? A new flow will be created; the original flow stays unchanged.」；确认后 `createWorkflow(newRepo,...)` + `createMode=true`，原流程不动；未确认换仓 `save()` 拒绝；FlowBoard `onSaved` 对未知 id 追加并选中。UI 实测 #7/#8 通过 |
-| P3-12 | 流程归档/恢复、静音/取消静音、最近运行历史入口 | FlowBoard/FlowDetail | 原功能目录 §2 的 ✔ 项走查；归档可逆、静音只影响通知 | ✅ 完成（11-14 UI 实测）：FlowBoard lane 归档（确认弹窗）→ Archived 筛选计数 1 → restore 回 0；静音 → Muted 徽标/按钮变 unmute，取消后恢复；详情页确认删除 → lane 15→14；FlowDetail「Recent runs」显示 zeus #192/#55（44 条 inbox runs 中按 workflowId 取前 10）；PUT 复用 `upsertWorkflow` 的 archive transition 与 muted 列 |
-| P3-13 | 流程预检（App 权限/分支/PR 冲突/上游依赖/Actions/Environment） | `server/flows.mjs` + FlowBoard | 先裁决“重建”还是“正式删除”；若重建，每项给修复建议 | ✅ 重建预检完成（2026-11-15 用户裁决“重建预检”）：`POST /api/flows/preflight` 只读检查六类项（GitHub App 权限、分支存在性/通配源分支、PR mergeable/dirty、`waitFor` 上游依赖、部署/回滚 Actions workflow、GitHub Environment），每项返回 `pass/warn/fail/skip` + 修复建议；`workflowPreflight` 纯函数 + `preflightWorkflow` 读取投影/仓库元数据，并对 open PR 实时读 `/pulls/{number}` 覆盖滞后投影；FlowBoard lane「preflight」→ `FlowPreflightModal` 分组展示/重跑，页脚明确“只读检查不修改流程”；5 个语义单测 + 路由 400 校验；11-15 实网 `POST /api/flows/preflight` 对 bayjf 返回六类全 pass；完整门禁 1015 tests/51 files + build 绿 |
-| P3-14 | PR 引用复制/tooltip、flows 操作审计 UI+CSV、同步健康度 UI | `src/lib` + `AuditModal`/FlowBoard | 验收 #2/#32；CSV 导出可验证；过时阶段可见 | ✅ 完成（11-14 UI 实测）：`FlowAuditModal` 500 行表格+筛选+CSV（90,686 bytes，RFC4180 转义）；`PullReference` 悬停完整 URL + Open PR、点击复制 toast；FlowBoard「Sync health」显示 last reconcile / 14 stale stage(s) / 0 webhook/24h |
-| P3-15 | 团队管理 UI（四角色/共享） | TeamModal | 角色矩阵走查 | ✅ 完成（2026-11-15）：新增 `TeamsModal`（与旧 admin/member TeamModal 分离）并挂到 FlowBoard「Teams」；团队创建/切换、成员列表与角色徽标、Owner-only 添加/移除、个人流程共享；`team-permissions` 四角色矩阵与生产合并/回滚 Owner 限制 3 测试；隔离 4791 UI 实测创建团队→Owner、成员区 `@bayernjf Owner`、四角色下拉与共享区可见；测试团队已清理 |
-| P3-16 | 编辑器折叠、return-highlight 等 UI 细节 | FlowEditor/FlowBoard | 验收 #5/#6/#24 | ✅ 完成（11-14 UI 实测）：编辑既有流程 0 个展开表单、新建默认展开；展开后 1 个 body，add step 后 2 个折叠头/0 body；详情返回 lane 立即 `.is-return-highlight`，1.6s 自动清除 |
-
-**Phase 3.5 关闭条件**：P3-10/P3-11 必须 ✅；P3-12…P3-16 每项要么 ✅，要么有用户明确的
-“本期不做”裁决并写入 §12；验收清单不再存在 🚫 类功能缺口。
-
-**阶段状态：✅ 关闭（2026-11-15）**。P3-10/P3-11 ✅；P3-12/P3-13/P3-14/P3-16 ✅；P3-15 ✅（团队 UI 11-15 收口，原暂缓裁决已被后续实现覆盖）；P3-9 验收统计 ✅33 / 🔶0 / 🔀1 / ⬜0，除 #1 认证形态替代外无开放式失败项。
-
-### Phase 4 — 通知、pr-helper 归档、AGENTS 修订（1–2 天）
-
-| # | 任务 | 验收标准 | 状态 |
-|---|---|---|---|
-| P4-1 | 失败通知：macOS 本地通知（替代 Web Push，D-005）+ 飞书 webhook | 失败场景实测收到通知 | ✅ `server/notifier.mjs`（11-14）：osascript 本地通知 + `PR_HELPER_GIT_FEISHU_WEBHOOK` 可选通道；事件纪律=仅人工可行动失败（动作进入 paused/failed → drain failures[]，10 分钟签名去重）；接入 automation.mjs drain 结果；7 单测（去重窗口/上限 5/飞书开关）；macOS 通知实测已发（用户屏幕确认）。**D-017（11-14 用户裁决）：飞书通道暂不启用、不阻塞迁移**——DoD#5 主体（macOS 通知实测）已满足，飞书代码保留随时可开（配 env 即可） |
-| P4-2 | pr-helper GitHub 仓推最终状态 → PRIVATE + ARCHIVED；本地目录标注归档 | gh repo view：PRIVATE+ARCHIVED | ✅ **用户裁决修订（11-14）**：仓库保持 **PUBLIC + 非归档**，仅停止迭代（D-011 冻结即足够）；先前执行的 private+archive 已当场还原（gh unarchive + visibility public，状态验证 {public, false}）——"迁移完成 = 仓库存档"的定义被推翻，冻结语义 = 停止迭代而非封存仓库 |
-| P4-3 | AGENTS.md 修订落地（容器/依赖/webhook/PAT/通知五处，D-003~D-006） | AGENTS 修订稿与实际一致 | ✅ Non-negotiables 修订（11-14）：容器=仅 OrbStack Postgres 单容器、数据库=仅本地 PG、webhook=仅本地 HMAC 接收端、GitHub App=无 OAuth 仅服务端引擎调用、web push→macOS 通知+可选飞书；**D-002-v2 追加：部署门禁（管理仓库）在范围内，仅产品自身托管部署排除**；Layout 段补齐迁移产物（automation/flows/workflows-store/launchd/迁移文档） |
-| P4-4 | 移动状态监控脚本（gh-status-summary/page）随迁 scripts/（低优） | 脚本可执行 | ✅ 随迁（11-14）：bash -n 语法通过（M-F26 低优项一并完成） |
-
-### Phase 5 — 影子并行 → 切换 → 下线（1 天工作 + 1–2 周日历）
-
-> **状态（2026-11-16 复核）**：Phase 3.5 已关闭；P5-2/P5-3 仍未开始——P5-1 需继续积累
-> 连续 5–7 天一致记录，且 D-016 要求每个切换/下线动作逐项审批。影子期可继续积累
-> 比对材料，但不能据此宣布迁移完成。
-
-| # | 任务 | 验收标准 | 状态 |
-|---|---|---|---|
-| P5-1 | 影子期 1–2 周：本地引擎只算不执行，与云端 pr-helper 逐日比对决策 | 连续一致（不一致即缺口修复重跑）；**Phase 3.5 关闭后方可判定切换** | 🔶 **影子期运行中**（11-14 16:24 启动；11-16 复核服务仍运行，最近同步 11-15 16:04，待当日 sync/比对）：launchd 常驻（port 4789，automation=1，shadow=1，KeepAlive）+ 凭据就绪（D-006-v3 PAT fallback，readWarnings 清零）+ 影子日志首行落盘（queue q=0/r=0/p=0，tracked=14）；D-018 同步已跑通（11-15）：22 张核心表有序分页读取 + 单事务重建，本地镜像 14 workflows / 14 stages / 3,359 events / 3,647 automation runs + actions / 8,372 audit，服务重启后 trackedWorkflows=14；逐日比对按 docs/phase5-runbook.md |
-| P5-2 | 切换：本地引擎转执行；移除 GitHub App webhook 订阅；停 Vercel cron | 真实流程端到端一次；Phase 3.5 已关闭 | ⬜ 未开始；切换日清单见 runbook（含回滚预案），需 P5-1 判定 + D-016 逐动作审批；全部为用户操作 |
-| P5-3 | Supabase 下线或冷备（用户操作） | — | ⬜ 未开始；清单见 runbook（冷备导出→Pause/Delete），需 P5-2 稳定 1 周 + D-016 逐动作审批 |
-
----
-
-## 6. 能力追踪矩阵（源基线 → 处置 → 目标 → 验收）
-
-### 6.0 处置留痕汇总（2026-11-14，应业主要求建立——迁移与不迁移逐类可回溯）
-
-**已迁移并验证落地**（✅ 主体）：
-- 工作流定义/规则（A 16 行）→ 本地 PG schema + `src/lib/automation/` 纯模块
-- 自动化引擎（B 16 行）→ `server/workflows-store.mjs` bundle（418 项源级不变量测试）
-- 持久化/对账（C 20 行）→ 本地 OrbStack Postgres（26 表 + 048 本地增量）
-- GitHub 集成（D 18 行）→ webhook 接收端（D-004）+ PAT fallback（D-006-v3）+ gh 凭据
-- AI 能力（E 9 行）→ ai-credentials 模块/测试 + 凭据路由 + 规则库接线（本日补齐缺口）
-- 视图层（F 27 行主体）→ React 组件树（看板/详情/抽屉/失败中心/编辑器/MobileApp）
-- 本地 WIP（G 7 行）→ 已吸收
-- 横切（H 16 行）→ 通知器（D-005/D-017）、launchd（P2-9）、审计
-
-**有意不迁移**（🚫/⏸/🔀，逐项决策）：
-- ~~部署跟踪 + Environment + 部署回滚（🚫，M-C 处置；D 决策）~~ **D-002-v2 撤销，改为必迁（P3-10）**
-- 云同步 encrypted-sync（🚫，D-003：本地存储即权威）
-- Web Push（⏸→🔀，D-005/D-017：macOS 通知 + 飞书通道保留代码）
-- ~~GitHub App OAuth 登录流（🚫，D-006-v2/v3：本地 token + PAT；验收 #1 改为替代实现）~~ **D-020 回补（Device Flow，identity-only；本地 token 仍是认证边界）**
-- ~~团队多人协作 UI（P2-8 ⬜，单用户暂缓）~~ **已迁移（2026-11-15，P2-8/P3-15 ✅）**
-- 移动状态监控 gh-status（⏸→✅ 随迁 scripts/，低优备用）
-- 旧 Playwright e2e 直接执行（🔀→✅ 34 条语义映射 docs/migration-acceptance.md）
-- ~~换仓库交互/部署表单（编辑器内，随构建裁剪）~~ **误裁：换仓库非云依赖，改为 P3-11 恢复；部署表单随部署门禁 P3-10 恢复**
-
-**早期漏项已补齐（2026-11-14/15，不再计为未完成）**：
-- 部署门禁全链路（配置表单、Environment、StepDrawer 部署卡、Actions run 跟踪、健康探测、失败摘要、最近 8 次、重新部署、确认式回滚）→ P3-10 ✅，实网走查完成。
-- 换仓库确认交互 → P3-11 ✅；档案/恢复、静音、运行历史 → P3-12 ✅；流程预检 → P3-13 ✅ 重建；PR 引用/审计 CSV/同步健康度 → P3-14 ✅；团队四角色 UI → P2-8/P3-15 ✅（2026-11-15）。
-- Lane 展开区差异 → P3-6 判定为设计偏差，详情页/抽屉承载；编辑器折叠/return-highlight → P3-16 ✅。
-
-**影子期外部副作用验收（2026-11-15 已闭合）**：
-- P2-3 自动建 PR/合并已真实通过（PR #8）；advance-stage 真实通过（PR #10，action 4375，审计 `stage-advanced`）。
-- P2-6 `paused→unpause` 真实接管建 PR 已通过（PR #9，action 4372、run 4374，审计 `via=user-takeover`）。
-
-
-**原版本身就是半成品/非核心，不列为“误砍”**：A2A/Agent Card（原版无前端入口、
-execute 未实现、文档端点 404）——**2026-11-15 已由 D-021 回补**（Agent Card +
-JSON-RPC 真接线，生产回滚仍升级）；账户删除（原版对团队创建者有级联缺陷）、生成规则
-删除入口缺失。它们不因“本产品不上生产”被裁，迁不迁需单独裁决，不阻塞功能对等。
-
-**复审结论（2026-11-14，2026-11-15 复核更新）**：按原版 `feature-catalog.md` 全 17 节 + 34 条验收 +
-台账全部 🚫/⏸/🔀 行逐条核对，**未发现新的“因产品自身不上生产”被砍项**；
-此前同类误砍集中在**部署域**与**换仓库交互**，已分别由 P3-10/P3-11 补齐；团队四角色 UI
-由 P2-8/P3-15 于 2026-11-15 补齐。P2-3/P2-6 已于 2026-11-15 完成真实外部副作用验收，不是 D-002 误读。
-
-**本地修复的原版缺陷**（迁移增益）：
-- 推进开关持久化（D-015：048 列 + 读写往返）
-- webhook 路由死路（D-004 实测修正）
-- /m?token= 不种 cookie
-
-
-
-> 处置图例：🔁 迁移（Phase n）· ✅ 已存在（pr-helper-git 已有等价）· 🔀 替代实现 ·
-> ⏸ 缓办 · 🚫 不迁移（理由）· 部分 = 拆分处置（各行单独标注）
-
-### A. 工作流定义与规则（16 行 → 全部迁移，Phase 1/2）
-
-| ID | 能力 | 源文件（pr-helper） | 处置 | 目标（pr-helper-git） | 验收 |
-|---|---|---|---|---|---|
-| M-A1 | Workflow 领域模型 + 纯函数操作集 | src/lib/workflow.ts (+test) | 🔁P1 | src/lib/automation/domain.ts | 随迁单测全绿 |
-| M-A2 | 阶段路由三模式（sequential/independent/waitFor + 互斥） | 同上 | 🔁P1 | 同上 | 互斥校验单测 |
-| M-A3 | 动态分支规则匹配（feature/* 通配） | src/lib/workflow.ts + api/_lib/workflows-store.ts | 🔁P1+P2 | client lib + server store | 通配命中单测 |
-| M-A4 | 阶段自动化开关（autoCreate/Merge/Advance） | src/lib/workflow.ts | 🔁P1 | domain.ts | 开关语义单测 |
-| M-A5 | 勾选即动作预判确认 | src/lib/workflow.ts immediateAutomationEffect | 🔁P3 | FlowEditor | 确认弹窗语义 |
-| M-A6 | 部署门禁配置模型/派生 | src/lib/workflow.ts deploymentsForRepository 等 | 🔁P3 | 模型已随 M-A1 迁移；配置表单/派生/警告 UI 与回滚路由随 P3-10（D-002-v2） | 模型单测 + 配置表单走查 |
-| M-A7 | 生成规则本地 CRUD/导入 | src/lib/generation-rules.ts (+test) | 🔁P1 | src/lib/automation/generation-rules.ts | 随迁单测 |
-| M-A8 | 规则内容服务端存储（hash 去 payload） | api/_lib/workflows-store.ts | 🔁P2 | server/workflows-store.mjs | hash 往返单测 |
-| M-A9 | stage 级规则快照 | api/_lib/workflow-rows.ts | 🔁P2 | 同上（036/040 schema） | 快照列映射单测 |
-| M-A10 | Workflow↔行双向映射（往返恒等） | api/_lib/workflow-rows.ts (+test) | 🔁P2 | server（036–044 关系表） | 往返恒等单测 |
-| M-A11 | StoredWorkflow 校验/排序/去水合 | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 校验单测 |
-| M-A12 | 流程 CRUD + version 乐观锁 + 归档转换 | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 乐观锁单测 |
-| M-A13 | 流程排序/位置持久化 | src/lib/workflow.ts reorder 系列 | 🔁P2 | server store | 拖拽排序 E2E |
-| M-A14 | 收敛阶段决策模型（7 态单一判定源） | api/_lib/workflows-store.ts deriveStageDecision 等 | 🔁P2 | 同上（引擎核心） | 决策单测全绿 |
-| M-A15 | 上游解锁判定（废弃路线排除） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 解锁判定单测 |
-| M-A16 | stageId 稳定身份 | src/lib/workflow.ts + workflows-store.ts（018/019） | 🔁P1+P2 | domain + schema | 身份单测 + schema 对照 |
-| M-A17 | 保存队列（串行 + 失败清 dirty） | src/lib/workflow-save-queue.ts (+test) | 🔁P3 | WorkPanel 流程保存路径 | 队列单测 |
-| M-A18 | 在途保存合并/权威结果应用 | src/lib/workflow.ts | 🔁P3 | FlowEditor 保存路径 | 合并语义单测 |
-| M-A19 | 版本快照 + 运行实例（015） | api/_lib/workflows-store.ts | 🔁P2 | server（015 表）；最近运行历史 UI 随 P3-12 补 | 快照/运行行写入验证 + UI 走查 |
-
-### B. 自动化引擎（16 行 → 全部迁移，Phase 2；展示判定 Phase 3）
-
-| ID | 能力 | 源文件 | 处置 | 目标 | 验收 |
-|---|---|---|---|---|---|
-| M-B1 | 幂等动作队列（create-pr/merge-pr/advance-stage，幂等键钉 head sha） | api/_lib/workflows-store.ts | 🔁P2 | server + 025 表 | 幂等单测 |
-| M-B2 | 队列 drain（唯一执行入口，execute/reclaim/requeue/cancel/skip） | 同上 + api/cron/drain.ts | 🔁P2 | server 定时器 | drain 决策逐条一致（影子比对） |
-| M-B3 | 瞬时失败重排（15min 冷却 ×3、12h stale 取消） | 同上 | 🔁P2 | 同上 | 重试语义单测 |
-| M-B4 | 自动创建 PR（aheadBy 阈值 1–20 + 四项 AI 前置） | 同上 | 🔁P2 | 同上 | 端到端用例 |
-| M-B5 | 自动合并（门禁全绿 + sha 幂等 + behind 暂停） | 同上 | 🔁P2 | 同上 | 端到端用例 |
-| M-B6 | 合并后自动推进（advance-stage） | 同上 | 🔁P2 | 同上 | 推进语义单测 |
-| M-B7 | AI 失败接管（regenerate/takeover/unpause） | 同上 + src/main.ts takeover | 🔁P2+P3 | server + FailureCenter | 接管端到端 |
-| M-B8 | AI 消息解析（剥围栏/部分 JSON 容错） | api/_lib/workflows-store.ts | 🔁P1 | server 纯逻辑 | 解析单测 |
-| M-B9 | Actions 失败重跑（次数/冷却/当前提交校验） | api/_lib/workflows-store.ts + api/[action].ts | 🔁P2 | server | 校验单测 |
-| M-B10 | 部署回滚（确认式 + workflow_dispatch） | api/[action].ts + src/main.ts 回滚弹窗 | 🔁P3 | server `requestDeploymentRollback` 已在；回滚 HTTP 路由 + StepDrawer 二次确认 UI 随 P3-10（D-002-v2） | 回滚路由/确认走查 |
-| M-B11 | 失败恢复策略（3 次/300s + 失败中心展示） | api/_lib/workflows-store.ts DEFAULT_RECOVERY_POLICY + src/main.ts | 🔁P2+P3 | server + FailureCenter | 策略单测 |
-| M-B12 | Codex 修复包（PR/失败 Job/错误摘要/diff 的 Markdown） | api/_lib/workflows-store.ts + src/main.ts | 🔁P2 | server + FailureCenter | 生成内容单测 |
-| M-B13 | webhook 触发投影（PR 状态/内联校准/delivery 去重） | api/github/webhook.ts + api/_lib/workflows-store.ts + github-webhook.ts | 🔁P2 | server `POST /api/github-webhook` | 签名/去重/投影单测 |
-| M-B14 | 勾选/保存触发实时校准 | api/workflows.ts PUT 后 reconcile + store | 🔁P2 | server（PUT 后 reconcile 语义） | 单测 |
-| M-B15 | 前端动作队列请求串行化（180s 超时） | src/lib/action-queue-request-queue.ts (+test) | 🔁P3 | client lib 直拷 | 随迁单测 |
-| M-B16 | 自动化展示判定（失败中心/计数/徽标/进度条共用） | src/lib/workflow-run.ts (+test) | 🔁P3 | client lib 直拷 | 随迁单测 |
-
-### C. 持久化与对账（20 行 → store 层全部 🔁P2；部署跟踪 🔁P3-10；Push ⏸；云同步 🚫）
-
-| ID | 能力 | 源文件 | 处置 | 目标 | 验收 |
-|---|---|---|---|---|---|
-| M-C1 | 数据访问层（postgres.js 全部 SQL/事务/锁集中） | api/_lib/workflows-store.ts（2882 行） | 🔁P2 | server/workflows-store.mjs（postgres 客户端，SQL 直迁） | store 单测全绿 |
-| M-C2 | cron drain 触发（*/2） | api/cron/drain.ts | 🔀P2 | server 定时器（同间隔语义） | 定时触发日志 |
-| M-C3 | cron reconcile 触发（*/5→*/30）+ 保留清理 | api/cron/reconcile.ts + store cleanupRetainedData | 🔀P2 | server 定时器（5min 对齐） | 清理 run 遥测 |
-| M-C4 | 收敛健康检查（不健康 503） | api/cron/health.ts | 🔁P2 | server | 健康端点语义一致 |
-| M-C5 | 对账引擎（租约/公平轮转/分级预算 25s/6s/8s/40s/deferred 让出） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 预算/租约单测 |
-| M-C6 | 阶段校准（PR/checks/reviews/protection/mergeable 投影，sha 钉目标分支） | api/_lib/workflows-store.ts reconcile 系列 | 🔁P2 | 同上 | 校准单测 |
-| M-C7 | 部署跟踪（Vercel/Cloudflare runs + 健康探测 + 失败摘要） | api/_lib/workflows-store.ts | 🔁P3 | 引擎逻辑已在（`reconcileStageDeployments` / `deploymentStateWithHealth` / `deploymentFailureSummary`）；产品面 StepDrawer 部署卡、run 历史、失败摘要入口随 P3-10（D-002-v2） | 部署 run/健康/失败摘要走查 |
-| M-C8 | webhook delivery 去重落库 | api/_lib/workflows-store.ts recordWebhookDelivery | 🔁P2 | 同上（003 表） | 去重单测 |
-| M-C9 | 阶段事件/时间线落库 | api/_lib/workflows-store.ts | 🔁P2 | 同上（008 表） | 事件写入验证 |
-| M-C10 | 同步健康度（过时阶段/webhook 计数） | api/_lib/workflows-store.ts | 🔁P2 | `/api/flows/inbox` 返回 `syncHealth`；FlowBoard UI 已接（P3-14） | 健康度单测 + UI 走查 |
-| M-C11 | 对账遥测（GitHub 调用数/耗时/ETag 命中） | api/_lib/github-api.ts noteEtag + store | ⏸P2 | server（低优，先记录后可视化） | 遥测行存在 |
-| M-C12 | 操作审计（9 类 action 全量留痕 + CSV 导出） | api/_lib/workflows-store.ts recordOperationAudit + src/app/ui/audit.ts | 🔁P2+P3 | Postgres 表（020 原样）+ git2 AuditModal 扩展 | 审计行/导出验证 |
-| M-C13 | 数据保留清理（webhook 30/密文 30/对账 90/事件 180/部署 180/审计 365 天） | api/_lib/workflows-store.ts cleanupRetainedData | 🔁P2 | 同上（022 表） | 保留预算单测 |
-| M-C14 | 加密云同步（PBKDF2 600k + revision 乐观并发） | api/encrypted-sync.ts + src/lib/encrypted-sync.ts (+tests) | 🚫 | —（本地存储即权威，无云同步需求，D-003） | — |
-| M-C15 | 团队/成员/共享（四角色） | api/_lib/workflows-store.ts listTeams 等（023 表） | ✅P2 | server（023 表 + `/api/flows/teams`） | 3 路由测试 + 4791 UI 走查 |
-| M-C16 | 角色权限矩阵（owner/editor/operator/viewer） | src/lib/team-permissions.ts (+test) | ✅P2 | `src/lib/automation/team-permissions.ts` + 3 测试 | 权限矩阵单测全绿 |
-| M-C17 | 共享流程操作授权（mutation 前强制） | api/_lib/workflows-store.ts authorizeWorkflowOperation + api/github/[action].ts | 🔁P2 | server | 授权单测 |
-| M-C18 | 账号删除（RESTRICT 外键级联，041a 索引） | api/_lib/workflows-store.ts deleteAccount + api/account.ts | 🔁P2 | server | 删除级联 e2e |
-| M-C19 | Push 订阅存取（006 表） | api/_lib/workflows-store.ts + api/notifications/[action].ts | ⏸ | 表照建（47 迁移原样）；功能随 Web Push 缓办（D-005） | — |
-| M-C20 | inbox 聚合读（11 路并联 + 去重，egress 优化） | api/[action].ts | 🔁P2 | server | 聚合读单测 |
-
-### D. GitHub 集成（18 行 → PAT 替代 6 行 🚫/🔀；webhook/白名单迁移；其余已有或对齐）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-D1 | GitHub App 配置解析（7 环境变量） | api/_lib/github-app.ts | 🔁P2 | github-app.ts 直迁；凭据迁入本地 config（0600） | 配置解析单测 |
-| M-D2 | App JWT（RS256）签发 | api/_lib/github-app.ts | 🔁P2 | 同上 | JWT 单测随迁 |
-| M-D3 | 签名会话/OAuth state（HMAC cookie） | api/_lib/github-app.ts | 🔀P2 | git2 token cookie（HttpOnly SameSite）已等价 | e2e 现有 |
-| M-D4 | OAuth 授权流（start/callback/install/logout） | api/auth/github/[action].ts | 🔁P3.5 | **D-020 回补**：Device Flow（start/poll/status/installations/logout），无回调 URL；identity-only，不接管写凭据 | 单测/路由/e2e；实网待用户启用 Device Flow |
-| M-D5 | installation token 缓存（500 上限/60s 刷新/并发去重） | api/_lib/github-api.ts | 🔁P2 | github-api 层直迁 | 缓存单测 |
-| M-D6 | 统一 GitHub 请求封装（15s 超时/错误分类/version 头） | api/_lib/github-api.ts githubFetch | ✅ | pr-helper-git github-api 层已有等价封装 | 对齐确认（Phase 2 核对错误分类语义） |
-| M-D7 | ETag 遥测（304 可行性观测） | api/_lib/github-api.ts | ⏸P2 | server（低优，先记录） | 遥测行 |
-| M-D8 | Webhook 签名校验（HMAC 常数时间） | api/_lib/github-webhook.ts (+test) | 🔁P2 | server `POST /api/github-webhook`（M-B13 一部分） | 签名单测随迁 |
-| M-D9 | Webhook 路由（raw body、401 fail-closed） | api/github/webhook.ts | 🔁P2 | 同上 | 验签失败 401 e2e |
-| M-D10 | GitHub App 订阅事件集（Push/PR/review/check/status/workflow run） | docs（GitHub App 配置） | 🔀P2 | PAT 权限映射文档（PAT scope ↔ 事件覆盖） | 文档段落 |
-| M-D11 | installation 归属/仓库归属校验 | api/_lib/installations.ts (+test) | 🔁P2 | 同上 | 归属校验单测 |
-| M-D12 | 浏览器 GitHub 代理白名单（method/path、dot-segment 拒绝） | api/github/[action].ts request-policy | ✅ | pr-helper-git github-allowlist.mjs 已有等价（对齐确认） | 对齐核对 |
-| M-D13 | 代理 mutation 审计（created/merged/rerun） | api/github/[action].ts | ✅ | git2 appendAudit 已有（对齐确认） | 对齐核对 |
-| M-D14 | GitHub 会话状态查询（connected/login/avatar） | api/github/[action].ts sessionHandler | 🔀P2 | git2 identity/me 已等价 | 路由核对 |
-| M-D15 | 客户端 GitHub fetch（20s 超时，无 token 走代理） | src/lib/github.ts (+test) | ✅ | git2 github-allowlist 客户端已等价 | 对齐核对 |
-| M-D16 | 门禁原语（五类门禁汇总/mergeable/canMergeOpenPull） | src/lib/domain.ts (+test) | 🔁P1 | domain.ts 直拷 | 随迁单测 |
-| M-D17 | 生产回滚 workflow_dispatch（仓库侧 yml） | .github/workflows/rollback-frontend-deployment.yml | 🔀P3 | 不把 pr-helper 仓自身 yml 塞进本产品 CI；被管理仓库按配置的 `rollbackWorkflowName` 执行。模板/文档随 P3-10（D-002-v2） | 回滚 workflow 文档 + 路由走查 |
-| M-D18 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | client lib 直拷 | 组件测试 |
-
-### E. AI 能力（9 行 → 已有 5 + 迁移 3 + 替代 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-E1 | AI 连接测试 + PR 提示词（redirect:'error' 防带 key 302） | src/lib/ai.ts (+test) | ✅ | git2 ai.ts 已有等价（对齐确认） | 对齐核对 |
-| M-E2 | SSE 流式生成 + 部分 JSON 解析（含 unicode 代理对边界） | src/lib/ai-stream.ts (+test) | 🔁P1 | git2 ai-stream 比对：缺 unicode 边界解析则补 | 解析单测 |
-| M-E3 | AI Key 服务端加密（AES-256-GCM v1 + key hint/mask） | api/_lib/ai-credentials.ts (+test) | 🔀P2 | 0600 config.json 替代（D-007）；AES 加密列为可选增强，暂缓 | 存取 e2e |
-| M-E4 | AI Base URL SSRF 防护（IPv4/IPv6/mapped/NAT64） | api/_lib/ai-credentials.ts validateAiBaseUrl | 🔁P2 | server | SSRF 单测随迁 |
-| M-E5 | AI 凭据 API（保存/读取/删除/测试，key ≤4096） | api/workflows.ts resource=ai-credentials | 🔀P2 | git2 AI 配置路由已等价 + 024 表照建（服务端自动化用） | e2e |
-| M-E6 | 自动化 AI 前置偏好（026 列） | api/_lib/workflows-store.ts | 🔁P2 | 同上 | 偏好单测 |
-| M-E7 | 客户端 AI 配置（sessionStorage） | src/main.ts loadAiConfig | ✅ | git2 AI 配置 UI 已等价 | 对齐核对 |
-| M-E8 | AI 生成弹窗（24h 草稿回填/规则单选/覆盖确认） | src/main.ts showCreateDialog 等 | ✅/🔁P3 | git2 CreatePrModal AI 已有；24h 草稿/规则单选语义比对补齐 | 组件测试 |
-| M-E9 | AI 失败接管弹窗（paused 脱敏 + 确认恢复） | src/main.ts showTakeoverDialog | 🔁P3 | FailureCenter（M-B7） | 接管端到端 |
-
-### F. 视图层（27 行 → React 重建 🔁P3 为主体；已有 7；不迁移 4；替代 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-F1 | 编排入口（渲染/对话框/轮询/刷新全状态机，2968 行） | src/main.ts | 🔁P3 | React 组件树（App/FlowBoard/FlowDetail/…） | 34 条 e2e 语义映射（P3-9） |
-| M-F2 | DOM 工具（escape/app） | src/app/dom.ts | 🚫 | React 自带转义 | — |
-| M-F3 | 全量类型投影（30+ 类型） | src/app/types.ts | 🔁P3 | src/types 迁移合并 | tsc |
-| M-F4 | Lane 看板（六筛选/搜索/展开/聚合条） | src/main.ts overview/projectLane | 🔁P3 | DashboardPage 扩展或独立 FlowBoard | 筛选语义走查 |
-| M-F5 | Lane 拖拽排序（手柄/位置输入/键盘兜底） | src/app/ui/lane-sorting.ts | 🔁P3 | FlowBoard | 排序 E2E |
-| M-F6 | 失败处理中心（四段聚合） | src/main.ts failureCenterPanel | 🔁P3 | FailureCenter | 四段走查 |
-| M-F7 | 流程详情（SWR 投影直出 + live 校正 + 30s TTL） | src/main.ts detail + projected-stage | 🔁P3 | FlowDetail | TTL 语义走查 |
-| M-F8 | 步骤抽屉 | src/main.ts showProjectStepDrawer | 🔁P3 | StepDrawer | 操作集走查 |
-| M-F9 | 只读进度条 | src/main.ts flowProgressBar + workflow-run.ts | 🔁P3 | FlowDetail | 进度走查 |
-| M-F10 | 时间线（Lane + 抽屉 + 图标映射） | src/main.ts + app/ui/format.ts | 🔁P3 | FlowTimeline | 走查 |
-| M-F11 | 流程编辑器（步骤/路由/部署/恢复策略表单） | src/main.ts editor 系列 | 🔁P3 | FlowEditor | 表单走查（**含部署表单**，随 P3-10） |
-| M-F12 | 合并弹窗/菜单（merge commit 仅 head sha） | src/main.ts showMergeDialog + confirm.ts | ✅ | git2 合并弹窗已等价 | 对齐核对 |
-| M-F13 | 确认对话框（自动化执行/换仓库） | src/app/ui/confirm.ts | ✅/🔶 | git2 ConfirmProvider 已等价（执行确认语义对齐 P3）；**换仓库确认的业务接线待 P3-11** | 对齐核对 + 换仓库走查 |
-| M-F14 | 操作审计对话框 + CSV 导出 | src/app/ui/audit.ts | 🔁P3 | flows 审计路由已在；flows 审计对话框 + CSV 未接（现有 AuditModal 是 git 审计） | 导出验证 |
-| M-F15 | 状态文案/门禁披露（details 分组） | src/app/ui/format.ts | 🔁P3 | FailureCenter/StepDrawer | 文案走查 |
-| M-F16 | 主题切换（light/dark）+ token 守卫 | src/app/ui/theme.ts + style-theme-tokens.test.ts | ✅ | git2 主题已等价；**token 守卫测试模式可借鉴（可选）** | — |
-| M-F17 | Toast（Popover API，undo 7s） | src/app/ui/toast.ts | ✅ | git2 ToastProvider 已等价 | — |
-| M-F18 | 原生 tooltip | src/app/ui/tooltip.ts | ✅ | git2 design/tooltip.ts 已等价（共享文件） | — |
-| M-F19 | PR 引用组件（tooltip + 复制） | src/lib/pr-reference.ts | 🔁P3 | React `PullReference` 组件（tooltip + copy）；验收 #32 ✅ | 组件测试 |
-| M-F20 | 账户菜单/权限说明/断开/删号/隐私页 | src/main.ts + public/privacy.html | 🔀P3 | git2 identity/Settings 已等价；隐私页按需移植 | 走查 |
-| M-F21 | 团队管理对话框 | src/main.ts showTeamsDialog | ✅P3 | `TeamsModal`（创建/切换/成员/共享，Owner-only 写） | 4791 UI 走查通过（2026-11-15） |
-| M-F22 | 云同步对话框（解锁/推拉/轮换） | src/main.ts showCloudSyncDialog 系列 | 🚫 | 本地存储即权威（D-003，无同步需求） | — |
-| M-F23 | Web Push 前端（SW + 订阅） | src/main.ts + public/push-sw.js | ⏸ | D-005 缓办；macOS 通知替代 | — |
-| M-F24 | 移动端 700px 统一断点 | src/style.css | 🔁P3 | FlowBoard/详情响应式 | 390×844 走查 |
-| M-F25 | 飞书通知（workflow 失败 curl） | .github/workflows/reconcile-pr-helper.yml | 🔁P4 | server 通知通道 | 通知实测 |
-| M-F26 | 移动状态监控脚本（gh-status-summary/page） | scripts/gh-status-*.sh | ⏸ | 低优，按需 | — |
-| M-F27 | 定时对账兜底 workflow（*/10 + 健康上报） | .github/workflows/reconcile-pr-helper.yml | 🔀P2 | server 定时器替代 | 定时日志 |
-
-### G. 本地 WIP 总览（7 行 → ✅ 全部已吸收）
-
-| ID | 能力 | 源文件 | 处置 | 备注 |
-|---|---|---|---|---|
-| M-G1 | WIP 入口页（双入口） | wip.html + src/wip/main.ts | ✅ | pr-helper-git 主应用即其超集演化 |
-| M-G2 | WIP 前端（列表/diff/写操作） | src/wip/main.ts + style.css | ✅ | 同上 |
-| M-G3 | WIP 本地服务（token/diff/stage/commit/discard + SSE + 审计 + 遮罩） | scripts/wip-server.mjs (+test) | ✅ | pr-helper-git server 同能力更强 |
-| M-G4 | 写动作 argv 固定构造 | scripts/wip-actions.mjs (+test) | ✅ | 同上 |
-| M-G5 | 敏感路径判定 | src/lib/wip/mask.ts (+test) | ✅ | pr-helper-git mask.mjs 同源且更全 |
-| M-G6 | numstat/porcelain/paths/sort 纯函数（4 测试） | src/lib/wip/*.ts | ✅ | 同上 |
-| M-G7 | 主应用 vs WIP 差异说明 | — | ✅ | 文档级：本地客户端 = WIP 超集 + 主应用 |
-
-### H. 横切（16 行 → 已有 6 + 迁移/核对 9 + 不迁移 1）
-
-| ID | 能力 | 源文件 | 处置 | 目标/备注 | 验收 |
-|---|---|---|---|---|---|
-| M-H1 | i18n（en/zh 词典 + detectLocale） | src/lib/i18n.ts + translations | ✅ | git2 i18n 已等价（~600 条 ZH 词典） | — |
-| M-H2 | 屏幕导航（overview/editor/detail/back） | src/lib/navigation.ts (+test) | ✅/🔁P3 | git2 view 切换已等价；语义比对 | 对齐核对 |
-| M-H3 | 动作队列请求串行化 | src/lib/action-queue-request-queue.ts | 🔁P3 | client lib 直拷（= M-B15） | 随迁单测 |
-| M-H4 | 加密同步客户端（PBKDF2/v2/轮换） | src/lib/encrypted-sync.ts (+test) | 🚫 | 本地即权威，无同步需求 | — |
-| M-H5 | 请求来源校验（CSRF：APP_ORIGIN + 白名单） | api/_lib/http.ts assertRequestOrigin | 🔁P2 | server 核对补齐（cookie 模式 mutation 需 Origin 校验） | 校验单测 |
-| M-H6 | 错误→HTTP 状态映射（403/429/409/401/503） | api/_lib/http.ts requestErrorStatus | ✅/🔁P2 | git2 错误映射比对补齐 | 单测 |
-| M-H7 | 登录级限流（60 req/min） | api/_lib/rate-limit.ts (+test) | 🔁P2 | server（低优，滥用兜底） | 限流单测 |
-| M-H8 | 会话入口（identity/session 双层） | api/_lib/session.ts | 🔀P2 | git2 identity 已等价 | 对齐核对 |
-| M-H9 | 应用名常量 | src/lib/app-name.ts | ✅ | 改名后常量 = pr-helper-git | — |
-| M-H10 | CSS token 守卫（var 可解析/无字面兜底） | src/style-theme-tokens.test.ts | 🔁P3 | git2 加同款守卫测试（token 体系配套） | 守卫测试 |
-| M-H11 | 迁移基线校验脚本 | tools/check-migrations.sh + baseline.txt | 🔁P1 | scripts/ 随迁 | 脚本通过 |
-| M-H12 | E2E 回归（34 用例 Playwright） | e2e/pr-helper.spec.ts | 🔁P3 | 语义映射清单（P3-9） | 映射 34/34 |
-| M-H13 | 部署流水线（Vercel/Cloudflare/CI workflows） | .github/workflows/deploy-*.yml、ci.yml | 🚫 | pr-helper 仓自身 CI，随归档仓保留 | — |
-| M-H14 | Supabase 迁移执行纪律 | supabase/README.md + tools | 🔁P1 | 本地 Postgres 同纪律（P1-2/6） | — |
-| M-H15 | 团队权限语义（服务端强制） | 见 M-C16/C17 | 🔁P2 | server | 同上 |
-| M-H16 | 主应用窄屏适配（统一 700px） | src/style.css | ✅/🔁P3 | git2 已有响应式；控制塔视图对齐 | 走查 |
-
----
-
-## 7. Supabase 迁移处置矩阵（47 项 → 全部原样执行于本地 Postgres，例外 1）
-
-| 编号 | 文件 | 作用 | 处置 |
-|---|---|---|---|
-| 001 | 001_users_and_workflows.sql | pr_helper_users + pr_helper_workflows | ✅ 原样 |
-| 002 | 002_normalize_workflow_payloads.sql | payload 归一化 | ✅ 原样 |
-| 003 | 003_github_webhook_deliveries.sql | webhook 投递去重表 | ✅ 原样 |
-| 004 | 004_workflow_stage_states.sql | 阶段实时状态 | ✅ 原样 |
-| 005 | 005_workflow_monitoring.sql | 监控列扩展 | ✅ 原样 |
-| 006 | 006_push_notifications.sql | push 订阅/投递表 | ✅ 原样（功能 ⏸ 缓办） |
-| 007 | 007_track_stage_ahead_by.sql | ahead_by 记录 | ✅ 原样 |
-| 008 | 008_workflow_stage_events.sql | 阶段事件史 | ✅ 原样 |
-| 009 | 009_dynamic_branch_routes.sql | 动态路由状态行 | ✅ 原样 |
-| 010 | 010_track_stage_deployments.sql | 部署 run 跟踪 | ✅ 原样（功能 🔁P3-10，D-002-v2） |
-| 011 | 011_deployment_failure_details.sql | 失败摘要列 | ✅ 原样 |
-| 012 | 012_deployment_health_checks.sql | 健康探测列 | ✅ 原样 |
-| 013 | 013_deployment_run_history.sql | 部署 run 史 | ✅ 原样 |
-| 014 | 014_reconciliation_runs.sql | 对账遥测表 | ✅ 原样 |
-| 015 | 015_workflow_versions_and_runs.sql | 版本快照/运行实例 | ✅ 原样 |
-| 016 | 016_encrypted_cloud_sync.sql | 加密同步表 | ✅ 原样（功能 🚫） |
-| 017 | 017_reconciliation_scope_and_degraded_state.sql | 遥测收窄 + degraded | ✅ 原样 |
-| 018 | 018_stage_identity_compatibility.sql | stage_id 回填 | ✅ 原样 |
-| 019 | 019_stage_identity_primary_keys.sql | stage_id 主键化 | ✅ 原样 |
-| 020 | 020_operation_audit_logs.sql | 操作审计表 | ✅ 原样 |
-| 021 | 021_encrypted_sync_hardening.sql | 密文加固 + 历史 | ✅ 原样 |
-| 022 | 022_data_retention.sql | 保留清理遥测 | ✅ 原样 |
-| 023 | 023_team_permissions.sql | 团队/成员/共享三表 | ✅ 原样 |
-| 024 | 024_ai_automation_credentials.sql | 加密 AI 凭据表 | ✅ 原样 |
-| 025 | 025_workflow_automation_queue.sql | 自动化 run + 幂等动作队列 | ✅ 原样 |
-| 026 | 026_ai_automation_preferences.sql | AI 前置偏好列 | ✅ 原样 |
-| 027 | 027_reconciliation_concurrency_and_fairness.sql | skipped + 公平轮转 | ✅ 原样 |
-| 028 | 028_reconciliation_leases_and_pending.sql | 对账租约 | ✅ 原样 |
-| 029 | 029_reconciliation_github_call_cost.sql | GitHub 调用成本记录 | ✅ 原样 |
-| **030** | 030_reconciliation_pg_cron_clock.sql | **pg_cron/pg_net/Vault（Supabase 扩展）** | ⚠️ **替代**：函数照建，调度由 server 定时器承担（本地无 Supabase 扩展语义；drain 2min/reconcile 5min 对齐） |
-| 031 | 031_reconciliation_claimed_workflows.sql | sweep 认领记录 | ✅ 原样 |
-| 032 | 032_reconciliation_phase_timings.sql | 阶段耗时 jsonb | ✅ 原样 |
-| 033 | 033_relax_reconciliation_clock.sql | cron 放宽 */30 | ✅ 执行（调度归 server，语义对齐） |
-| 034 | 034_workflow_repository_index.sql | repository 索引 | ✅ 原样 |
-| 035 | 035_generation_rule_content.sql | 规则正文集中表 | ✅ 原样 |
-| 036 | 036_workflow_relational_expand.sql | payload 展开关系列 | ✅ 原样 |
-| 037 | 037_workflow_relational_backfill.sql | 关系回填 | ✅ 原样（导入数据后核对） |
-| 038 | 038_workflow_relational_read_switch.sql | 读切关系列 | ✅ 原样 |
-| 039 | 039_drop_workflow_payload_index.sql | 删失效索引 | ✅ 原样 |
-| 040 | 040_generation_rule_contract.sql | 规则 contentHash | ✅ 原样 |
-| 041a | 041_account_deletion_fk_indexes.sql | 删除级联索引 | ✅ 原样 |
-| 041b | 041_stage_gate_sha.sql | 门禁 sha 列（红门禁停摆修复） | ✅ 原样 |
-| 042 | 042_payload_nullable.sql | payload 可空 | ✅ 原样 |
-| 043 | 043_version_not_null.sql | version NOT NULL | ✅ 原样 |
-| 044 | 044_drop_workflow_payload.sql | DROP payload 列 | ✅ 原样 |
-| 045 | 045_mute_column.sql | 流程静音列 | ✅ 原样 |
-| 046 | 046_workflow_versions_snapshot_nullable.sql | snapshot 可空（23502 修复） | ✅ 原样 |
-
-注：041 编号在源仓被两个已执行文件占用（源仓 `tools/migration-baseline.txt` 为准）；
-新增迁移自 047 起。本地 PG 的 RLS 策略（如迁移内含）不生效属预期：server 以 owner
-身份直连，鉴权由 server identity 层承担。
-
----
-
-## 8. 自动化引擎语义对照表（云端行为 → 本地实现 → 测试锚点）
-
-| 云端行为（生产已验证） | 迁移后实现 | 测试锚点 |
-|---|---|---|
-| push webhook 投递 → 投影 + 内联校准（1–3s） | 本地 `POST /api/github-webhook`（HMAC）→ 同一投影/校准逻辑 | github-webhook.test 随迁 |
-| 无 webhook（投递失败/未配置）→ cron */2 drain | server 定时器 2min drain（同间隔语义） | drain 单测随迁 |
-| cron */5 reconcile（对账 + 保留清理） | server 定时器 5min reconcile | reconcile.test 随迁 |
-| aheadBy ≥ 阈值 → 入队 create-pr（四项 AI 前置） | 同逻辑移植（PAT REST compare/pulls） | store 单测 |
-| 门禁全绿 + mergeable + clean → merge（sha 幂等） | 同逻辑移植（merge API） | store 单测 |
-| behind → 暂停不 update branch | 同语义移植 | store 单测 |
-| AI 失败 → paused（脱敏原因）→ 接管/重生成/Unpause | 同逻辑移植 + FailureCenter UI | 接管端到端 |
-| Actions 失败 → 重跑校验（次数/冷却/当前提交） | 同逻辑移植（PAT Actions API） | rerun 单测 |
-| 勾选自动化 → 预判动作 → 确认 → 保存 → 实时校准 | 同语义移植 | 确认交互 + 校准单测 |
-| 阈值/路由/门禁配置变更 → reconcile_pending_since → 即时校准 | 同语义移植 | 校准单测 |
-| 幂等命中（PR 已合并/动作已存在）→ 记幂等成功 | 同语义移植 | 幂等单测 |
-| 失败恢复 3 次/300s → 停 paused 升级警告 | 同语义移植 | 恢复单测 |
-
----
-
-## 9. 体验对照表（无感边界，2026-11-13 修正版）
-
-| 能力 | 云端 pr-helper | 迁移后 pr-helper-git | 无感？ |
-|---|---|---|---|
-| 本地 push 触发 | webhook 1–3s | webhook 1–3s（直达本机接收端） | ✅ |
-| 远端他人 push 触发 | webhook 1–3s | webhook 可达 1–3s；不可达自动落轮询 ≤5min | ✅（可达性配置好）|
-| 自动化运行时段 | 24/7 不在场 | Mac 开机 + launchd 常驻 headless server | ⚠️ **关机时段暂停 — 唯一实质差距（D-008 既定代价）** |
-| 多设备工作流状态 | Supabase 多端 | 单机 server（多浏览器共享 ✓） | ✅ 单人单机 |
-| 仓库身份 | GitHub App 安装 | PAT（个人仓库） | ✅ |
-| 失败通知 | Web Push / 飞书 | macOS 通知 + 飞书 | ✅（Web Push 缓办）|
-| AI 凭据 | Supabase 加密 | 0600 config.json | ✅ 本机单人等价 |
-| 部署门禁/回滚 | 管理被管理仓库的 GitHub Actions 部署、健康检查、确认式回滚 | 🔁 **P3-10 必迁**（D-002-v2）：只依赖 GitHub API + 部署 URL 探测 + 仓库 rollback workflow；产品自身仍不部署到 CF/Vercel | 待补 |
-
----
-
-## 10. 迁移 DoD（总验收标准）
-
-迁移完成的定义（全部满足方可宣布"迁移完成"）：
-
-1. **数据完整性**：14 流程 / 17 stages / 规则快照 / 版本历史 / 审计 在本地 Postgres 与
-   导出集逐列一致（§5 P1-3 对照记录）。
-2. **引擎行为一致性**：影子期（≥1 周）本地引擎与云端对同一流程集的决策一致率 100%
-   （不一致项修复后重跑）。
-3. **测试网**：随迁单测（~600±）+ git2 存量（287）+ E2E（≥136）全绿；34 条旧 Playwright
-   e2e 断言语义映射清单 34/34 完整（P3-9），且 D-002-v2 后部署/换仓断言必须有测试或走查证据。
-4. **功能走查**：§10 矩阵中全部 🔁 行标 ✅；🚫/⏸ 行有决策记录（D-xxx 或用户指令）；
-   **D-002-v2 撤销的部署/换仓行不得再以 🚫 计完成**；Phase 3.5（P3-10…P3-16）关闭。
-5. **通知**：失败场景 macOS 通知实测（✅ 11-14）；飞书通道按 D-017 用户裁决暂不启用、不阻塞。
-6. **常驻**：Mac 重启后 launchd 自动恢复 server 并完成一轮 sweep（日志证据）。
-7. **归档**：pr-helper 仓库按 D-014 保持 PUBLIC + 非归档、仅停止迭代；AGENTS 修订落地
-   （部署门禁不再列为禁区，仅“产品自身托管部署”排除）。
-8. **文档**：本文档 §12 变更记录完整覆盖迁移期内的全部调整。
-
----
-
-## 11. 风险登记
-
-| # | 风险 | 缓解 | 状态 |
-|---|---|---|---|
-| R1 | 阶段 2 引擎移植：对账/队列是生产验证过的复杂逻辑，未覆盖分支可能长尾 | 857 单测网随迁 + 影子比对期 + 逐条语义对照表（§8） | 开放 |
-| R2 | Node 20/26 漂移 × 依赖 engines | jsdom 精确 pin 26.1.0 + test-setup polyfill；`.nvmrc`/engines 声明推荐 Node ≥22 | 已缓解 |
-| R3 | webhook 可达性（NAT） | 三选项（现有网络/隧道/Tailscale）；不可达自动落轮询兜底 | 待用户选定 |
-| R4 | 关机时段自动化暂停 | D-008 既定代价（launchd 缓解）；恢复后 reconcile 追平 | 用户知情 |
-| R5 | pr-helper 本地 checkout 与远端拆分状态不一致（2968 vs 32 文件） | Phase 0 P0-2 核对分支并定基线 | 开放 |
-| R6 | 双引擎并行期互踩（重复建 PR） | 影子模式（只算不执行）+ 流程集分组 | 已设计 |
-| R7 | Postgres 容器随 Mac 重启恢复可靠性 | OrbStack 容器 restart 策略 + 重启实测（P1-1 验收） | Phase 1 验证 |
-| R8 | D-002 把“产品自身不部署”误扩成“不管理被管理仓库的部署”，导致核心部署门禁/回滚被裁；另有换仓库、归档/静音等产品 UI 未迁 | D-002-v2 撤销范围；Phase 3.5 回补；验收/矩阵/AGENTS 同步修订；Phase 5 切换冻结 | 已登记，回补进行中 |
-
----
-
-## 12. 变更记录（追加式 — 所有后续调整在此登记）
-
-| 日期 | 变更 | 原因 | 批准 |
-|---|---|---|---|
-| 2026-11-13 | 初版创建（§0–§12） | 用户指令：完整迁移方案落盘为核心台账 | 用户 |
-| 2026-11-13 | **D-011**：pr-helper 全程只读（源仓文件不修改、不提交；仅允许读/fetch/log 核对）。P0-1 标注任务取消，P0-5 标注已满足 | 用户指令：被迁出产品不能动 | 用户 |
-| 2026-11-13 | **D-012**：确立多会话协作协议（§0 规则 5-6）：台账状态列 = 断点，开场读台账领任务、收尾更新+提交+推送+备份 | 多会话上下文对齐需求 | 用户 |
-| 2026-11-13 | **D-006-v2**：vercel env pull 实测 GITHUB_APP_* 明文可拉 → GitHub App 凭据迁入本地 server（推翻 v1 的 PAT 替代），安装级权限保留；DATABASE_URL 被 Sensitive 掩码 → 生产连接串需用户提供 | Phase 1 排障 | 用户 |
-| 2026-11-14 | Phase 0 完成：P0-2（源基线=origin/dev@96bd94fe + main 独有修复 709940f3 登记）✅、P0-3（导出 58806 行/26 表，reconciliation_runs 遥测表超时未导出 — 例外记录）✅、P0-4（228 文件快照）✅ | Supabase session pooler 大表/断连不稳 → 超时+重连+跳过策略 | 用户 |
-| 2026-11-14 | **D-013**：根目录 `handoff.md` 增设「pr-helper 迁移进度（实时段）」，每个迁移会话收尾实时更新；本文档保持方案/追溯/验收职责不变 | 用户要求进度实时可见 | 用户 |
-| 2026-11-14 | Phase 2 接线修正四项（0330dd1 验证后）：① webhook 路由移出 token 鉴权区 — GitHub 投递无 session token，HMAC 签名即该端点鉴权，原位置所有真实投递 401；② 自动化调度器改为启动时显式 opt-in（`PR_HELPER_GIT_AUTOMATION=1`），撤除请求路径内启动 — launchd headless 无 UI 会话也 drain，e2e/临时 server 与真实自动化库零接触；③ shadow 模式重定义为**只读观测**（引擎无 dry-run 缝，shadow 永不调用 drain/reconcile 执行入口，仅报告队列深度+tracked 数）；④ `workflows-store.mjs` ssl `require`→尊重 URL `sslmode`/默认 `prefer`（本地 OrbStack 无 TLS）+ 9 处 checkJs 行为中立类型修补，`typecheck:server` 门禁恢复全绿 | Phase 2 端到端验证发现接线缺陷：webhook 401 死路、e2e 隔离泄漏、shadow 假执行、本地 PG SSL_NOT_SUPPORTED | 用户（继续授权推进） |
-| 2026-11-14 | webhook 接收端端到端实测通过：无 token 可达 ✓、无 secret 503 fail-closed ✓、错误签名 401 ✓、有效签名 202 accepted ✓、重放 duplicate ✓、投递行落库 ✓、shadow 观测（tracked=14）✓、空队列真实 drain ✓；调度形态三态验证（opt-in+shadow / opt-in 实跑 / 默认零 automation）✓ | P2-5 验收标准部分达成；全门禁 lint ✓ / typecheck ✓ / vitest 337 ✓ / build ✓ / e2e 144 ✓ | 用户（继续授权推进） |
-| 2026-11-14 | P1-6 重定界：快照内无 tools/check-migrations.sh（源前提不成立，查证记录）→ 新实现 `scripts/migration/check-migrations.mjs`（解析 47 迁移推导期望表集 vs 本地 PG 实测，`npm run check:migrations`，26=26 ✓）；P2-9 launchd 完成：`launchd/{install,uninstall}.sh` + README，KeepAlive 崩溃自愈实测 ✓，验证后卸载（常驻启用待用户拍板）；P1-5 核心 4 模块落地 `src/lib/automation/`（workflow/workflow-run/projected-stage/generation-rules + 随迁测试 143 全绿）→ 测试基线升至 480/38 | 继续推进迁移（无阻塞项优先：P1-6 → P2-9 → P1-5 核心） | 用户（继续授权推进） |
-| 2026-11-14 | **P1-4 store 测试网随迁全绿**：`server/workflows-store.test.ts` 418 项（源级不变量断言指快照冻结 TS 源 — bundle 是其机械变换且注释被剥离，指快照才是被测对象；MIGRATIONS_DIR/STORE_SOURCE/`[action].ts`/`workflows.ts`/`main.ts` 七类相对路径重写到快照树）+ `workflow-rows` 25 + `github-api` 11 + `ai-credentials` 5；bundle 补导出 workflowFromRows/workflowToRows；vite.config.ts include 增 `server/**/*.test.ts`；测试基线 480/38 → **939/42**（全门禁绿） | P1-4 验收标准（store 单测随迁全绿）达成 | 用户（继续授权推进） |
-| 2026-11-14 | **Phase 3 启动（P3-0 服务面 + P3-1 第一片）**：`server/flows.mjs` 身份桥（本地 token 身份 → 引擎 identity，采纳 pr_helper_users 单行；多人场景报错待 P2-8）+ 三读路由（inbox 11 函数扇出 / workflows 原始 payload / audit），App 凭据缺失时单路读降级空集+readWarnings（看板投影直出不阻断）；分发顺序调整（flows 在 git 路由前，后者对无 repo 的 /api 兜底 403）；React：`FlowBoard.tsx` 只读看板（Toolbar 新增 Flows 视图）+ `flows-board.ts` 纯语义模块（13 单测）+ `src/api/flows.ts`；i18n 增看板文案（英文句子键）；测试基线 939/42 → **959/44**（全门禁绿） | 用户指令"继续"（Phase 3 开工） | 用户（继续授权推进） |
-| 2026-11-14 | **D-014**：pr-helper 仓库处置裁决——保持 **PUBLIC + 非归档**，仅停止迭代（用户推翻 P4-2 原定义"PRIVATE+ARCHIVED"；先前执行的 private/archive 已当场还原并验证）。冻结语义 = 停止迭代，仓库本身保持可访问 | 用户纠正 | 用户 |
-| 2026-11-14 | **D-006-v3 + P2-1 凭据就绪**：vercel env pull 实测 GITHUB_APP_PRIVATE_KEY 等 12 键已被 Vercel 标 Sensitive 不可拉取（App 路径本地不可行）→ 引擎加 **GITHUB_TOKEN PAT fallback**（installationRequest 头部，同账号同 REST 路径）；凭据来源 = gh CLI token 写入 `~/.pr-helper-git/credentials.env`（0600，vercel env pull 只读拉取的其余真实键一并归档），main.mjs 启动加载注入；实测：inbox 11 路读全绿（readWarnings 清零，此前 1 路 App 依赖读失败）；**pr-helper 云端零改动**（只读 pull + 云端凭据原位运行） | P2-1 凭据缺口闭合；影子期启动条件达成 | 用户（"那你搞pat吧"授权） |
-| 2026-11-14 | **D-017**：飞书通知通道**暂不启用、不阻塞迁移**（macOS 本地通知已实测满足 DoD#5 主体；飞书代码保留，配 `PR_HELPER_GIT_FEISHU_WEBHOOK` 随时可开） | 用户指令："飞书的目前不搞，你记下，不算阻塞" | 用户 |
-| 2026-11-14 | **D-018 + 影子期基础设施补齐**：验收实测发现影子期设计缺口——本地引擎读的是 11-14 静态快照（本地 workflow_stages 的 auto_create/auto_merge 全 NULL），云端实时状态不流入本地 → 影子比对无材料（空转）。修复：`scripts/migration/shadow-sync.mjs`（`npm run sync:shadow`）——只读凭据从 Supabase 拉取镜像表全量重建本地；默认同步 **22 张核心表**（workflows/stages/states/events/runs/automation actions/audit/rules/teams 等），**4 张遥测表**（`github_webhook_deliveries` 26,700 行、`reconciliation_runs` 59,279 行、`pr_helper_notification_deliveries` 6,823 行、`data_retention_runs` 6,400 行）默认跳过以免每日同步跑数小时，`npm run sync:shadow -- --full` 可显式全量；实现为**先读全云端 → 单事务 TRUNCATE + 分批 INSERT**（失败整体回滚，不再留下半空镜像），云端按表分页读取（500 行/页，避免大表子进程超时），并在重建后回填本地增量列 `workflow_stages.auto_advance`（D-015 设置不会被同步抹掉），本地密钥/偏好表（AI 凭据、encrypted sync、push subscriptions）也快照保留而不是被云端密文覆盖；影子期每日跑一次（手动命令已入 runbook）；**11-14 验收补齐**：Supabase pooler 对容器 psql 间歇断连（同一 host 解析到可用 `13.200.110.68` 与立刻断连的 `3.109.171.244`，固定 `hostaddr` 仍会断），全量云端读取跑不完——因此增加 `--snapshot` bootstrap（11-13 备份快照 22 表 / 19,653 行，`PR_HELPER_GIT_SHADOW_SNAPSHOT` 可覆盖）、可选 `PR_HELPER_GIT_CLOUD_HOSTADDR`，并用 runner 只拉 `id > 本地最大值` 的增量把 actions/runs/audit/events 补到当前；快照/增量导入后必须对 `id` 序列 `setval`，否则下一次审计写入撞主键（实测 PUT 500 `workflow_operation_audit_logs_pkey`）；本地镜像最终 14 stages（auto_create/auto_merge 14/14）、actions/runs 3,568、audit 8,313、events 3,256 | 验收实测发现阻塞性缺口；用户批准修复（"那你赶快给修复"）；用户复核后确认"已经修复了，但是没修复完"——本次补完整 | 用户 |
-| 2026-11-14 | **D-016**：P5-2 切换与 P5-3 下线的**每个动作执行前必须获得用户明确审批**（逐项：复述→审批→执行→报告）；影子期判定一致不构成执行授权；runbook 顶部已加同款声明 | 用户指令："下线前必须通知我拿到我的审批，否则不要动" | 用户 |
-| 2026-11-14 | **D-015 本地修复落地**：`scripts/migration/local-migrations/048_auto_advance.sql`（本地增量迁移协议首次启用——快照 47 迁移之外允许带编号的本地增量，列级变更不影响表集校验，check:migrations 仍过）+ bundle 读写双点（automationColumns 写 `auto_advance`、automationFromRow 还原 `autoAdvanceNext`）+ 往返持久化测试 3 个（994/48 全门禁绿）；**云端 pr-helper 不修**（D-011 冻结 + 临终产品改生产 schema 风险/收益倒挂；影子期比对主体不受影响；用户过去即无推进运行，无额外损失）——缺陷在本地修复，云端带病退役 | 用户两问的裁决执行（"总不能把一个有缺陷的完全迁移过来吧"） | 用户 |
-| 2026-11-14 | **原版存量缺口证实（影子期预检发现）**：pr-helper 云端的「合并后自动推进下一步」开关不持久化——生产 Supabase schema 无 `auto_advance` 存储列（47 迁移确认），用户实测勾选后刷新即丢失（auto-create/auto-merge 正常保留）。影响：云端从未真实执行过推进动作，影子期比对以建 PR/合并为主体（不受阻）；**本地版已修复**——`setStageAutoAdvance` 完整移植（143 测试覆盖）且 Phase 3 编辑器可配置，切换后本地获得云端从未有过的推进能力（新增能力，切换日显式开启） | 影子期预检 | 用户实测确认 |
-| 2026-11-14 | **Phase 5 技术准备完成**：P2-10 尾巴收口（影子观测 JSONL 落盘 `~/.pr-helper-git/automation-shadow.log`，失败路径也落盘，smoke 测试）；`docs/phase5-runbook.md`（P5-1 逐日流程/P5-2 切换清单+回滚/P5-3 下线清单）；Phase 5 只剩日历期与用户操作（开始条件=P2-1 凭据）；测试基线 990 → **991/47**（全门禁绿，e2e 145） | Phase 4/5 技术面全部就绪 | 用户（继续授权推进） |
-| 2026-11-14 | **Phase 4 完成**：P4-1 通知器（macOS 通知实测 + 飞书可选，7 单测，drain failures 接入，10min 去重）；P4-3 AGENTS Non-negotiables 修订（五处反映 D-003~D-006-v2 现实 + Layout 补迁移产物）；P4-4 监控脚本随迁；P4-2 归档命令清单备妥**待用户执行**（gh private/archive 不可逆）；测试基线 983 → **990/47**（全门禁绿，e2e 145） | Phase 4 推进（P4-2 外部动作需用户拍板） | 用户（继续授权推进） |
-| 2026-11-14 | **Phase 3 收官：P3-4 尾巴 + P3-6 判定 + P3-9 映射清单**：FlowEditor 新建双模式 + 加/删步骤（addStage/removeStage）；看板排序控制（custom/name/createdAt+方向）与 lane 上/下移动（moveWorkflowToPosition→PUT 持久化）；P3-6 判定为语义已承载（进度条 3 测试+详情时间线，lane 内嵌时间线为设计偏差不建）；P3-9 `docs/migration-acceptance.md` 34/34 映射（当时统计 ✅15/🔶6/🚫8/⬜2；**该统计已被 11-14 D-002-v2 复审修正为 ✅18/🔶5/🔀1/⬜10**）；测试基线 983/46（全门禁绿，e2e 145） | Phase 3 收官（后续复审推翻“部署/换仓不迁”） | 用户（继续授权推进） |
-| 2026-11-14 | **P3-5 失败中心聚合面板**：flows-failures.ts 纯语义（三段聚合+recovery 徽章，5 单测）+ FailureCenter 组件（重跑=写路由、详情=抽屉）+ repair-context 路由（1 测试）；BoardState 增 recoveryStatuses；测试基线 977 → **983/46**（全门禁绿，e2e 145） | 继续推进 Phase 3 | 用户（继续授权推进） |
-| 2026-11-14 | **P3-4 编辑模式 + P3-7 确认交互**：PUT/PATCH/DELETE /api/flows/workflows 落地（upsertWorkflow 返回 automationActivated/gatesChanged；本地无凭据时内联对账失败降级 null——保存永不因 sweep 失败而报错，4 路由测试含回归）；FlowEditor 编辑模式（纯函数组合 automation 字面量形状；规则 content 未随库时诚实拒绝编辑）；P3-7 勾选即动作确认（immediateAutomationEffect × 当前投影 → confirm）；测试基线 973 → **977/45**（全门禁绿，e2e 145） | 继续推进 Phase 3（编辑器最大块拆两片） | 用户（继续授权推进） |
-| 2026-11-14 | **P3-3 StepDrawer UI 落地**：右侧滑出抽屉（详情页每步「步骤详情」进入）= 状态头/PR 门禁/操作按钮（enqueue+execute+regenerate+rerun+takeover 表单，全部对接已落写路由，操作成功自动重读投影+toast，错误响亮透出）/自动化块（latestAutomationAction 语义：最新动作为主块、状态决定可用操作、其余折叠历史）/事件流；测试基线 973/45、e2e 145（全门禁绿） | 抽屉 UI 与写路由闭环；实网操作验收待 P2-1 凭据 | 用户（继续授权推进） |
-| 2026-11-14 | **MobileApp 接入 Flows + P3-3 服务面写路由**：/m header 新增「Repository/Flows」segmented（mobile.tab 持久化），Flows tab 直接复用 FlowBoard；修复既有缺口 /m?token= 不种 cookie（bootstrap 放宽到 /m + redirect 回 /m，e2e 断言随行为更新，144→145）；`POST /api/flows/{automation,recovery-event,rerun-actions}` 落地（enqueue/execute/regenerate/takeover 参数归一化逐条对应 api/workflows.ts，recovery/rerun 校验 400 前置），6 新路由测试；测试基线 967/45 → **973/45**（全门禁绿） | 继续推进 Phase 3（手机看板价值立现；抽屉 UI 待路由已就绪） | 用户（继续授权推进） |
-| 2026-11-14 | **P3-2 流程详情只读片**：`flows-detail.ts`（状态判定/gates/动态路由/进度条纯模块，8 单测）+ `FlowDetail.tsx`（Back/标题/路由/进度条/分步卡：状态+gates+自动化 chips+事件流）+ 看板 lane 可点击进入详情；事件时间本地化、eyebrow 去重同看板规则；测试基线 959/44 → **967/45**（全门禁绿） | 继续推进 Phase 3（P3-2 先于 P3-3：纯读无需凭据） | 用户（继续授权推进） |
-| 2026-11-14 | **看板样式专项返工（用户反馈"样式没法看"）**：根因是首片 CSS 使用了不存在的设计变量（--sp-*/--surface/--fs-sm/--success 等，间距塌 0、色调全失效）→ 按真实 token 词汇表重写（--panel/--panel-2/--muted/--faint/--fs-meta/--fs-ui/--green/--red/--amber/--blue + -soft）；lane 头部重排（name==repo 时隐藏 eyebrow 去重、运行摘要改"色点+右对齐弱化文本"）；PR 引用去重（状态文案不带号，链接承担 #N；队列消息尾部 #N 剥离）；700px 断点（纵向步骤、连接符转向、搜索全宽、卡片 flex:none 修高度拉伸）——Chrome headless 截图双宽度验收；顺手补齐别名层潜在缺失变量（--text-muted/--success/--danger/--warning，修复仓库既有 3+13 处悬空引用） | 用户截图反馈 + 本产品验收标准（UI 打磨到位） | 用户 |
-| 2026-11-14 | **D-002-v2 + 功能缺口复审**：按 feature-catalog 17 节 + 34 条验收 + 台账全部 🚫/⏸/🔀 行复核。确认“产品自身不上生产”被误扩为“不管理被管理仓库部署”：部署门禁/健康/回滚/Environment 恢复必迁（M-A6/M-B10/M-C7/M-D17、P3-4/P3-10、验收 21/22/23/30/31）；换仓库 #7/#8 确认为非云依赖误裁；新增未完成清单（部署全链路、换仓库、归档/静音、预检、PR 引用、审计 CSV、同步健康度、团队 UI、运行历史）。验收统计改为 ✅18/🔶5/🔀1/⬜10；P3-4/P3-9 由 ✅ 降为 🔶；新增 Phase 3.5（P3-10…P3-16）；Phase 5 切换冻结至 Phase 3.5 关闭；AGENTS/runbook 同步 | 用户指出 D-002 严重误读；“确定没有遗漏就更新方案/进度” | 用户 |
-| 2026-11-15 | **P3-13 重建预检落地（用户裁决“重建预检”）**：`POST /api/flows/preflight` + `preflightWorkflow`（读取 14 流程的投影状态、仓库分支、Actions/Environment）→ `workflowPreflight` 纯函数六类检查：GitHub App 权限、分支存在性（含 `dev/*` 通配源）、PR `mergeableState=dirty` 冲突、`waitFor` 上游依赖、部署/回滚 Actions workflow、GitHub Environment；每项输出 `pass/warn/fail/skip` + 修复建议；FlowBoard lane「preflight」→ `FlowPreflightModal` 分组展示/重跑，页脚明确“只读检查不修改流程”；5 个语义单测 + 路由 400 校验；完整门禁 lint/typecheck/server 1012 tests/50 files/build 全绿；本地 4789 实测 bayjf 流程返回 3 failed / 4 warnings / 1 passed，UI 六类渲染正常 | 用户回复“1”并选择“重建预检（推荐）” | 用户 |
-| 2026-11-15 | **P3-10 实网读取闭合 + PAT 接线修复**：① `parseGithubAppConfig` 在 `GITHUB_TOKEN` 存在时直接返回空配置，修复“解析先于 PAT 分支”导致 Actions/Environment 永远不可读；② `main.mjs` 凭据加载改为剥离成对引号（原正则把 `GITHUB_TOKEN="..."` 的尾引号留在值里，PAT 实际无效），新增 `server/credentials-env.mjs` + 3 个解析测试；③ 预检对 open PR 实时读 `/pulls/{number}`，不再用滞后的本地投影误报已合并 PR 冲突；④ 手动对账 bayjf/pr-helper 后 `workflow_stage_deployment_runs` 得 4 条真实成功 run，`/api/flows/inbox` 返回 4 条 deploymentRuns；`deployment-options` 实测 bayjf Actions 4/Environment 5、pr-helper-git 空 Environment；`POST /api/flows/preflight` 对 bayjf 六类全 pass；门禁 1015 tests/51 files + build 绿。验收 #30/#31 转 ✅，#21 仍 🔶（实际 rollback dispatch 待用户批准） | 用户“继续推进任务”；P3-10 部署门禁实网验收 | 用户（继续授权） |
-| 2026-11-15 | **P3-10 收口 / P3-15 暂缓裁决**：用户接受建议——#21 只验确认 UX + 不可变 runId + 路由，不实际 dispatch（避免修改 bayjf 或对已归档 pr-helper 发起回滚）；P3-15 团队四角色 UI 本期暂缓、不计完成，因单用户且 P2-8 后端未接线。验收统计更新为 ✅31 / 🔶2 / 🔀1 / ⬜0；P3-10 ✅，P3-15 ⏸，Phase 3.5 仅余 P3-9 的 #19/#34 UI 走查 | 用户“按你建议的搞” | 用户 |
-| 2026-11-15 | **Phase 3.5 关闭：P3-7 四项前置补齐 + #19/#34 验收通过**：① 按原版 `autoCreatePrerequisites()` 移植四项前置（服务端 AI 凭据、auto-generate、auto-confirm、至少一条生成规则），缺任一项 auto-create/auto-merge/auto-advance 与阈值全部禁用，并逐条列出缺项；新增 `editor-prerequisites` 纯函数 + 3 测试，隔离服务 4791 UI 实测三个开关 `[disabled]`；② Chrome CDP 390×844 走查 `/m`：失败中心宽 366、`scrollWidth=390`，创建流程页 `scrollWidth=390`，无横向溢出；③ 验收 #19/#34 转 ✅，统计 ✅33 / 🔶0 / 🔀1 / ⬜0，P3-9 转 ✅，Phase 3.5 关闭；门禁 1018 tests/52 files + build 绿 | #19 原版 disable 语义缺口、#34 竖屏走查收尾；Phase 3.5 关闭条件 | 用户（“继续推进任务”） |
-| 2026-11-15 | **P3-1/P3-4 尾巴：编辑器步骤重排入口**：FlowEditor 每个展开步骤新增「上移/下移」按钮，调用 `reorderStages`（保留 stageId、重写 waitFor 依赖索引），顺序保存走既有 `PUT /api/flows/workflows` + `workflowToRows(stage_index)`；UI 实测第二步上移后路由顺序反转、展开状态跟随；pointer 拖拽未做，显式按钮作为原版键盘兜底等价入口。P3-1/P3-4 转 ✅，验收 #4 证据更新；门禁 1018 tests/52 files + build 绿 | #4 只有纯函数测试、编辑器缺重排入口 | 用户（“那你继续”） |
-| 2026-11-15 | **P3-3/P3-5 实网走查**：隔离 4791 打开 bayjf 步骤抽屉，Cloudflare Pages/Vercel 两张 gate 卡均 `deployed`，`open site`/`open logs` 可见，最近 4 条真实 run（`43622001752`/`43622001707`/`43617220484`/`43617220447`）正常渲染；看板失败中心显示 `Needs attention 5`，含 ops-console Actions 失败（`retries exhausted`，rerun 禁用）与 loom/zeus/pr-helper 受阻自动化，抽屉 `take over` 入口可见。retry/rollback 为条件按钮，本轮无失败 run/回滚工作流；实际 dispatch 按 P3-10 #21 用户裁决不执行。P3-3/P3-5 转 ✅，Phase 3 收口 | P3-3/P3-5 仅剩真实 run UI 走查 | 用户（“那你搞”） |
-| 2026-11-15 | **P2-5 webhook 契约单测随迁**：新增 `server/automation-webhook.test.mjs` 9 个测试——非 webhook 路由 null、缺 raw body 400、无 secret 503 fail-closed 且不触库、坏签名 401 且不触库、缺 delivery/event 头 400、坏 JSON 400、shadow 模式 200 且不投影、合法 pull_request delivery 投影 + `branches=['dev']` 的 realtime reconcile 202、重复 delivery 202 且不投影不对账；结合 11-14 既有 webhook 端到端 202 实测，P2-5 转 ✅；门禁 1029 tests/53 files + build + E2E 145/145 全绿 | P2-5 仅剩签名校验单测随迁 | 用户（“继续”） |
-| 2026-11-15 | **P2-2/P2-4 收口**：bundle 的 drain/对账执行器已由 418 条 store 不变量覆盖（drain execute/skip/cancel、gate-wait 退避与 ceiling、瞬时失败 requeue 冷却/3 次上限、幂等键、取消原因；对账公平轮转/批大小/分支作用域/租约/abandoned/deferred/分级预算/ceiling）；本地 PG 实测 `reconciliation_runs` 产出 `inbox_refresh` 行（id=3，state=degraded，stages_total=14，stages_reconciled=12，stages_failed=0，duration≈6.0s），遥测与预算语义闭合；P2-2/P2-4 转 ✅ | 阶段状态复核：实现与测试已在 bundle，仅缺台账映射 | 用户（“继续”） |
-| 2026-11-15 | **P1-5 收口**：核心 4 域模块 + Phase 3 语义模块（flows-board 13 / flows-detail 8 / flows-failures 5 / flow-audit / editor-prerequisites 3）全部落地；长尾 `navigation`/`workflow-save-queue`/`action-queue-request-queue` 判定为不单独移植——React hooks + typed API client 已直接承载，避免复制第二套状态机（与 AGENTS 不复制业务逻辑一致）；P1-5 转 ✅ | Phase 3 完成后复核长尾模块 | 用户（“继续”） |
-| 2026-11-15 | **P2-7 收口**：`rerunFailedActions` 校验链（参数类型、recoveryPolicy maxRetries、cooldownSeconds、head_sha、失败 run 过滤）随 bundle；`server/flows.test.ts` 补非法 `stageIndex` 400 且不触引擎断言；`automationRetryIsExhausted` 覆盖次数上限；Codex 修复包合法/缺 workflowId 400 已测；实际 rerun dispatch 未执行（影子期 + 无需真失败 run）；P2-7 转 ✅ | P2-7 验收为校验单测随迁 | 用户（“继续”） |
-| 2026-11-15 | **P5-1 影子同步收口**：`sync:shadow` 从「单会话导出 22 表」改为逐表、500 行有序分页（`ORDER BY 1`），单条 SQL 不再触发 Supabase pooler 约 300 秒断连；读取完成后写 `~/.pr-helper-git/shadow-latest.json`（0600）供 `--snapshot` 离线重试；本地写入按 `information_schema` 列集投影（丢弃云端独有 `workflow_stages.id` 等）、按 id 去重、对同步窗口内新增的 `workflow_automation_runs` 做 id 增量补齐、对父行缺失的 action 行跳过，并修复无 id 表的序列重置错误。实测 22 表读取约 15 分钟，本地单事务重建成功：14 workflows / 14 stages / 3,359 events / 3,647 runs + actions / 8,372 audit；重启 4789 后 `trackedWorkflows=14`。P5-1 仍为 🔶（等待连续 5–7 天比对），D-018 同步材料已就绪 | P5-1 仅剩日历期；D-018 全量同步阻塞 | 用户（“继续搞”） |
-| 2026-11-15 | **P2-8/P3-15 团队四角色收口**：新增 `/api/flows/teams`（GET 团队/成员、POST create/member/remove-member/share-workflow）+ 3 路由测试；新增 `team-permissions` 四角色矩阵（生产合并/回滚仅 Owner）+ 3 测试；`TeamsModal` 挂入 FlowBoard，支持创建/切换团队、成员列表与角色、Owner-only 添加/移除、个人流程共享；隔离 4791 UI 实测创建团队→Owner、成员区 `@bayernjf Owner`、四角色下拉可见，测试团队已清理。P2-8/P3-15 转 ✅；门禁 1035 tests/54 files + build + E2E 145/145 全绿 | 用户“继续，把剩下的搞了”；团队引擎函数已在 bundle，仅缺本地路由/UI/矩阵测试 | 用户 |
-| 2026-11-15 | **P2-3 真实自动建 PR/合并链路收口**：在 `TEST-REPOS.md` 登记的 `bayernjf/git-e2e-test` 建临时分支 `p2-3-automation-test`（`26bc46d`、`3385bfe`，基线 `a838a29`）并 push；本地临时流程单 stage（source 该分支 → `main`，autoCreate+autoMerge，threshold 2，executionMode server）。服务端对账得到 `ahead_by=2`、`checks_state=success`、PR #8 `open/clean`；action 4370 create-pr 以 mock LLM 生成标题「P2-3 自动化验收 PR」并成功建 PR #8；对账后 action 4371 merge-pr 执行成功，PR #8 合并，`main` 新提交 `f94ace0`。测试分支、临时流程、临时 AI 凭据均已清理，测试仓 open PR 为空。advance-stage 由 3 个 store 测试覆盖，本次单阶段 fixture 无下一阶段可推进 | 用户“你来搞”；P2-3 真实外部副作用已获宽泛授权，仅限已登记测试仓 | 用户 |
-| 2026-11-15 | **P2-6 真实接管闭环**：在 `bayernjf/git-e2e-test` 建临时分支 `p2-6-takeover-test`（`ccc93f9`、`6898c56`，基线 `f94ace0`）并 push；临时流程单 stage 对账得到 ahead_by=2。先不配 AI 凭据直接执行 create-pr，action 4372/run 4374 因「服务端 AI 自动生成或自动确认设置未开启」自然失败并进入 paused；补回环 mock AI 凭据后调用 `POST /api/flows/automation?action=takeover`，返回 succeeded 并真实创建 PR #9，审计 `pull-created / via=user-takeover`。PR #9 已关闭、临时分支/流程/凭据已清理，测试仓 open PR 为空 | 用户“那你搞，需要的话，你用浏览器测试”；P2-6 真实外部副作用按宽泛授权，仅限登记测试仓 | 用户 |
-| 2026-11-15 | **P2-6 UI 点击路径走查**：在 4789 真实控制塔打开 `P2-6 UI takeover acceptance` 步骤抽屉，点击 `take over`，填入标题/正文后 `save takeover`；UI 调 `takeoverAutomationAction` 真实创建 PR #11（action 4376 / run 4378，审计 `pull-created / via=user-takeover`）。抽屉动作显示 `done`，页面 Refresh 后阶段卡更新为 `PR #11 checks passed`；PR #11 已关闭，UI 测试分支与流程已清理。未配置 AI 凭据，走的是人工标题/正文路径 | 用户批注“那你做UI点击路径的浏览器走查”；验证 UI 表单到真实 GitHub 副作用 | 用户 |
-| 2026-11-15 | **D-019 + P2-3 advance-stage 真实闭环**：真实 advance 首次执行暴露原版 schema 缺口——TS `OperationAuditAction` 含 `stage-advanced`，但 020 迁移的 `workflow_operation_audit_logs_action_check` 不含该值，审计写入把 action 4375 打成 paused。按 D-015 本地增量迁移协议新增 `scripts/migration/local-migrations/049_audit_stage_advanced.sql`（仅扩 CHECK 白名单，表集不变；云端 pr-helper 按 D-011 不修），应用后重置 action 4375 重试成功。fixture：`p2-3-advance-test` 2 提交 → PR #10 自动建/合并 → 对账自动入队 advance → action 4375 succeeded、run 4377 succeeded，审计 `stage-advanced`；PR #10 合并提交 `da284ca`，测试分支/流程/凭据已清理 | 用户批注“那你搞吧”；advance 真实 dispatch 首次暴露迁移缺口 | 用户 |
-| 2026-11-15 | **PR 写操作终验（Close/Reopen/Merge 真实通过；Approve/Request-changes 确认 GitHub 平台边界）**：在 `bayernjf/git-e2e-test`（TEST-REPOS.md 已登记）走产品真实路径——`/api/github` 代理（`POST /repos/{o}/{r}/pulls`、`PATCH /pulls/{n}` state、`POST /pulls/{n}/reviews`）+ `/api/merge-pull` 路由（GraphQL squash merge）——建 PR #12 后**真实执行 Close→Reopen→Merge 全成功**，PR 合并、`main` 前进、本地 reset 回 `da284ca`、临时分支/PR 清理。**关键边界发现**：Approve（event=APPROVE）与 Request-changes（event=REQUEST_CHANGES）对自己 PR 被 GitHub 硬性拒绝 422（"Cannot approve/request changes on your own pull request"）——这是 GitHub 平台约束、非产品缺陷；产品正确透传了 GitHub 的 422 错误与 message（`/api/github` 代理把上游 error 原样返回），UI 的 `submitReview` 已对 REQUEST_CHANGES 缺 body 做前置校验、对 APPROVE/COMMENT 无额外门槛。COMMENT review 对自己 PR 走通（200/COMMENTED）。**验收口径**：单账号环境下 approve/request-changes 无法真实验证，接受“产品正确透传 GitHub 422 错误 + COMMENT 走通 + Close/Reopen/Merge 全成功”作为 PR 写操作验收；需多账号才能做 approve/request-changes 的端到端真实通过，不阻塞迁移 | 用户授权“只要是测试仓，你都可以用”；闭合“PR Merge/Close/Approve/Request changes”终验项 | 用户 |
-| 2026-11-15 | **D-020 GitHub Device Flow 身份连接**：用户裁决采用 Device Flow（不做授权码回调，现有 App 也缺 client secret）；user token 只用于身份展示与 App 安装/仓库发现，本地 token 仍是唯一认证边界，GitHub 写操作保持 PAT/引擎凭据；token 存 `config.github.oauth`（0600），永不回传浏览器；`github.com` 两个 OAuth 端点经系统代理（HTTPS_PROXY 优先，macOS 回退 `scutil --proxy`）。实现 `server/github-oauth.mjs` + `server/github-http.mjs` + SettingsModal「GitHub account」区块；`/api/pat` 改为合并 `config.github`，避免覆盖 oauth。**实网待办**：用户在 GitHub App 设置启用 Device Flow 后走查 | 用户“GitHub App OAuth 登录 这个搞下”；实测 `device_flow_disabled` | 用户 |
-| 2026-11-15 | **D-021 A2A / Agent Card 真接线**：公开卡片 `GET /api/a2a/agent-card`（别名 `/.well-known/agent-card.json`、`agent.json`）+ JSON-RPC `POST`（tasks/send、sendSubscribe、get、cancel）；bearer fail-closed（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`，或 Settings 生成、仅存 SHA-256 哈希的 token，env 优先），匿名逃生门仅 loopback；默认 plan，execute 经引擎 enqueue create-pr/merge-pr、直调 rerun-actions、只读 deployment-health、production-rollback 永远升级；任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。实现 `server/a2a.mjs` + `server/flows.mjs` `engineContext()` + SettingsModal「A2A / Agent Card」区块（含 token 生成/撤销）+ 7 条 E2E | 用户“A2A / Agent Card 这个搞下” | 用户 |
-| 2026-11-16 | **文档状态对齐**：Phase 3.5 已关闭，P3-15 团队 UI 已收口（原暂缓裁决已被后续实现覆盖）；Phase 5 更新为 P5-1 影子期运行中、P5-2/P5-3 未开始且受 D-016 逐项审批约束；本轮无代码变更 | 用户“更新项目文档”；消除 handoff/迁移台账 P3-15 与 Phase 5 状态漂移 | 用户 |
+# Handoff — pr-helper-git
+
+A local Git GUI (GitKraken-like core) plus a lightweight GitHub PR control
+tower (pr-helper-like core). The app itself runs entirely on loopback and
+pushes nothing. This repository, however, **is** on GitHub as the public
+`bayernjf/pr-helper-git` (renamed from `pr-helper-git2` on 2026-11-11); treat
+every committed file as world-readable.
+
+
+## pr-helper 迁移进度（实时段，随会话更新）
+
+> 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-021 与验收标准在
+> [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
+> 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
+
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
+
+| 任务 | 状态 |
+|---|---|
+| P0-1…P0-5（冻结/基线/导出/快照/推送） | ✅ 全部完成（2026-11-14，见台账 §12）|
+| P1-1 OrbStack Postgres | ✅ pr-helper-pg 常驻（127.0.0.1:54329，unless-stopped）|
+| P1-2 47 迁移原样执行 | ✅ 26 表 schema 一致（030 → server 调度例外）；`npm run check:migrations` 校验脚本随迁（11-14，26=26 ✓）|
+| P1-3 Supabase 数据导入 | ✅ 58806 行（eb5000e）；workflows=14 实测确认 |
+| P1-4 store 层移植 | ✅ bundle 3014 行自含 ESM（29169ff）+ store 测试网随迁全绿（418 不变量 + workflow-rows 25 + github-api 11 + ai-credentials 5，11-14）；api 路由层测试随 Phase 3 服务面接线随迁 |
+| P1-5 领域内核 | ✅ 核心 4 模块 + Phase 3 语义模块（board/detail/failures/audit/prerequisites）全部落地，143 域测试 + 31 UI 语义测试；长尾 navigation/save-queue 由 React hooks + API client 直接承载，不重复造状态机 |
+| P1-6 check-migrations 随迁 | ✅ 重定界为新实现（快照无源文件）— scripts/migration/check-migrations.mjs |
+| P2-2/4 drain + 对账引擎 | ✅ 418 store 不变量覆盖 drain 决策/退避/幂等/取消；租约/轮转/分级预算测试通过；本地 PG `reconciliation_runs` 产生 `inbox_refresh` 遥测行（14 total/12 reconciled/0 failed/≈6s） |
+| P2-6 AI 接管 | ✅ 2026-11-15 真实闭环：action 4372 缺 AI 配置自然 paused → 补临时凭据 → takeover 建 PR #9；另走 4789 UI 点击路径（take over 表单）建 PR #11，审计 `via=user-takeover`，Refresh 后卡片显示 PR #11；PR/分支/流程/凭据已清理 |
+| P2-7 Actions 重跑 + Codex | ✅ 校验链随 bundle，路由 400/合法测试 + 次数上限域测试 + Codex context 测试；实际 rerun dispatch 未执行 |
+| P2-5 触发器三通道 | ✅ webhook 端到端实测 + 9 个契约单测（11-15：fail-closed/坏签名/缺头/坏 JSON/shadow/合法投影+reconcile/重复去重）；fs.watch=既有 reconcileWatching、定时对账=调度器 |
+| P2-10 影子模式 | ✅ 只读观测（引擎无 dry-run 缝；shadow 永不执行）+ JSONL 影子日志落盘；逐日比对材料见 `docs/phase5-runbook.md` |
+| P2-1 PAT/App 凭据实网验收 | ✅ D-006-v3 PAT 路径实网（11-15）：App 私钥在 Vercel 侧被 Sensitive 掩码、App installation 不可用；`GITHUB_TOKEN` 走同账号同 REST 路径，实测 bayjf Actions 4 / Environment 5、pr-helper-git 空 Environment；凭据文件引号解析修复后服务端 PAT 生效 |
+| P2-3 门禁+合并执行接线 | ✅ 2026-11-15 真实链路：PR #8 自动建/合并（action 4370/4371，`main` `f94ace0`）；PR #10 验证 advance-stage（action 4375 succeeded，审计 `stage-advanced`）；真实 advance 暴露并修复 020 审计 CHECK 缺 `stage-advanced`，新增本地迁移 `049_audit_stage_advanced.sql`；测试分支/流程/凭据已清理 |
+| P2-8 团队四角色 | ✅ 引擎四角色/共享/账号删除 + `/api/flows/teams` 路由（3 测试）+ 角色矩阵（3 测试）+ `TeamsModal` UI；4791 实测创建团队→Owner、成员列表与四角色下拉；真实 HTTP 共享 200 且 join 表落库 |
+| P2-9 launchd LaunchAgent | ✅ install/uninstall + 崩溃自愈实测（kill -9 → 10s 重启）；11-15 常驻运行于 4789（shadow 模式） |
+| Phase 3 控制塔 UI React 重建 | ✅ **已收口**（11-15）：看板/详情/抽屉/编辑器/失败中心/手机/归档/静音/运行历史/PR 引用/审计 CSV/同步健康度/流程预检/部署实网/团队四角色全部落地；P3-9 验收 ✅33/🔶0/🔀1/⬜0（#1 为认证形态替代）；P3-2 手动 Refresh live 对账、P3-3/P3-5 实网部署卡与失败中心走查、P3-15 团队 UI 均完成 |
+| Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ✅（11-15 团队 UI 收口，原暂缓裁决已被后续实现覆盖）；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
+| Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
+| GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。**A2A 实网 ✅**；Device Flow 实网待账号启用 2FA / 刷新 GitHub 会话后重试 |
+| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；P5-2/P5-3 未开始，需 P5-1 连续 5–7 天一致 + D-016 逐动作审批 |
+
+Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
+启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
+鉴权之前（HMAC 即鉴权，无 secret 503 fail-closed）；测试基线 959/44。
+
+Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_helper_users 单行 +
+`/api/flows/{inbox,workflows,audit}`，App 凭据缺失单路读降级空集+readWarnings）+
+`src/lib/automation/flows-board.ts`（六筛选/计数/步骤色调/运行摘要语义，13 单测）+
+`src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
+P3-4 编辑器 → P3-5 失败中心。
+
+**迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1099/61、E2E 162/162。**
+
+**2026-11-19 影子期中期状态**：生产新增第 15 个流程 `agent-ops`（dev→main，auto-create/merge 全开）——`npm run sync:shadow` 已跟进（本地 15/15），影子观测与云端同步；迁移文档"14 流程"为导出时点基线，滚动值以"本地与云端一致"为准。
+
+**2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
+已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
+tag `v0.3.10`）；0.3.11 新增 CI 健康看板（发布提交 `3bb8030`，tag `v0.3.11`，
+PR #25 合并 `b17a380`）；`main = b17a380`、`dev = 3bb8030`，
+GitHub latest = **`v0.3.11`**。
+测试：1099 tests / 61 files + E2E 162/162，build 通过。备份目录最新
+`source-20261118-1311.bundle` 含 `main`、`dev`、`v0.3.11`。
+
+最近更新：2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
+
+**2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.11 (2026-11-18)
+
+范围：新增只读的 PR CI 健康看板。
+
+服务端：`server/ci-health.mjs` 通过 GitHub REST `/user/repos` 获取 PAT 账号
+拥有的非 fork/非归档仓库，再对每个候选仓库跑 GraphQL `statusCheckRollup`，
+按 PR 级最终检查状态聚合；开放 PR 始终纳入，已关闭/已合并 PR 仅在创建时间
+落在 7/30/90 天窗口内纳入；默认分支 HEAD 的合并后 CI 单独统计。失败检查按
+名称/标题/描述归类到 infra/timeout/auth/deploy/deps/lint/tests/build/unknown；
+同一检查名的多个 attempt 按最高严重度去重。内存缓存 10 分钟，`refresh=1`
+强制刷新；不读取 pr-helper 生产库，不写 GitHub。
+
+客户端：新增 `CiHealthPage` 与 `CI Health` 顶级视图；指标卡、仓库明细、
+失败原因分布、失败 PR 列表、仓库多选与 localStorage 持久化；命令面板可切换。
+
+验证：1099 tests / 61 files；E2E 162/162；build 通过；真实 loopback
+`GET /api/ci-health?days=30` 返回 200，二次请求命中缓存。视觉点验受本机锁屏/
+浏览器会话限制未执行，页面已过类型检查与生产构建。
+
+## Release 0.3.10 (2026-11-18)
+
+范围：更新器慢速/失败闭环 + admin/member 权限提示。
+
+桌面：下载进度窗口显示传输速率和预计剩余时间；失败状态增加 `Retry`，
+菜单项从 `Update failed — Show Details` 改为 `Update failed — Retry`，点击直接
+沿用当前 release 重下，不必关闭窗口再走 Check for Updates。重试会清理旧临时
+目录并重置进度/按钮状态。
+
+客户端：`admin access required` 统一映射为可操作提示（说明需要 admin、owner
+在 Team 提升角色或改用 owner 账号）；仓库管理弹窗打开时读取 `/api/me`，member
+直接看到提示且提交按钮禁用，其余 admin-gated 写入口通过统一错误提示兜底。
+
+验证：1093 tests / 60 files；E2E 162/162；build 通过；desktop native-test +
+Swift 壳编译通过。
+
+## Release 0.3.9 (2026-11-18)
+
+范围：把 0.3.8 之后两条深评审修复（`7eb66ad`、`a31b208`）正式发版。
+
+安全/服务端：仓库注册、移除、克隆、初始化以及 control-tower 的
+automation / saves / credentials 写路由改为 admin 必需，member token 在看板
+保持只读；GitHub installations 枚举同样 admin-gated；webhook 接收端改用
+`readRawBody` 的 256KB 上限；`/api/save` 临时文件唯一化；grep-all 增加 30 秒
+墙钟预算；损坏 `config.json` 失败关闭并保留 `.corrupt-*`；audit append+rotate
+串行化并 await；顶层 500 不再回显 `err.message`，listen 回调保护
+`reconcileWatching`。
+
+客户端：Dashboard 30 秒定时器改为稳定依赖，PR 数量/owner 探测按仓库集合内容
+触发；快速切换仓库按 load generation 清理 loading；StepDrawer Escape/焦点、
+Dropdown `aria-activedescendant`、Dashboard 按钮语义、PrBoard 评论摘要懒加载
+（去掉 N+1）、事件时间戳 locale、force-push/toast 翻译、移除 v4 前 `.lv-*` 色块。
+
+门禁：1092 tests / 60 files、E2E 162/162、build 通过；desktop native-test +
+`BUNDLE_NODE=1 npm run desktop` + smoke + dist。桌面产物未签名，首次打开需
+右键 → 打开绕过 Gatekeeper。
+
+## Release 0.3.8 (2026-11-17)
+
+范围：把更新状态直接放进 App 菜单。`Check for Updates…` 不再是静态项：检查时
+显示 `Checking for Updates…`；下载时显示文本进度条和百分比（`Downloading
+0.3.8 [████░░░░] 42%`）；下载完成显示 `Update ready — v0.3.8`；失败显示
+`Update failed — Show Details`。该菜单项同时是恢复进度窗口的入口，因此移除了
+单独的 `Show Update Progress` 菜单项。底层仍是 0.3.7 的独立可最小化窗口。
+
+门禁：desktop native-test、`npm run desktop`、`desktop:smoke`；完整发布门禁与
+ZIP/DMG/SHA256SUMS 见 GitHub Release。桌面产物未签名，首次打开需右键 → 打开
+绕过 Gatekeeper。
+
+## Release 0.3.7 (2026-11-17)
+
+范围：修复 0.3.6 更新进度面板的可用性问题。此前进度面板是挂载在主窗口上的
+`NSAlert` sheet，无法最小化，下载期间会阻塞主窗口；用户要求最小化后继续使用
+主窗口，并能恢复进度面板继续看下载状态。`UpdateManager` 现在改用独立
+`NSWindow`（`titled + closable + miniaturizable`），下载期间主窗口保持可用；
+最小化后可从 Dock 或菜单 `Show Update Progress` 恢复。下载完成、校验状态、
+`Install & Restart` / `Later` 和失败状态都在同一窗口内联显示；下载中关闭窗口
+会取消网络任务并清理临时目录。
+
+门禁：desktop native-test、`npm run desktop`、`desktop:smoke`；发布资产
+ZIP/DMG/SHA256SUMS 见 GitHub Release。桌面产物未签名，首次打开需右键 →
+打开绕过 Gatekeeper。
+
+## Release 0.3.6 (2026-11-17)
+
+范围：桌面端更新体验补洞。`UpdateManager` 现在用 `URLSessionDownloadDelegate`
+上报 DMG 下载进度，更新面板显示百分比与已下载/总大小；下载完成后继续显示
+SHA-256 校验状态；校验通过后弹出 `Install & Restart`，由用户确认后再退出、
+替换 `/Applications/PR Helper Git.app` 并重开。取消下载会清理临时目录，失败
+仍弹 `Update failed`。为什么发 0.3.6：0.3.5 的更新器没有可见进度，用户点击
+`Download` 后只能等待静默替换，无法判断是否卡住。
+
+门禁：desktop native-test、`npm run desktop`、`desktop:smoke`；`0.3.6` 的
+ZIP/DMG/SHA256SUMS 见 GitHub Release。桌面产物未签名，首次打开需右键 →
+打开绕过 Gatekeeper。
+
+## Release 0.3.5 (2026-11-17)
+
+范围：`v0.3.4` 之后的 UI 体验版，无后端行为变更。三笔功能性提交：
+① `e39269e` v3 调色板抬升 + 统一动效系统；② `e8e052b` v4 Catppuccin
+清新护眼可爱主题（暗色 Mocha、浅色 Latte、Rose accent）；③ `65396bb`
+排版与交互打磨（全局键盘焦点环、行高/字号层级、PrBoard 交互与空态文案）。
+本版用于把 11-17 凌晨的 UI 变更正式发到桌面端；不是文档更新。
+
+门禁：lint / typecheck:server / **1092 tests / 60 files** / build /
+**E2E 162/162**；desktop native-test、`BUNDLE_NODE=1 desktop:dist`、
+`desktop:smoke`、SHA256SUMS / ZIP / DMG 复核通过。桌面产物未签名（无
+`APPLE_SIGNING_IDENTITY`），首次打开需右键 → 打开绕过 Gatekeeper。
+
+## Release 0.3.4 (2026-11-16)
+
+范围：修复 0.3.3 桌面端实测发现的仓库选择器缺陷——下拉菜单渲染在 40px 高、
+`overflow: hidden` 的 `.repo-select` 包装层与横向滚动的工具栏内，导致选项几乎全部
+被裁剪。`Dropdown` 现在通过 `createPortal` 把菜单挂到 `body`，固定定位锚定触发
+按钮；下方空间不足时向上翻转，窗口 resize / scroll 时重新定位；外部点击与 blur
+判定同时检查触发器和菜单。`.repo-select` 样式改为作用于触发按钮，去掉双层边框。
+
+新增回归测试 `src/components/Dropdown.test.tsx`（2 条：portal 在裁剪容器外、点击
+选项回传并关闭）。门禁：lint / typecheck:server / **1092 tests / 60 files** /
+build / **E2E 162/162**；desktop native-test、`BUNDLE_NODE=1 desktop:dist`、
+`desktop:smoke`、SHA256SUMS 复核。浏览器实测：工具栏下拉 5 个选项完整可见、
+选择后触发器与仓库视图同步切换。
+
+## Release 0.3.3 (2026-11-16)
+
+范围：Dashboard 新增 **Cards / List** 视图切换（选择持久化到
+`pr-helper-git:dashboard-view`），列表按 Repository / Owner / Branch / Status /
+Last commit 展示，窄窗口自动隐藏 Owner 与 Last commit 列；卡片与列表共用同一套
+状态徽章——铅笔 + 未提交文件总数（tooltip 拆分 staged / modified / untracked）、
+↑ 本地未推送提交数、↓ 远端未拉取提交数、冲突数、开启 PR 数与 clean 状态。
+`RepoBrief` 数据结构未变，纯客户端改动。
+
+门禁：lint / typecheck:server / **1090 tests / 59 files** / build / **E2E 162/162**；
+desktop native-test、`BUNDLE_NODE=1 desktop:dist`、`desktop:smoke`、SHA256SUMS 复核。
+浏览器实测（隔离实例 + 3 个 fixture 仓库）：wip 显示铅笔 3、sync 显示 ↑1 ↓1、
+clean 显示 clean，List 视图 3 行正常。
+
+## GitHub Device Flow + A2A（2026-11-15，D-020/D-021）
+
+用户把两项“有意不迁移”能力重新拉入范围：GitHub App OAuth 登录、A2A / Agent Card。
+
+- **D-020 Device Flow**：现有 App 的 `GITHUB_APP_CLIENT_SECRET` / `PRIVATE_KEY` / `AUTH_SESSION_SECRET` 均为 Vercel `[SENSITIVE]` 占位，且 Device Flow 未启用，因此不用授权码回调；`github.com` 直连超时，新增 `server/github-http.mjs`（`HTTPS_PROXY` 优先、macOS 回退 `scutil --proxy` 的 CONNECT 隧道），仅服务两个 OAuth 端点。`server/github-oauth.mjs` 提供 start/poll/status/installations/logout；user token 存 `config.github.oauth`（0600），只做身份与安装/仓库发现，写操作仍走 PAT/引擎。`/api/pat` 改为合并 `config.github`，避免覆盖 oauth。
+- **D-021 A2A 真接线**：`server/a2a.mjs` 提供公开 Agent Card（`/api/a2a/agent-card` + `/.well-known/agent-card.json`/`agent.json`）与 fail-closed JSON-RPC（`PR_HELPER_GIT_A2A_TOKEN`，legacy `ZEUS_A2A_TOKEN`，或 Settings 生成、仅存 SHA-256 哈希的 token，env 优先）。plan 默认；execute 经 `enqueueWorkflowAutomationAction` 入队 create-pr/merge-pr、直调 `rerunFailedActions`、只读部署投影；merge 需 `confirm=true`，production-rollback 永远 `input-required` 升级。任务内存 30 分钟 TTL；execute 写本地审计 `a2a.execute`。
+- **UI**：SettingsModal 新增「GitHub account」（设备码/复制/浏览器打开/轮询/断开/安装列表/有效期与过期重连）与「A2A / Agent Card」（configured/source/hint、生成/重新生成/撤销 token、明文只显示一次、卡片 URL、技能列表）；文案中英双语补齐（i18n 字典门禁）。
+- **验证**：`npm test` 1089/59、`npm run e2e` 162/162（新增 7 条）、lint/typecheck:server/build 通过；Device Flow 的 `device_flow_disabled` 作为明确错误透传。
+- **实网验证（2026-11-16）**：**A2A 通过**——Settings/API 生成 token（config 仅存 SHA-256 哈希，明文不落库），无 token POST 返回 401；带 token 的 `create-pr` plan 返回 `completed`；`deployment-health` execute 返回 1 workflow / 2 deployments / 8 runs；审计记录 `a2a.token.generate` 与两条 `a2a.execute`。**Device Flow 受阻**——GitHub App 已启用 Device Flow，本地也成功拿到设备码，但 GitHub 授权确认页的 `Authorize` 按钮为 `disabled`，页面顶部是 2FA 强制提示（账号未启用 2FA / 会话状态陈旧）；未绕过安全按钮。需用户在 GitHub 启用 2FA 或重新登录刷新会话后重试。
+- **实网待办（需用户）**：① GitHub 启用 2FA 或重新登录后，Settings → GitHub account → Connect 完成一次授权；② 已完成，token 明文在 `~/.pr-helper-git/a2a-token.txt`（0600，建议复制后删除）。
+- 图拖拽按用户裁决暂不做，保留后续再议。
+
+## 生产巡检（2026-11-16，14 个受管仓库）
+
+数据源：本地引擎库 `pr_helper_workflows.repository` 去重，得到 14 个受管仓库：
+agent-dev / agent-world / atlas / bayjf / commerce-os / growth-agent / growth-os /
+job-agent / loom / model-hub / ops-console / pr-helper / pr-helper-git / zeus。
+
+- **开放 PR：14 个仓库全部为 0**。`pr-helper-git` 的自动化 PR #12（docs）已于
+  11-15 16:08Z 合并为 `c0712ab`，本地 `main`/`dev` 已同步，合并后的 main push
+  CI（run 43733749957）test + desktop 均 success。
+- **CI：13 个仓库默认分支最新 commit 的 check-runs 全绿**，最近 5 次 workflow
+  runs 无失败；`atlas` 在 11-12 的 dev 上各有一次 failure/cancelled，已被后续
+  success 覆盖。
+- **唯一异常 `bayernjf/agent-world`**：自托管生产 runner `agent-world-prod` 离线。
+  `Production runner watchdog` 于 11-15 17:36Z / 22:36Z 两次失败；
+  `Deploy production` 于 11-15 15:29–15:48Z 连续 4 次失败，日志均为
+  `production runner: agent-world-prod -> offline` / `0 online production runner(s)`。
+  仓库自身 CI 与 CodeQL 仍为 success。处置：重新上线该 runner，或触发
+  `Deploy production` 时传 `target=hosted` 走 hosted build-only 兜底。
+
+## Release 0.3.2 (2026-11-15)
+
+范围：两项新能力随正式发行——① GitHub App Device Flow 身份连接（identity-only，
+token 0600 落 config，永不回传）；② A2A / Agent Card + JSON-RPC 真接线（fail-closed
+bearer；execute enqueue 引擎动作；production-rollback 永远升级）。同时包含 Settings
+的 A2A token 生成/撤销（只存 SHA-256 哈希，明文一次）、GitHub 连接有效期/过期提示、
+`github.com` OAuth 端点代理客户端，以及 `/api/pat` 与 `github.oauth` 互不覆盖的修复。
+
+门禁：lint / typecheck:server / **1089 tests / 59 files** / build / **E2E 162/162**；
+desktop native-test、`BUNDLE_NODE=1 desktop:dist`、`desktop:smoke`、SHA256SUMS 复核。
+实网 Device Flow 需用户在 GitHub App 设置启用后走查；A2A 可在 Settings 生成 token 后
+用 curl 走 plan/execute 各一次并核对 `a2a.execute` 审计（验收 #1 暂保持 🔀，实网通过
+后再转 ✅）。
+
+## Release 0.3.1 (2026-11-15)
+
+范围：两个桌面修复随正式发行出去——① 生产 npm 依赖闭包入 bundle（修
+`/Applications` 安装后启动即崩）；② 更新检查 403 直连回退 + 资产/校验和
+space→dot 归一化（修应用内更新在系统代理环境下必失败）。含冒烟真实启动断言
+与 UpdateFetchTest（stub + 变异证明 + 可选 live）。v0.3.0 的 dmg/zip 为坏
+bundle，0.3.1 产物为修复后首批可分发 artifact（BUNDLE_NODE=1，内含官方 Node 22）。
+发布前 dev 与 origin/main 因 PR #7/#8/#9 的 merge commit 偏离，已用普通 merge
+集成（不重写已 push 的 dev 历史）。门禁：1040/55、E2E 155/0、native-test
+（含 update-fetch stub）通过；`BUNDLE_NODE=1 desktop:dist` 产出 0.3.1 dmg/zip
+（内含官方 Node 22.23.5，未签名），`BUNDLE_NODE=1 desktop:smoke` 通过，
+SHA256SUMS 经 `shasum -a 256 -c` 独立复核 OK。
+
+发布执行：dev 四提交（`477b78d`/`010e4d6`/`25df6cd`/`01774b1`）推送后由
+pr-helper 自动化开 PR #10；标题/描述重写覆盖全部 hash 与实测数字后 CI
+（test×2、desktop×2）全绿，**由自动化合并**（merge commit `1eb3db7`，非
+本地执行）。annotated tag `v0.3.1` 打在 release commit `01774b1`。GitHub
+Release v0.3.1 已发布，仅含 0.3.1 三资产（dmg/zip/SHA256SUMS；GitHub 侧
+资产名为 dot-sanitized，大小与本地一致，上传前 `shasum -c` 复核）。本地
+`/Applications` 已替换为 0.3.1 并验证：server 跑 bundle 内置 Node
+22.23.5，loopback 入口 200、无 token 401（鉴权正常）。备份
+`source-20261115-2155.bundle` heads：main=dev=`1eb3db7`、含 `v0.3.1`。
+
+教训（备份带旧 main）：备份脚本打的是**本地 refs**，自动化在远端合并
+不会移动本地 `main`——首次备份 bundle 里 main 仍是 `60e256f`。发布后备份
+前先 `git fetch origin main:main`（AGENTS.md 第 8 步已更新），再核验
+bundle heads。旧 0.3.0 app 暂存 `/tmp/pr-helper-git-0.3.0-old.app` 可回滚。
+
+## Desktop bundle dependency fix (2026-11-15)
+
+用户报「app 启动报错」。根因：迁移引入 `postgres`/`web-push` 运行时依赖后，
+`scripts/desktop-build.mjs` 仍只复制 `server/` + `dist/`，装到 `/Applications`
+的 bundle 以 `ERR_MODULE_NOT_FOUND: postgres` 秒退，shell 弹 "Local server
+stopped"。**自迁移起所有桌面构建均带此缺陷**；dev/launchd 正常是因为跑在仓库
+树内。修复：构建用 `npm ls --omit=dev --all --parseable` 计算生产闭包并拷入
+`Resources/app/node_modules`（21 包，bundle 1.5MB → 14MB）。
+
+教训（冒烟假绿两层）：旧 `desktop:smoke` 只做 `node --check`（不解析导入）；
+加上真实启动后仍假绿——在 `build/` 内启动时 Node 沿目录向上命中**仓库的**
+`node_modules`。现冒烟先把 app 拷到仓库外临时目录、用隔离 `PR_HELPER_HOME`
+真实启动并断言 READY，且已对坏 bundle 证明其会红。注意：GitHub v0.3.0 的
+dmg/zip 是坏 bundle，已随 v0.3.1 重新发布（release notes 顶部要求覆盖安装）。
+门禁：1040/55、E2E 155/0、
+desktop native-test/smoke 通过。
+
+同日续：应用内更新检查报 403。根因两层：① URLSession 走系统代理
+（127.0.0.1:7900），共享出口 IP 的 GitHub 未认证配额（60/h/IP）被耗尽→403，
+直连 IP 配额充足→200；② 即使过了 403，GitHub 上传资产名把空格 sanitise 成点
+（`PR.Helper.Git-0.3.0-macos.dmg`），与带空格本地名精确匹配必落空，SHA256SUMS
+条目 likewise。修复：403 时用 `connectionProxyDictionary = [:]` 的会话直连重试
+一次；资产/校验和匹配按 space→dot 归一化（`githubSanitized`）；错误弹窗附
+GitHub 原文。下载链路仍走系统代理（直连 github.com/releases/download 被墙，
+HTTP 000；代理 200）。证明：新增 `desktop/UpdateFetchTest.swift`（POSIX socket
+stub 以 absolute-form/origin-form 区分代理与直连；NWListener 在本机 macOS 27
+返回 EINVAL 不可用），对删除回退分支的变异体证明会红；`PR_HELPER_UPDATE_LIVE=1`
+用生产会话对真实 GitHub 走通 403→直连→资产解析。
+
+## D-002-v2 功能缺口复审（2026-11-14）
+
+用户纠正：“pr-helper-git 产品自身不上生产、不部署到 Cloudflare/Vercel”不等于“不管理
+其他仓库的部署”。D-002 把两者混为一谈，导致核心部署门禁/健康检查/确认式回滚被裁。
+复审同时发现：换仓库 #7/#8 是非云依赖的误裁；归档/静音、流程预检、PR 引用复制、
+flows 审计 UI+CSV、同步健康度、团队 UI、运行历史仍未完成。以上不是“云基建替代”，
+不能计入迁移完成。
+
+已落文档：`docs/pr-helper-migration.md`（D-002-v2、范围、矩阵、Phase 3.5、DoD、风险 R8）、
+`docs/migration-acceptance.md`（#1 改替代、#7/#8 与 #21/#22/#23/#30/#31 转 ⬜、统计修正）、
+`docs/phase5-runbook.md`（切换前置）、`AGENTS.md`（部署门禁不再列为禁区）。代码未改；
+下一步从 P3-10 开始。
+
+## P3-12 / P3-14 / P3-16 回补（2026-11-14）
+
+- P3-12：`FlowBoard` lane 增加归档/恢复（确认弹窗，归档后进入 Archived 筛选，可恢复）与静音/取消静音（仅影响通知徽标/suppression，不阻断自动化）；`FlowDetail` 新增「Recent runs」，按 workflowId 从 inbox 44 条 run 中取前 10（实测 zeus #192/#55）。写路径复用 `PUT /api/flows/workflows` → `upsertWorkflow`（archive transition + muted 列）。
+- P3-14：新增 `FlowAuditModal`（`GET /api/flows/audit` 500 行、文本筛选、CSV 导出；`flowAuditCsv` 4 单测），FlowBoard「Sync health」接 `syncHealth`（last reconcile/stale stage/webhook 24h），新增 `PullReference` 统一 PR 引用 tooltip + 复制（看板/详情/抽屉/失败中心）。
+- P3-16：FlowEditor 既有流程步骤默认折叠、新建默认展开、add step 后全部折叠；FlowBoard 详情返回目标 lane `.is-return-highlight` 1.6s 后清除。
+- 验证：lint/typecheck:server 通过；`npm test` **1006/49**；`npm run build` 通过；真实 UI 走查归档计数 0→1→0、确认删除 15→14、静音徽标往返、审计 CSV 90,686 bytes、PR 引用悬停/复制、折叠 body 0→1→0、返回高亮 YES×12。
+
+## P3-10 / P3-11 回补（2026-11-14）
+
+- 后端：`server/workflows-store.mjs` 新增 `listDeploymentOptions`（GitHub App 凭据列目标仓库 active Actions workflows + Environments；凭据缺失返回 `actionsAvailable=false` 而非炸板）与 `retryDeploymentRun`（只允许 `workflow_stage_deployment_runs.state='failure'`，`POST /actions/runs/{id}/rerun` + stage event + `deployment-rerun` 审计）；`server/flows.mjs` 新增 `GET /api/flows/deployment-options`、`POST /api/flows/deployment-rollback`、`POST /api/flows/deployment-retry`。
+- 前端：`src/api/flows.ts` 部署类型/client；`FlowEditor` 部署列表/警告/添加/编辑/移除/撤销/sync/suggestion/datalist/高级字段，仓库字段可编辑 + 确认后 `createWorkflow` 转新建；`StepDrawer` 部署卡（provider/environment/run/health/failure summary/failed job/open site/logs）、失败 run retry、最近 8 次 run、成功 run 确认式 rollback；`FlowBoard` 新 id 追加并选中。
+- 验证：`npm run lint`、`npm run typecheck:server`、`npm test` 1002/48、`npm run build` 通过；路由测试覆盖 options 400、rollback/retry 参数 400 与成功透传。真实回滚/重跑与 Environment 列表仍待 P2-1 GitHub App 凭据 + 真实部署 run；`workflow_stage_deployment_runs` 当前为 0。
+
+## Credentials D-006-v3 (2026-11-14)
+
+vercel env pull proved the App private key is Sensitive-locked (12 keys
+unpullable), so the engine gained a GITHUB_TOKEN PAT fallback at the
+installationRequest seam. Local credentials live in
+`~/.pr-helper-git/credentials.env` (0600; loaded at server boot; never in
+git). The cloud pr-helper was untouched — read-only pull only. This unblocks
+P2-1 and the Phase 5 shadow period.
+
+## Local migration protocol + auto-advance fix (2026-11-14, D-015)
+
+The faithful schema replay carried over a legacy pr-helper gap: the
+auto-advance stage flag had no storage column (confirmed live — the cloud
+toggle drops on refresh). Local fix: migration 048 in
+`scripts/migration/local-migrations/` (first use of the local-increment
+protocol — snapshot stays frozen, column-level additions don't affect the
+table-set check) plus store read/write round-trip (3 tests). The cloud
+pr-helper is NOT patched: frozen, retiring, and the shadow comparison is
+driven by create/merge which persist fine.
+
+## AI credential + rules wiring (2026-11-14, M-E5 tail)
+
+The two business gaps found under the owner's acceptance frame (code
+migration done, acceptance = no functional loss) are closed:
+`/api/flows/ai-credentials` (GET/POST/DELETE/test-saved) drives the
+migrated credential functions; `/api/flows/rules` lists the migrated
+generation rules; the FlowEditor gained an AI credential card and pins a
+library rule when enabling auto-create. The stale encrypted credential row
+(old key unpullable) was cleared — the owner re-enters the AI key once.
+A disposition summary section (6.0) records migrated vs not-migrated with
+decision references.
+
+## Feishu channel deferred (2026-11-14, D-017)
+
+Feishu failure notifications are not enabled for now (owner verdict) and do
+not block the migration — macOS local notifications satisfy DoD #5's main
+body; the channel code stays ready (set PR_HELPER_GIT_FEISHU_WEBHOOK to
+enable anytime).
+
+## Switch/retire approval rule (2026-11-14, D-016)
+
+Every P5-2 switch and P5-3 sunset action requires the owner's explicit
+approval before execution (item-by-item: restate → approve → execute →
+report). Shadow-period consistency alone is not an execution authorization.
+Recorded in docs/phase5-runbook.md and the migration ledger.
+
+## Test-repo iron rule (2026-11-14)
+
+Owner directive: no new test repositories (GitHub or local) without explicit
+approval; product-feature testing reuses repos from `TEST-REPOS.md`, which
+is the single source of truth. Recorded in AGENTS.md Non-negotiables and the
+registry header.
+
+## Desktop single-instance guard (2026-11-14)
+
+Second launches (double-click, launcher, direct binary) now activate the
+running app and exit before spawning a second loopback server
+(`NSRunningApplication` check in `desktop/main.swift`, verified live).
+The rebuilt bundle carries the migrated web UI (Flows etc.); the user
+should restart the currently open desktop app once to pick it up.
+
+## Rename completion (2026-11-12)
+
+The product repository is now `bayernjf/pr-helper-git` (PUBLIC, default branch
+`main`); the old repository of the same name is `bayernjf/pr-helper-git-archive`
+(PRIVATE, archived). The local checkout is `/Users/jiangfeng/000mycodes/pr-helper-git`
+and pushes to `git@github.com:bayernjf/pr-helper-git.git`.
+
+Runtime identifiers were renamed with one-shot migrations:
+- data dir `~/.pr-helper-git2` -> `~/.pr-helper-git` (rename on first boot when
+  the new dir is absent); current real dir is 0700, files 0600;
+- localStorage namespace `pr-helper-git:*`, including pinned, draft, diff font,
+  prefs, dashboard, active repo, browser PAT, commit history and clone parent;
+- auth cookie `git2_token` -> `pr_helper_git_token`, with legacy cookie/header
+  fallback; env vars `GIT2_*` remain readable as fallbacks;
+- Tauri bundle id and download filename follow the new name.
+
+Verification: lint, `typecheck:server`, 336 unit tests / 34 files, production
+build, and E2E 144/144. CI is green through release commit `72e206a` (run `43253045248`, test + desktop).
+
+The desktop shell was **frozen** at the time of this rename; it was unfrozen
+later on the same day (see “Desktop unfrozen” below). The old Qoder session copy
+under the `pr-helper-git2` project key was archived to
+`000mycodes-backups/qoder-project-pr-helper-git2-20261112.tar.gz` and removed;
+the new session key has the equivalent 2,836-record transcript.
+
+Backups: `pr-helper-backup.sh` now targets the renamed checkout/data dir,
+redacts secret fields, and pins `main`/`dev`/tags explicitly so the bundle HEAD
+does not depend on the currently checked-out branch. The latest
+`000mycodes-backups/pr-helper-git/source-*.bundle` is verified as a complete
+history; check `git bundle list-heads` for the exact main ref.
+
+## Release 0.3.0 (2026-11-15)
+
+`package.json` / `package-lock.json` at **0.3.0**; `CHANGELOG.md` carries the
+`[0.3.0]` section; `v0.3.0` is an annotated tag on the release commit.
+
+Scope: pr-helper 自动化控制塔迁移主体收口（Phase 0–3.5 全部关闭）。把被归档
+pr-helper 的全部业务功能迁入本地：Flows 顶层视图（Lane board / 详情 / 抽屉 /
+编辑器 / 失败中心 / 归档静音 / 审计 CSV / 同步健康度 / 只读预检 / 团队四角色）、
+本地自动化引擎（OrbStack Postgres + 幂等队列 + drain + 对账 + 触发器三通道 +
+AI 接管 + 部署门禁 + 影子模式）、launchd 常驻、失败通知（macOS + 可选飞书）。
+
+Gates: lint, server typecheck, **1040 unit/route tests / 55 files**, build,
+E2E **155/155**。真实外部副作用已验证：P2-3 自动建 PR/合并 + advance-stage、
+P2-6 AI 失败接管、PR Close/Reopen/Merge（Approve/Request-changes 因 GitHub
+平台"不能 review 自己 PR"约束转验收口径：产品正确透传 422 错误 + COMMENT 走通）。
+
+详见迁移台账 `docs/pr-helper-migration.md` 与验收映射
+`docs/migration-acceptance.md`（34 项全部有结论：✅33 + 🔀1；除认证形态替代 #1 外无开放式失败项）。
+
+## Release 0.2.6 (2026-11-12)
+
+> **发布状态（2026-11-12 更新）**：draft 已 publish 为正式版（draft=false,
+> prerelease=false, `releases/latest` = v0.2.6 — 应用内 Check for Updates
+> 的"有更新"分支自此可实测）；dev 与 main 均在 0.2.6 + jsdom pin
+> （266c039，测试计数在 Node 20/26 漂移下稳定为 337/34）。
+
+
+`package.json` / `package-lock.json` are at **0.2.6**; `CHANGELOG.md` has the
+`[0.2.6]` section. `v0.2.6` is an annotated tag on this release commit.
+
+Scope: optional bundling of the official Node `22.23.5` macOS runtime
+(`BUNDLE_NODE=1`), a lightweight **Check for Updates…** app-menu action backed
+by GitHub `releases/latest`, separate signing of the nested Node with JIT
+entitlements, a bundled-Node smoke check, and macOS CI exercising the bundled
+distribution path.
+
+Gates: lint, server typecheck, 337 unit tests / 34 files, build, E2E 144/144;
+`desktop:native-test`, `BUNDLE_NODE=1 desktop:dist`, `BUNDLE_NODE=1
+desktop:smoke` and `SHA256SUMS` verification. The app bundle reports
+`CFBundleShortVersionString = 0.2.6`, contains Node `22.23.5` arm64, and is
+about 114 MB. Launching it produced a server child process running from
+`Contents/Resources/runtime/node`, not the system Node.
+
+GUI: clicking **Check for Updates…** opened a native alert reading
+`No releases found`, because no GitHub Release was published yet. The
+“newer version” branch stays unverified until the first release exists.
+
+Artifacts under `build/release`: `PR Helper Git-0.2.6-macos.zip` (36 MB),
+`PR Helper Git-0.2.6-macos.dmg` (41 MB) and `SHA256SUMS`; all unsigned. No
+Developer ID certificate or notary profile was available, so the nested-Node
+signing path and notarization were not exercised.
+
+## Release 0.2.5 (2026-11-12)
+
+`package.json` / `package-lock.json` are at **0.2.5**; `CHANGELOG.md` has the
+`[0.2.5]` section. `v0.2.5` is an annotated tag on this release commit.
+
+Scope: desktop shell unfreeze (Swift `WKWebView`, no Electron/Tauri), native
+folder picker feeding the existing Add repository modal, `WKDownload`
+handling into `~/Downloads` with collision suffixes and Finder reveal, the
+`desktop:dist` zip/dmg/`SHA256SUMS` pipeline with signing/notarization hooks,
+the macOS 11.3 deployment target fix, desktop artifacts moved under `build/`,
+macOS CI and headless download/bundle tests, and the distribution/handoff
+documentation. Gates: lint, server typecheck, 337 unit tests / 34 files,
+build, E2E 144/144; `desktop:native-test`, `desktop:dist`, `desktop:smoke`
+and `SHA256SUMS` verification. GUI click-through verified the folder picker
+prefill, first export, `-2` collision suffix and Finder reveal.
+
+The local `build/release` artifacts are unsigned; no Developer ID
+certificate or notary profile was available, so signing/notarization was not
+exercised.
+
+## Release 0.2.4 (2026-11-12)
+
+`package.json` / `package-lock.json` are at **0.2.4**; `CHANGELOG.md` has the
+`[0.2.4]` section. `v0.2.4` is an annotated tag on this release commit.
+
+Scope: server path/credential/allowlist hardening, explicit `stage-all`
+action, POST-only write routes, the `src/api.ts` per-domain split, further
+UI subcomponent extraction, review-found frontend fixes and remaining i18n
+coverage. Gates: lint, server typecheck, 336 unit tests / 34 files, build,
+E2E 144/144; CI covers both `main` and `dev`.
+
+## Documentation entry points (2026-11-12)
+
+Added `AGENTS.md` (agent contract: branches, local-push policy, frozen
+desktop, runtime identifiers, gates, release checklist, backup rules),
+`CONTRIBUTING.md` (human/agent workflow) and `docs/README.md` (document map).
+README now points to all three and corrects stale claims: the API client is
+`src/api/` rather than `src/api.ts`, the repository has a GitHub remote and
+CI runs on `main`/`dev`, and the documented environment variables use the
+`PR_HELPER_GIT_*` names with legacy `GIT2_*` aliases.
+
+Known caveat at the time: the shell matched only the legacy `GIT2_READY`
+prefix while the server emitted `PR_HELPER_GIT_READY`. That mismatch was fixed
+in the following desktop-unfreeze pass; the shell now accepts both prefixes.
+
+## Desktop unfrozen (2026-11-12)
+
+The desktop shell is maintained again. Scope for the first pass: keep the
+Swift `WKWebView` shell (no Electron/Tauri), keep product behaviour in the
+React client and Node server, and make the current app build against the
+current release.
+
+- The shell now sets `PR_HELPER_GIT_DESKTOP=1` and the legacy
+  `GIT2_DESKTOP=1`, and accepts both `PR_HELPER_GIT_READY` and legacy
+  `GIT2_READY` readiness lines.
+- Added standard macOS menus (app, File, Edit, View, Window), a 900×600
+  minimum window size, and external-link handling: non-localhost URLs open in
+  the default browser instead of replacing the app view.
+- Added **File > Open Repository…**: `NSOpenPanel` selects a folder and sends
+  the path through the existing `git2:add-repo` event, so the web modal keeps
+  owning registration rather than a second native flow.
+- Added `WKDownloadDelegate`: web downloads (team config export and similar)
+  land in `~/Downloads`, get a numeric suffix on name collisions, and reveal
+  in Finder when finished. Minimum system is macOS 11.3 for this API.
+- `scripts/desktop-build.mjs` now reads `CFBundleShortVersionString` from
+  `package.json` (0.2.4 at this point) instead of the stale `0.1.0` literal.
+- Added a server-render test for the desktop folder-picker prefill; unit
+  baseline moved from 336 to **337 tests / 34 files**. Full gate: lint, server
+  typecheck, 337 unit tests, build, E2E 144/144; desktop build and startup
+  smoke also pass.
+- Added `npm run desktop:dist`: zip + dmg + `SHA256SUMS` under
+  `build/release/`. It signs with hardened runtime when
+  `APPLE_SIGNING_IDENTITY` is set and notarizes/staples both artifacts when
+  `APPLE_NOTARY_PROFILE` is set. `DESKTOP_BUNDLE_ID` switches the bundle id
+  for distribution.
+- Added `docs/desktop-distribution.md` for certificate setup, `notarytool`
+  keychain profiles, verification and manual publishing.
+- Extracted download destination naming into `desktop/DownloadDestination.swift`
+  and added a headless Swift test for collisions, extensionless names,
+  path-traversal input and the empty-name fallback.
+- Added `desktop:smoke`, which verifies Info.plist version/bundle id, minimum
+  system, icon, bundled client/server and the Mach-O executable without
+  launching the GUI.
+- CI now has a macOS job: native download test, unsigned `desktop:dist`,
+  bundle smoke, and `SHA256SUMS` verification.
+- Fixed the deployment target stamp: Swift compiled against the current SDK
+  was producing `minos 27.2` while Info.plist promised 11.3. The build now
+  passes `-target` and `MACOSX_DEPLOYMENT_TARGET=11.3`; `desktop:smoke` fails
+  if the binary minos and `LSMinimumSystemVersion` disagree.
+- `npm run desktop` builds `build/PR Helper Git.app`; the bundle starts the
+  bundled server and was smoke-tested on this machine.
+- GUI click-through on 2026-11-12: **File > Open Repository…** opened
+  `NSOpenPanel`, selected `/Users/jiangfeng/000mycodes/pr-helper-git`, and
+  prefilled that exact path in the existing Add repository modal. **Team >
+  Export team config** wrote `~/Downloads/pr-helper-git-team.json`; a second
+  export wrote `pr-helper-git-team-2.json` and Finder selected the new file.
+  The exported JSON contained the repository registry and members only, with
+  no tokens or GitHub PATs.
+
+Still open for desktop: a real signed/notarized release needs a Developer ID
+and Apple notary account.
+
+Desktop artifacts live under `build/` (not `dist/`), so `npm run build` (Vite)
+no longer wipes `PR Helper Git.app` or `release/`.
+
+## Post-0.2.2 hardening (2026-11-11)
+
+Security pass after the code review: admin-only server PAT/AI settings, no
+server-PAT inheritance for members, sensitive-path guards on stage/commit/
+move/remove/clean/stash/AI, 0700/0600 data permissions, serialized config
+writes with corruption backup, cloned-URL audit sanitization, watcher
+reconciliation after registry changes, and a dev-mode non-loopback bind guard.
+Light-theme legacy tokens now alias the shared design tokens. `routes-git.mjs`
+is now a 100-line dispatcher (repo guard + AI routes) over `routes-git-helpers`,
+`routes-git-meta`, `routes-git-read` and `routes-git-write`; the write module
+itself fans out to worktree / refs / history / files / network / stash. Unit suite is
+336 tests / 34 files; E2E is 144 checks and is now part of CI. Server
+`checkJs` is gated by `npm run typecheck:server` (`tsconfig.server.json`).
+
+## Release 0.2.2 (2026-11-11)
+
+`package.json` / `package-lock.json` are at **0.2.2**; `CHANGELOG.md` has the
+`[0.2.2]` section and a fresh `[Unreleased]`. The repository is tagged locally
+as `v0.2.2`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
+
+Scope: server-side PAT storage; destructive-scenario E2E coverage (115 -> 136);
+this repository is now the sole primary implementation, with `pr-helper-git`
+archived.
+
+## Release 0.2.1 (2026-11-10)
+
+`package.json` / `package-lock.json` are at **0.2.1**; `CHANGELOG.md` has the
+`[0.2.1]` section and a fresh `[Unreleased]`. The repository is tagged locally
+as `v0.2.1`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
+
+## Release 0.2.0 (2026-11-10)
+
+`package.json` / `package-lock.json` are at **0.2.0**; `CHANGELOG.md` has the
+`[0.2.0]` section and a fresh `[Unreleased]`. The repository is tagged locally
+as `v0.2.0`. No remote was configured at release time, so the tag was local-only then;
+it is now published — all three tags verified on the public
+`bayernjf/pr-helper-git` remote on 2026-11-11.
+
+## Interaction contract (2026-11-10)
+
+`ToastProvider` and `ConfirmProvider` are the shared contract for both clients:
+toasts last 3.6 s and carry a kind icon (`toast-info` / `toast-success` /
+`toast-error`); confirmations use `aria-labelledby` / `aria-describedby`, accept
+`{ danger, confirmLabel }`, and use `btn-danger` only for destructive actions.
+Never call `window.confirm` — `DashboardPage` now uses `useConfirm()` too.
+
+**Current target: web-first, desktop maintained.** Desktop was unfrozen on
+2026-11-12. The shell stays thin: features target the browser UI, while Swift
+owns only windowing, process lifetime and macOS integration. `desktop/main.swift`
+and `npm run desktop` are active again; see “Desktop unfrozen” at the top.
+
+## Scope
+
+- GitKraken-like: repo registry, commit graph, refs (branches/tags/stash),
+  stage/unstage, commit, amend, checkout, branch create/rename/delete, merge,
+  reset (soft/mixed/hard), fetch/pull/push, clone and init (three-mode add
+  dialog), tag create/delete (lightweight + annotated), remote branch
+  push/delete, stash, unified + split diff viewer, folder-tree working panel,
+  commit graph search, paginated history (load more), right-click context
+  menu, keyboard shortcuts, resizable work panel, responsive layout,
+  error boundary, loading states, SSE live refresh, safe revert (new commit,
+  merge commits rejected, conflicts preserved with continue/abort instead of an
+  automatic abort), add-to-.gitignore,
+  push tag, history scope (all vs current branch), Cmd+K command palette,
+  blob file viewer (working tree or any ref, binary detection, size cap),
+  git blame (per-line author/commit, porcelain parser), git clean (dry-run
+  preview then force-remove untracked, ignored files untouched), remote
+  add/remove with name and URL validation, per-file history (follow a path
+  across commits and jump to any revision), branch ahead/behind badges,
+  stash patch viewer, copy commit hash, Escape to close every dialog,
+  reference log (reflog) viewer, fetch with prune, stash with message and
+  include-untracked, remote set-url editing, annotated tag details,
+  two-reference comparison (ahead/behind commits and renamed-aware file
+  diff with stats), branch set-upstream, remote rename, sidebar ref filter,
+  ignore-whitespace diff toggle, merge strategies (default/no-ff/ff-only/
+  squash) with a dedicated picker, smart remote-branch checkout that creates a
+  tracking local branch (no detached HEAD), configurable diff context lines
+  (--unified), empty commits (--allow-empty), and branch creation without
+  switching (no-checkout), untracked-file diffs via `--no-index`, rebase
+  state detection with continue/abort, and server-side author/message/date
+  history filters, in-app audit log viewer (JSONL reader with success/failure
+  markers, raw details, server-side text/outcome filters over the whole
+  retained file and no-match empty state),
+  in-app text-file editing with validated atomic saves
+  (sensitive/NUL/1 MB guards), mtime-based stale-save rejection (409 with
+  the draft preserved), audit log rotation (1.5 MB trigger, 1 MB / 10,000
+  entry retention budget, atomic rewrite), and a 413 response for oversized
+  request bodies with explicit keep-alive timeouts, per-hunk staging
+  (server-side diff splice + `git apply --cached`, `MM` partial status,
+  unstage via reverse apply), per-hunk discard (reverse apply to the
+  working tree, index untouched), and editor keyboard shortcuts (Cmd/Ctrl+S
+  save, Tab/Shift+Tab indent), a light theme with a persisted toggle
+  (GitHub-style light token set, FOUC-free first paint), PR board filtering
+  (number/title/author/branch/label/draft across every column), in-app new
+  file creation (nested paths auto-create parent directories, then opens in
+  the editor), and repository git config management (local/effective values
+  for a whitelisted set of keys with per-type validation and unset-to-inherit),
+  draggable sidebar and detail column widths (pointer and keyboard resizing,
+  min/max clamps, persisted widths, ARIA separator role), and
+  prefers-reduced-motion support (animations and transitions collapse to a
+  near-instant state change).
+- Desktop (macOS, zero third-party runtime) — **maintained since 2026-11-12**:
+  a `swiftc`-compiled `WKWebView` shell (`desktop/main.swift`) bundled by
+  `scripts/desktop-build.mjs` via `npm run desktop` into
+  `build/PR Helper Git.app` (~1.5 MB). It locates the system Node.js at
+  well-known paths, spawns the server on an ephemeral port with both desktop
+  env names, accepts either readiness prefix, loads the one-time token URL,
+  opens external links in the default browser, provides standard macOS menus,
+  and terminates the server on window close. The bundle ships a generated
+  `AppIcon.icns` (rendered by `desktop/make-icon.swift`, then scaled and
+  packaged with the system sips/iconutil tools) referenced through
+  `CFBundleIconFile`; the window remembers its frame across launches via
+  `setFrameAutosaveName`, and `CFBundleShortVersionString` now follows
+  `package.json`.
+- pr-helper-like: PR board (open/merged/closed), per-user review state,
+  create PR (incl. draft), draft → ready, PR detail with commits/files/checks,
+  requested reviewers (view and request), issue comments (view, compose,
+  inline edit and delete with confirmation, Cmd/Ctrl+Enter to post), review
+  submission (comment/approve/request changes), merge PR
+  (merge/squash/rebase), close/reopen, line-level review comments
+  (inline composer on diff lines, RIGHT/LEFT side, outdated-comment group,
+  threaded replies and edit/delete), and an editable PR description.
+  PAT can be stored server-side (`/api/pat`, `hasServerPat`; the value never
+  round-trips to clients) and injected into the GitHub proxy; a request-scoped
+  `x-github-pat` header remains supported as a fallback.
+- Hardening: nosniff on every response, strict CSP and no-referrer on the
+  HTML entry, no-store for HTML, immutable long caching for hashed assets.
+- Explicitly out of scope (historical — interactive rebase, cherry-pick,
+  AI generation and the three-way merge editor listed here have all been
+  implemented since): submodules, worktrees, GPG signing, GitHub App,
+  webhooks, a database, web push and deploy gates.
+
+## TODO
+
+- [x] Project scaffold, configs, git init
+- [x] Server: security, git runner, config store
+- [x] Server: git read/write routes
+- [x] Server: GitHub proxy
+- [x] Server: branch rename, tag create/delete, amend, remote branch routes
+- [x] Server: file watcher + SSE live refresh
+- [x] Client: app shell, design system and typed API client
+- [x] Client: inline SVG icon set and portal context menu
+- [x] Client: commit graph, lane layout and live refresh
+- [x] Client: ref sidebar with collapsible groups and full actions
+- [x] Client: work panel with folder tree, split diff and amend
+- [x] Client: PR board with review state, draft and detail view
+- [x] Client: GraphQL draft-ready and merge endpoints
+- [x] Test repository created, pushed, E2E verified and registered
+- [x] Unit tests, build verification, README, atomic commits
+- [x] Robustness: error boundary and loading states
+- [x] Server: clone, init and reset routes with input validation
+- [x] Client: three-mode Open/Clone/Init add dialog
+- [x] Client: commit graph search, load more and reset menu
+- [x] UX: shortcuts, resizable work panel, PR labels, responsive layout
+- [x] Server: revert route (merge guard; conflicts preserved with continue/abort), ignore, push tag, log scope
+- [x] Client: revert menu and history scope toggle
+- [x] Client: gitignore action and push tag menu
+- [x] Client: PR requested reviewers view and request
+- [x] UX: Cmd+K command palette with fuzzy filter and keyboard nav
+- [x] Third iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: file content route (ref-aware, binary detection, size cap)
+- [x] Server: blame porcelain parser with unit tests
+- [x] Server: clean route (dry-run + force, ignored files protected)
+- [x] Server: remote add/remove routes with name/URL validation
+- [x] Client: FileViewer with content/blame toggle, wired to work panel and commit detail
+- [x] Client: clean button and remote management modal
+- [x] Client: PR issue comments list and composer
+- [x] Fourth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: file-history and stash-show routes
+- [x] Server: branch ahead/behind via upstream:track
+- [x] Client: FileViewer history tab with revision jump
+- [x] Client: ahead/behind badges, stash patch viewer, copy hash, Escape hook
+- [x] Fifth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: reflog route and parser, tag-show route and parser
+- [x] Server: fetch prune, stash include-untracked, remote set-url routes
+- [x] Client: reflog modal and entry, stash options modal, remote URL editing
+- [x] Client: annotated tag details, fetch prune/reflog commands
+- [x] Sixth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: compare route (two refs, ahead/behind commits + numstat files)
+- [x] Server: branch set-upstream, remote rename, diff ignore-whitespace
+- [x] Client: CompareModal with commits/files tabs and toolbar entry
+- [x] Client: set-upstream picker, remote rename, sidebar filter, whitespace toggle
+- [x] Seventh iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: merge strategies (no-ff/ff-only/squash), checkout remote tracking
+- [x] Server: diff context lines (--unified), empty commit, branch no-checkout
+- [x] Client: MergeModal with strategy picker, API helpers for new params
+- [x] Client: diff context selector, empty-commit toggle, no-checkout checkbox
+- [x] Eighth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: force push (force/force-with-lease), pull rebase, merge abort
+- [x] Server: remote tag deletion, forced tag creation
+- [x] Client: force-push confirm, pull rebase, merge abort entry, tag actions and API helpers
+- [x] Ninth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: revert merge with mainline (-m), grep, mv, rm, log pathspec
+- [x] Client: grep modal, file rename/delete, path filter, revert merge, API helpers
+- [x] Tenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: untracked diff (no-index), rebase state, rebase continue/abort, log filters
+- [x] Server: GitHub reviews allowlist; client: review composer, LogFilterModal, rebase banner
+- [x] Route-level HTTP tests (real server, temp repo, isolated PR_HELPER_HOME)
+- [x] Eleventh iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: readAudit store helper, GET /api/audit; client AuditModal + entry points
+- [x] Server: POST /api/save with validation and atomic rename; client edit mode
+- [x] Server: PATCH/DELETE comment allowlist; client inline comment edit/delete
+- [x] Server: nosniff/CSP/referrer-policy and differentiated cache policy
+- [x] Component render tests (renderToString, mock app context)
+- [x] Twelfth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: audit rotation constants and rotateAudit with byte/entry budget
+- [x] Server: mtime on /api/file, expectedMtime 409 guard on /api/save
+- [x] Server: 413 body-cap response with Connection: close, keep-alive tuning
+- [x] Client: FileViewer 409 handling, AuditModal text/outcome filters
+- [x] Route tests for audit rotation and save/mtime/413 behavior
+- [x] Thirteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: q/outcome query params on /api/audit, filtering over full file
+- [x] Client: AuditModal drives server filters with debounced text input
+- [x] Route tests for server-side audit filtering
+- [x] Follow-up: tests, build, E2E, docs, atomic commits
+- [x] Server: splitFilePatch/buildHunkPatch helpers, POST /api/stage-hunk
+- [x] Client: DiffView hunk stage/unstage actions wired through runAction
+- [x] Server: GET/POST pulls/:n/comments GitHub allowlist entries
+- [x] Client: PrFileReview with line anchors, inline composer, outdated group
+- [x] Client: FileViewer Cmd/Ctrl+S and Tab/Shift+Tab keyboard handling
+- [x] Fourteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: POST /api/discard-hunk, PATCH/DELETE pulls/comments/:cid allowlist
+- [x] Client: DiffView discard hunk, PrFileReview reply/edit/delete
+- [x] Client: PR description section with inline edit
+- [x] Fifteenth iteration: tests, build, E2E, docs, atomic commits
+- [x] Server: watcher filters lock/temp-object noise, exports isNoise
+- [x] Client: CommitDetail effect keyed on hash, modal survives background refresh
+- [x] Sixteenth iteration: watcher tests, full acceptance, docs, atomic commits
+- [x] UI fixes: graph-row overflow, ref-badge horizontal scroll, no-wrap group heads and toolbar, repo-select text color
+- [x] Client: commit graph keyboard navigation and listbox/option a11y with roving tabIndex
+- [x] Client: global modal focus trap hook with focus return on close
+- [x] Client: persistent per-repo UI preferences via localStorage (view, groups, panel height)
+- [x] Server: /api/grep-all across every registered repository; client GlobalGrepModal
+- [x] Server: /api/revert-batch (merge guard, oldest-first, abort on conflict); client multi-select batch bar
+- [x] Client: pin local branches and sort by name or recent tip commit
+- [x] Server: /api/commit-template (local/global, absolute home path); client message prefill
+- [x] CI: GitHub Actions workflow running lint, test and build; resilient test timeouts
+- [x] Client: aria-labels on icon-only controls, keyboard-shortcut help modal (? key)
+- [x] Tooling: .nvmrc + engines pin, CI npm audit advisory, react-vendor chunk split
+- [x] Server: cleanCommitMessage strips # comments on commit and amend (git strip mode)
+- [x] Eighteenth iteration: full 115-test acceptance, build, docs, atomic commits
+- [x] Project-level code review: grep option-injection, per-repo panel height
+  restoration, graph space-key default, unused shortcut binding, malformed URI
+  status (full 117-test acceptance, five atomic commits)
+- [x] Capability-gap audit: extracted all API routes and probed for real
+  missing features (theme/filter/new-file/config), not name-only matches
+- [x] Light theme with persisted toggle; define the missing --bg-elevated
+  token (fix) discovered while theming
+- [x] PR board filter search across all three columns
+- [x] In-app new file creation with auto-created parent directories
+- [x] Repository git config management (whitelist, validation, unset)
+- [x] Twentieth iteration: full 121-test acceptance, build, docs, atomic commits
+- [x] Native macOS desktop shell: GIT2_READY readiness line, Swift WKWebView
+  process supervision, desktop-build bundler, shutdown hardening, E2E verified
+- [x] UI/UX P0 pass: resizable sidebar/detail columns with persistence and
+  ARIA separators, app icon and window frame memory, prefers-reduced-motion
+- [x] Hover fix: lift the commit graph SVG above row hover/selected backgrounds
+  so lanes and nodes stay visible (pointer-events and text unaffected)
+- [x] Path integrity: core.quotePath=false for literal UTF-8 paths, porcelain
+  type-2 rename parsing from the first path field, numstat rename resolution
+- [x] Server hardening: bounded file reads, grep -z NUL-triple parsing, 120s
+  fetch/pull/push timeout, proxied upstream errors, GraphQL timeouts, symlink
+  repo roots, expanded sensitive patterns, CSP/cookie/asset-path fixes
+- [x] Web async-race guards: stacked Escape handling, sequence tokens on repo
+  loads/file lists/patch previews, one-time draft seeding, split-view header
+  dedupe, paginated PR board and detail beyond the 30-item window
+- [x] Desktop Node discovery across Homebrew/MacPorts/volta/asdf/nvm with a
+  server-crash alert; GitHub remote recognition for SSH ports and trailing slash
+- [x] Follow-up race guards on audit/compare/grep/PR-detail modals and shortcuts
+- [x] Code-quality pass: pure state updaters (no side effects in updaters),
+  redundant diff-effect dependency removed, untracked delete wording corrected,
+  repo removal without a target rejected with 400, a single EventSource reading
+  latest params from a ref, and an SVG favicon
+- [x] Multi-repository panel (RepositoriesModal): one filterable list of every
+  registered repository showing location, working-tree change counts,
+  ahead/behind and the current branch, with an active marker; a row opens that
+  repository and checkboxes enable a batch fetch across the selection
+- [x] Conflicted multi-step operations keep their state: `detectRepoState()`
+  reads `REVERT_HEAD`, revert stops on conflicts with 409 + conflict list,
+  `/api/revert/continue` (GIT_EDITOR=true) and `/api/revert/abort` are
+  separate actions, and the UI banner offers both
+- [x] Minimal conflict resolution: `POST /api/conflict/resolve` accepts
+  `ours` / `theirs` / `mark` per unmerged file (refuses non-conflicted paths),
+  stages with `git add -A` so deletions count, and returns the remaining
+  conflicts; ResolveConflictsModal is reachable from every merge/rebase/revert
+  banner
+- [x] Split-view pairing and word-level diff: `pairDiffRows()` zips deletions
+  with additions inside a hunk, `wordSegmentsByRow()` highlights changed words
+  in the unified view, and multi-line changed blocks no longer scatter
+- [x] Grep results jump to the file at the hit line and highlight the literal
+  search term; regex mode falls back to plain text when no literal match exists
+- [x] Commit graph windowing: `windowRange()` mounts only the visible rows
+  (8-row overscan), the SVG keeps its full height, `revealRow()` scrolls first
+  and focuses on the next frame
+- [x] Multi-repository batch pull: `POST /api/repos/pull` pulls registered
+  repositories with `--ff-only` sequentially, reports per-repository outcome
+  inline, and refuses an empty or unregistered selection
+- [x] Ref parsing hardened: `git()` forces `LC_ALL=C` so `%(upstream:track)`
+  stays parseable regardless of the machine locale, and `[gone]` upstreams
+  surface as a red `gone` badge instead of looking in sync
+- [x] Grep filters: `Ignore case` maps to `git grep -i` and a file glob
+  (`:(glob)` pathspec) narrows results in both the per-repository and the
+  cross-repository modal; invalid globs are rejected with 400
+- [x] PR head checkout: `POST /api/pr/checkout` fetches `pull/<n>/head` into
+  FETCH_HEAD and creates a local `pr-<n>` branch without switching; existing
+  branches are refused with 409
+- [x] Web-only decision: desktop development paused, checks limited to
+  `npm test`, `npm run lint`, `npm run build`
+- [x] M1 team-ready local instance: the startup token is the owner (admin);
+  `server/actor.mjs` carries the request identity through AsyncLocalStorage so
+  every audit entry records `user` and `role`; `server/identity.mjs` issues
+  per-member tokens (SHA-256 at rest, plaintext shown once), lists and revokes
+  them; the Team panel shows the signed-in identity, member management and
+  one-time tokens; `GET/POST /api/team/config` exports and imports the
+  repository registry plus member names without any secret; `DELETE` request
+  bodies are now parsed so revocation works
+
+## Delivery notes
+
+- Current state (2026-11-08): 181 Vitest tests across 13 files are green,
+  `npm run lint` and `npm run build` pass, and the working tree is clean after
+  `d359a2c` (team identities) and `cfb40a0` (documentation).
+  Everything below is local: `git remote -v` is empty, so the commits have
+  never been pushed anywhere. This project is intentionally local-only for
+  now; do not add a remote or push unless the user explicitly asks. Desktop
+  packaging is frozen per the web-only decision; `dist/PR Helper Git.app`
+  predates the latest web features.
+  **(Superseded 2026-11-11: a remote now exists — the public
+  `bayernjf/pr-helper-git`. The "no remote" statement above is a 2026-11-08
+  snapshot, not current state. The "do not push unless asked" rule stands.)**
+- Initial delivery: 16 atomic conventional commits on `main`; no git remote is
+  configured and no push of this project was performed.
+- Enhancement phase adds the features above; commits remain atomic conventional
+  English commits authored by the configured user, with no co-author trailers.
+- The initial suite held 47 Vitest tests (graph layout, formatting, security,
+  git parsers, file tree, diff lines, review summaries, clone/folder
+  validation, command palette fuzzy filter, blame porcelain parsing, reflog
+  and tag-object parsing); later iterations added route-level HTTP tests,
+  bringing the total to 181 across 13 files after the M1 team-identity work.
+  The GitHub Actions workflow exists but does not run in practice because this
+  repository has no remote; the local `npm test` / `npm run lint` /
+  `npm run build` loop is the source of truth.
+- Fourth iteration E2E in the browser: FileViewer shows working-tree and
+  committed files with line numbers, binary detection and a 1 MB cap; the
+  blame tab renders per-line author/short-sha/content (200 lines); clean
+  previews two untracked items in a confirm dialog then removes the file and
+  directory, restoring a clean tree; the remote modal lists origin and an
+  add/remove cycle ends with only origin configured; the PR comments block
+  shows the empty state, composer and Cmd/Ctrl+Enter hint, enabling the
+  post button only with text (no comment was actually posted). Security
+  checks confirm sensitive-file masking, path-traversal rejection, invalid
+  ref rejection and non-network remote URL rejection.
+- Fourth iteration findings: a real `git blame --porcelain` header carries an
+  optional fourth field (number of groups), so the parser regex must allow it;
+  the read-only `/api/remotes` route was originally placed after the
+  `if (method !== 'POST') return null` boundary and could never serve GET
+  requests, so it was moved into the read section.
+- Fifth iteration E2E in the browser: the sidebar shows a green ↑200 badge on
+  main; the FileViewer history tab lists 200 commits for bulk.txt and clicking
+  an entry reloads the blob at that revision (header and contents update);
+  Escape closes the file viewer and the stash dialog; a temporary stash renders
+  its patch with colored hunk/add lines and is dropped afterwards; the copy
+  hash button shows the "Commit hash copied" toast. Input validation rejects
+  path traversal and bad/overflow stash indices. No external side effects.
+- Fifth iteration finding: a lazy-load effect that listed its own loading flag
+  in the dependency array could cancel itself (setLoading re-runs the effect,
+  which then returns early), leaving an eternal "Loading" state. The effect
+  now keys only on the mode and inputs and manages cancellation locally.
+- Sixth iteration E2E in the browser: the reference log modal renders 232
+  entries in a four-column grid (index, short hash, action, description) and
+  closes on Escape; the stash options modal accepts a message and an
+  include-untracked toggle, and a real stash with the toggle captured both a
+  modified tracked file and a new untracked file, leaving a clean tree (the
+  probe stash was dropped afterwards); the annotated tag detail modal shows
+  tagger, email, date, target object and the "First tagged release" message;
+  the remote modal edits origin's URL inline, the change was verified with
+  `git remote get-url` and then restored to the original SSH URL; the
+  command palette "Fetch and prune" command ran with `prune: true` in the
+  audit log. No external side effects.
+- Sixth iteration finding: the reflog parser regex must match the literal
+  `@{` separator (`(.+?)@\{(\d+)\}`); an earlier non-greedy pattern that
+  omitted the `@` captured the `@` into the ref name.
+- Seventh iteration E2E in the browser: the Compare modal auto-runs with
+  base=main/head=feature/login and reports 2 head-only commits, 206
+  base-only commits and 6 changed files, matching `git rev-list --count`
+  and `git diff --numstat` exactly; the Commits and Files tabs both render
+  with colored status letters and add/delete counts. The sidebar "Set
+  upstream" picker sets feature/quick's tracking branch (verified via
+  `git rev-parse --abbrev-ref ...@{upstream}`) and was unset afterwards;
+  the remote modal renames origin inline (URL preserved) and was restored;
+  the ref filter narrows local/remote/tag/stash groups in real time; the
+  ignore-whitespace toggle collapses an inline-only whitespace diff to
+  "No diff available". No external side effects, tree left clean.
+- Seventh iteration finding: when `-w` makes a diff empty, DiffView returns
+  the empty hint and unmounted its own toolbar, leaving no way to switch the
+  toggle back. The whitespace toggle was lifted to a persistent WorkPanel
+  control above DiffView so it stays actionable regardless of diff content.
+- Git behavior note: `-w` ignores inline whitespace changes but not the
+  addition/removal of whole blank lines (that needs `--ignore-blank-lines`);
+  E2E uses an inline-space change to verify the toggle.
+- Eighth iteration E2E in the browser: the Merge modal opens from a local
+  branch's "Merge into current" menu and shows four strategy cards with
+  titles and hints; choosing `--no-ff` on a branch with one independent
+  commit produced a real two-parent merge commit on main (audit recorded
+  strategy=no-ff), then the tree was reset and the branch removed. Clicking
+  the remote `origin/feature/login` checked out the existing local
+  `feature/login` branch rather than a detached HEAD (verified with
+  `git branch --show-current` and a detached count of 0). The diff context
+  selector changed the hunk header from `@@ -47,7` (default 3) to
+  `@@ -50 +50` (0) and `@@ -40,21` (10); the Allow-empty toggle enabled a
+  "Commit (empty)" button that created a commit with no file changes (reset
+  afterwards); the New branch modal's "without switching" checkbox created
+  a branch while staying on main (branch deleted afterwards). All probes
+  were cleaned and the tree returned to main/343f1a9/clean.
+- Eighth iteration finding: parsing the optional diff context query with
+  `Number(query.get('context'))` misfired when the parameter was absent,
+  because `Number(null) === 0`, so every default diff silently became
+  `--unified=0`. The route now parses context only when the parameter is
+  actually present (`query.get('context') !== null`) and falls back to the
+  default for missing or invalid values.
+- Third iteration E2E in the browser: command palette opens on Cmd+K, fuzzy
+  filter narrows results, arrow/enter/escape work and a command switches views;
+  history scope returns 213 (all) vs 209 (current) commits; revert rejects a
+  merge with 400, reverts HEAD cleanly into a new commit, and left a conflicting
+  revert untouched (this iteration asserted the then-current auto-abort; the
+  route later switched to 409 + continue/abort); gitignore adds once (duplicate is a
+  no-op) and ignores the file; push tag rejects bad names and a missing remote
+  without any external push. All temporary changes were reset/removed.
+- Tooling finding: `scripts/dev.mjs` spawns the API server without `--watch`,
+  so server-side edits require a dev restart; the client is hot-reloaded by
+  Vite. The RefSidebar menu opens from the row's "more" button, not context
+  menu; the commit graph menu does open on right-click.
+- Second iteration E2E in the browser: error boundary panel, loading bar,
+  init and clone (auto-registered), soft/hard reset semantics, search filter
+  with result count, load-more paging (200 → 213, matching `git log --all`),
+  view-switch and search shortcuts, Cmd+Enter commit, panel drag resize and
+  minimum clamp. All destructive checks were reset back to the baseline
+  afterwards.
+- E2E was run against a real private repository through the browser: graph
+  forks/merge nodes, SSE auto refresh, stage/commit/push, draft creation,
+  in-app ready conversion and all three merge methods.
+- Environment finding: in this environment the REST `pulls/:n/merge` and
+  PATCH `draft:false` calls fail (404 / silently ignored); the server therefore
+  performs both via GitHub GraphQL (`mergePullRequest`,
+  `markPullRequestReadyForReview`).
+- Test repository registry lives in `test-repos.md`; nothing there is deleted
+  without an explicit request.
+- Ninth iteration scope: force push (`--force` / `--force-with-lease`), pull
+  rebase, merge abort, remote tag deletion and forced tag creation. Two
+  pseudo-gaps were ruled out by reading the code: stash pop already exists
+  (`/api/stash/apply` with `drop:true`, plus a menu item) and local branch
+  push/set-upstream actions are already complete.
+- Ninth iteration backend: `/api/push` accepts a whitelisted `force` mode
+  (force / force-with-lease), both requiring `confirm:true` (else 400);
+  unknown values are ignored and fall back to a normal push. `/api/pull`
+  takes a `rebase` boolean (`pull --rebase` vs default `pull --no-edit`).
+  New `/api/merge/abort` runs `git merge --abort`. `/api/tag/create`
+  inserts `-f` for both annotated and lightweight tags. New
+  `/api/tag/delete-remote` runs `push <remote> --delete <name>` with
+  confirmation and remote-name validation. All audit entries record the
+  new force/rebase fields.
+- Ninth iteration E2E in the browser: Pull/Push render as split button
+  groups with a caret; the Pull menu lists merge/rebase and the Push menu
+  lists normal/lease/force. The two force items open distinct confirm
+  dialogs (lease notes the safety check; force warns it can discard
+  commits and recommends lease) and were cancelled, so no remote was
+  rewritten. A conflicting merge auto-surfaced a red "Merge in progress"
+  banner via SSE; clicking "Abort merge" restored the clean tree and the
+  banner disappeared. The tag menu shows "Delete remote tag" with a
+  confirm dialog (cancelled); the Create-tag modal has a "Force overwrite
+  (-f)" checkbox. No console errors. The real success paths of force
+  push and remote tag deletion were not triggered; their command forms
+  were verified earlier with `--dry-run` and stale-lease rejection.
+- Tag recovery note: verifying force-create temporarily repointed local
+  `v0.1.0` from its original annotated object (c0e7dc2, peeled f2910c1)
+  to the main HEAD; it was fully restored with
+  `git fetch origin refs/tags/v0.1.0:refs/tags/v0.1.0 --force` and now
+  matches the remote. All temporary branches (tmp-conflict, tmp-abort,
+  tmp-pull-rebase, etc.) were deleted; the test repo returned to
+  main/343f1a9/clean, ahead 200 / behind 2.
+- Tenth iteration scope: revert a merge commit (`-m` mainline), repository
+  content search (`git grep`), file rename/move (`git mv`), file delete
+  (`git rm`/unlink) and commit-graph path filtering (`git log -- path`).
+  All five were confirmed as real gaps by reading the code: the revert
+  route hard-rejected merge commits, no grep route existed, file rows had
+  only stage/unstage/view/ignore/discard actions, and the log route had no
+  pathspec. None is on the excluded high-level feature list.
+- Tenth iteration backend: `/api/revert` reads the parent count via
+  `rev-list --parents -n 1`; for a merge it requires an integer
+  `mainline` in 1..parentCount (missing/out-of-range -> 400) and inserts
+  `-m <mainline>`, while ordinary commits keep the old behaviour. `/api/log`
+  accepts an optional validated `path` and appends `-- <path>`. New GET
+  `/api/grep` runs `grep -I -n --untracked <pattern> [-- path]`, parsing
+  each line on the first two colons only (exit 1 = empty result). New
+  POST `/api/mv` runs `git mv <from> <to>`. New POST `/api/rm` first
+  checks `git ls-files`: tracked files use `git rm [-f]`, fully untracked
+  files are unlinked after `resolveInside` (responses carry a `method`
+  field). All write paths are audited.
+- Tenth iteration defects found and fixed during E2E: (1) the porcelain
+  v2 rename parser swapped the names — the real row is
+  `R100 <new-path>\t<old-path>`, so the current path is the first token
+  and `renamedFrom` the second; a unit test now covers it. (2) The SSE
+  effect's dependency array omitted `logPath`, so a file-change refresh
+  used the stale empty path and overwrote filtered results; `logPath` is
+  now a dependency. (3) `git rm` cannot remove a fully untracked file
+  even with `-f` ("pathspec did not match"), hence the git/unlink split
+  above.
+- Tenth iteration E2E in the browser: GrepModal returned grouped matches
+  with line numbers and a clean empty state; the path filter narrowed the
+  graph to one commit for `src/index.js` and 200 for `bulk.txt`, and
+  cleared back to 200; the Rename modal performed a staged `git mv`
+  (shown as `RM old -> new`); the Delete confirm removed both an untracked
+  file (unlink) and a tracked file (staged `D`); right-clicking the merge
+  opened RevertMergeModal with Parent 1/2 and produced
+  `Revert "merge ui feature"`. No console errors. All temporary commits,
+  branches and probes were removed; the test repo returned to
+  main/343f1a9/clean.
+- Eleventh iteration scope: untracked-file diff preview, rebase recovery
+  (continue/abort plus state detection), server-side history filters,
+  pull-request review submission and route-level HTTP tests. All five were
+  confirmed as real gaps by reading the code: plain `git diff` returns
+  nothing for untracked files, no rebase routes existed (the pull --rebase
+  path could leave an unrecoverable rebase), the graph search only covered
+  the loaded page, the GitHub allowlist had no POST reviews entry, and the
+  48 existing tests covered no HTTP routes.
+- Eleventh iteration backend: the git runner now supports per-call env and
+  preserves stdout on non-zero exits. `/api/diff` detects untracked files
+  via porcelain and runs `git diff --no-index -- /dev/null <file>` (exit 1
+  is a valid diff), returning an `untracked` flag. `/api/status` adds a
+  `state` object from `detectRepoState` (MERGE_HEAD, rebase-merge,
+  rebase-apply). New `/api/rebase/continue` (GIT_EDITOR=true) and
+  `/api/rebase/abort`. `/api/log` accepts validated `author`, `message`,
+  `since`, `until` (ISO calendar dates only; bad values -> 400).
+  `routes-github.mjs` allowlists POST `pulls/:n/reviews`. `store.mjs`
+  honors a `PR_HELPER_HOME` override for test isolation.
+- Eleventh iteration defects found and fixed during E2E: (1) the provider
+  stored only the inner porcelain object and discarded the sibling
+  `state` field, so no component could read rebase/merge state;
+  loadRepoData now attaches `state` onto the stored status. (2) GitHub
+  returns 404 on `requested-reviewers` when nobody is requested, and the
+  Promise.all detail load rejected on the first failure, blanking every
+  section; the modal now uses Promise.allSettled with per-endpoint
+  fallbacks.
+- Eleventh iteration E2E in the browser: an untracked file rendered its
+  full no-index diff; the LogFilterModal with message "bulk commit 200"
+  narrowed the graph to 1 of 1 and cleared back to 200; a real conflicted
+  rebase showed the amber banner with Continue/Abort and Abort restored
+  a clean main; a temporary PR (#4) was created, a COMMENT review was
+  submitted (verified via API and rendered in the Reviews section), then
+  the PR was closed, the remote branch deleted and the test repo reset to
+  343f1a9. No console errors.
+- Eleventh iteration verification: 77 Vitest tests passed across 9 files
+  (including 29 route tests); `tsc --noEmit` was clean; `vite build`
+  transformed 68 modules (JS 341.49 KB, CSS 39.06 KB).
+- Twelfth iteration scope: audit log reading, in-app file editing/saving,
+  PR comment edit/delete, security response headers and component render
+  tests. All five were confirmed as real gaps by reading the code: the
+  audit trail was write-only, FileViewer was read-only, comments could be
+  posted but not changed, static responses carried no security or cache
+  headers, and no component-level render test existed.
+- Twelfth iteration backend: `store.mjs` adds `readAudit(limit)` which
+  parses the JSONL (bad lines skipped, ENOENT -> empty) newest-first.
+  New read-only `GET /api/audit` (limit 1..1000). New `POST /api/save`
+  rejects sensitive paths, non-string content, NUL bytes and sizes over
+  1 MB, then writes a sibling temp file and renames atomically; every
+  save is audited. `routes-github.mjs` adds DELETE to the method set and
+  allowlists PATCH/DELETE on `issues/comments/:cid`.
+- Twelfth iteration defect found and fixed during E2E: GitHub locates a
+  single issue comment at `/repos/:o/:r/issues/comments/:cid` (no issue
+  number); the nested `issues/:n/comments/:cid` form returns 404 upstream.
+  The allowlist and client paths were corrected to the flat form, and the
+  audit trail records both the initial 404 probes and the final 200/204.
+- Twelfth iteration E2E in the browser: the audit modal listed 200 of
+  6855 entries with markers and raw details; an untracked scratch file
+  was edited and saved (verified on disk and in the audit); a temporary
+  PR (#5) was created, its first comment was edited inline and its
+  second deleted through the confirm dialog, then the PR was closed, the
+  remote branch deleted and the test repo reset to 343f1a9. Header
+  checks over a production instance confirmed nosniff on every response,
+  CSP/no-store on HTML and immutable caching on hashed assets.
+- Current verification: 85 Vitest tests pass across 10 files (including 8
+  new component render tests); `tsc --noEmit` is clean; `vite build`
+  transforms 69 modules (JS 347.71 KB / gzip 101.15 KB, CSS 41.45 KB /
+  gzip 7.59 KB). Dev server stopped; ports 5173, 4789 and 4791 are free;
+  localStorage holds only `git2-active-repo`; the product work tree is
+  otherwise clean.
+- Post-iteration repository maintenance (user-confirmed): the
+  git2-e2e-test divergence (ahead 200 bulk commits / behind 2 real
+  commits from merged PR #3) was resolved with a non-destructive
+  `--no-ff` merge of origin/main (no conflicts: bulk work only touched
+  bulk.txt, the remote feature added src/settings.js) and pushed, so
+  local main and origin/main now converge with no ahead/behind. Stale
+  branches were cleaned up: feature/settings (merge commit), feature/quick
+  (local-only, fully contained), and feature/login + feature/ui (squash
+  merged via PRs #1/#2; final file contents proven identical to main)
+  were deleted both locally and on the remote. The repo now has only
+  main. Hello-World remains a clean octocat clone; git2-init-check
+  remains an empty repo with no remote; this product repo deliberately
+  stays without a remote.
+- Thirteenth iteration scope: audit log retention/rotation, stale-save
+  prevention via mtime, route-level tests for /api/audit and /api/save,
+  and AuditModal filtering. All four were confirmed as real gaps by
+  reading the code: the JSONL audit trail grew unbounded, concurrent
+  saves could silently overwrite each other, neither route had dedicated
+  tests, and the audit modal could not be narrowed.
+- Thirteenth backend: `store.mjs` exports AUDIT_ROTATE_BYTES (1.5 MB),
+  AUDIT_TARGET_BYTES (1 MB) and AUDIT_KEEP_ENTRIES (10,000); appendAudit
+  stats after each write and calls rotateAudit when the trigger is crossed.
+  rotateAudit parses valid lines, walks newest-first under both the byte
+  budget and the entry cap, and atomically replaces the file via a temp
+  rename; the result is always under the trigger so ordinary appends never
+  re-rotate. `/api/file` returns `mtimeMs` for working-tree blobs (null
+  for ref/masked views); `/api/save` accepts an optional finite
+  `expectedMtime` and returns 409 when the current stat differs or the
+  file vanished, with a successful save returning the new `mtimeMs`.
+- Thirteenth defects found and fixed during testing: (1) oversized request
+  bodies were destroyed inside readJsonBody, so clients saw a bare
+  ECONNRESET; the parser now signals tooLarge and the server flushes a
+  413 JSON response with `Connection: close` before destroying the socket,
+  which also prevents the pooled keep-alive socket from being reused.
+  (2) Default server keep-alive timing could race pooled clients; the
+  server now sets keepAliveTimeout 60s and headersTimeout 65s.
+- Thirteenth testing incident: an early version of the rotation test
+  derived the audit path from the test process's configPaths(), but the
+  vitest process had no PR_HELPER_HOME set, so it resolved to the real
+  `~/.pr-helper-git2/audit.log`; the test's truncating writeFile replaced
+  the existing 8,299-line audit history with synthetic seed lines, and no
+  backup or local snapshot existed, so the prior audit history could not be
+  recovered. The test now builds the audit path explicitly from the
+  isolated server home directory, and the real audit log starts empty.
+  No source code, credentials or repository data were affected; the loss
+  is limited to the diagnostic audit trail.
+- Thirteenth E2E in the browser: against a 30-entry seeded audit trail,
+  the text filter narrowed the list to 6 stage entries, the failures
+  selector to 4 entries all marked "!", the success selector to 26
+  entries all marked "✓", and a combined no-match query rendered the
+  empty state; the seed data was removed afterwards.
+- Current verification: 93 Vitest tests pass across 10 files (37 route
+  tests, including 8 new); `tsc --noEmit` is clean; `vite build`
+  transforms 69 modules (JS 348.67 KB / gzip 101.47 KB, CSS 41.91 KB /
+  gzip 7.63 KB). Dev server stopped; ports 5173 and 4789 are free; the
+  real audit log is empty and accrues anew under the retention policy.
+- Follow-up scope (server-side audit filtering): the client-side filter
+  only covered the loaded 200-entry window, so older retained entries
+  could never be matched. `/api/audit` now accepts `q` (trimmed,
+  case-insensitive substring over the same action/summary fields the
+  modal displays, capped at 100 chars) and `outcome` (`all`/`ok`/`fail`,
+  invalid value -> 400); `readAudit` applies the filters over every
+  retained entry before taking the limit window, so `total` reports the
+  full match count across the file. The modal now requests up to 1,000
+  rows, debounces text typing by 300 ms, and distinguishes "no records"
+  from "no matches" based on whether filters are active.
+- Follow-up E2E in the browser: against a 250-entry seeded file, the
+  unfiltered modal rendered all 250 rows; `q=save` returned 25 matches
+  with the request carrying `q=save`; `outcome=fail` returned 23 failures
+  spread across the whole file (including entries beyond the old 200-row
+  window), proving whole-file coverage; a combined no-match query showed
+  the empty state. Seed data removed afterwards.
+- Updated verification: 94 Vitest tests pass across 10 files (38 route
+  tests); `tsc --noEmit` is clean; `vite build` transforms 69 modules
+  (JS 348.65 KB / gzip 101.56 KB, CSS 41.91 KB / gzip 7.63 KB). Dev
+  server stopped and ports free; the real audit log remains empty.
+- Fourteenth scope: a fresh capability-gap audit (66 endpoints extracted
+  from source, 20 keyword probes) confirmed three real gaps — missing
+  editor keyboard shortcuts, no line-level review comments, and
+  whole-file-only staging — while bisect/fsck/LFS/milestones/reactions
+  and similar niche items were explicitly rejected.
+- Fourteenth implementation: `splitFilePatch`/`buildHunkPatch` pure
+  helpers in git.mjs split a single-file unified diff into its header
+  and hunks; the new POST /api/stage-hunk regenerates the authoritative
+  diff server side, splices the requested hunk and applies it to the
+  index via `git apply --cached` (unstage uses `-R`), with index-range
+  validation and audit entries. DiffView renders Stage/Unstage hunk
+  buttons in the unified view and runs them through runAction so the
+  data refresh keeps the diff pane in sync.
+- Fourteenth review comments: the GitHub allowlist gains GET/POST
+  pulls/:n/comments; the new PrFileReview component expands a PR file
+  into its unified diff, anchors an inline composer to any line and
+  posts the modern commit_id/path/line/side payload (RIGHT for
+  adds/context, LEFT for deletions), grouping comments per line and
+  collecting orphaned comments as outdated.
+- Fourteenth E2E: browser verified two-hunk stage (index held only the
+  second change, `MM` porcelain status), unstage back to a clean
+  split, Tab/Shift+Tab indentation and Cmd+S save (editor closes,
+  toast confirms). The inline-comment proxy was verified against the
+  real API through a temporary PR: 201 for both RIGHT and LEFT
+  comments, GET returned them; the PR, comments and branches were
+  then deleted and scratch repos removed.
+- Fourteenth verification: 99 Vitest tests pass across 10 files (39
+  route tests, 5 new); `tsc --noEmit` is clean; `vite build`
+  transforms 70 modules (JS 354.07 KB / gzip 103.11 KB, CSS 44.27 KB
+  / gzip 8.00 KB). Dev server stopped and ports free; no scratch
+  repositories remain registered.
+- Fifteenth scope: a fresh audit of 67 endpoints found four real flow
+  gaps — the PR body was never rendered, review comments could not be
+  replied to or edited/deleted, and only whole-file discard existed;
+  niche items (stash branch, check-run logs, suggested changes, syntax
+  highlighting) were explicitly rejected.
+- Fifteenth implementation: POST /api/discard-hunk reuses the diff
+  splice and reverse-applies the chosen hunk to the working tree
+  without touching the index; the GitHub allowlist adds PATCH/DELETE
+  on the flat pulls/comments/:cid path. The review cards gain Reply
+  (in_reply_to only), Edit (PATCH) and Delete (confirm dialog), and
+  the modal gains a Description section with inline editing via
+  PATCH pulls/:n.
+- Fifteenth E2E: browser verified Discard hunk on a two-hunk change
+  (first hunk restored, second remains, index stays clean). Through
+  the local proxy against a temporary PR: top-level comment 201,
+  threaded reply 201 with in_reply_to set, comment PATCH 200,
+  description PATCH 200, comment DELETE 204 and a GET confirming
+  zero comments remained. The PR, branches and scratch repos were
+  removed afterwards.
+- Fifteenth verification: 100 Vitest tests pass across 10 files (40
+  route tests, one new); `tsc --noEmit` is clean; `vite build`
+  transforms 70 modules (JS 353.98 KB / gzip 103.09 KB, CSS 44.27 KB
+  / gzip 8.00 KB). Dev server stopped and ports free; no scratch
+  repositories remain registered.
+- Sixteenth scope: while preparing the product demo, the commit patch modal
+  was observed opening and closing within ~200ms. Root cause: the recursive
+  file watcher watches .git too, so transient index.lock create/delete pairs
+  (from background git activity) broadcast repo-changed frames; the SSE
+  handler reloaded the repo, recreating commit objects, and CommitDetail's
+  effect, keyed on the commit object identity, reset the patch state.
+- Sixteenth fix: watcher.mjs now exports isNoise and ignores .lock files,
+  in-flight tmp_obj_* objects and node_modules/dist events while keeping
+  meaningful HEAD/refs/index changes. CommitDetail keys its load effect on
+  the selected hash and active repo instead of the commit object, so a
+  background refresh that keeps the same commit no longer closes the modal.
+- Sixteenth E2E: browser verified the patch modal now stays open and the
+  SSE stream emits only the hello frame with no spurious repo-changed.
+- Sixteenth verification: 106 Vitest tests pass across 11 files (new
+  watcher.test.mjs with 6 isNoise cases); tsc clean; vite build transforms
+  70 modules (JS 358.58 KB / gzip 103.96 KB, CSS 44.60 KB / gzip 8.06 KB).
+  Note: overlapping vitest runs produced index.lock contention and flaky
+  403 failures; ensure prior test runs have exited before rerunning.
+- Seventeenth scope: a wide-viewport screenshot of the Hello-World graph
+  showed several layout defects — commit rows pushed the trailing date off
+  the right edge (hard-clipped), dense ref badges on the merge row crowded
+  out the subject, and at narrow widths the sidebar group headers wrapped
+  ("LOCAL/BRANCHES") while the top toolbar wrapped its "Pull Requests" label
+  and overlapped the Git button.
+- Seventeenth fix (styles.css only): .graph-row clips overflow and .graph-body
+  gets width:100%/min-width:0 so the subject shrinks and ellipsizes while
+  author/hash/date stay fixed and fully visible; .ref-badges becomes a
+  self-scrolling strip (flex 0 1, hidden scrollbar) so badges never cover the
+  subject; the top toolbar scrolls horizontally with nowrap labels instead of
+  wrapping; the graph filter toolbar wraps cleanly; .ref-group-head is
+  nowrap so section headers stay on one line.
+- Seventeenth verification: browser measured zero row overflow at 1860, 1000
+  and 786px (all dates visible), and at 600px the badge strip scrolls and the
+  subject keeps a minimum width rather than being clipped mid-label. 106 Vitest
+  tests pass across 11 files; tsc clean; vite build transforms 70 modules
+  (JS 358.58 KB / gzip 103.96 KB, CSS 45.18 KB / gzip 8.16 KB).
+- Nineteenth scope: a project-level, file-by-file code review (not a gap
+  audit) covering correctness, security, robustness, React usage, resource/
+  race handling and test blind spots. The server's core security model held
+  up: fixed-argv execFile with no shell, timing-safe token comparison,
+  realpath-guarded path containment, a fixed GitHub proxy target with
+  method/path allowlist, and SSE ping/close cleanup. Five real issues were
+  fixed in atomic commits.
+- Nineteenth fixes: (1) grep patterns were passed as bare positional args,
+  so a dash-prefixed pattern (e.g. '--foo') was misread as a git option in
+  both /api/grep and /api/grep-all; now declared via `-e`. (2) WorkPanel
+  panelHeight was lazily initialized from the per-repo preference only on
+  mount and never re-read on a repository switch, so the first repo's height
+  leaked into every later repo; an activeRepo effect now restores it.
+  (3) CommitGraph Space/Enter activation returned before preventDefault, so
+  Space scrolled the page. (4) use-shortcuts destructured an unused `view`
+  and kept it in the effect deps, needlessly recreating the listener.
+  (5) A malformed static URI made decodeURIComponent throw and surfaced as
+  500; it is now a local 400. Two new route tests cover the dash pattern and
+  malformed URI; the panel-height effect was verified in the browser
+  (220 -> 520 -> 220 across switches) since SSR tests never run effects.
+- Nineteenth design note (left unchanged): the commit message draft is
+  component state shared across repositories, so a non-empty draft carries
+  over on a repo switch and also suppresses template prefill. Clearing it
+  would be a behavior change that could discard a deliberate in-progress
+  draft, so the current behavior is retained; the textarea stays visible
+  before every commit, letting the user catch a mismatched message.
+- Twentieth scope: a capability-gap audit (extract every route, keyword-probe
+  for real gaps, then read the implementation) identified four features worth
+  adding under the zero-dependency product boundary: light theme, PR board
+  filtering, in-app new file creation, and git config management. All were
+  delivered as atomic commits; a separate fix defined the never-declared
+  --bg-elevated token that eleven existing rules referenced.
+- Twentieth backend: GET/POST /api/config reads local and effective values
+  for a whitelisted set of keys and writes repository-local config only.
+  Arbitrary keys are rejected (core.sshCommand/alias/include/... can execute
+  or escape), enum/email/branch values are validated, and an empty value
+  unsets the local override (git exit 5 for an already-missing key is a
+  successful no-op). /api/save now mkdir-recursively before writing so a
+  nested new-file path works; the directory is already inside the validated
+  path and mkdir is a no-op for existing-file edits.
+- Twentieth verification: 121 Vitest tests pass across 11 files (four new
+  config route tests); tsc clean; vite build output (react-vendor 223.09 KB /
+  gzip 69.19 KB, app 153.54 KB / gzip 39.27 KB, CSS 51.98 KB / gzip 9.30 KB,
+  76 modules). A fresh browser tab reports zero console errors/warnings; the
+  throwaway test repo was restored to its empty state and the work tree is
+  clean with no remote configured.
+- Desktop decision: the product is already a local loopback server plus a web
+  UI, so a desktop version only needs a native window, double-click launch and
+  process supervision. Electron (~150 MB runtime) and Tauri (Rust toolchain)
+  were rejected to preserve the zero-runtime-dependency design; the chosen
+  shell uses system WKWebView and swiftc and reuses the installed Node.js,
+  yielding a bundle under 1 MB.
+- Desktop backend: in GIT2_DESKTOP mode the server prints a machine-readable
+  GIT2_READY line with the ephemeral port and token. Shutdown now calls
+  server.closeAllConnections() (keep-alive/SSE sockets) and a new
+  stopAllWatching() closes every watcher, with a forced-exit safety net; the
+  old signal handlers waited for long-lived clients and could stall.
+- Desktop shell: the Swift AppDelegate resolves Node at well-known paths
+  (GUI PATH omits Homebrew), spawns the bundled server, parses GIT2_READY on a
+  serial queue, loads the token URL in a persistent WKWebView, and on
+  termination waits up to 3 seconds before SIGKILL. E2E via open/quit confirms
+  the shell and node start, establish five connections, and both exit with no
+  lingering process; 121 tests and tsc stay green.
+- UI/UX P0 pass scope: three confirmed gaps from the design review — fixed
+  column widths, no app icon/window memory, and no reduced-motion support.
+  Column resizing uses a reusable `useResizable` hook (`src/hooks/use-resizable.ts`)
+  driving edge-mounted `.col-resize` separators; both pointer and keyboard
+  (arrows, Shift for a larger step) paths clamp to a range and persist
+  `sidebarWidth`/`detailWidth`, while no inline width is applied until the user
+  first resizes so the responsive media queries keep working. The icon is
+  rendered at build time from `desktop/make-icon.swift` and packaged to
+  `AppIcon.icns` with system sips/iconutil (no checked-in binary, no new
+  dependency); the Swift shell calls `setFrameAutosaveName` and keeps `center()`
+  only for first-run placement.
+- UI/UX P0 verification: browser checked both separators' ARIA attributes,
+  keyboard resize and direction (sidebar ArrowRight widens, detail ArrowLeft
+  widens), reload restoration, min/max clamps and a synthetic pointer sequence;
+  a second desktop launch restored the saved frame (position 67,51 rather than
+  centered) and open/quit still leaves no lingering shell or node process. All
+  121 Vitest tests pass across 11 files, tsc is clean, vite build succeeds, and
+  the rebuilt bundle is ~1.2 MB with the icon in Contents/Resources.
+- Post-P0 hardening phase (eleven atomic commits) opened with a reported hover
+  defect: the graph SVG and absolutely positioned rows shared an auto z-index,
+  so an opaque row hover/selected background painted over the left lanes and
+  nodes; the SVG now sits above the rows while remaining pointer-events-none.
+  A sequence of correctness fixes followed: literal UTF-8 paths and reliable
+  rename parsing (quotePath, porcelain type-2, numstat resolution), bounded file
+  reads and grep -z parsing, longer network timeouts, symlink-aware repo roots,
+  expanded sensitive-file masking, stacked Escape and sequence-token race guards
+  across the modals, paginated PR collections, desktop Node discovery across
+  version managers, and SSH-port/trailing-slash remote recognition.
+- A fresh file-by-file bug audit then read every server module, all 35 client
+  components and the pure helper libraries. Eight candidates were verified
+  against the real source and ranked by severity. The single P1 (a slow
+  repository load overwriting a newly selected repo) and the no-newline diff
+  parsing had already been closed by the sequence-token work; the remaining
+  real items were fixed in four atomic commits: side effects removed from
+  setState updaters (a StrictMode double-invocation hazard), a redundant status
+  dependency that re-fetched the diff on every background refresh, an untracked
+  delete confirmation that wrongly claimed a staged deletion (the server unlinks
+  untracked files directly), and repo removal now returns 400 instead of writing
+  a repo:null audit entry. The EventSource was also reduced to one connection
+  that reads the latest reload parameters from a ref, removing the event-loss
+  window from reconnecting on every log-option change.
+- The only theoretical item deliberately left unchanged is SSE write back
+  pressure: there is a single loopback client sending tiny frames, and the
+  existing try/catch removes a faulting client, so asynchronous drain logic
+  would add complexity without practical benefit.
+- Current verification: 140 Vitest tests pass across 12 files (the new 400
+  rejection adds one route test); tsc is clean; vite build transforms 77 modules
+  and now copies the checked-in SVG favicon (public/favicon.svg) into dist,
+  eliminating the /favicon.ico 404. The dev server is stopped and ports 5173 and
+  4789 are free; the product work tree is clean and still has no git remote.
+- Multi-repository panel: a requested "Open repositories" view replaced the
+  dropdown-only switching. The existing GET /api/repos already returned a full
+  per-repository brief (branch, upstream, ahead/behind, staged/unstaged/
+  untracked, last commit, error), so no server change was needed; the new
+  RepositoriesModal renders those briefs in a filterable grid. A row opens the
+  repository and closes the panel, while row checkboxes plus a select-all control
+  drive a batch fetch that runs with Promise.allSettled so one failing remote
+  cannot abort the rest, then refreshes and reports the fetched/failed counts.
+  Browser testing covered filtering, the batch fetch (two /api/fetch 200s) and
+  row switching; the server-side socket count confirms a single live SSE
+  connection (the extra dev-only EventSource is the StrictMode mount/cleanup
+  mount pair, whose first socket is closed by the effect cleanup).
+- Updated verification: 144 Vitest tests pass across 12 files (four new
+  RepositoriesModal render tests); tsc is clean; vite build transforms 78
+  modules. The dev server is stopped and ports 5173 and 4789 are free; the work
+  tree still has no git remote.
+
+## 2026-11-08 cross-repo parity round
+
+- Ported AI generation from pr-helper-git: `server/ai.mjs`, `/api/ai/config|test|commit-message|pr-description`,
+  Settings AI section, "Generate with AI" in the commit form and the new-PR dialog.
+  The key lives in `~/.pr-helper-git2/config.json` and is never returned (only `hasKey`).
+- Added `/api/cherry-pick` (409 + conflicted paths, state preserved) and `/api/undo-commit`
+  (soft reset), both in the commit-graph context menu.
+- Fixed `parseGrepLines`: `git grep -n -z` records are `path\0line\0text\n`, so splitting on NUL
+  in triples misaligned every match after the first. Now parsed record-by-record.
+- Tests: 196 (15 files) (historical baseline). Remaining parity backlog at the time: `../pr-helper-git/PARITY.md` — now closed (0 functional gaps).
+
+### 2026-11-08 repository panel round
+
+- `src/lib/repo-sort.ts`: `activityLevel` / `relativeAge` / `sortRepos` /
+  `summarizeRepos`, with 9 unit tests. Kept pure so the panel rules are testable
+  without a DOM.
+- RepositoriesModal: pin (localStorage `pr-helper-git2-pinned`), activity bar,
+  aggregate header, "With changes" filter, manual refresh and a 30s auto refresh
+  that only re-reads `git status` (never fetches or pulls).
+- Tests: 205 (16 files).
+
+### 2026-11-08 line-level staging
+
+- `server/patch-lines.mjs`: `parseHunk` + `buildLineSelectionPatch(header,
+  hunk, selected, action)`. The rebuild keeps context, converts unselected
+  changes that the target side already holds into context (removals when
+  staging, additions when unstaging) and drops the rest — a naive rebuild fails
+  with "patch does not apply" whenever selected and unselected changes share a
+  hunk.
+- `POST /api/stage-lines` with `{ repo, file, hunk, lines[], action }`; validates
+  indexes against the parsed hunk, caps the selection, audits both outcomes.
+- DiffView: click a changed line to mark it, hunk header shows Stage/Unstage N
+  lines + Clear; selection resets when the diff reloads.
+- Tests: 215 (17 files), including two integration cases that stage/unstage a
+  single line with real `git apply`.
+
+### 2026-11-08 whole-history commit search
+
+- `server/search-commits.mjs#buildCommitSearch(q, {limit})` is pure: it decides
+  the mode from the `author:` / `path:` prefix, rejects empty/overlong/multi-line
+  queries and returns the exact `git log --all --date-order --max-count=N -i`
+  argv. `GET /api/search-commits` maps the result to `parseLog`.
+- UI: `CommitSearchModal` (message / author / path, prefix buttons that write the
+  prefix into the box, click a row to jump to the commit). Entries: toolbar
+  button, command palette (`git2:search-commits`), Shift+Enter from the graph.
+- Tests: 222 (18 files) — 6 pure/integration cases in `search-commits.test.mjs`
+  (the integration one proves `--all` reaches an unmerged branch) plus 1 HTTP
+  case in `routes.test.mjs`.
+
+### 2026-11-08 interactive rebase
+
+- `server/rebase-todo.mjs` keeps the planning logic pure: `validateRebasePlan`
+  accepts only a full permutation of the range (a missing hash is reported as
+  `plan omits <hash>`, never silently dropped), `applyTodoPlan` rewrites the
+  todo file matched by one-way hash prefixes and preserves the comment block,
+  `resolveRewordMessage` applies reword messages and refuses to touch a
+  `# This is a combination of N commits` squash file.
+- Two shims drive git: `rebase-sequence.mjs` (`GIT_SEQUENCE_EDITOR`, reads
+  `GIT2_REBASE_PLAN`, exits 1 on a bad plan so git aborts) and `rebase-msg.mjs`
+  (`GIT_EDITOR`, reads `GIT2_REWORD_STATE`, never exits non-zero). `GIT_DIR` is
+  not exported to the editor, so the reword queue lives in our own state file.
+- Routes: `GET /api/rebase/plan` (commits + dirty/merges/upstream/pushed) and
+  `POST /api/rebase/interactive`; dirty tree, merge commits and an in-progress
+  multi-step operation are 409, an invalid plan is 400, a conflict returns
+  `200 { conflicted: true }` and leaves the rebase banner in charge.
+- UI: `RebaseModal` with per-row action select, up/down reordering,
+  reword inputs and the three guardrails; entry point is the commit context
+  menu (a root commit means `--root`).
+- Note for the next route added to `routes-git.mjs`: every GET handler must sit
+  above `if (method !== 'POST') return null;` (~line 1249), otherwise it 404s.
+- Tests: 237 (19 files) — 12 pure cases in `rebase-todo.test.mjs` plus 3 HTTP
+  cases that really rewrite history, prove an omitted commit is rejected and a
+  dirty tree is refused.
+
+### 2026-11-08 CI gates + branch protection warnings
+
+- `server/github-allowlist.mjs` now owns the PAT proxy allowlist (moved out of
+  `routes-github.mjs` so it can be unit-tested without loading the HTTP layer).
+  Two endpoints were added: `commits/:sha/status` (classic statuses, which a
+  Jenkins-only repo reports instead of check runs) and
+  `branches/:branch/protection` (404 = unprotected).
+- `PrDetailModal` fetches both alongside the existing detail calls and merges
+  statuses into the check list (`pending` has no conclusion, anything but
+  `success` counts as failed). A failing gate adds a confirm dialog before the
+  ordinary merge confirmation; the CI summary above the merge options shows the
+  failing count, the unprotected-branch warning, or the required-check count.
+- Tests: 240 (20 files) — `github-allowlist.test.mjs` 3 cases pin the new
+  endpoints and prove `PUT`/`DELETE` protection and `/actions/runs` stay
+  rejected, plus traversal paths.
+
+### 2026-11-08 Bilingual UI (i18n)
+
+- New `src/i18n.ts`: `ZH` dictionary keyed by the English source string (~300 entries), `t()`,
+  `tp()` for `{placeholder}` text, count rules (`"12 commits"` → `"12 次提交"`), `getLocale/setLocale`
+  persisted through `lib/prefs` (`locale`), plus `useLocale()` built on `useSyncExternalStore`.
+- `App.tsx` calls `useLocale()` so switching re-renders the whole tree; the language selector lives
+  at the top of `SettingsModal`.
+- Component copy was converted mechanically: JSX text nodes / `title` / `placeholder` / `aria-label`
+  / `alt` props and `toast('…')` / `setStatus('…')` literals now go through `t("…")`. Counted strings
+  that are assembled at runtime (commits, repositories, matches, lines, selected) use `t(\`…\`)`
+  backed by the count rules.
+- `src/i18n.test.ts` (5 tests): en/zh switching, unknown-key fallback, count rules, `tp`, and a
+  source scan asserting every `t("…")` key used in `src/**` exists in `ZH`.
+- Known limits: server/API error text and raw Git output stay English; user data (branch names,
+  commit subjects, file paths) is never translated because only exact dictionary keys are substituted.
+
+### 2026-11-08 HTTP E2E smoke suite
+
+- New `e2e/run.sh` (+ `npm run e2e`): boots `server/main.mjs --port=18774` with
+  `GIT2_DEV=1` (fixed `dev-token`) and `PR_HELPER_HOME` in a throwaway dir, then
+  drives the real HTTP API with curl. 60 checks covering auth/traversal,
+  repo registration, status/log/refs/file reads, stage → commit → undo,
+  branch/tag/stash, grep, compare, rebase plan, cherry-pick, merge, GitHub
+  proxy guards (missing PAT 401 / allowlist 403) and audit.
+- Quirks encoded in the suite: GET routes take `?repo=`, writes take `body.repo`;
+  `GET /api/file` expects `file=` (not `path=`); `POST /api/merge` expects
+  `ref=`; `stash-list` returns `entries`; `rebase/plan` rejects `HEAD~2`
+  (`~` is outside the ref charset) so the suite passes a resolved SHA.
+
+### 2026-11-08 E2E deepened to 101 checks
+
+- Added conflict and history-rewriting coverage: merge conflict → resolve
+  (`ours`) → commit, merge conflict → abort, interactive rebase `drop`,
+  rebase conflict → abort, single and batch reverts, hunk / line-precise
+  staging (`stage-hunk`, `stage-lines`), push/pull against a bare remote and
+  force-push confirmation guard.
+- Harness fix: `contains()` used `echo … | grep -q`, and `grep -q` exiting on
+  the first match sent SIGPIPE to the writer, which `set -o pipefail` reported
+  as a failure — a flaky red. It now greps a here-string.
+- Product fixes found by the suite: a conflicted merge now returns 409 with the
+  conflict list (it used to be a generic 400), and `POST /api/commit` is
+  allowed to finish a merge whose resolution left the index identical to HEAD
+  (`ours`), instead of failing with "nothing staged to commit".
+
+### 2026-11-08 Chinese walkthrough and translation sweep
+
+Ran the bilingual build in a browser against a throwaway repository and read
+every panel in Chinese. The dictionary covered rendered keys, but plenty of
+copy was still a raw literal (toolbar actions, work-panel controls, graph
+filters, modal labels, shortcut help, command palette, team/repo panels, PR
+detail counters, relative timestamps). All of those are now routed through
+`t()`/`tp()` and translated; `formatRelative` and `relativeAge` emit Chinese
+units instead of `3m ago`.
+
+Toasts raised by `runAction` and the error messages the API returns are now
+translated too (`src/components/ui.tsx` renders through the dictionary and
+`runAction` translates `err.message` before appending the raw git detail), so a
+Chinese user sees Chinese outcomes and Chinese failure headlines.
+
+Known gaps: audit action names and raw git/GitHub output (branch names, commit
+subjects, git stderr detail) stay exactly as git reports them.
+
+### 2026-11-09 Audit action labels, changelog
+
+Audit entries used the server's action identifier verbatim (`repo-add`,
+`stash-create`, …), so a Chinese audit panel showed English identifiers.
+`auditAction()` in `src/i18n.ts` maps 50 of them to Chinese labels and passes
+unknown ones through; the English UI keeps the raw identifier because that is
+what the audit log and its filter use. Covered by one new `i18n.test.ts` case
+(250 tests / 21 files).
+
+Also added the first `CHANGELOG.md`, back-filled with the 0.1.0 feature set and
+the unreleased fixes (merge conflict contract, translation sweep, toasts, audit
+labels, no-wrap toggles).
+
+### 2026-11-09 Commit graph keyboard parity
+
+The graph already had `role=listbox`, `role=option`, `aria-selected` and
+arrow/Home/End/Enter, but it still differed from the vanilla client: no
+PageUp/PageDown, no Escape, and no `aria-activedescendant`. Those three are in
+now, with row ids (`commit-row-<hash>`) so the active option can be named.
+
+The decision math lives in `src/lib/graph-nav.ts` (`nextCommitIndex`,
+`pageSizeForViewport`) so it can be unit-tested without mounting React; the
+component keeps the DOM part (selection, focus, reveal, scrolling). Tested at
+three levels: 6 unit cases for the math, 4 jsdom interaction cases that render
+the real component and press keys against `selectCommit`, and 2 SSR cases that
+assert the listbox/option/`aria-activedescendant` markup. `jsdom` is now a dev
+dependency here too.
+
+### 2026-11-09 Commit signature verification
+
+`GET /api/signature?repo=..&sha=..` runs `git log -1 --format=%G?%x00%GS%x00%GK`
+and returns `{sha, status, signer, key, verified}`. `%G?` letters are mapped to
+copy in the detail panel (G verified, B bad, U unknown, N unsigned, E cannot
+check, X/Y expired, R revoked). The letter comes from git alone — no key
+material is needed — so repositories with no signing key still get a truthful
+"Not signed" instead of an error. Two route tests pin the unsigned path and the
+400 on a malformed sha.
+
+### 2026-11-09 Submodule status panel
+
+`GET /api/submodules?repo=..` runs `git submodule status --recursive` and returns
+`{entries:[{state,sha,path,describe}]}` through `parseSubmoduleStatus`, which
+keeps the one-character state prefix (space clean, `-` not initialized, `+`
+checked-out commit differs, `U` conflict). The sidebar renders a read-only
+"Submodules" group only when a repo actually has submodules, colour-coded by
+state. Covered by a parser test with all four prefixes, a route test for the
+empty repository, and one E2E check.
+
+### 2026-11-09 Bisect wizard
+
+The last parity candidate. `GET /api/bisect` reads git's own marker files
+(`$(git rev-parse --git-path BISECT_LOG)` and `BISECT_START`) instead of keeping
+state in memory, so a running bisect survives a server restart; it also reports
+the current candidate commit and the good/bad counts parsed from the log.
+`POST /api/bisect/start` runs `git bisect start`, then `bisect bad <sha>` /
+`bisect good <sha>`; a failure mid-way best-effort resets so HEAD is not left
+detached. `POST /api/bisect/mark` and `/reset` refuse when no session is active,
+and reset verified to restore the original branch (`main`). Covered by three
+route tests against a real fixture repo plus five E2E checks (start → active →
+reset → cleared → branch restored).
+
+### 2026-11-09 Read-only phone view (/m)
+
+After measuring the desktop layout at 390 px (scrollWidth 619, graph squeezed
+to 70 px, working panel 0 px wide) the phone case was handled with a separate
+read-only view instead of a responsive rewrite.
+
+- `src/components/MobileApp.tsx` — sticky repo picker / refresh / language
+  toggle, branch + ahead/behind, staged/unstaged/untracked chips, 80-commit
+  list, full-screen commit sheet (author, date, `%G?` signature, body, files
+  with `+n/-n`, per-file diff). No mutating endpoints are called.
+- `src/main.tsx` — `/m` or `?mobile=1` renders `MobileApp`, everything else
+  keeps the desktop app.
+- `server/main.mjs` — extensionless `GET` misses now fall back to
+  `dist/index.html`, so `/m` works in the production server.
+- `src/styles.css` — `.m-*` block with 44 px touch targets, sticky header,
+  `env(safe-area-inset-*)`, `100dvh`.
+- Tests: `src/components/mobile.test.tsx` (jsdom, stubbed fetch, list → commit
+  → file diff). E2E: `/m` responds 200 and returns the app entry
+  (109/109).
+
+- Follow-up in the same round: the phone view lists working-tree changes
+  (tap → `/api/diff` for that file), and the server accepts `GIT2_HOST` for
+  non-loopback binding (default unchanged); `src/components/mobile.test.tsx`
+  now covers both the commit flow and the working-tree diff.
+
+Baseline at 0.2.1: 287 unit tests / 27 files, E2E 115/115.
+Current working-tree baseline: 336 / 34, E2E 144/144 (0.2.2 release was 287 / 27).
+2026-11-10 appearance + maintenance wave: SettingsModal gained dark/light/system modes
+and four accent presets (violet/ocean/forest/amber), applied before first paint and
+persisted in `git2-prefs`; the toolbar button now cycles three modes with a monitor icon.
+The same Settings modal shows the data directory + file sizes and calls
+`POST /api/maintenance/audit-rotate` / `POST /api/maintenance/prune-repos` after a
+confirm dialog; `pruneRepos()` drops registry entries whose `.git` disappeared.
+`GET /api/storage` backs the sizes. Tests: 3 new route tests; E2E +6 maintenance checks.
+2026-11-10 parity wave: Dashboard full-page view (open-PR counts, external open, remove UI,
+background fetch-all), graph CI dots, image diffs (/api/raw), commit history + 50/72 counter,
+amend prefill, discard-all, draft persistence. The remaining conflict 3-way editor landed in
+the same round (`ConflictEditorModal` + `src/lib/diff/conflict.ts`), so no functional gaps
+remain in pr-helper-git's PARITY.md.
+Note: the phone view supports `/m?repo=<path>&commit=<sha>` deep links (README §Phone view).
+
+2026-11-10: PR real-network validation (list/detail/create/merge/close-reopen/comments/reviews/
+labels/reviewers/line-comments/draft-ready/protection-read) is **blocked on a user-provided PAT** —
+all PR capabilities remain validated at route/offline level only (PARITY.md known limitation).
+Record the validation outcome here once it runs.
+
+## Lessons inherited from pr-helper-git (pre-archive, 2026-11-11)
+
+Engineering knowledge worth keeping now that the old `pr-helper-git` is archived as `pr-helper-git-archive`:
+
+1. **bash nested quotes shred JSON**: payloads written as `-d "{\"a\":…}"` inside
+   `$( )` lose content to brace expansion (server receives fragments → invalid
+   JSON). Build payloads with `printf … |` at runtime (see both e2e scripts).
+2. **`REBASE_HEAD` is NOT a live-rebase signal** — an aborted rebase leaves the
+   file behind. Detect a live rebase via the `rebase-merge`/`rebase-apply`
+   directories only. Same class of bug: a conflicted single-commit revert
+   writes `REVERT_HEAD` (pr-helper-git exposes it as `status.reverting`).
+3. **Check `engines` when installing test deps**: `jsdom@31` requires Node
+   ≥22.22 while `jsdom@26` requires ≥18 — on a Node 20 machine 7 test files
+   silently failed to load, making suite counts look right but run less. And
+   on Node ≥26, Node's experimental `globalThis.localStorage` (undefined
+   without `--localstorage-file`) SHADOWS jsdom's inside vitest — fixed by
+   `src/test-setup.ts` (in-memory polyfill via `test.setupFiles`).
+4. **Multi-instance config safety**: web + desktop run side by side. git2's
+   store reads the file on every call + writes via tmp+rename (keep this
+   style); pr-helper-git needed mtime invalidation to avoid one instance
+   erasing the other's settings.
+5. **Server-side PAT model** (adopted this round): the token may live in
+   `~/.pr-helper-git2/config.json` and is injected into the GitHub proxy
+   context server-side; the browser never sees it. pr-helper-git's original
+   design — worth keeping as the default for shared machines.
+6. **Desktop shell engineering** (archived in `docs/archive/pr-helper-git-desktop/`):
+   `--port=0` + machine-readable port line handshake, tray open/quit, dock
+   reopen, child server killed on exit, `find_node()` multi-path discovery,
+   fatal-error osascript dialog.
+7. **`core.quotepath=off` is not enough**: git still C-quotes `"` and control
+   characters. pr-helper-git needed a dedicated `c-quote.mjs` decoder; check
+   git2's path parsing before assuming raw paths are safe.
+8. **Refresh fingerprints must include content, not counts**: file paths +
+   ahead/behind + remote/tags/stashes. Counts-only produced ghost WIP rows and
+   defeated auto-fetch; opening a repo must reset the cached fingerprint.
+9. **Removing an import requires checking transitive callers**: dropping `fs`
+   broke `isGitWorktree` (`fs.lstatSync`); a try/catch turned it into a silent
+   `false`, so every repo operation failed with "invalid repo path".
+10. **`parsePorcelainV2` has two field layouts**: git 2.51 separates ordinary
+    fields with spaces but uses a tab before the rename path — handle both.
+
+### 继承的产品约束与暂缓项（2026-11-11 已从 ZCode 项目记忆迁入）
+
+以下约束于 2026-11-11 自 pr-helper-git 旧项目的 ZCode 记忆
+（`~/.zcode/cli/memories/projects/pr-helper-git-29beae1193885890/`，6 条，当日已
+删除）迁入，现为本仓库的正式约束。迁入时已逐项 grep 确认 README / handoff /
+CHANGELOG / docs 对这些主题为 0 命中，无重复记录。
+
+- **产品定位**：本地自用工具，**不上生产**（用户 2026-11-10 明确）。手机端只在
+  **局域网**内访问，不做公网 / Tailscale / 反代组网。
+- **由此不做的事**：TLS、公网反代、CSP 收紧等加固类工作与部署文档，除非用户要求；
+  局域网内明文 HTTP + token 可接受。这条直接影响权限矩阵与移动端验收的取舍。
+- **备份**：统一放 `/Users/jiangfeng/000mycodes-backups`，一键脚本
+  `bash pr-helper-backup.sh`（先 commit，bundle 不含未提交内容）。Docker 仅换机 /
+  NAS 场景需要，日常不用。
+- **设计 token**：编辑 `design/tokens.json` 后跑 **`node scripts/sync-tokens.mjs`**
+  （`TARGETS` 只写 git2）。⚠️ 旧记忆写的 `npm run tokens` 在本仓库**不存在**，
+  package.json 无该 script，已按脚本头部注释校正。
+- **用户决策偏好（跨项目）**：不要追求最简实现，以核心 / 基本功能做对为准，UI 要
+  设计得好看（2026-11-05 原话：「后续遇到要决策的点，不要追求最简单的实现方式，
+  以核心功能，基本功能为准，UI也要设计的好看点」）。
+- **迭代节奏（跨项目）**：用户会在建议收敛后继续说「继续」；照做并找出真实改进，
+  但确实枯竭时要诚实说明，不要镀金。
+- **暂缓功能**：图拖拽（branch→commit 的 checkout/merge/rebase、commit→branch
+  的 cherry-pick）**维持 park**。2026-11-11 复核：同等能力已由右键菜单覆盖
+  （`CommitGraph.tsx` menuItems 含 cherry-pick / interactive rebase from here，
+  `RefSidebar.tsx` menuItems 含 Checkout / Merge into current），拖拽只是换手势；
+  且图行已有单击选中 / 右键菜单 / 批量勾选三套手势，加拖拽有劫持风险。
+- **对比模式：原 park 记录已过期**（迁自旧项目，对 git2 不成立）。2026-11-11
+  复核：branch vs branch **早已实现**（Toolbar「Compare two references」→
+  `CompareModal.tsx` + `/api/compare`），且 `validateRefSpec` 本就接受 7–40 位
+  hex，后端已支持任意 commit。真实缺口只有两个 UI 口子：选不到任意 commit、
+  没有「工作区」选项。用户 2026-11-11 批准补完这两个口子，**当日已交付**：
+  - 服务端：`:worktree` 伪引用（`COMPARE_WORKTREE`，`:` 在 git ref 名里非法故不会
+    撞名）可作任意一侧；作 base 时 diff 反向（同一暂存新增从 `A` 变 `D`），两侧
+    同时为工作区或 `:worktree-ish` 一律 400；工作区侧没有自己的提交，两个提交
+    列表按 HEAD 算且为空；响应新增 `untracked`（`ls-files --others
+    --exclude-standard`，不计入 diff）。
+  - 客户端：新增 `RefPicker.tsx` 组合框，可搜引用 / 已加载提交的主题与 hint，
+    也可直接敲 7–40 位 SHA 选未加载的提交（列表上限 80 行 + sticky 截断提示）；
+    新增「工作区」选项、base/head 交换按钮、未跟踪文件计数与分组；任一侧为
+    工作区时自动落到「文件」页（提交页按构造为空）。
+  - 闸门（`fnm exec --using=22.23.1`）：lint 0、typecheck:server 0、
+    **336 单测 / 34 文件**、build ok、**E2E 144/144**。浏览器实测：dev 42/42、
+    **生产构建** 42/42（0 console error / 0 失败请求）、中文 15/15；
+    1280×900 / 1280×620 / 1280×450 / 390×844 / 390×500 / 390×420 六种视口下
+    弹层均无裁切、截断提示始终可见。
+  - 目检（不是数字）抓出两个真缺陷并已修：① 560px 宽的弹层撑破 `.modal` 的
+    滚动盒，聚焦输入框会把标题和 BASE 标签横向滚出视野 → 弹层改为锚定整个
+    picker 行；② 矮视口下弹层被裁 0.5px、截断提示要滚动才看得到 → `.modal-compare`
+    固定高度框架 + `clamp()` 弹层高度 + sticky 页脚。
+  - **未扩大范围**：390 宽下页面级横向溢出是既有现象，把 HEAD 的样式表换回实时
+    页面复测可复现（HEAD 748px vs 当前 693px），源头是 toolbar 的
+    `.btn-group`/`.segmented`，`styles.css` 已注明其横向滚动是设计意图。
+- **显示名：现阶段用 `PR Helper Git`（去掉「2」）**。用户 2026-11-11 决定
+  （原话「pr-helper-git吧」「现阶段就用这个」）。`index.html:7` 的 `<title>`
+  （浏览器标签 / 手机加到主屏时的名字，`/m` 手机视图共用同一个 shell）与
+  `server/main.mjs:304-305` 的启动横幅均已改名。
+  - **2026-11-12 扩展为运行时标识符改名**：`package.json` name、数据目录
+    `~/.pr-helper-git`、localStorage `pr-helper-git:*` 命名空间、cookie
+    `pr_helper_git_token`、环境变量 `PR_HELPER_GIT_*`、Tauri bundle id 均已切换，
+    并带一次性迁移。
+  - **兼容读取**：旧 cookie `git2_token` / 旧 header `x-git2-token` / 旧环境变量
+    `GIT2_*` 仍可读；旧 localStorage 键在首次加载时复制到新键后删除；旧数据目录
+    在新目录不存在时于首次启动 rename。设置页显示的是迁移后的真实路径。
+  - **GitHub 仓库名同日一并改了**（用户明确要求）：归档仓
+    `bayernjf/pr-helper-git` → **`bayernjf/pr-helper-git-archive`**，产品仓
+    `bayernjf/pr-helper-git2` → **`bayernjf/pr-helper-git`**。归档仓是
+    read-only，GitHub 拒绝直接改名（403），故按「解除归档 → 改名 → 立刻重新
+    归档」三步执行，可见性全程 PRIVATE，收尾已复验回到 archived=true。
+    复验：归档 main `18413da` + 5 tag 完好；产品 main `63e10c3` 未变；
+    新旧两个 URL 的 `git ls-remote` 都可达（GitHub 保留旧名重定向）。
+  - **本地 `origin` 已切到新 URL** `git@github.com:bayernjf/pr-helper-git.git`
+    （2026-11-12 切换并复验 `ls-remote`）；旧 URL 的重定向仍由 GitHub 保留。
+  - **产品仓是 PUBLIC**（`bayernjf/pr-helper-git`，2026-11-11 pushedAt 10:01Z）。
+    本文档与 README 里「local-only / no remote / never pushed」的旧说法**与事实
+    不符**，已就地更正；仓库是否转私有属用户决策，未擅自更改。
+  - **冻结的 desktop 壳未改**：`desktop/main.swift:204,221` 与
+    `scripts/desktop-build.mjs:12` 仍是旧显示名；desktop 已冻结、无法验证，
+    故不在本次范围。注意 `main.swift:207` 的 `setFrameAutosaveName` 是
+    **持久化键**不是显示名，改它会重置已保存的窗口位置。
+  - 验证：隔离实例 + headless Chromium **8/8**（标签名、served HTML、
+    390 宽 `/m`、设置页数据目录未变、0 console error / 0 失败请求）。
+    并做反向变异证明检查能红：把 `dist/index.html` 标题改回 Git2 后 4 条转红，
+    随后按 sha256 还原（`244ee7a9…`）并复测 8/8。
+
+## pr-helper-git 本地清理（2026-11-11 全部执行，本地已归零）
+
+背景：pr-helper-git 于 2026-11-10 推 GitHub（PRIVATE + ARCHIVED）并完成资产迁移。
+原本地目录按 A6 约定保留一个发布周期（「到期后执行，不要提前」）；2026-11-11
+用户逐项明确批准提前清理，反悔期由用户覆盖。
+
+已删除（本地不再有任何 pr-helper-git 副本）：
+
+- [x] 完整副本 `pr-helper-git-archive/`（4.3M）。删前核验：dirty=0、未推送 commit=0、
+      `git ls-remote origin main` = `18413da` 与本地 HEAD 一致、
+      `source-20261111-0021.bundle` 试克隆还原 144 commit / 5 tag
+- [x] 空壳目录 `pr-helper-git/`（4.0K，仅 README-ARCHIVED.md）。删前以
+      `lsof -a -d cwd -Fn` 精确匹配确认无进程锚定，`lsof +D` 无打开文件
+- [x] 旧数据目录 `~/.pr-helper-git/`：`audit.log`（2071 条）、`repos.json`、
+      `settings.json`（含 40 字符 `ghp_` classic PAT，login `bayernjf`）及空目录本身。
+      前两者删前与备份副本 sha256 相同，且已核验不含凭据（68 处 40 位十六进制全部
+      落在 `commit`/`good`/`bad`/`shas[]` 等 git 对象字段）
+- [x] 旧实现的 4 个本地测试仓：`git-demo-playground`、`git-notes`、`git-sync-test`、
+      `git-clone-ui-test`（删前均 dirty=0）
+- [x] 冷备份目录 `000mycodes-backups/pr-helper-git/`（9.7M / 16 项：10 个 source
+      bundle、2 个测试仓 bundle、旧数据 3 副本、RESTORE.md）
+
+不可逆后果（用户在列明后果的选项下选择全删）：
+
+- `git-demo-playground`（19 commit，HEAD `a691fdd`）与 `git-notes`（3 commit，
+  HEAD `7de9549`）**无远端**，其唯一副本 testrepo bundle 已随备份目录删除，
+  22 个 commit 永久丢失。`git-sync-test` / `git-clone-ui-test` 的远端
+  `bayernjf/pr-helper-git-sync-test` 保留，可 re-clone
+- 旧 `v0.6.1` annotated tag 对象 `9726fd6`（该 tag 后移至 `efd54b8`）仅存在于
+  `source-20261110-2007.bundle`，已随之删除；其指向的 commit `951c7f4` 在 GitHub
+  归档仓中仍在。删前已核验：9 个旧 source bundle 的 71 个 ref 中 70 个被最新 bundle 覆盖
+- 旧审计 2071 条（2026-11-05→11-10）已无副本
+
+唯一恢复源：GitHub 归档仓 **`bayernjf/pr-helper-git-archive`**（PRIVATE + ARCHIVED）。
+2026-11-11 核验：main = `18413da`，5 个 tag 齐全（v0.3.0–v0.6.1，sha 与原最新 bundle 一致）。
+⚠️ 该仓 2026-11-11 由 `bayernjf/pr-helper-git` 改名而来（用户要求，为把
+`pr-helper-git` 这个名字让给产品仓）。**旧地址 `bayernjf/pr-helper-git` 现在指向
+公开的产品仓，不再是归档仓**——任何旧书签 / 旧记录里的归档地址都要换成
+`pr-helper-git-archive`。改名后已复验 main 与 5 个 tag 均完好。
+
+凭据处置（2026-11-11 用户决定：**不吊销**，此项已关闭）：
+
+- [x] 旧 `settings.json` 里那串 40 字符 `ghp_` classic PAT：**本地副本已删，
+      GitHub 侧保留**。用户明确「这三个 token 是我要用的」。当天登录 GitHub
+      核到账号下共 3 串 classic token，全部在用：`GitHub CLI`、
+      `Visual Studio Code`、`job-agent GITHUB_TOKEN`。
+      本机 `gh auth token` 同样是 40 字符 `ghp_`，与旧项目那串特征一致，
+      且旧记忆记载其来源就是 `gh auth token`，因此**很可能是同一串**
+      （判别实验未做完，不下确定结论）。吊销会打断 gh CLI，故不做。
+      ⚠️ 后续会话不要再把这串当作「待吊销的泄漏凭据」去删除。
+      git2 不依赖它：服务端 `config.json` 无 `github.token`，代码里也没有
+      `gh`/环境变量回退；git 传输走 SSH（`git_protocol: ssh`），不受影响。
+
+保留、不属于 pr-helper-git：`pr-helper`、`pr-helper-landing`（独立活项目）、
+git2 现役测试仓（`git-e2e-test`、`git-init-check`、`Hello-World`；前两个于
+2026-11-12 去掉「2」改名，GitHub 仓同步改名）、
+git2 内继承资产（`docs/archive/pr-helper-git-desktop/`、`docs/parity-archive.md`）。
