@@ -12,6 +12,7 @@ import {
 } from '../lib/automation/flows-detail';
 import { workflowSummary } from '../lib/automation/workflow';
 import { githubPullUrl } from '../lib/domain';
+import { errorMessage } from '../lib/errors';
 import type { BoardState } from '../lib/automation/flows-board';
 import { getLocale, t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
@@ -107,7 +108,7 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                   toast.notify(t('Flow deleted'));
                   onDeleted(flow.id);
                 } catch (err) {
-                  toast.error(String(err instanceof Error ? err.message : err));
+                  toast.error(errorMessage(err));
                 }
               }}
             >

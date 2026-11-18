@@ -679,6 +679,10 @@ export const ZH: Record<string, string> = {
   "Created relative to the repository root; the editor opens so you can add content.": "相对仓库根目录创建；创建后会打开编辑器，方便你补充内容。",
   "Repository registry plus member names. Tokens and GitHub PATs are never exported.": "导出内容仅包含仓库清单与成员名称，Token 与 GitHub PAT 不会被导出。",
   "Member accounts can use Git and pull requests. Ask the owner for team administration and configuration import.": "普通成员可使用 Git 与 Pull Request 功能，团队管理与配置导入请联系 owner。",
+  "Only team admins can perform this action. Ask the owner to promote your account in Team, or sign in with the owner account.":
+    "此操作需要管理员权限（admin）。请让 owner 在“团队”里把你的角色提升为 admin，或改用 owner 账号登录。",
+  "Repository management requires an admin account. Ask the owner to promote you in Team, or switch to the owner account.":
+    "仓库管理需要管理员权限（admin）。请让 owner 在“团队”里提升你的角色，或改用 owner 账号。",
   "Any OpenAI-compatible endpoint. The key is stored server-side in ~/.pr-helper-git/config.json (never returned to this page) and is used to draft commit messages and pull-request descriptions.": "任意兼容 OpenAI 的接口。API Key 保存在服务端的 ~/.pr-helper-git/config.json（不会回传到本页），用于生成提交信息与 PR 描述。",
   "Token for": "Token（用户",
   " — shown once. They sign in by opening": "）只显示这一次。对方打开",

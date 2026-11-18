@@ -17,6 +17,11 @@ describe('error helpers', () => {
     expect(errorMessage({ message: 42 })).toBe('');
   });
 
+  it('turns the admin-gate wire error into an actionable message', () => {
+    expect(errorMessage(new Error('admin access required'))).toContain('admin');
+    expect(errorMessage(new Error('unknown or unregistered repo'))).toBe('unknown or unregistered repo');
+  });
+
   it('extracts optional detail and status fields', () => {
     expect(errorDetail({ detail: 'index locked' })).toBe('index locked');
     expect(errorDetail({ detail: 1 })).toBe('');
