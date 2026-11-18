@@ -253,6 +253,7 @@ export function testSavedAiCredential() {
 }
 
 export type GenerationRuleRow = {
+  name: string;
   contentHash: string;
   content: string;
   createdAt: string | null;
@@ -269,6 +270,22 @@ export function repairContext(input: { workflowId: string; stageIndex: number; s
 
 export function fetchGenerationRules(): Promise<{ rules: GenerationRuleRow[] }> {
   return request<{ rules: GenerationRuleRow[] }>('/api/flows/rules');
+}
+
+export function saveRule(input: { name: string; content: string }) {
+  return request<{ ok: boolean; contentHash: string; name: string }>('/api/flows/rules', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteRule(contentHash: string) {
+  return request<{ ok: boolean }>('/api/flows/rules', {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ contentHash }),
+  });
 }
 
 /** DELETE /api/flows/workflows — confirmed local delete (P3-12 tail). */

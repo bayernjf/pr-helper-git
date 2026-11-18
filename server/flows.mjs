@@ -13,6 +13,7 @@
 // they need no GitHub credentials; live refresh rides the scheduled reconcile
 // and the webhook receiver until P2-1 wires explicit credentials.
 
+import { createHash } from 'node:crypto';
 import * as store from './workflows-store.mjs';
 import postgres from 'postgres';
 
@@ -63,12 +64,13 @@ async function readGenerationRules(env, identity) {
   const sql = postgres(databaseUrl(), { max: 1, prepare: false, connect_timeout: 10, idle_timeout: 5 });
   try {
     const rows = await sql`
-      SELECT g.content_hash, g.content, g.created_at
+      SELECT g.name, g.content_hash, g.content, g.created_at
       FROM pr_helper_generation_rules g
       JOIN pr_helper_users u ON u.id = g.user_id
       WHERE u.github_login = ${identity.login}
       ORDER BY g.created_at DESC`;
     return rows.map((row) => ({
+      name: row.name || (row.content || '').trimStart().slice(0, 40).replace(/\s+/g, ' ') || row.content_hash.slice(0, 12),
       contentHash: row.content_hash,
       content: row.content,
       createdAt: row.created_at === null ? null : String(row.created_at),
@@ -350,6 +352,39 @@ export async function handleFlowsRoute(ctx) {
     if (method === 'GET' && pathname === '/api/flows/rules') {
       const rules = await readGenerationRules(env, identity);
       return { status: 200, json: { rules } };
+    }
+
+    // Generation rule create/update/delete (rules manager dialog). Names are
+    // a local-only column (migration 049); content dedupes by sha256 hash.
+    if (pathname === '/api/flows/rules' && (method === 'POST' || method === 'DELETE')) {
+      const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+      const content = typeof payload.content === 'string' ? payload.content : '';
+      const contentHash = method === 'POST'
+        ? createHash('sha256').update(content).digest('hex')
+        : String(payload.contentHash ?? '');
+      if (method === 'POST' && (!name || !content.trim())) {
+        return { status: 400, json: { error: 'rule needs a name and non-empty content' } };
+      }
+      if (method === 'DELETE' && !contentHash) {
+        return { status: 400, json: { error: 'contentHash required' } };
+      }
+      const wsql = postgres(databaseUrl(), { max: 1, prepare: false, connect_timeout: 10, idle_timeout: 5 });
+      try {
+        const uidRows = await wsql`SELECT id FROM pr_helper_users WHERE github_login = ${identity.login} LIMIT 1`;
+        const uid = uidRows[0]?.id;
+        if (!uid) return { status: 400, json: { error: 'unknown engine user' } };
+        if (method === 'POST') {
+          await wsql`
+            INSERT INTO pr_helper_generation_rules (user_id, name, content_hash, content)
+            VALUES (${uid}, ${name}, ${contentHash}, ${content})
+            ON CONFLICT (user_id, content_hash) DO UPDATE SET name = ${name}, content = ${content}`;
+          return { status: 200, json: { ok: true, contentHash, name } };
+        }
+        await wsql`DELETE FROM pr_helper_generation_rules WHERE user_id = ${uid} AND content_hash = ${contentHash}`;
+        return { status: 200, json: { ok: true } };
+      } finally {
+        await wsql.end({ timeout: 0 }).catch(() => undefined);
+      }
     }
 
     if (method !== 'GET') return null;
