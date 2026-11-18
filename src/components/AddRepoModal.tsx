@@ -1,6 +1,6 @@
 import { errorMessage, errorDetail } from '../lib/errors';
-import { useState } from 'react';
-import { addRepo, cloneRepo, initRepo } from '../api';
+import { useEffect, useState } from 'react';
+import { addRepo, cloneRepo, getMe, initRepo } from '../api';
 import { useApp } from '../app-state';
 import { useEscape } from '../hooks/use-escape';
 import { t } from '../i18n';
@@ -54,6 +54,15 @@ export default function AddRepoModal({
   useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');
   const [saving, setSaving] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMe()
+      .then((me) => { if (!cancelled) setIsMember(me.role !== 'admin'); })
+      .catch(() => { /* if identity is unavailable, let the server explain the 403 */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const [localPath, setLocalPath] = useState(initialPath);
   const [url, setUrl] = useState('');
@@ -76,6 +85,10 @@ export default function AddRepoModal({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (isMember) {
+      toast(t('Repository management requires an admin account. Ask the owner to promote you in Team, or switch to the owner account.'), 'error');
+      return;
+    }
     setSaving(true);
     try {
       if (mode === 'open') {
@@ -105,11 +118,11 @@ export default function AddRepoModal({
     }
   }
 
-  const canSubmit = mode === 'open'
+  const canSubmit = !isMember && (mode === 'open'
     ? !!localPath.trim()
     : mode === 'clone'
       ? !!url.trim() && !!parentDir.trim()
-      : !!initName.trim() && !!parentDir.trim();
+      : !!initName.trim() && !!parentDir.trim());
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
@@ -120,6 +133,11 @@ export default function AddRepoModal({
         </div>
 
         <div className="modal-body">
+          {isMember && (
+            <div className="hint" role="status" style={{ marginBottom: 12 }}>
+              {t('Repository management requires an admin account. Ask the owner to promote you in Team, or switch to the owner account.')}
+            </div>
+          )}
           <div className="repo-mode-tabs">
             {MODES.map((m) => (
               <button
