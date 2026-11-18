@@ -52,11 +52,12 @@ P3-4 编辑器 → P3-5 失败中心。
 **迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1099/61、E2E 162/162。**
 
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
-已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，tag `v0.3.10`）；
-0.3.11 新增 CI 健康看板；`main`/`dev` 以最新合并点为准，
+已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
+tag `v0.3.10`）；0.3.11 新增 CI 健康看板（发布提交 `3bb8030`，tag `v0.3.11`，
+PR #25 合并 `b17a380`）；`main = b17a380`、`dev = 3bb8030`，
 GitHub latest = **`v0.3.11`**。
 测试：1099 tests / 61 files + E2E 162/162，build 通过。备份目录最新
-`source-20261118-1008.bundle` 含 `main`、`dev`、`v0.3.10`。
+`source-20261118-1311.bundle` 含 `main`、`dev`、`v0.3.11`。
 
 最近更新：2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
 

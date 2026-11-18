@@ -20,12 +20,12 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 
 | 项 | 实际值 |
 |---|---|
-| `dev` | 本次 0.3.11 发布合并点（见 `git log`） |
-| `main` | 本次 0.3.11 发布合并点（见 `git log`） |
+| `dev` | `3bb8030`（0.3.11 发布提交） |
+| `main` | `b17a380`（PR #25 合并点） |
 | 本次发布 | **`v0.3.11`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.11） |
-| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.11` |
-| `dev` 领先 `main` | 0（发布合并后同步） |
-| 备份 | 发布后刷新；含 `main`、`dev`、`v0.3.11`（见备份目录） |
+| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.10`（可用 Check for Updates 升级到 0.3.11） |
+| `dev` 领先 `main` | 1（`3bb8030` 在 `b17a380` 之后；docs 提交随后） |
+| 备份 | `source-20261118-1311.bundle`；含 `main`、`dev`、`v0.3.11` |
 
 > 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.11`
 > 覆盖；以本表为准。
