@@ -4,8 +4,9 @@
 > `CHANGELOG.md` 和 `handoff.md`；迁移状态看 `docs/pr-helper-migration.md`。
 >
 > 本快照已按仓库实际状态校正：`dev = a31b208`（代码基线，已推送、已备份；
-> 其后另有本地 docs 校正提交），`main = 92d136e`，本次发布 `v0.3.9`。
+> 其后另有 docs 校正提交），`main = 92d136e`，本次发布 `v0.3.9`。
 > `dev` 的 2 个尚未发布功能修复（`7eb66ad`、`a31b208`）已进入 0.3.9。
+> **0.3.9 合并后：`main = dev = c911b6b`，PR #21 已合并，tag `v0.3.9`。**
 
 ## 1. 项目一句话
 
@@ -19,11 +20,11 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 
 | 项 | 实际值 |
 |---|---|
-| `dev` | 代码基线 `a31b208`；其后有本地 docs 校正提交（未 push） |
-| `main` | `92d136e`（`Merge pull request #20 from bayernjf/dev`） |
-| 本次发布 | **`v0.3.9`**（2026-11-18；覆盖 `7eb66ad`、`a31b208`） |
+| `dev` | 代码基线 `a31b208`；docs 校正已随 0.3.9 合并，当前 = `c911b6b` |
+| `main` | `c911b6b`（Merge PR #21） |
+| 本次发布 | **`v0.3.9`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.9） |
 | 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.9` |
-| `dev` 领先 `main` | 2 个功能性提交，已随 `0.3.9` 发布；等 dev→main PR 合并 |
+| `dev` 领先 `main` | 0（`main`/`dev` 均 `c911b6b`；发布后已同步） |
 | 备份 | `/Users/jiangfeng/000mycodes-backups/pr-helper-git/source-*.bundle`，以 `ls -t` 取最新；含 `main 92d136e`、`dev` 与 `v0.3.8` |
 
 > 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.9`
