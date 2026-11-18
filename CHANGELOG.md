@@ -2,6 +2,16 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.10] - 2026-11-18
+
+### 变更
+- **更新下载进度**：桌面更新进度窗口在下载时显示传输速率与预计剩余时间（如 `12.4 MB of 47.7 MB · 1.2 MB/s · 32s left`），慢速网络不再只看到长时间不动的百分比。
+- **更新失败可直接重试**：失败窗口增加 `Retry`，菜单项变为 `Update failed — Retry`；点击会沿用当前 release 重新下载，不必关闭窗口后再走一遍 Check for Updates / Download。
+- **权限提示**：服务端 `admin access required` 统一转为可操作提示，说明需要 admin、请 owner 在“团队”中提升角色或改用 owner 账号；仓库管理弹窗对 member 直接显示提示并禁用提交。
+
+### 验证
+- 1093 tests / 60 files；E2E 162/162；build 通过；桌面 native-test + Swift 壳编译通过。
+
 ## [0.3.9] - 2026-11-18
 
 ### 修复
