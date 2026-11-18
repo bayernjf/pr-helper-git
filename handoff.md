@@ -9,7 +9,7 @@ every committed file as world-readable.
 
 ## pr-helper 迁移进度（实时段，随会话更新）
 
-> 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-013 与验收标准在
+> 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-021 与验收标准在
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
@@ -49,7 +49,13 @@ Phase 3 第一片（2026-11-14）：`server/flows.mjs`（身份桥采纳 pr_help
 `src/components/FlowBoard.tsx`（Toolbar「Flows」视图，只读看板）。下一步：P3-3 步骤抽屉 →
 P3-4 编辑器 → P3-5 失败中心。
 
-**迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34/34 通过（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（TEST-REPOS.md 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1092/60、E2E 162/162。**
+**迁移会话更新（2026-11-17）：影子期启动运行中（D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；影子日志 queue/paused 有真实值）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1092/60、E2E 162/162。**
+
+**2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
+已按仓库实际状态校正。`dev = a31b208`、`main = 92d136e`、GitHub latest =
+**`v0.3.8`**；`dev` 另有 2 个功能性提交 `7eb66ad`、`a31b208` 尚未发版（建议
+`0.3.9`）。测试已在 `a31b208` 上复跑：1092 tests / 60 files + E2E 162/162，
+build 通过。最新备份 `source-20261118-0032.bundle` 含 `main`、`dev`、`v0.3.8`。
 
 最近更新：2026-11-17（发布 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
 
@@ -372,7 +378,7 @@ P2-6 AI 失败接管、PR Close/Reopen/Merge（Approve/Request-changes 因 GitHu
 平台"不能 review 自己 PR"约束转验收口径：产品正确透传 422 错误 + COMMENT 走通）。
 
 详见迁移台账 `docs/pr-helper-migration.md` 与验收映射
-`docs/migration-acceptance.md`（34/34，除认证形态替代 #1 外无开放式失败项）。
+`docs/migration-acceptance.md`（34 项全部有结论：✅33 + 🔀1；除认证形态替代 #1 外无开放式失败项）。
 
 ## Release 0.2.6 (2026-11-12)
 

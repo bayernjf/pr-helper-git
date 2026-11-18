@@ -11,6 +11,7 @@ Start with the document that matches your question. Do not read all of
 | About to change code | [`CONTRIBUTING.md`](../CONTRIBUTING.md) — branch, commit, PR, gates, release |
 | An AI agent | [`AGENTS.md`](../AGENTS.md) — hard constraints and required workflow |
 | Looking for current release state | [`CHANGELOG.md`](../CHANGELOG.md) and the top of [`handoff.md`](../handoff.md) |
+| Taking over an existing session | [`session-handoff-2026-11-18.md`](session-handoff-2026-11-18.md) — point-in-time snapshot; live state stays in `handoff.md` and `CHANGELOG.md` |
 | Looking for why a decision was made | [`handoff.md`](../handoff.md) — delivery notes, lessons, historical batches |
 | Looking for parity history with the archived product | [`parity-archive.md`](parity-archive.md) |
 | Running the pr-helper → pr-helper-git migration or checking its completeness | [`pr-helper-migration.md`](pr-helper-migration.md) — plan, traceability matrix, acceptance, decisions |
@@ -26,6 +27,7 @@ Start with the document that matches your question. Do not read all of
 | `AGENTS.md` | Hard contract for AI agents: scope, non-negotiables, commands, release checklist, baseline | Agent constraints or baseline change |
 | `CHANGELOG.md` | Keep a Changelog release notes, newest first | Every release; user-visible changes |
 | `handoff.md` | Chronological delivery ledger: per-release scope, migrations, lessons, historical batches | Release, migration, major refactor, or durable lesson |
+| `docs/session-handoff-2026-11-18.md` | Dated session handoff snapshot (current versions, shadow state, TODOs, pitfalls); not a live status source | When a new dated snapshot is produced; do not use it to override `handoff.md` |
 | `docs/parity-archive.md` | Record of cross-repo parity work with the archived product | Parity work changes |
 | `docs/pr-helper-migration.md` | **Core migration ledger**: pr-helper → pr-helper-git plan, traceability matrix, decisions, acceptance, change log | Any migration scope/acceptance/status change |
 | `docs/desktop-distribution.md` | macOS signing, notarization, zip/dmg artifacts and verification | Desktop distribution workflow changes |
