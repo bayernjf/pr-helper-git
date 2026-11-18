@@ -31,7 +31,7 @@ export class OAuthError extends Error {
    * @param {Record<string, unknown>} [detail]
    */
   constructor(status, message, detail) {
-    super(message);
+super(message);
     this.name = 'OAuthError';
     this.status = status;
     this.detail = detail;
@@ -351,7 +351,8 @@ export async function handleGithubOAuthRoute(ctx) {
       return ok({ ok: true });
     }
 
-    if (pathname === '/api/auth/github/installations' && method === 'GET') {
+if (pathname === '/api/auth/github/installations' && method === 'GET') {
+      if (!identity || identity.role !== 'admin') return fail(403, 'admin access required');
       const oauth = await readOauthState();
       if (!oauth) return fail(409, 'github account not connected');
       const installations = await listUserInstallations(oauth.accessToken);

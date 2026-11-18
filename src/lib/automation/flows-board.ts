@@ -22,7 +22,7 @@ import {
   workflowRunSummary,
   type StageRunTone,
 } from './workflow-run';
-import { t, tp } from '../../i18n';
+import { getLocale, t, tp } from '../../i18n';
 
 export type WorkflowStageStateRow = {
   workflowId: string;
@@ -348,7 +348,7 @@ export function relativeUpdatedAt(updatedAt: string): string {
   const date = new Date(updatedAt);
   if (Number.isNaN(date.getTime())) return '';
   return tp('updated {time}', {
-    time: new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date),
+    time: new Intl.DateTimeFormat(getLocale() === 'zh' ? 'zh-CN' : 'en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date),
   });
 }
 

@@ -39,7 +39,25 @@ function ReviewPill({ state }: { state: ReviewState }) {
   return <span className="review-pill none">{t("No review")}</span>;
 }
 
-function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
+function PrCard({ pr, onOpen, fetchReviews }: {
+  pr: PullRequest;
+  onOpen: () => void;
+  fetchReviews: (number: number) => Promise<GithubReview[]>;
+}) {
+  const [reviewState, setReviewState] = useState<ReviewState>(pr.reviewState);
+  // Lazy review summary: one GitHub call per open card, when it mounts.
+  useEffect(() => {
+    if (pr.state !== 'open') return;
+    let alive = true;
+    fetchReviews(pr.number)
+      .then((reviews) => {
+        if (alive) setReviewState(summarizeReviews(reviews));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [pr.state, pr.number, fetchReviews]);
   return (
     <button type="button" className="pr-card" onClick={onOpen}>
       <div className="pr-title">
@@ -71,7 +89,7 @@ function PrCard({ pr, onOpen }: { pr: PullRequest; onOpen: () => void }) {
       )}
       <div className="pr-meta" style={{ marginTop: 8, gap: 6 }}>
         {pr.state === 'open' && <MergePill pr={pr} />}
-        <ReviewPill state={pr.reviewState} />
+        <ReviewPill state={reviewState} />
       </div>
       <div className="pr-meta" style={{ marginTop: 8 }}>
         <span className="mini-avatar">{pr.user.login.slice(0, 1).toUpperCase()}</span>
@@ -101,6 +119,18 @@ export default function PrBoard() {
   // newer refresh started.
   const loadSeq = useRef(0);
 
+  const fetchReviewsFor = useCallback(
+    async (number: number): Promise<GithubReview[]> => {
+      if (!remote?.isGithub || !remote.owner || !remote.repo) return [];
+      const res = await githubProxy<GithubReview[]>(
+        pat,
+        `/repos/${remote.owner}/${remote.repo}/pulls/${number}/reviews`,
+      );
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    [pat, remote],
+  );
+
   // Fetch one page of PRs and attach the review summary for each open PR.
   const fetchPage = useCallback(async (pageNo: number): Promise<PullRequest[]> => {
     if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) return [];
@@ -109,20 +139,10 @@ export default function PrBoard() {
       `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=${PAGE_SIZE}&page=${pageNo}`,
     );
     const list = Array.isArray(res.data) ? res.data : [];
-    return Promise.all(
-      list.map(async (pr) => {
-        if (pr.state !== 'open') return { ...pr, reviewState: 'NONE' as ReviewState };
-        try {
-          const reviews = await githubProxy<GithubReview[]>(
-            pat,
-            `/repos/${remote.owner}/${remote.repo}/pulls/${pr.number}/reviews`,
-          );
-          return { ...pr, reviewState: summarizeReviews(reviews.data || []) };
-        } catch {
-          return { ...pr, reviewState: 'NONE' as ReviewState };
-        }
-      }),
-    );
+    // Review summaries load lazily per card (see ReviewPill in PrCard): one
+    // page of open PRs used to issue page-size extra GitHub calls on every
+    // refresh — a real rate-limit burn.
+    return list;
   }, [pat, hasServerPat, remote]);
 
   const load = useCallback(async () => {
@@ -275,7 +295,7 @@ export default function PrBoard() {
             </div>
             <div className="pr-column-body">
               {columns[col.key].map((pr) => (
-                <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} />
+                <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} fetchReviews={fetchReviewsFor} />
               ))}
               {columns[col.key].length === 0 && (
                 <div className="empty-state-visual">

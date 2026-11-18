@@ -112,6 +112,12 @@ export async function handleFlowsRoute(ctx) {
   if (!pathname.startsWith('/api/flows')) return null;
 
   try {
+    // Control-tower writes are owner-only: member tokens may read the board
+    // but cannot enqueue/execute engine actions or edit credentials.
+    if (method !== 'GET' && ctx.identity?.role !== 'admin') {
+      return { status: 403, json: { error: 'admin access required' } };
+    }
+
     const identity = await flowIdentity();
     const env = environment();
     const payload = body && typeof body === 'object' ? body : {};

@@ -3103,9 +3103,6 @@ pre.diff {
   width: 3px;
   background: transparent;
 }
-.repo-panel-activity.lv-fresh { background: #3fb950; }
-.repo-panel-activity.lv-recent { background: #4f9dff; }
-.repo-panel-activity.lv-stale { background: #d79b4a; }
 .repo-panel-activity.lv-dormant { background: var(--border-soft); }
 .repo-panel-activity.lv-none { background: transparent; }
 .repo-pin {

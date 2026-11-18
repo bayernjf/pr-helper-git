@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.9] - 2026-11-18
+
+### 修复
+- **权限边界**：仓库注册/移除/克隆/初始化，以及控制塔的 automation / saves / credentials 写入路由改为 admin 必需；member token 在看板上保持只读。GitHub installations 枚举同样收紧到 admin。
+- **Webhook 请求体上限**：token-exempt 的 webhook 接收端改用 `readRawBody`，统一 256KB 上限，避免无界请求体导致内存/中断泄漏。
+- **Dashboard 刷新**：修复 30 秒自动刷新定时器因依赖引用变化而永远不会触发的问题；PR 数量/owner 探测改为按仓库集合内容而非数组引用触发，避免每 30 秒重复发起 N 次远端探测。
+- **并发保存**：`/api/save` 临时文件增加 pid+时间戳+计数器唯一后缀，避免同一文件并发保存时互相覆盖半写文件。
+- **grep-all 预算**：跨仓库 grep 增加 30 秒墙钟预算，避免 N 仓 × 单仓超时把请求拖到数分钟。
+- **损坏 config 失败关闭**：`config.json` 解析失败时保留 `.corrupt-*` 备份，读返回空视图，所有写入抛错，直到恢复文件；不再静默用空注册表覆盖仓库/用户。
+- **审计写入原子性**：audit append + rotate 走 `serializeWrite` 链并 await，避免半行/双 rotate。
+- **错误信息**：顶层 500 不再把 `err.message` 回显给客户端；listen 回调保护 `reconcileWatching`，配置读取错误不会崩溃启动。
+- **UI 细节**：快速切换仓库时按 load generation 清理 loading；StepDrawer 支持 Escape 关闭与焦点回归；Dropdown 增加 `aria-activedescendant`；Dashboard 卡片/行支持按钮语义与 Enter/Space；PrBoard 评论摘要按需懒加载，去掉每页 N+1 GitHub 调用；事件时间戳跟随 locale，force-push 确认与 dashboard toast 已翻译；移除 v4 前遗留的 `.lv-*` 色块。
+
+### 验证
+- 1092 tests / 60 files；E2E 162/162；build 通过。
+
 ## [0.3.8] - 2026-11-17
 
 ### 变更

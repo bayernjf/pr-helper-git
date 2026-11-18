@@ -96,6 +96,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/add' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
     if (!target) return fail(400, 'repo must be a string path');
     try {
@@ -172,6 +173,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/remove' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     // Normalise like /api/repos/add so a trailing slash or relative segment in
     // the client's stored path still matches the registered repo.
     const target = typeof body.repo === 'string' ? path.resolve(body.repo) : null;
@@ -241,6 +243,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/clone' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     const url = validateCloneUrl(body.url) ? body.url.trim() : null;
     const name = validateFolderName(body.name);
     if (!url) return fail(400, 'invalid or unsupported clone URL');
@@ -264,6 +267,7 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
   }
 
   if (pathname === '/api/repos/init' && method === 'POST') {
+    if (!isAdmin(identity)) return fail(403, 'admin access required');
     if (typeof body.path !== 'string' || !body.path.trim()) {
       return fail(400, 'path must be a string');
     }
@@ -306,11 +310,19 @@ export async function handleGitMeta({ method, pathname, query, body, identity })
     const glob = globParam ? normalizeGrepGlob(globParam) : null;
     if (globParam && !glob) return fail(400, 'invalid glob filter');
     const GLOBAL_MATCH_CAP = 500;
+    // Wall-clock budget for the whole sweep: N repositories x the per-git
+    // timeout could otherwise hang the request for many minutes.
+    const SWEEP_DEADLINE_MS = 30_000;
+    const deadline = Date.now() + SWEEP_DEADLINE_MS;
     const registered = await listRepos();
     const results = [];
     let budget = GLOBAL_MATCH_CAP;
     let truncated = false;
     for (const repo of registered) {
+      if (Date.now() > deadline) {
+        truncated = true;
+        break;
+      }
       let matches;
       try {
         const raw = await git(grepArgv(pattern, { ignoreCase, paths: glob ? [glob] : [] }), repo);

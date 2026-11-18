@@ -7,6 +7,7 @@ import { isSensitivePath, normalizeRepoPath, resolveInside }from './security.mjs
 import { appendAudit }from './store.mjs'
 import { SAVE_MAX_BYTES, gitFail, sensitiveFail, unmergedPaths }from './routes-git-helpers.mjs'
 
+let saveSeq = 0;
 export async function handleGitWriteFiles({ method, pathname, query, body, identity }, repo) {
   if (pathname === '/api/conflict/resolve') {
     const rel = normalizeRepoPath(body.path);
@@ -137,7 +138,7 @@ export async function handleGitWriteFiles({ method, pathname, query, body, ident
       // Ensure the parent directory exists so a new file can use a nested
       // path (mkdir is a no-op for an existing directory, e.g. edits).
       await fsp.mkdir(path.dirname(abs), { recursive: true });
-      const tmp = `${abs}.tmp-${process.pid}`;
+      const tmp = `${abs}.tmp-${process.pid}-${Date.now()}-${saveSeq++}`;
       await fsp.writeFile(tmp, body.content, 'utf8');
       await fsp.rename(tmp, abs);
       const newStat = await fsp.stat(abs);
