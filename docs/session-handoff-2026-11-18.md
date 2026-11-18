@@ -3,8 +3,9 @@
 > 性质：**时间点快照**，不是实时状态源。实时发布状态看 `package.json`、
 > `CHANGELOG.md` 和 `handoff.md`；迁移状态看 `docs/pr-helper-migration.md`。
 >
-> 本快照已按仓库实际状态校正：`dev = a31b208`（已推送、已备份），
-> `main = 92d136e`，GitHub latest = `v0.3.8`。`dev` 另有 2 个尚未发布的功能修复。
+> 本快照已按仓库实际状态校正：`dev = a31b208`（代码基线，已推送、已备份；
+> 其后另有本地 docs 校正提交），`main = 92d136e`，GitHub latest = `v0.3.8`。
+> `dev` 另有 2 个尚未发布的功能修复。
 
 ## 1. 项目一句话
 
@@ -18,7 +19,7 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 
 | 项 | 实际值 |
 |---|---|
-| `dev` | `a31b208`（`fix(ui,server): close the remaining review P2 items`） |
+| `dev` | 代码基线 `a31b208`；其后有本地 docs 校正提交（未 push） |
 | `main` | `92d136e`（`Merge pull request #20 from bayernjf/dev`） |
 | GitHub latest | **`v0.3.8`**（2026-11-17 22:59 本地发布） |
 | 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.8` |
