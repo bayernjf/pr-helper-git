@@ -6,6 +6,7 @@
 // provides the credentials.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscape } from '../hooks/use-escape';
+import CodexRepairModal from './CodexRepairModal';
 import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
 import { stageStateText } from '../lib/automation/flows-detail';
@@ -101,6 +102,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const [busy, setBusy] = useState<string>('');
   const [error, setError] = useState('');
   const [takeoverFor, setTakeoverFor] = useState<number | null>(null);
+  const [repairOpen, setRepairOpen] = useState(false);
   // Takeover form has its own Escape layer: first Esc cancels the form
   // (keeping the drawer and the typed text), only then does the drawer close.
   useEscape(onClose, takeoverFor === null);
@@ -329,6 +331,13 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
           >
             {busy === 'rerun' ? t('Rerunning…') : t('rerun Actions')}
           </button>
+          <button
+            type="button"
+            className="drawer-btn"
+            onClick={() => setRepairOpen(true)}
+          >
+            {t('Codex repair context')}
+          </button>
         </div>
 
         {deploymentWarnings.length ? (
@@ -556,7 +565,16 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             <p className="drawer-empty">{t('No events yet')}</p>
           )}
         </div>
-      </aside>
+        {repairOpen ? (
+        <CodexRepairModal
+          workflowId={flow.id}
+          stageIndex={stageIndex}
+          source={primary?.source || stage.source}
+          pullNumber={pullNumber}
+          onClose={() => setRepairOpen(false)}
+        />
+      ) : null}
+    </aside>
     </div>
   );
 }
