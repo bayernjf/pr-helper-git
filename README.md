@@ -428,6 +428,8 @@ and test workflow. [AGENTS.md](AGENTS.md) is the contract for AI agents, and
 <https://github.com/bayernjf/pr-helper-git/releases/latest>
 
 - 当前最新：**v0.3.10**（正式版，未签名 — 首次打开需右键 → 打开以绕过 Gatekeeper）
+- 0.3.10 更新器：下载进度显示速度与剩余时间；下载失败时菜单项变为
+  `Update failed — Retry`，可在失败窗口直接重试
 - 应用内 **Check for Updates…** 读取 `releases/latest`，下载 dmg + `SHA256SUMS`
   校验 SHA-256 后替换安装并重启；API 检查遇 403（共享代理出口限流）自动直连重试
 - 从源码运行见下方 Quick start
