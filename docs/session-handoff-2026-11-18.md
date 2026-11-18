@@ -25,7 +25,7 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 | 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.8` |
 | `dev` 领先 `main` | 2 个功能性提交：`7eb66ad`、`a31b208`（**尚未发版**） |
 | 下一次发布 | 建议 `0.3.9`，覆盖上述 2 个提交；按发布 checklist 走 |
-| 备份 | `source-20261118-0902.bundle`（`dev 988f115`，含 `main 92d136e`、`v0.3.8`）；更晚备份以目录 `ls -t` 为准 |
+| 备份 | `/Users/jiangfeng/000mycodes-backups/pr-helper-git/source-*.bundle`，以 `ls -t` 取最新；含 `main 92d136e`、`dev` 与 `v0.3.8` |
 
 > 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.8`
 > 覆盖；以本表为准。

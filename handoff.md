@@ -55,7 +55,7 @@ P3-4 编辑器 → P3-5 失败中心。
 已按仓库实际状态校正。`dev` 代码基线 = `a31b208`（其后有本地 docs 校正提交，
 未 push）、`main = 92d136e`、GitHub latest = **`v0.3.8`**；`dev` 另有 2 个功能性
 提交 `7eb66ad`、`a31b208` 尚未发版（建议 `0.3.9`）。测试已在 `a31b208` 上复跑：1092 tests / 60 files + E2E 162/162，
-build 通过。备份 `source-20261118-0902.bundle`（`dev 988f115`，含 `main`、`v0.3.8`）；更晚备份以目录 `ls -t` 为准。
+build 通过。备份目录最新 `source-*.bundle`（`ls -t`）含 `main`、`dev`、`v0.3.8`。
 
 最近更新：2026-11-17（发布 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1092/60、E2E 162/162、build 通过。
 
