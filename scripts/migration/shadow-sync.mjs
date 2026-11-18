@@ -135,6 +135,11 @@ const cloud = parseCloudUrl(cloudUrl);
 const localUrl = process.env.PR_HELPER_GIT_DATABASE_URL
   || 'postgres://postgres:localdev@127.0.0.1:54329/pr_helper';
 
+// --only=t1,t2 limits the run to a subset (session pooler queries on large
+// tables can take minutes; partial syncs let the core mirror stay fresh).
+const onlyArg = process.argv.find((a) => a.startsWith('--only='));
+const onlySet = onlyArg ? new Set(onlyArg.slice(7).split(',')) : null;
+
 const local = postgres(localUrl, { max: 1, prepare: false, connect_timeout: 10, onnotice: () => {} });
 
 function parseCloudUrl(url) {

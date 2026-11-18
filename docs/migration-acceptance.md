@@ -14,7 +14,7 @@
 | 1 | GitHub App 授权返回后载入工作台并显示仓库管理入口 | 🔀 | **D-020 已实现 Device Flow 连接**（Settings → GitHub account：设备码 + 浏览器授权 + 应用内轮询；显示账号/头像/App 安装），本地 token 仍是认证边界。**实网（11-16）**：Device Flow 已在 App 设置启用、本地成功取码，但 GitHub 授权确认页的 Authorize 按钮因账号 2FA 强制提示而禁用，未绕过；待用户启用 2FA / 刷新会话后完成走查，再评估转 ✅ |
 | 2 | 账户菜单可查询最近操作审计记录 | ✅ | UI 实测（11-14）：FlowBoard「Audit log」→ 500 行 (上限 500) 表格 + 文本筛选 + 导出 CSV（`pr-helper-flows-audit-2026-11-14.csv`，90,686 bytes，表头/转义校验通过）；`GET /api/flows/audit` 路由测试 ✓ |
 | 3 | 新建流程保存到本地 PG 并在刷新后恢复 | ✅ | `createWorkflow` 纯函数测试（随迁 143）+ PUT 路由测试；本地持久化 = 本地 PG，刷新即投影 |
-| 4 | 编辑流程可重新排序步骤并保存新顺序 | ✅ | 11-15 UI 实测：新建流程加第二步后，展开第二步点「上移步骤」，`feature → main` 变为第 1 步、`dev → main` 变第 2 步，展开状态随 stageId 保留；顺序经既有 `PUT /api/flows/workflows` + `workflowToRows(stage_index)` 持久化（`reorderStages` 纯函数测试覆盖依赖索引重写）。pointer 拖拽未做，显式上/下移为等价入口 |
+| 4 | 编辑流程可重新排序步骤并保存新顺序 | ✅ | 11-15 UI 实测：新建流程加第二步后，展开第二步点「上移步骤」，`feature → main` 变为第 1 步、`dev → main` 变第 2 步，展开状态随 stageId 保留；顺序经既有 `PUT /api/flows/workflows` + `workflowToRows(stage_index)` 持久化（`reorderStages` 纯函数测试覆盖依赖索引重写）。pointer 拖拽未做，显式上/下移为等价入口 ；**流程级排序实测（11-19）**：看板 lane #N 位置徽章 + 位置直跳输入——CDP 实测 zeus 输入 3 → 顺序真实交换，moveWorkflowToPosition → PUT → Supabase 全链路生效 |
 | 5 | 编辑时步骤表单默认折叠、添加后重新折叠 | ✅ | UI 实测（11-14）：编辑 zeus → 0 个 `.editor-stage-body`、折叠头显示 expand；展开后 1 个 body；点「add step」后 2 个折叠头、0 个 body |
 | 6 | 新建时步骤表单保持展开 | ✅ | UI 实测（11-14）：新建流程默认展开第一步（source/target/auto-create/auto-merge/auto-advance 可见） |
 | 7 | 编辑流程换仓库需确认 | ✅ | UI 实测（11-14）：编辑 zeus → 仓库字段可输入 `bayernjf/atlas` → 出现「Change repository and create a new flow」→ 原生确认框；取消则不改 |

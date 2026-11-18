@@ -55,6 +55,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
   const [body, setBody] = useState(defaultBody);
   const [draft, setDraft] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [inlineError, setInlineError] = useState('');
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -71,7 +72,9 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
       toast(t("Pull request created"), 'success');
       onCreated();
     } catch (err) {
-      toast(errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err), 'error');
+      const msg = errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err);
+      setInlineError(msg);
+      toast(msg, 'error');
       setSaving(false);
     }
   }
@@ -79,6 +82,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        {inlineError ? <div className="drawer-error">{inlineError}</div> : null}
         <div className="modal-header">
           <h2>{t("New pull request")}</h2>
           <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
