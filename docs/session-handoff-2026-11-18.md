@@ -3,10 +3,11 @@
 > 性质：**时间点快照**，不是实时状态源。实时发布状态看 `package.json`、
 > `CHANGELOG.md` 和 `handoff.md`；迁移状态看 `docs/pr-helper-migration.md`。
 >
-> 本快照已按仓库实际状态校正：`dev = a31b208`（代码基线，已推送、已备份；
-> 其后另有 docs 校正提交），`main = 92d136e`，本次发布 `v0.3.9`。
-> `dev` 的 2 个尚未发布功能修复（`7eb66ad`、`a31b208`）已进入 0.3.9。
-> **0.3.9 合并后：`main = dev = c911b6b`，PR #21 已合并，tag `v0.3.9`。**
+> 本快照按 2026-11-18 发布后的状态记录：0.3.9 之后补发 `0.3.10`
+> （PR #23，发布提交 `067ae83`，tag `v0.3.10`）；**`main = dev = a04ba13`**
+> （0.3.10 发布合并点；本文件的 docs 校正另提交，合并后以实际 `git log` 为准）。
+> 0.3.10 内容：更新器下载速度/剩余时间与失败一键重试、admin/member 权限提示。
+> 实时状态仍以 `package.json`、`CHANGELOG.md`、`handoff.md` 和实际 `git log` 为准。
 
 ## 1. 项目一句话
 
@@ -20,14 +21,14 @@ React 19 + Node 内置 http + OrbStack Postgres。单用户、loopback-only、�
 
 | 项 | 实际值 |
 |---|---|
-| `dev` | 代码基线 `a31b208`；docs 校正已随 0.3.9 合并，当前 = `c911b6b` |
-| `main` | `c911b6b`（Merge PR #21） |
-| 本次发布 | **`v0.3.9`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.9） |
-| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.9` |
-| `dev` 领先 `main` | 0（`main`/`dev` 均 `c911b6b`；发布后已同步） |
-| 备份 | `/Users/jiangfeng/000mycodes-backups/pr-helper-git/source-*.bundle`，以 `ls -t` 取最新；含 `main 92d136e`、`dev` 与 `v0.3.8` |
+| `dev` | `a04ba13`（0.3.10 发布合并点；本 docs 校正提交随后） |
+| `main` | `a04ba13`（Merge PR #23；docs 校正另行合并） |
+| 本次发布 | **`v0.3.10`**（2026-11-18；https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.10） |
+| 已安装桌面 app | `/Applications/PR Helper Git.app` = `0.3.10` |
+| `dev` 领先 `main` | 0（`main`/`dev` 均 `a04ba13`；发布后已同步） |
+| 备份 | 最新 `source-20261118-1008.bundle`；含 `main`、`dev`、`v0.3.10` |
 
-> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.9`
+> 上一版交接写“产品发布版 v0.3.4 / 桌面 app 0.3.4”，已被 `0.3.5`–`0.3.10`
 > 覆盖；以本表为准。
 
 ## 3. 关键路径速查
@@ -67,8 +68,8 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 ## 5. 影子期状态（2026-11-18 时点）
 
 - 启动：2026-11-14 16:24；已运行约 4 天，仍处于 P5-1。
-- launchd 常驻 `:4789`（automation=1，shadow=1，KeepAlive）——state=running。
-- 影子日志：约 3673 行（11-18 01:00 时点；逐轮增长）；最近一轮
+- launchd 常驻 `:4789`（automation=1，shadow=1，KeepAlive）——state=running（pid 82090）。
+- 影子日志：约 3751 行（11-18 10:00 时点；逐轮增长）；近期一轮
   `queued=0 / running=1 / paused=2`，`trackedWorkflows=14`。
 - 最近一次 `shadow-latest.json`：`exportedAt=2026-11-17T19:41:42Z`
   （本地 11-18 03:41），22 张表，云端全量镜像可用。
@@ -76,10 +77,10 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 
 ## 6. 当前测试基线
 
-- 单元/路由测试：**1092 tests / 60 files**（2026-11-18 在 `a31b208` 上复跑）。
+- 单元/路由测试：**1093 tests / 60 files**（2026-11-18 在 0.3.10 上复跑）。
 - E2E：**162 passed / 0 failed**（同次复跑）。
 - `npm run build`：通过。
-- 桌面端：`0.3.9` 已构建、smoke 通过、ZIP/DMG/SHA256SUMS 校验通过。
+- 桌面端：`0.3.10` 已构建、smoke 通过、ZIP/DMG/SHA256SUMS 校验通过。
 
 ## 7. 铁律（违反=事故）
 
@@ -105,6 +106,7 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 | P1 | P5-2 切换日：本地转执行 → 摘 webhook → 停 Vercel cron → 端到端真实流程 | 用户逐项审批（D-016） | 4 个动作，每个动作单独审批 |
 | P1 | P5-3 Supabase 下线：冷备导出 → Pause/Delete | 用户审批 | 切换稳定 1 周后 |
 | P2 | FlowEditor 重配 AI 凭据（旧加密件已清） | 用户 | 一次性 |
+| P2 | 危险操作“影响范围 + 撤销路径”（删除流程/强制推送/清理仓库/硬重置等） | 专项 | 待用户确认操作清单，暂未实现 |
 | P2 | Device Flow 2FA 实网走查（#1 验收项） | 用户 | 账号启用 2FA / 刷新会话后 |
 | P3 | 清理 `~/.pr-helper-git/a2a-token.txt`（若确认不再使用） | 用户 | 可选 |
 | P3 | `receipt-test` 用途确认 | 用户 | 可选 |
@@ -131,8 +133,10 @@ tail ~/.pr-helper-git/automation-shadow.log               # 影子观测
 8. **UI 自动化探针**：headless 模态内程序化点击/时序不稳定——验收以截图、
    git CLI 真相、e2e 结果为准。
 9. **launchd 常驻 server**：改代码后需重启才拾取；切换日重启会自然带上新逻辑。
-10. **桌面更新菜单**：`Check for Updates…` 现在是动态菜单项，下载时显示
+10. **桌面更新菜单**：`Check for Updates…` 是动态菜单项，下载时显示
     `Downloading <version> [bar] pct%`；更新中再点该项会恢复进度窗口。
+    0.3.10 起进度窗显示速度/剩余时间，失败菜单项为 `Update failed — Retry`，
+    点击直接重下；失败窗口内的 `Retry` 等价。
 
 ## 10. 会话协议
 
