@@ -10,7 +10,7 @@
 // is bound to one repository, so switching turns the draft into a new flow
 // (the original confirmRepositorySwitch semantics).
 import { useEffect, useMemo, useState } from 'react';
-import { useToast } from './ui';
+import { useConfirm, useToast } from './ui';
 import { errorMessage } from '../lib/errors';
 import {
   setStageAutoCreate,
@@ -142,6 +142,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   onSaved: (saved: Workflow) => void;
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const initial = useMemo(
     () => structuredClone(workflow ?? initialDraft ?? createWorkflow('', 'dev', 'main')),
     // The caller supplies one stable draft for the lifetime of the editor.
@@ -308,7 +309,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
     const effectCopy = effectText(effect);
     if (effectCopy) {
       // eslint-disable-next-line no-alert
-      const confirmed = window.confirm(`${effectCopy}\n\n${t('Continue?')}`);
+      const confirmed = await confirm({ title: t('Automation immediate effect'), detail: `${effectCopy}\n\n${t('Continue?')}` });
       if (!confirmed) return;
     }
 
@@ -457,7 +458,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
     setDeploymentFormOpen(true);
   }
 
-  function switchRepository() {
+  async function switchRepository() {
     const repository = repositoryInput.trim();
     if (repository === draft.repository) return;
     if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) {
@@ -468,7 +469,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
     // move the original flow's history onto another repository, so the
     // original stays untouched and the draft becomes a new flow.
     // eslint-disable-next-line no-alert
-    const confirmed = window.confirm(tp('Change this flow to {repository}? A new flow will be created; the original flow stays unchanged.', { repository }));
+    const confirmed = await confirm(tp('Change this flow to {repository}? A new flow will be created; the original flow stays unchanged.', { repository }));
     if (!confirmed) return;
     const next = createWorkflow(repository, draft.stages[0]?.source || 'dev', draft.stages[0]?.target || 'main', draft.name || repository, []);
     setDraft(next);
@@ -514,7 +515,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
           disabled={saving}
           onClick={() => void save()}
         >
-          {saving ? t('Refreshing…') : t('Save')}
+          {saving ? t('Saving…') : t('Save')}
         </button>
       </section>
 

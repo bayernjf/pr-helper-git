@@ -418,6 +418,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 className="btn"
                 disabled={!hasServerPat}
                 onClick={async () => {
+                  if (!(await confirm(t('Remove the server-side PAT? Clients will need a browser PAT or a new server-side entry.')))) return;
                   try {
                     await clearServerPat();
                     toast(t('Server-side PAT removed'), 'success');

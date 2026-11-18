@@ -91,7 +91,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const toast = useToast();
   const confirm = useConfirm();
   const drawerRef = useRef<HTMLDivElement>(null);
-  useEscape(onClose);
+
   const previousFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
     previousFocus.current = document.activeElement as HTMLElement | null;
@@ -101,6 +101,9 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const [busy, setBusy] = useState<string>('');
   const [error, setError] = useState('');
   const [takeoverFor, setTakeoverFor] = useState<number | null>(null);
+  // Takeover form has its own Escape layer: first Esc cancels the form
+  // (keeping the drawer and the typed text), only then does the drawer close.
+  useEscape(onClose, takeoverFor === null);
   const [takeoverTitle, setTakeoverTitle] = useState('');
   const [takeoverBody, setTakeoverBody] = useState('');
 
@@ -305,7 +308,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
               disabled={busy !== ''}
               onClick={() => enqueue('create-pr')}
             >
-              {busy === 'create-pr' ? t('Refreshing…') : t('create PR')}
+              {busy === 'create-pr' ? t('Queuing…') : t('create PR')}
             </button>
           ) : null}
           {primary?.pullState === 'open' ? (
@@ -315,7 +318,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
               disabled={busy !== ''}
               onClick={() => enqueue('merge-pr')}
             >
-              {busy === 'merge-pr' ? t('Refreshing…') : t('merge PR')}
+              {busy === 'merge-pr' ? t('Queuing…') : t('merge PR')}
             </button>
           ) : null}
           <button
@@ -324,7 +327,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             disabled={busy !== ''}
             onClick={rerun}
           >
-            {busy === 'rerun' ? t('Refreshing…') : t('rerun Actions')}
+            {busy === 'rerun' ? t('Rerunning…') : t('rerun Actions')}
           </button>
         </div>
 
@@ -476,6 +479,12 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
                           onChange={(event) => setTakeoverTitle(event.target.value)}
                           placeholder={t('takeover title')}
                           aria-label={t('takeover title')}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              event.stopPropagation();
+                              setTakeoverFor(null);
+                            }
+                          }}
                         />
                         <textarea
                           value={takeoverBody}
@@ -483,6 +492,12 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
                           placeholder={t('takeover body (PR description)')}
                           aria-label={t('takeover body (PR description)')}
                           rows={4}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              event.stopPropagation();
+                              setTakeoverFor(null);
+                            }
+                          }}
                         />
                         <div className="takeover-ops">
                           <button

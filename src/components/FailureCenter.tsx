@@ -12,12 +12,13 @@ import { githubPullUrl } from '../lib/domain';
 import PullReference from './PullReference';
 import { t, tp } from '../i18n';
 
-function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer }: {
+function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover }: {
   item: FailureItem;
   flowRepository: string;
   busy: string;
   onRerun?: (item: FailureItem) => void;
   onOpenDrawer: (item: FailureItem) => void;
+  onTakeover?: (item: FailureItem) => void;
 }) {
   const retry = item.recovery;
   return (
@@ -35,6 +36,11 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer }: {
         {retry?.badge ? <span className="fc-recovery-badge">{retry.badge}</span> : null}
       </div>
       <div className="fc-ops">
+        {item.takeoverActionId && onTakeover ? (
+          <button type="button" className="drawer-btn small" onClick={() => onTakeover(item)}>
+            {t('take over')}
+          </button>
+        ) : null}
         {onRerun ? (
           <button
             type="button"
@@ -54,10 +60,12 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer }: {
   );
 }
 
-export default function FailureCenter({ state, onOpenDrawer, onMutated }: {
+export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeover }: {
   state: BoardState;
   onOpenDrawer: (flowId: string, stageIndex: number) => void;
   onMutated: () => void;
+  /** Opens the step drawer preloaded with the paused create-pr action. */
+  onTakeover?: (item: FailureItem) => void;
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState('');
@@ -121,6 +129,7 @@ export default function FailureCenter({ state, onOpenDrawer, onMutated }: {
             item={item}
             flowRepository={repositoryFor(item)}
             busy={busy}
+            onTakeover={onTakeover ? (target) => onTakeover(target) : undefined}
             onOpenDrawer={(target) => onOpenDrawer(target.workflowId, target.stageIndex)}
           />
         ))}

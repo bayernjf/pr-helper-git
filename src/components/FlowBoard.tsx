@@ -54,12 +54,18 @@ const FILTER_COUNT: Record<BoardFilter, keyof ReturnType<typeof boardCounts>> = 
   archived: 'archived',
 };
 
-function StepCard({ lane, repository }: {
+function StepCard({ lane, repository, onOpen }: {
   lane: ReturnType<typeof buildLaneModels>[number]['steps'][number];
   repository: string;
+  onOpen: () => void;
 }) {
   return (
-    <div className={`lane-step ${lane.tone}`}>
+    <button
+      type="button"
+      className={`lane-step ${lane.tone}`}
+      onClick={onOpen}
+      title={tp('open {name} — step {index}', { name: repository, index: lane.stageIndex + 1 })}
+    >
       <div className="step-route">
         <span className="step-index">{lane.stageIndex + 1}</span>
         <b>{lane.source} → {lane.target}</b>
@@ -73,7 +79,7 @@ function StepCard({ lane, repository }: {
           />
         ) : null}
       </small>
-    </div>
+    </button>
   );
 }
 
@@ -87,6 +93,7 @@ export default function FlowBoard() {
   const toast = useToast();
   const confirm = useConfirm();
   const [laneBusy, setLaneBusy] = useState('');
+  const [sortError, setSortError] = useState('');
   const [inbox, setInbox] = useState<InboxPayload | null>(null);
   const [workflows, setWorkflows] = useState<BoardState['workflows']>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +102,7 @@ export default function FlowBoard() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+  const [collapsedLanes, setCollapsedLanes] = useState<string[]>([]);
   const [returnHighlight, setReturnHighlight] = useState<string | null>(null);
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [creating, setCreating] = useState(false);
@@ -178,7 +186,15 @@ export default function FlowBoard() {
     setWorkflows(sortWorkflowsForView(ordered, 'custom', 'asc'));
     // Persist the new custom order through the editor save route.
     const moved = ordered.find((workflow) => workflow.id === flowId);
-    if (moved) void saveWorkflowToServer(moved).catch((err) => toast.error(errorMessage(err)));
+    if (moved) {
+      // Keep the optimistic local order but surface rollback visibly.
+      saveWorkflowToServer(moved)
+        .then(() => setSortError(''))
+        .catch((err) => {
+          setSortError(`${moved.name}: ${errorMessage(err)}`);
+          toast.error(errorMessage(err));
+        });
+    }
   }, [state.workflows, toast]);
 
   const moveLane = useCallback(
@@ -339,6 +355,7 @@ export default function FlowBoard() {
       ) : null}
 
       {error ? <div className="compact-notice is-error"><p>{error}</p></div> : null}
+      {sortError ? <div className="compact-notice is-error"><p>{sortError}</p></div> : null}
       {loading && !inbox ? <div className="compact-notice"><p>{t('Refreshing…')}</p></div> : null}
 
       <section className="board-summary" aria-label={t('Flow board')}>
@@ -441,6 +458,16 @@ export default function FlowBoard() {
                 </button>
               </div>
               <span className="lane-run">
+                <button
+                  type="button"
+                  className="lane-move-btn"
+                  aria-expanded={!collapsedLanes.includes(lane.workflow.id)}
+                  aria-label={collapsedLanes.includes(lane.workflow.id) ? t('Expand') : t('Collapse')}
+                  title={collapsedLanes.includes(lane.workflow.id) ? t('Expand') : t('Collapse')}
+                  onClick={() => setCollapsedLanes((current) => (current.includes(lane.workflow.id) ? current.filter((id) => id !== lane.workflow.id) : [...current, lane.workflow.id]))}
+                >
+                  {collapsedLanes.includes(lane.workflow.id) ? '+' : '–'}
+                </button>
                 {sortMode === 'custom' && filter === 'all' && !search ? (
                   <span className="lane-move">
                     <span className="lane-position-badge" title={t('custom order')}>#{index + 1}</span>
@@ -479,16 +506,22 @@ export default function FlowBoard() {
                 <span className="run-text">{lane.summary.text}</span>
               </span>
             </header>
+            {collapsedLanes.includes(lane.workflow.id) ? null : (
             <div className="lane-track">
               {lane.steps.map((step, index) => (
                 <Fragment key={`${step.stageIndex}:${step.source}`}>
                   {index > 0 ? <span className="lane-connector" aria-hidden="true">→</span> : null}
-                  <StepCard lane={step} repository={lane.workflow.repository} />
+                  <StepCard
+                    lane={step}
+                    repository={lane.workflow.repository}
+                    onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
+                  />
                 </Fragment>
               ))}
             </div>
+            )}
           </article>
-        )) : (
+        )) : error ? null : (
           <article className="board-empty">
             <h3>{workflows.length ? t('No flows match this filter') : t('No flows yet — create one from a repository')}</h3>
             {workflows.length ? (
