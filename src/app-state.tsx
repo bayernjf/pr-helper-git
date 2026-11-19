@@ -3,14 +3,12 @@ import { errorMessage, errorDetail } from './lib/errors';
 // SSE-driven auto refresh and a helper that runs write actions then refreshes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { getRefs,
+import {
+  getRefs,
   getRemote,
   getRepos,
   getStatus,
   getLog,
-  getPatStatus,
-  storeServerPat,
-  deleteServerPat,
 } from './api';
 import type {
   Commit,
@@ -21,15 +19,14 @@ import type {
   RepoBrief,
 } from './types';
 import { useToast, type ToastKind } from './components/ui';
-import { getPref, setPref } from './lib/prefs';
 import { STORAGE_KEYS } from './lib/storage-keys';
-import { applyAppearance, getAccent, getThemeMode, type Accent, type ThemeMode } from './lib/appearance';
+import type { Accent } from './lib/appearance';
 import { t as translateText } from './i18n';
+import type { Theme, View } from './app-state/types';
+import { PreferencesProvider, usePreferences } from './app-state/preferences-provider';
+import { useAppToast } from './app-state/toast';
 
-type View = 'git' | 'pr' | 'dashboard' | 'flows' | 'ci';
-export type Theme = ThemeMode;
 const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
-const PAT_KEY = STORAGE_KEYS.pat;
 const LOG_PAGE_SIZE = 200;
 export const LOG_MAX = 1000;
 
@@ -77,8 +74,16 @@ interface AppData {
 // full provider (which performs network and local-storage side effects).
 export const AppContext = createContext<AppData | null>(null);
 
-export function AppDataProvider({ children }: { children: ReactNode }) {
+// The repo-data and write-action state lives here until S1b/S1c split it into
+// RepoDataProvider / ActionsProvider. Preferences have already moved out to
+// PreferencesProvider; this inner component reads them back and assembles the
+// aggregate AppData so `useApp()` keeps working unchanged.
+function AppDataInner({ children }: { children: ReactNode }) {
   const toastApi = useToast();
+  const prefs = usePreferences();
+  const refreshServerPat = prefs.refreshServerPat;
+  const toast = useAppToast();
+
   const [repos, setRepos] = useState<RepoBrief[]>([]);
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [status, setStatus] = useState<ParsedStatus | null>(null);
@@ -86,11 +91,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [refs, setRefs] = useState<Ref[]>([]);
   const [remote, setRemote] = useState<RemoteInfo | null>(null);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
-  const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
-  const [theme, setTheme] = useState<Theme>(() => getThemeMode());
-  const [accent, setAccentState] = useState<Accent>(() => getAccent());
-  const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
-  const [hasServerPat, setHasServerPat] = useState(false);
   const [busy, setBusy] = useState(false);
   const [repoLoading, setRepoLoading] = useState(false);
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
@@ -103,11 +103,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // repository can no longer overwrite the data of the current one.
   const activeRepoRef = useRef<string | null>(null);
   const loadSeqRef = useRef(0);
-
-  const toast = useCallback(
-    (message: string, kind: ToastKind = 'info') => toastApi.notify(message, kind),
-    [toastApi],
-  );
 
   const refreshRepos = useCallback(async () => {
     const { repos: list } = await getRepos();
@@ -138,11 +133,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCommits(logRes.commits);
     setRefs(refsRes.refs);
     setRemote(remoteRes.remote);
-    // Server-side PAT availability gates the PR views alongside the
-    // browser-local PAT (server-stored mode keeps no PAT in the browser).
-    getPatStatus().then((s) => setHasServerPat(s.hasServerPat)).catch(() => undefined);
+    // Server-side PAT availability gates the PR views alongside the browser-
+    // local PAT (server-stored mode keeps no PAT in the browser). Re-read it
+    // after each repo load (fire-and-forget), unchanged from the original.
+    refreshServerPat();
     return true;
-  }, []);
+  }, [refreshServerPat]);
 
   const selectRepo = useCallback((repoPath: string) => {
     activeRepoRef.current = repoPath;
@@ -238,49 +234,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => source.close();
   }, [loadRepoData]);
 
-  const setPat = useCallback((value: string) => {
-    setPatState(value);
-    localStorage.setItem(PAT_KEY, value);
-  }, []);
-  const setServerPat = useCallback(async (value: string) => {
-    const result = await storeServerPat(value);
-    setHasServerPat(result.hasServerPat);
-    // Server-stored mode: the browser copy is no longer needed.
-    localStorage.removeItem(PAT_KEY);
-    setPatState('');
-    return result;
-  }, []);
-  const clearServerPat = useCallback(async () => {
-    const result = await deleteServerPat();
-    setHasServerPat(false);
-    return result;
-  }, []);
-
-  // Persist the active view so a reload restores it.
-  const setView = useCallback((next: View) => {
-    setViewState(next);
-    setPref('view', next);
-  }, []);
-
-  // Reflect mode + accent on <html>, persist them, and follow the OS while the
-  // mode is "auto". main.tsx applies the saved values before first paint.
-  useEffect(() => {
-    applyAppearance(theme, accent);
-    setPref('theme', theme);
-    setPref('accent', accent);
-    if (theme !== 'auto') return;
-    const media = window.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => applyAppearance('auto', accent);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, [theme, accent]);
-
-  const setAccent = useCallback((next: Accent) => setAccentState(next), []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'));
-  }, []);
-
   // Switch the history scope and reload the active repo immediately. Keep the
   // path/author filters: the UI still shows them, so dropping them here would
   // silently display unfiltered history.
@@ -365,11 +318,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       refs,
       remote,
       selectedHash,
-      view,
-      theme,
-      accent,
-      pat,
-      hasServerPat,
+      view: prefs.view,
+      theme: prefs.theme,
+      accent: prefs.accent,
+      pat: prefs.pat,
+      hasServerPat: prefs.hasServerPat,
       busy,
       repoLoading,
       logLimit,
@@ -377,32 +330,42 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       logPath,
       logFilters,
       toast,
-      setPat,
-      setServerPat,
-      clearServerPat,
+      setPat: prefs.setPat,
+      setServerPat: prefs.setServerPat,
+      clearServerPat: prefs.clearServerPat,
       setLogScope,
       setLogPath,
       setLogFilters,
       selectRepo,
       selectCommit: setSelectedHash,
-      setView,
-      setTheme,
-      setAccent,
-      toggleTheme,
+      setView: prefs.setView,
+      setTheme: prefs.setTheme,
+      setAccent: prefs.setAccent,
+      toggleTheme: prefs.toggleTheme,
       refreshRepos,
       refresh,
       loadMore,
       runAction,
     };
   }, [
-    repos, activeRepo, status, commits, refs, remote, selectedHash, view,
-    theme, accent, pat, busy, repoLoading, logLimit, logScope, logPath, logFilters,
-    toast, setPat, setLogScope,
-    setLogPath, setLogFilters, selectRepo, refreshRepos, refresh, loadMore,
-    runAction, toggleTheme, setAccent,
+    repos, activeRepo, status, commits, refs, remote, selectedHash,
+    prefs.view, prefs.theme, prefs.accent, prefs.pat, prefs.hasServerPat,
+    busy, repoLoading, logLimit, logScope, logPath, logFilters,
+    toast, prefs.setPat, prefs.setServerPat, prefs.clearServerPat,
+    setLogScope, setLogPath, setLogFilters, selectRepo,
+    prefs.setView, prefs.setTheme, prefs.setAccent, prefs.toggleTheme,
+    refreshRepos, refresh, loadMore, runAction,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export function AppDataProvider({ children }: { children: ReactNode }) {
+  return (
+    <PreferencesProvider>
+      <AppDataInner>{children}</AppDataInner>
+    </PreferencesProvider>
+  );
 }
 
 export function useApp(): AppData {
