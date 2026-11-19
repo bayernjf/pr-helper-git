@@ -1,4 +1,12 @@
 import type { Accent, ThemeMode } from '../lib/appearance';
+import type {
+  Commit,
+  LogFilters,
+  ParsedStatus,
+  Ref,
+  RemoteInfo,
+  RepoBrief,
+} from '../types';
 
 export type View = 'git' | 'pr' | 'dashboard' | 'flows' | 'ci';
 export type Theme = ThemeMode;
@@ -21,4 +29,30 @@ export interface Preferences {
   setServerPat: (value: string) => Promise<{ hasServerPat: boolean }>;
   clearServerPat: () => Promise<{ hasServerPat: boolean }>;
   refreshServerPat: () => void;
+}
+
+// Repo-data domain: registry, active repo payload, SSE-driven refresh, the
+// history window (limit/scope/path/filters) and the load-generation guards.
+export interface RepoData {
+  repos: RepoBrief[];
+  activeRepo: string | null;
+  activeBrief: RepoBrief | null;
+  status: ParsedStatus | null;
+  commits: Commit[];
+  refs: Ref[];
+  remote: RemoteInfo | null;
+  selectedHash: string | null;
+  repoLoading: boolean;
+  logLimit: number;
+  logScope: 'all' | 'current';
+  logPath: string;
+  logFilters: LogFilters;
+  setLogPath: (path: string) => void;
+  setLogFilters: (filters: LogFilters) => void;
+  setLogScope: (scope: 'all' | 'current') => void;
+  selectRepo: (path: string) => void;
+  selectCommit: (hash: string | null) => void;
+  refreshRepos: () => Promise<RepoBrief[]>;
+  refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
 }
