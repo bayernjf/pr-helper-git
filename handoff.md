@@ -125,6 +125,32 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 PR #15 列表卡片显示 `mergeable`（PR 已关闭、分支已删除）；切换仓库后
 `.loading-bar` 数量为 0。
 
+## app-state context split (2026-11-19)
+
+范围：把单例 `AppDataProvider` / `useApp()`（411 行、43 个生产消费点）拆成
+四个领域 context（Preferences / RepoData / Actions / Busy）+ 既有
+`ToastProvider`，按 `docs/app-state-split-plan.md` 的执行清单分 7 步落地
+（S1a/S1b/S1c + Phase 2/3/4），每步独立提交。目的：让切主题 / 改 PAT /
+busy 翻转 / 日志过滤不再触发无关消费者重渲染。
+
+要点：
+
+- `PreferencesProvider`（view/theme/accent/pat/hasServerPat）、
+  `RepoDataProvider`（repos/status/commits/refs/remote/日志窗口、SSE、
+  `loadSeqRef`/`activeRepoRef` 代际守卫、初始仓库恢复）、`ActionsProvider`
+  （`runAction` + `busy` 分 context；`runAction` 用 `refreshRef` 稳定引用，
+  顺带修掉旧闭包读旧 `refresh` 的隐患）、`useAppToast`。
+- 43 个 `useApp()` 消费者全部迁到领域 hooks；移除 `useApp`/`AppContext`/
+  `AppData` 兼容层。
+- 关键不变量 `loadSeqRef.current + 1` 原样保留（漏 `+1` 顶部加载条会卡住）。
+- 测试注入改为直接导出各领域 Context（`PreferencesContext`/`RepoDataContext`/
+  `ActionsContext`/`BusyContext`），替代计划里的 `test-helpers.tsx`。
+- 新增 `src/app-state/context-isolation.test.tsx`（4 个渲染计数探针证明隔离边界）。
+
+验证：1173 tests / 69 files；E2E 162/162；lint / typecheck:server / build 全绿。
+PR #40 合并 `586b12e`。可选后续（未做）：`selectedHash` / `SelectionContext`
+拆分，若 Phase 3 后渲染性能仍不达标再评估。
+
 ## Release 0.3.14 (2026-11-19)
 
 范围：修复服务端 PAT 模式下 `FlowEditor` 分支选择器与 `StepDrawer`
