@@ -6,6 +6,7 @@
 
 ### 修复
 - **PR 列表合并状态**：GitHub REST 的 pulls 列表即使对 open PR 也返回 `mergeable=null`，导致所有卡片显示「计算中」。新增 `POST /api/pull-mergeability`，按仓库用 GraphQL 批量读取 open PR 的 `mergeable` / `mergeStateStatus`，映射成 REST 字段后合并进列表；查询失败时保持原列表，不阻塞加载。
+- **顶部加载条卡住**：切换仓库、历史范围、路径或过滤器时，调用方在 `loadRepoData` 之前捕获的序号被后者递增，导致 `finally` 永远不匹配、`repoLoading` 不复位。现在捕获即将占用的序号，加载完成后蓝条正常消失。
 
 ### 验证
 - 1169 tests / 68 files；E2E 162/162；build 通过；隔离 18777 用真实 Hello-World 仓库验证接口返回 `mergeable:true` / `mergeable_state:clean`（GraphQL 的 `MERGEABLE` 枚举映射为 true）。

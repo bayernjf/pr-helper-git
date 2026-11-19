@@ -105,6 +105,15 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 `mergeable`（不再 `computing`）；验收后 PR 已关闭、临时分支已删除。
 未发版，待用户指令。
 
+### 顶部加载条复位（2026-11-19）
+
+`repoLoading` 驱动的 2px 不定进度条在切仓库后一直跑。根因是
+`selectRepo` / `setLogScope` / `setLogPath` / `setLogFilters` / `loadMore`
+在调用 `loadRepoData` 前捕获 `loadSeqRef.current`，而后者入口处会先
+`++loadSeqRef.current`，于是 `finally` 的 `seq === loadSeqRef.current`
+永远不成立。改为捕获即将占用的序号（`current + 1`），并用 18777
+浏览器实测：切换仓库完成后 `.loading-bar` 数量为 0。
+
 ## Release 0.3.14 (2026-11-19)
 
 范围：修复服务端 PAT 模式下 `FlowEditor` 分支选择器与 `StepDrawer`
