@@ -112,6 +112,16 @@ open-PR 抽屉、checks、文件 diff 与 New PR 分支列表。临时 PR #14 �
 安装后重启验证：应用窗口正常加载、Flows 15 个流程可见、FlowEditor
 source/target 分支 toggle 出现并列出真实 `dev`。
 
+### 测试仓清理（2026-11-19）
+
+按用户指示复核 `TEST-REPOS.md` 的 GitHub 测试仓：保留
+`bayernjf/git-e2e-test`（#1，主 E2E 仓，本地 `main` 干净、0 open PR）；
+删除 #3 `pr-helper-e2e-sandbox`、#4 `pr-helper-e2e-sandbox-private`、
+#6 `e2e-test`、#7 `receipt-test`（均为 pr-helper 时代 / 用途未确认，
+本地无 clone，删除时分别有 2/0/0/9 个 open PR，随仓库一并消失）。
+#2 `pr-helper-git-sync-test` 与 #8 `aw-pr-dogfood` 按用户指示留待后续处理；
+#5 `e2e-test-real` 未在本次清单内，保持原样。登记表已移除四行并记录删除日期。
+
 ## Release 0.3.13 (2026-11-19)
 
 范围：修复 CI Health 指标卡标签在窄窗口下被省略。`src/styles.css` 的
