@@ -102,9 +102,18 @@ resolve 缺陷。
 `workflowId|stageIndex|source` 隔离，避免错误消隐。
 
 验证：1160 tests / 66 files；E2E 162/162；build 通过；CI Linux test +
-macOS desktop 双绿。隔离只读浏览器走查（15 flows / 17 failed /
-8 warnings / 56 passed）；open-PR fixture 覆盖 merge 菜单、gate chips、
-fan-in 与 resolve 接线。
+macOS desktop 双绿。第二批开发期隔离走查（无 PAT 降级环境，15 flows /
+17 failed / 8 warnings / 56 passed）；open-PR fixture 覆盖 merge 菜单、
+gate chips、fan-in 与 resolve 接线。
+
+发布：提交 `c823224`，tag `v0.3.12`，PR #31 合并 `4b35658`；备份
+`source-20261119-1507.bundle` 含 `main`、`dev`、`v0.3.12`。
+
+0.3.12 实机走查（2026-11-19，隔离 18776、只读、无调度器）：CI Health
+30 天窗口扫描 47 仓 / 516 PR / 99.0% 通过；Flows 列出 15 条（含
+`agent-ops`）；板级预检 15 flows / 0 failed / 0 warnings / 90 passed；
+NEXT ACTION「Flow status synced」、进度「All done · 1 steps」、步骤抽屉
+PR #218 `checks 8/8` 正常；无写操作。
 
 ## Release 0.3.11 (2026-11-18)
 
