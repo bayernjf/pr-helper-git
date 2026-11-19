@@ -6,10 +6,13 @@
 // provides the credentials.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscape } from '../hooks/use-escape';
+import { useCheckDetails } from '../hooks/use-check-details';
+import { useApp } from '../app-state';
 import CodexRepairModal from './CodexRepairModal';
+import GateDisclosure from './GateDisclosure';
 import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
-import { stageStateText } from '../lib/automation/flows-detail';
+import { mergeabilityGateText, stageStateText } from '../lib/automation/flows-detail';
 import { deploymentConfigs, matchingStageProjections, type DeploymentConfig, type Workflow } from '../lib/automation/workflow';
 import { automationActionPresentation, type AutomationActionState } from '../lib/automation/workflow-run';
 import { githubPullUrl } from '../lib/domain';
@@ -115,6 +118,8 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     [flow, stageIndex, inbox.states],
   );
   const primary: WorkflowStageStateRow | undefined = routes[0];
+  const { pat } = useApp();
+  const checkDetails = useCheckDetails(pat, flow.repository, primary?.headSha);
   const queueItem: ActionQueueItem | undefined = useMemo(
     () => inbox.items.find(
       (item) => item.workflowId === flow.id
@@ -291,13 +296,24 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             <span className="drawer-label">PR</span>
             <PullReference url={githubPullUrl(flow.repository, pullNumber)} label={`#${pullNumber}`} />
             {primary?.checksTotal ? (
-              <span className="drawer-gate">{tp('checks {passed}/{total} {state}', {
-                passed: primary.checksPassed ?? 0,
-                total: primary.checksTotal,
-                state: primary.checksState === 'success'
-                  ? t('checks passed')
-                  : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
-              })}</span>
+              <GateDisclosure
+                className="drawer-gate"
+                target={stage.target}
+                details={checkDetails}
+                summary={tp('checks {passed}/{total} {state}', {
+                  passed: primary.checksPassed ?? 0,
+                  total: primary.checksTotal,
+                  state: primary.checksState === 'success'
+                    ? t('checks passed')
+                    : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
+                })}
+              />
+            ) : null}
+            {primary?.pullState === 'open' && primary.requiredApprovals ? (
+              <span className="drawer-gate">{tp('approvals {approvals}/{required}', { approvals: primary.approvals ?? 0, required: primary.requiredApprovals })}</span>
+            ) : null}
+            {primary?.pullState === 'open' && mergeabilityGateText(primary.mergeable, primary.mergeableState) ? (
+              <span className="drawer-gate">{mergeabilityGateText(primary.mergeable, primary.mergeableState)}</span>
             ) : null}
           </div>
         ) : null}

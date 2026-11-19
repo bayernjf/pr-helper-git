@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStageDetails,
   flowProgress,
+  mergeabilityGateText,
   nextActionSummary,
   stageProgressStatus,
   stageProgressTooltip,
@@ -102,6 +103,34 @@ describe('buildStageDetails', () => {
     const state: BoardState = { ...stateWith([]), workflows: [flow] };
     const [stage] = buildStageDetails(state, flow, []);
     expect(stage.automation).toEqual({ autoCreate: true, threshold: 4, autoMerge: false, autoAdvance: false });
+  });
+
+  it('adds approval and mergeability gates to an open stage', () => {
+    const [stage] = buildStageDetails(stateWith([
+      row({
+        stageId: 's-d-1', pullState: 'open', checksState: 'running', pullNumber: 217, headSha: 'abc',
+        checksPassed: 3, checksTotal: 5, approvals: 1, requiredApprovals: 2, mergeable: false, mergeableState: 'dirty',
+      }),
+    ]), FLOW, []);
+    expect(stage.gates).toEqual(['checks 3/5 checks running', 'approvals 1/2', 'merge conflict']);
+  });
+
+  it('keeps merged stages on post-merge checks only', () => {
+    const [stage] = buildStageDetails(stateWith([
+      row({
+        stageId: 's-d-1', pullState: 'merged', checksState: 'success', pullNumber: 12,
+        checksPassed: 5, checksTotal: 5, approvals: 0, requiredApprovals: 2, mergeableState: 'dirty',
+      }),
+    ]), FLOW, []);
+    expect(stage.gates).toEqual(['checks 5/5 checks passed']);
+  });
+
+  it('maps behind and blocked mergeability states and stays silent when clean', () => {
+    expect(mergeabilityGateText(null, 'behind')).toBe('branch needs update');
+    expect(mergeabilityGateText(true, 'blocked')).toBe('GitHub gates not met');
+    expect(mergeabilityGateText(false, undefined)).toBe('merge conflict');
+    expect(mergeabilityGateText(true, 'clean')).toBeNull();
+    expect(mergeabilityGateText(null, 'unknown')).toBeNull();
   });
 
   it('filters the event stream down to this stage', () => {

@@ -75,6 +75,14 @@ export function stageStateText(kind: 'not-created' | 'open' | 'merged' | 'closed
   return t('waiting for merge');
 }
 
+/** Mergeability gate chip (detail.ts mergeabilityGate); null when GitHub reports no blocker. */
+export function mergeabilityGateText(mergeable: boolean | null | undefined, mergeableState: string | null | undefined): string | null {
+  if (mergeable === false || mergeableState === 'dirty') return t('merge conflict');
+  if (mergeableState === 'behind') return t('branch needs update');
+  if (mergeableState === 'blocked') return t('GitHub gates not met');
+  return null;
+}
+
 /** Per-stage detail models in stage order. */
 export function buildStageDetails(state: BoardState, flow: Workflow, events: readonly StageEventRow[]): StageDetailModel[] {
   return flow.stages.map((stage, index) => {
@@ -140,6 +148,13 @@ export function buildStageDetails(state: BoardState, flow: Workflow, events: rea
 
     const kind = (status?.kind ?? 'not-created') as 'not-created' | 'open' | 'merged' | 'closed';
     const checksState = primary?.checksState;
+    // Approval and mergeability gates only describe an open pull (detail.ts
+    // gates list); a merged stage keeps just its post-merge checks.
+    if (kind === 'open' && primary?.requiredApprovals) {
+      gates.push(tp('approvals {approvals}/{required}', { approvals: primary.approvals ?? 0, required: primary.requiredApprovals }));
+    }
+    const mergeability = kind === 'open' ? mergeabilityGateText(primary?.mergeable, primary?.mergeableState) : null;
+    if (mergeability) gates.push(mergeability);
     return {
       index,
       source: stage.source,
