@@ -19,12 +19,14 @@ an archived private repo, checkpoint is unrelated).
 |---|------------|------------|---------|---------|
 | 1 | [bayernjf/git-e2e-test](https://github.com/bayernjf/git-e2e-test) | Private | 2026-11-05 | **Primary E2E repo** (active): commit graph with forks/merge nodes, branches, tags, SSE auto-refresh, stage/commit/push, create/convert/merge pull requests. Also the candidate for the migration P2-1 live acceptance run. |
 | 2 | [bayernjf/pr-helper-git-sync-test](https://github.com/bayernjf/pr-helper-git-sync-test) | Private | 2026-11-05 | "Temporary test repo for pr-helper-git client sync testing". No local clone. |
-| 3 | [bayernjf/pr-helper-e2e-sandbox](https://github.com/bayernjf/pr-helper-e2e-sandbox) | Public | 2026-08-02 | "Public sandbox for PR Helper end-to-end workflow validation" (pr-helper era). |
-| 4 | [bayernjf/pr-helper-e2e-sandbox-private](https://github.com/bayernjf/pr-helper-e2e-sandbox-private) | Private | 2026-08-11 | Private counterpart of #3 (pr-helper era). |
 | 5 | [bayernjf/e2e-test-real](https://github.com/bayernjf/e2e-test-real) | Private | 2026-08-07 | pr-helper-era E2E repo. |
-| 6 | [bayernjf/e2e-test](https://github.com/bayernjf/e2e-test) | Private | 2026-08-07 | pr-helper-era E2E repo. |
-| 7 | [bayernjf/receipt-test](https://github.com/bayernjf/receipt-test) | Private | 2026-08-23 | Purpose unconfirmed — registered as a test repo pending the owner's review. |
 | 8 | [bayernjf/aw-pr-dogfood](https://github.com/bayernjf/aw-pr-dogfood) | Private | 2026-09-01 | "Temporary dogfood target for agent-world tpl-release-pr (delete me)" — near-empty (1KB), registered 2026-11-14 on the owner's direction. |
+
+Deleted on 2026-11-19 after owner review (local clones: none):
+`bayernjf/pr-helper-e2e-sandbox` (#3),
+`bayernjf/pr-helper-e2e-sandbox-private` (#4),
+`bayernjf/e2e-test` (#6), and `bayernjf/receipt-test` (#7).
+`git-e2e-test` (#1) stays as the primary E2E repo; #2, #5, #8 remain registered.
 
 Excluded from this registry (reviewed 2026-11-14): `hello-world` (archived
 private repo, not a test fixture) and `checkpoint` (unrelated).
