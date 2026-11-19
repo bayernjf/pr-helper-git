@@ -2,7 +2,7 @@
 // is offered at all, so the URL shapes git and GitHub actually emit must all
 // resolve to the same owner/repo pair.
 import { describe, expect, it } from 'vitest';
-import { parseRemoteUrl } from './routes-github.mjs';
+import { parseRemoteUrl, mergeabilityRows } from './routes-github.mjs';
 
 describe('parseRemoteUrl', () => {
   it('parses scp-style SSH remotes', () => {
@@ -48,5 +48,29 @@ describe('parseRemoteUrl', () => {
 
   it('returns null for an empty remote', () => {
     expect(parseRemoteUrl('   ')).toBeNull();
+  });
+});
+
+describe('mergeabilityRows', () => {
+  it('maps GraphQL mergeable enums and merge state statuses', () => {
+    const rows = mergeabilityRows([
+      { number: 7, mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN' },
+      { number: 8, mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY' },
+      { number: 9, mergeable: 'UNKNOWN', mergeStateStatus: 'UNKNOWN' },
+    ]);
+    expect(rows).toEqual([
+      { number: 7, mergeable: true, mergeable_state: 'clean' },
+      { number: 8, mergeable: false, mergeable_state: 'dirty' },
+      { number: 9, mergeable: null, mergeable_state: 'unknown' },
+    ]);
+  });
+
+  it('drops malformed rows and preserves a missing status', () => {
+    expect(mergeabilityRows([
+      { number: 10, mergeable: 'MERGEABLE' },
+      { mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN' },
+    ])).toEqual([
+      { number: 10, mergeable: true, mergeable_state: null },
+    ]);
   });
 });

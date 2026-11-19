@@ -1,4 +1,5 @@
 import { request } from './core';
+import type { PullMergeability } from '../lib/pull-mergeability';
 
 // ---------- GitHub proxy ----------
 
@@ -41,5 +42,13 @@ export function githubProxy<T>(
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-github-pat': pat },
     body: JSON.stringify({ path, method, payload }),
+  });
+}
+
+export function pullMergeability(repo: string, pat: string): Promise<{ pulls: PullMergeability[] }> {
+  return request('/api/pull-mergeability', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-github-pat': pat },
+    body: JSON.stringify({ repo }),
   });
 }

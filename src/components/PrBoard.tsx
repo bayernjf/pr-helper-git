@@ -1,6 +1,7 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { githubProxy } from '../api';
+import { githubProxy, pullMergeability } from '../api';
+import { applyPullMergeability } from '../lib/pull-mergeability';
 import { useApp } from '../app-state';
 import type { PullRequest, ReviewState } from '../types';
 import { summarizeReviews, type GithubReview } from '../lib/review';
@@ -131,7 +132,8 @@ export default function PrBoard() {
     [pat, remote],
   );
 
-  // Fetch one page of PRs and attach the review summary for each open PR.
+  // Fetch one page of PRs; review summaries still load lazily per card. The
+  // list endpoint omits mergeability, so open cards are enriched separately.
   const fetchPage = useCallback(async (pageNo: number): Promise<PullRequest[]> => {
     if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) return [];
     const res = await githubProxy<PullRequest[]>(
@@ -139,11 +141,18 @@ export default function PrBoard() {
       `/repos/${remote.owner}/${remote.repo}/pulls?state=all&per_page=${PAGE_SIZE}&page=${pageNo}`,
     );
     const list = Array.isArray(res.data) ? res.data : [];
-    // Review summaries load lazily per card (see ReviewPill in PrCard): one
-    // page of open PRs used to issue page-size extra GitHub calls on every
-    // refresh — a real rate-limit burn.
-    return list;
-  }, [pat, hasServerPat, remote]);
+    // GitHub's list endpoint leaves mergeable as null even for open PRs.
+    // One repository-wide GraphQL lookup supplies it without N+1 requests.
+    if (!activeRepo || !list.some((pull) => pull.state === 'open')) return list;
+    try {
+      const mergeability = await pullMergeability(activeRepo, pat);
+      const rows = Array.isArray(mergeability.pulls) ? mergeability.pulls : [];
+      return applyPullMergeability(list, rows);
+    } catch {
+      // Mergeability is supplementary: a failed lookup must not hide the list.
+      return list;
+    }
+  }, [pat, hasServerPat, remote, activeRepo]);
 
   const load = useCallback(async () => {
     if ((!pat && !hasServerPat) || !remote?.isGithub || !remote.owner || !remote.repo) {

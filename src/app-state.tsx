@@ -159,7 +159,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLogScopeState('all');
     setLogPathState('');
     setLogFiltersState({});
-    const seq = loadSeqRef.current;
+    const seq = loadSeqRef.current + 1;
     setRepoLoading(true);
     loadRepoData(repoPath, LOG_PAGE_SIZE, 'all', '')
       .catch((err) => {
@@ -190,6 +190,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (!activeRepo) return;
     const nextLimit = Math.min(logLimit + LOG_PAGE_SIZE, LOG_MAX);
     if (nextLimit === logLimit) return;
+    const seq = loadSeqRef.current + 1;
     setRepoLoading(true);
     try {
       if (await loadRepoData(activeRepo, nextLimit, logScope, logPath, logFilters)) {
@@ -198,7 +199,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       toastApi.error(errorMessage(err) || 'failed to load more history');
     } finally {
-      setRepoLoading(false);
+      if (seq === loadSeqRef.current) setRepoLoading(false);
     }
   }, [activeRepo, logLimit, logScope, logPath, logFilters, loadRepoData, toastApi]);
 
@@ -286,7 +287,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const setLogScope = useCallback((scope: 'all' | 'current') => {
     setLogScopeState(scope);
     if (!activeRepo) return;
-    const seq = loadSeqRef.current;
+    const seq = loadSeqRef.current + 1;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, scope, logPath, logFilters)
       .catch((err) => {
@@ -301,7 +302,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (pathFilter === logPath) return;
     setLogPathState(pathFilter);
     if (!activeRepo) return;
-    const seq = loadSeqRef.current;
+    const seq = loadSeqRef.current + 1;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, pathFilter, logFilters)
       .catch((err) => {
@@ -320,7 +321,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
     setLogFiltersState(next);
     if (!activeRepo) return;
-    const seq = loadSeqRef.current;
+    const seq = loadSeqRef.current + 1;
     setRepoLoading(true);
     loadRepoData(activeRepo, logLimit, logScope, logPath, next)
       .catch((err) => {
