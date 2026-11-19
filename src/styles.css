@@ -3952,6 +3952,19 @@ pre.diff {
 .drawer-btn { padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: var(--fs-ui); cursor: pointer; }
 .drawer-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--hover); }
 .drawer-btn.primary { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.merge-control { position: relative; display: inline-flex; }
+.merge-control .merge-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.merge-control .merge-arrow { display: grid; place-items: center; width: 30px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 1px solid var(--accent-line); }
+.merge-control .merge-arrow svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur-fast); }
+.merge-control .merge-arrow[aria-expanded="true"] svg { transform: rotate(180deg); }
+.merge-menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; display: grid; width: min(320px, calc(100vw - 40px)); padding: 6px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.merge-menu-option { display: grid; gap: 4px; width: 100%; padding: 10px; border: 0; border-bottom: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text); text-align: left; font-size: var(--fs-ui); cursor: pointer; transition: background var(--dur-fast); }
+.merge-menu-option:last-child { border-bottom: 0; }
+.merge-menu-option b { font-weight: 600; }
+.merge-menu-option.active { color: var(--accent); }
+.merge-menu-option:hover:not(:disabled) { background: var(--hover); }
+.merge-menu-option small { color: var(--muted); font-size: var(--fs-meta); font-weight: 400; line-height: 1.45; }
+.merge-menu-option:disabled { opacity: 0.5; cursor: not-allowed; }
 .drawer-btn.small { padding: 3px 10px; font-size: var(--fs-meta); }
 .drawer-btn:disabled { opacity: 0.55; cursor: default; }
 .drawer-empty { margin: 0; font-size: var(--fs-meta); color: var(--faint); }

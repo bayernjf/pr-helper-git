@@ -109,6 +109,18 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   // Takeover form has its own Escape layer: first Esc cancels the form
   // (keeping the drawer and the typed text), only then does the drawer close.
   useEscape(onClose, takeoverFor === null);
+  const [mergeMenuOpen, setMergeMenuOpen] = useState(false);
+  const mergeControlRef = useRef<HTMLSpanElement>(null);
+  // The menu joins the Escape stack above the drawer, so Esc closes only it.
+  useEscape(() => setMergeMenuOpen(false), mergeMenuOpen);
+  useEffect(() => {
+    if (!mergeMenuOpen) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!mergeControlRef.current?.contains(event.target as Node)) setMergeMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [mergeMenuOpen]);
   const [takeoverTitle, setTakeoverTitle] = useState('');
   const [takeoverBody, setTakeoverBody] = useState('');
 
@@ -330,14 +342,49 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             </button>
           ) : null}
           {primary?.pullState === 'open' ? (
-            <button
-              type="button"
-              className="drawer-btn primary"
-              disabled={busy !== ''}
-              onClick={() => enqueue('merge-pr')}
-            >
-              {busy === 'merge-pr' ? t('Queuing…') : t('merge PR')}
-            </button>
+            <span className="merge-control" ref={mergeControlRef}>
+              <button
+                type="button"
+                className="drawer-btn primary merge-main"
+                disabled={busy !== ''}
+                onClick={() => enqueue('merge-pr')}
+              >
+                {busy === 'merge-pr' ? t('Queuing…') : t('merge PR')}
+              </button>
+              <button
+                type="button"
+                className="drawer-btn primary merge-arrow"
+                disabled={busy !== ''}
+                aria-label={t('Select merge method')}
+                aria-haspopup="menu"
+                aria-expanded={mergeMenuOpen}
+                onClick={() => setMergeMenuOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+              {mergeMenuOpen ? (
+                <span className="merge-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="merge-menu-option active"
+                    onClick={() => { setMergeMenuOpen(false); enqueue('merge-pr'); }}
+                  >
+                    <b>{t('Merge commit (merge)')}</b>
+                    <small>{t('Keeps every commit on this branch and adds a merge commit.')}</small>
+                  </button>
+                  {/* The engine merge path only creates merge commits; squash/rebase stay on GitHub's own page (old data-native-only boundary). */}
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                    <b>{t('Squash merge (squash)')}</b>
+                    <small>{t('Requires the GitHub page')}</small>
+                  </button>
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                    <b>{t('Rebase merge (rebase)')}</b>
+                    <small>{t('Requires the GitHub page')}</small>
+                  </button>
+                </span>
+              ) : null}
+            </span>
           ) : null}
           <button
             type="button"
