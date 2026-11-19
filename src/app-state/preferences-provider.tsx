@@ -8,7 +8,9 @@ import type { Preferences, Theme, View } from './types';
 
 const PAT_KEY = STORAGE_KEYS.pat;
 
-const PreferencesContext = createContext<Preferences | null>(null);
+// Exported so render tests can inject a mock context without booting the
+// full provider (which performs local-storage side effects).
+export const PreferencesContext = createContext<Preferences | null>(null);
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));

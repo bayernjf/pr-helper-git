@@ -49,7 +49,7 @@ import {
   type GenerationRuleRow,
 } from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
-import { useApp } from '../app-state';
+import { usePreferences } from '../app-state/preferences-provider';
 import { useBranches } from '../hooks/use-branches';
 import BranchPicker from './BranchPicker';
 import { t, tp } from '../i18n';
@@ -155,7 +155,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   );
   const [draft, setDraft] = useState<Workflow>(initial);
   const [createMode, setCreateMode] = useState(workflow === undefined);
-  const { pat, hasServerPat } = useApp();
+  const { pat, hasServerPat } = usePreferences();
   const branches = useBranches(pat, hasServerPat, draft.repository);
   // Existing flows open with every step form folded; a new flow keeps its
   // first step open so the user can start typing immediately (#5/#6).

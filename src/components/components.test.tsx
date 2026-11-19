@@ -5,6 +5,8 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AppContext } from '../app-state';
+import { PreferencesContext } from '../app-state/preferences-provider';
+import { ToastProvider } from './ui';
 import type { RepoBrief } from '../types';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
@@ -39,6 +41,32 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
     ...overrides,
   };
   return render(createElement(AppContext.Provider, { value } as never, node));
+}
+
+// Migrated components read PreferencesContext / ToastProvider directly instead
+// of the aggregate AppContext, so their smoke tests wrap with those providers.
+function withPrefs(node: React.ReactNode, overrides: Record<string, unknown> = {}): string {
+  const prefs = {
+    view: 'git',
+    theme: 'dark',
+    accent: 'violet',
+    pat: '',
+    hasServerPat: false,
+    setView: () => {},
+    setTheme: () => {},
+    setAccent: () => {},
+    toggleTheme: () => {},
+    setPat: () => {},
+    setServerPat: async () => ({ hasServerPat: false }),
+    clearServerPat: async () => ({ hasServerPat: false }),
+    refreshServerPat: () => {},
+    ...overrides,
+  };
+  return render(createElement(
+    PreferencesContext.Provider,
+    { value: prefs as never },
+    createElement(ToastProvider, null, node),
+  ));
 }
 
 const SAMPLE_DIFF = [
@@ -124,7 +152,7 @@ describe('PrFileReview', () => {
   ].join('\n');
 
   it('renders the diff and attached review comments', () => {
-    const html = withApp(
+    const html = withPrefs(
       <PrFileReview
         file={{ filename: 'src/app.ts', status: 'modified', additions: 1, deletions: 1, patch }}
         comments={[{
@@ -193,7 +221,7 @@ describe('ResolveConflictsModal', () => {
 
 describe('AuditModal', () => {
   it('renders the title and initial loading state', () => {
-    const html = withApp(<AuditModal onClose={() => {}} />);
+    const html = withPrefs(<AuditModal onClose={() => {}} />);
     expect(html).toContain('Audit log');
     expect(html).toContain('Loading audit trail…');
   });

@@ -3,8 +3,9 @@ import { createElement } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppContext } from '../app-state';
+import { PreferencesContext } from '../app-state/preferences-provider';
 import SettingsModal from './SettingsModal';
+import { ToastProvider } from './ui';
 import { getAiConfig, getMe, getStorage } from '../api';
 
 vi.mock('../api', () => ({
@@ -75,7 +76,6 @@ function context() {
     hasServerPat: false,
     setServerPat: vi.fn(),
     clearServerPat: vi.fn(),
-    toast: vi.fn(),
     theme: 'dark',
     accent: 'violet',
     setTheme: vi.fn(),
@@ -87,9 +87,9 @@ async function mount(role: 'admin' | 'member') {
   vi.mocked(getMe).mockResolvedValue({ name: 'owner', role, instance: role === 'admin' } as never);
   act(() => root!.render(
     createElement(
-      AppContext.Provider,
+      PreferencesContext.Provider,
       { value: context() as never },
-      createElement(SettingsModal, { onClose: () => {} }),
+      createElement(ToastProvider, null, createElement(SettingsModal, { onClose: () => {} })),
     ),
   ));
   await act(async () => {

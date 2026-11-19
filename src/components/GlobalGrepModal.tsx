@@ -1,14 +1,14 @@
 import { errorMessage } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { searchAllGrep, type GrepRepoResult } from '../api';
-import { useApp } from '../app-state';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import { IconSearch, IconX } from './icons';
 import { t } from '../i18n';
 
 export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
-  const { toast } = useApp();
+  const toast = useAppToast();
   const [pattern, setPattern] = useState('');
   const [glob, setGlob] = useState('');
   const [ignoreCase, setIgnoreCase] = useState(false);

@@ -6,7 +6,7 @@ import { createElement, type ContextType } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppContext } from '../app-state';
+import { PreferencesContext } from '../app-state/preferences-provider';
 import { enqueueAutomation, rerunFailedActions, type InboxPayload } from '../api/flows';
 import { githubProxy } from '../api';
 import type { Workflow } from '../lib/automation/workflow';
@@ -27,7 +27,7 @@ vi.mock('../api', async (importOriginal) => ({
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-type AppData = NonNullable<ContextType<typeof AppContext>>;
+type PreferencesData = NonNullable<ContextType<typeof PreferencesContext>>;
 
 const flow: Workflow = {
   id: 'wf-1',
@@ -81,8 +81,8 @@ function renderDrawer(state: WorkflowStageStateRow = openState) {
   const onResolved = vi.fn();
   act(() => {
     root?.render(createElement(
-      AppContext.Provider,
-      { value: { pat } as AppData },
+      PreferencesContext.Provider,
+      { value: { pat, hasServerPat: false } as PreferencesData },
       createElement(ToastProvider, null, createElement(ConfirmProvider, null, createElement(StepDrawer, {
         flow, stageIndex: 0, inbox: inboxWith(state), onClose, onMutated, onResolved,
       }))),

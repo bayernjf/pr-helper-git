@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscape } from '../hooks/use-escape';
 import { useCheckDetails } from '../hooks/use-check-details';
-import { useApp } from '../app-state';
+import { usePreferences } from '../app-state/preferences-provider';
 import CodexRepairModal from './CodexRepairModal';
 import GateDisclosure from './GateDisclosure';
 import { useToast, useConfirm } from './ui';
@@ -132,7 +132,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     [flow, stageIndex, inbox.states],
   );
   const primary: WorkflowStageStateRow | undefined = routes[0];
-  const { pat, hasServerPat } = useApp();
+  const { pat, hasServerPat } = usePreferences();
   const checkDetails = useCheckDetails(pat, hasServerPat, flow.repository, primary?.headSha);
   const queueItem: ActionQueueItem | undefined = useMemo(
     () => inbox.items.find(

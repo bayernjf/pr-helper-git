@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchCiHealth } from '../api/ci-health';
-import { useApp } from '../app-state';
+import { usePreferences } from '../app-state/preferences-provider';
+import { useAppToast } from '../app-state/toast';
 import { errorMessage } from '../lib/errors';
 import { relativeAge } from '../lib/repo-sort';
 import { STORAGE_KEYS } from '../lib/storage-keys';
@@ -117,7 +118,8 @@ function StatCard({ label, value, hint, tone }: { label: string; value: string; 
 }
 
 export default function CiHealthPage() {
-  const { pat, hasServerPat, toast } = useApp();
+  const { pat, hasServerPat } = usePreferences();
+  const toast = useAppToast();
   const [days, setDays] = useState<number>(readDays);
   const [selected, setSelected] = useState<string[]>(readSelected);
   const [data, setData] = useState<CiHealthReport | null>(null);

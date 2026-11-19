@@ -1,7 +1,8 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { githubProxy } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences } from '../app-state/preferences-provider';
+import { useAppToast } from '../app-state/toast';
 import { formatRelative } from '../lib/format';
 import { parseDiffLines, type ParsedDiffLine } from '../lib/diff-lines';
 import { useConfirm } from './ui';
@@ -64,7 +65,8 @@ export default function PrFileReview({
   onChanged: (comment: ReviewComment) => void;
   onDeleted: (id: number) => void;
 }) {
-  const { pat, toast } = useApp();
+  const { pat } = usePreferences();
+  const toast = useAppToast();
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
@@ -332,7 +334,8 @@ function ReviewCommentCard({
   onChanged: (comment: ReviewComment) => void;
   onDeleted: (id: number) => void;
 }) {
-  const { pat, toast } = useApp();
+  const { pat } = usePreferences();
+  const toast = useAppToast();
   const confirm = useConfirm();
   const [mode, setMode] = useState<'view' | 'reply' | 'edit'>('view');
   const [draft, setDraft] = useState('');
