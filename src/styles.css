@@ -4127,6 +4127,15 @@ pre.diff {
 .preflight-summary .ok { color: var(--green); font-weight: 600; }
 .preflight-summary .warn { color: var(--red); font-weight: 600; }
 .preflight-checked { color: var(--faint); margin-left: auto; }
+.board-preflight-flow { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); }
+.board-preflight-flow > summary { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; font-size: var(--fs-ui); list-style: none; }
+.board-preflight-flow > summary::-webkit-details-marker { display: none; }
+.board-preflight-flow > summary::before { content: '▸'; color: var(--faint); transition: transform var(--dur-fast); }
+.board-preflight-flow[open] > summary::before { transform: rotate(90deg); }
+.board-preflight-flow > summary small { color: var(--faint); font-family: var(--mono); font-size: var(--fs-meta); }
+.board-preflight-flow > summary .ok { margin-left: auto; color: var(--green); font-size: var(--fs-meta); font-weight: 600; }
+.board-preflight-flow > summary .warn { margin-left: auto; color: var(--red); font-size: var(--fs-meta); font-weight: 600; }
+.board-preflight-flow > .preflight-summary, .board-preflight-flow > .preflight-group { margin: 0 12px 12px; }
 .preflight-group { display: flex; flex-direction: column; gap: 7px; }
 .preflight-group h3 {
   margin: 0;

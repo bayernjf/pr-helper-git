@@ -27,6 +27,7 @@ import { markResolved, pruneResolvedMarks, resolvedBoardState, type ResolvedMark
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
 import FlowPreflightModal from './FlowPreflightModal';
+import BoardPreflightModal from './BoardPreflightModal';
 import TeamsModal from './TeamsModal';
 import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
@@ -119,6 +120,7 @@ export default function FlowBoard() {
   const [auditOpen, setAuditOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
+  const [boardPreflightOpen, setBoardPreflightOpen] = useState(false);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   /** Local resolve marks: handled steps stay hidden until the projection catches up. */
@@ -327,6 +329,9 @@ export default function FlowBoard() {
         </button>
         <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
           {t('Teams')}
+        </button>
+        <button type="button" className="drawer-btn" onClick={() => setBoardPreflightOpen(true)}>
+          {t('Preflight all flows')}
         </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
@@ -623,6 +628,9 @@ export default function FlowBoard() {
           flowName={state.workflows.find((workflow) => workflow.id === preflightFlowId)?.name ?? ''}
           onClose={() => setPreflightFlowId(null)}
         />
+      ) : null}
+      {boardPreflightOpen ? (
+        <BoardPreflightModal workflows={state.workflows} onClose={() => setBoardPreflightOpen(false)} />
       ) : null}
     </div>
   );

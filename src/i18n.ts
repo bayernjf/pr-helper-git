@@ -1114,6 +1114,14 @@ export const ZH: Record<string, string> = {
   'Fix': '修复',
   'Read-only check — the flow is not modified.': '只读检查 — 不会修改流程。',
   'Run again': '重新检查',
+  'Board preflight': '看板预检',
+  'Preflight all flows': '预检全部流程',
+  'Read-only check across every active flow': '对全部活跃流程做只读检查',
+  'Checking all flows…': '正在检查全部流程…',
+  'No active flows to check': '没有可检查的活跃流程',
+  'All flows pass preflight': '全部流程通过预检',
+  '{count} flow(s) checked': '已检查 {count} 个流程',
+  'Some flows could not be checked': '部分流程无法检查',
   // GitHub Device Flow connection + A2A settings (2026-11-15)
   'GitHub account': 'GitHub 账号',
   'Optional GitHub App Device Flow connection. It proves your GitHub identity and lists App installations; GitHub writes still use the PAT and automation credentials.':

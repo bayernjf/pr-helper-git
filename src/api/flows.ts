@@ -81,6 +81,20 @@ export function fetchFlowPreflight(workflowId: string): Promise<{ preflight: Flo
   });
 }
 
+export type BoardPreflightPayload = {
+  results: FlowPreflightResult[];
+  errors: Array<{ workflowId: string; message: string }>;
+};
+
+/** POST /api/flows/preflight {all:true} — board-level aggregate, still read-only. */
+export function fetchBoardPreflight(): Promise<BoardPreflightPayload> {
+  return request<BoardPreflightPayload>('/api/flows/preflight', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ all: true }),
+  });
+}
+
 export type WorkflowRunRow = {
   id: string;
   workflowId: string;

@@ -266,7 +266,22 @@ export async function handleFlowsRoute(ctx) {
     // Read-only flow preflight (P3-13): app access, branches, PR
     // mergeability, upstream dependencies, Actions and Environments. It
     // never mutates the workflow; the board renders findings + fix hints.
+    // `all: true` aggregates every active flow (the old board-level
+    // /api/preflight): sequential per-flow checks, fail-soft per flow.
     if (method === 'POST' && pathname === '/api/flows/preflight') {
+      if (payload.all === true) {
+        const workflows = await store.listWorkflows(env, identity);
+        const results = [];
+        const errors = [];
+        for (const workflow of workflows.filter((candidate) => !candidate.archived)) {
+          try {
+            results.push(await store.preflightWorkflow(env, identity, workflow.id));
+          } catch (error) {
+            errors.push({ workflowId: workflow.id, message: error instanceof Error ? error.message : String(error) });
+          }
+        }
+        return { status: 200, json: { results, errors } };
+      }
       if (typeof payload.workflowId !== 'string' || !payload.workflowId.trim()) {
         return { status: 400, json: { error: '无效的流程预检请求' } };
       }
