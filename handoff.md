@@ -65,7 +65,7 @@ resolve 因真实数据全 merged、无 PAT、无多上游而不可触发，由�
 
 **2026-11-19 Live-PAT 实网走查 + 服务端 PAT 修复**：在已登记测试仓
 `bayernjf/git-e2e-test` 建真实 PR [#14](https://github.com/bayernjf/git-e2e-test/pull/14)
-（临时 fixture，仍 OPEN，未 merge/close），补 `.github/workflows/live-pat-check.yml`，
+（临时 fixture，走查后已关闭、临时分支已删除），补 `.github/workflows/live-pat-check.yml`，
 真实 Actions `smoke` run `44493987714` 成功。桌面端 0.3.13 用真实服务端 PAT 走查：
 PR 列表 Open 1 / Merged 6 / Closed 7、#14 抽屉 2 commits / 2 files / `+13 -0` /
 `CHECKS smoke success`、文件 diff、New PR Base/Compare 分支列表全部真实加载。
@@ -85,7 +85,7 @@ GitHub latest = **`v0.3.11`**。
 测试：1099 tests / 61 files + E2E 162/162，build 通过。备份目录最新
 `source-20261118-1311.bundle` 含 `main`、`dev`、`v0.3.11`。
 
-最近更新：2026-11-19（发布 0.3.13：CI Health 窄窗指标标签换行修复）。此前 2026-11-19（发布 0.3.12：控制塔第二批 UI 对齐冻结源——进度/NEXT ACTION、fan-in、门禁披露、merge 菜单、resolve 消隐、分支选择器、toast undo、板级 preflight）。此前 2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
+最近更新：2026-11-19（发布 0.3.14：服务端 PAT 模式下 FlowEditor 分支选择器与 StepDrawer 检查明细修复；真实 PR #14 live-PAT 走查完成）。此前 2026-11-19（发布 0.3.13：CI Health 窄窗指标标签换行修复）。此前 2026-11-19（发布 0.3.12：控制塔第二批 UI 对齐冻结源——进度/NEXT ACTION、fan-in、门禁披露、merge 菜单、resolve 消隐、分支选择器、toast undo、板级 preflight）。此前 2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
 
@@ -101,6 +101,16 @@ admin PAT）。新增 3 个 hook 测试。
 展开 8 条真实 GitHub Actions 明细；真实 PR #14 走查覆盖 PR 列表、
 open-PR 抽屉、checks、文件 diff 与 New PR 分支列表。临时 PR #14 已关闭，
 临时分支已删除。
+
+发布：提交 `7ca6251`，tag `v0.3.14`（tag 对象 `4c628c2`），PR #36 合并
+`1194218`；Release
+`https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.14`。
+桌面产物：`PR Helper Git-0.3.14-macos.zip`（SHA-256
+`9903b90d…`）与 `.dmg`（`fde2e41f…`），`SHA256SUMS` 已随 Release 上传。
+本机 `/Applications/PR Helper Git.app` 已安装 0.3.14，0.3.13 备份于
+`/Users/jiangfeng/000mycodes-backups/pr-helper-git/PR Helper Git-0.3.13.app`；
+安装后重启验证：应用窗口正常加载、Flows 15 个流程可见、FlowEditor
+source/target 分支 toggle 出现并列出真实 `dev`。
 
 ## Release 0.3.13 (2026-11-19)
 

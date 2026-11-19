@@ -81,8 +81,8 @@ nextAction 面板同提交），8 个功能提交 + 1 个测试提交：
 ### Live-PAT 实网走查（2026-11-19）
 
 在已登记测试仓 `bayernjf/git-e2e-test` 建真实 PR
-[#14](https://github.com/bayernjf/git-e2e-test/pull/14)（临时 fixture，**当前仍 OPEN**，
-未 merge/close；临时分支 `live-pat-walkthrough-20261119-1708` 与
+[#14](https://github.com/bayernjf/git-e2e-test/pull/14)（临时 fixture，走查后
+已关闭、临时分支已删除；临时分支 `live-pat-walkthrough-20261119-1708` 与
 `.github/workflows/live-pat-check.yml` 仍在）。PR 真实状态：2 commits / 2 files
 （`live-pat-walkthrough.md` +3、workflow +10），head `54e3bb1`，GitHub Actions
 `live-pat-check / smoke` run `44493987714` 结论 **SUCCESS**。
