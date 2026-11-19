@@ -220,7 +220,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of 0.3.14 (2026-11-19):
 
-- unit/route tests: **1169 tests / 68 files** (includes the migrated pr-helper
+- unit/route tests: **1173 tests / 69 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
@@ -234,7 +234,9 @@ As of 0.3.14 (2026-11-19):
   `server/github-http.test.mjs`, `server/a2a.test.mjs` and
   `server/pat-oauth-merge.test.mjs`; the parity batch adds 17 resolve-mark
   semantics tests, 4 preflight-aggregate tests, 3 branch-filter tests,
-  4 toast-undo jsdom tests and 8 open-PR StepDrawer/GateDisclosure jsdom tests)
+  4 toast-undo jsdom tests, 8 open-PR StepDrawer/GateDisclosure jsdom tests
+  and 4 app-state context-isolation tests in
+  `src/app-state/context-isolation.test.tsx`)
 - E2E: **162 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs

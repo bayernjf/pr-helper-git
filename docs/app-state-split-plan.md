@@ -113,12 +113,12 @@ src/app-state/
   actions-provider.tsx            # runAction + busy
   toast.ts                        # useAppToast
   hooks.ts                        # useRepoData/usePreferences/useRunAction/useBusy
-  test-helpers.tsx                # 仅测试：renderWithApp + 完整默认值
   context-isolation.test.tsx      # 渲染隔离证明
 ```
 
 `src/app-state.tsx` 继续导出 `AppDataProvider` 和 hooks，现有 import 路径
-不变。测试 helper 不进入生产 barrel。
+不变。实施中未引入 `test-helpers.tsx`：改为直接导出各领域 Context（与旧
+`AppContext` 同款），测试文件直接注入对应 Context，改动更小。
 
 ## 5. 实施阶段
 
