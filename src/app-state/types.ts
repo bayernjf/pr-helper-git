@@ -56,3 +56,10 @@ export interface RepoData {
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
 }
+
+// Write-action domain: `runAction` runs a write then refreshes all data.
+// `busy` is exposed through a separate context so runAction-only consumers do
+// not re-render when it flips.
+export interface Actions {
+  runAction: <T>(action: Promise<T>, successMessage?: string) => Promise<T | null>;
+}

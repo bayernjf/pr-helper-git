@@ -1,7 +1,12 @@
-import { errorMessage, errorDetail } from './lib/errors';
 // Central application state: registry, active repo data, view switching,
 // SSE-driven auto refresh and a helper that runs write actions then refreshes.
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+//
+// The aggregate AppData has been split into four domain contexts (preferences,
+// repo data, write actions, busy) plus the existing ToastProvider. This file is
+// the compatibility barrel: it keeps `AppContext` / `useApp()` working by
+// assembling the domain contexts back into the original AppData shape until the
+// consumers migrate (Phase 2/3).
+import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type {
   Commit,
@@ -11,12 +16,12 @@ import type {
   RemoteInfo,
   RepoBrief,
 } from './types';
-import { useToast, type ToastKind } from './components/ui';
+import type { ToastKind } from './components/ui';
 import type { Accent } from './lib/appearance';
-import { t as translateText } from './i18n';
 import type { Theme, View } from './app-state/types';
 import { PreferencesProvider, usePreferences } from './app-state/preferences-provider';
 import { RepoDataProvider, useRepoData } from './app-state/repo-provider';
+import { ActionsProvider, useRunAction, useBusy } from './app-state/actions-provider';
 import { useAppToast } from './app-state/toast';
 
 export { LOG_MAX } from './app-state/repo-provider';
@@ -65,41 +70,14 @@ interface AppData {
 // full provider (which performs network and local-storage side effects).
 export const AppContext = createContext<AppData | null>(null);
 
-// The write-action (busy/runAction) state lives here until S1c splits it into
-// ActionsProvider. Preferences and repo data have already moved out to their
-// own providers; this inner component reads them back and assembles the
-// aggregate AppData so `useApp()` keeps working unchanged.
-function AppDataInner({ children }: { children: ReactNode }) {
-  const toastApi = useToast();
+// Assemble the domain contexts back into the aggregate AppData so `useApp()`
+// keeps working unchanged until consumers migrate in Phase 2/3.
+function LegacyAppBridge({ children }: { children: ReactNode }) {
   const prefs = usePreferences();
   const repo = useRepoData();
-  const refresh = repo.refresh;
+  const { runAction } = useRunAction();
+  const busy = useBusy();
   const toast = useAppToast();
-
-  const [busy, setBusy] = useState(false);
-
-  // Run a write action, then refresh all data. Errors are surfaced as toasts.
-  const runAction = useCallback(async <T,>(action: Promise<T>, successMessage?: string) => {
-    setBusy(true);
-    try {
-      const result = await action;
-      await refresh();
-      if (successMessage) toastApi.notify(successMessage, 'success');
-      return result;
-    } catch (err) {
-      // A failed write can still change the repository (conflicted merge,
-      // revert or rebase), so reload before reporting the error; otherwise
-      // the operation banner and unmerged files would not appear.
-      try { await refresh(); } catch { /* surfaced by the original error */ }
-      const message = errorDetail(err)
-        ? `${translateText(errorMessage(err) || 'action failed')}: ${errorDetail(err)}`
-        : translateText(errorMessage(err) || 'action failed');
-      toastApi.error(message);
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }, [refresh, toastApi]);
 
   const value = useMemo<AppData>(() => ({
     repos: repo.repos,
@@ -136,10 +114,10 @@ function AppDataInner({ children }: { children: ReactNode }) {
     setAccent: prefs.setAccent,
     toggleTheme: prefs.toggleTheme,
     refreshRepos: repo.refreshRepos,
-    refresh,
+    refresh: repo.refresh,
     loadMore: repo.loadMore,
     runAction,
-  }), [repo, prefs, busy, toast, refresh, runAction]);
+  }), [repo, prefs, busy, toast, runAction]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
@@ -148,7 +126,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   return (
     <PreferencesProvider>
       <RepoDataProvider>
-        <AppDataInner>{children}</AppDataInner>
+        <ActionsProvider>
+          <LegacyAppBridge>{children}</LegacyAppBridge>
+        </ActionsProvider>
       </RepoDataProvider>
     </PreferencesProvider>
   );
