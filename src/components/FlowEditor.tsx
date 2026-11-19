@@ -49,6 +49,9 @@ import {
   type GenerationRuleRow,
 } from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
+import { useApp } from '../app-state';
+import { useBranches } from '../hooks/use-branches';
+import BranchPicker from './BranchPicker';
 import { t, tp } from '../i18n';
 
 type EditorStage = Workflow['stages'][number];
@@ -152,6 +155,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   );
   const [draft, setDraft] = useState<Workflow>(initial);
   const [createMode, setCreateMode] = useState(workflow === undefined);
+  const { pat } = useApp();
+  const branches = useBranches(pat, draft.repository);
   // Existing flows open with every step form folded; a new flow keeps its
   // first step open so the user can start typing immediately (#5/#6).
   const [expandedStages, setExpandedStages] = useState<Set<string>>(() => new Set(
@@ -165,7 +170,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   const [deploymentFormOpen, setDeploymentFormOpen] = useState(false);
   const [deploymentEditIndex, setDeploymentEditIndex] = useState<number | null>(null);
   const [deploymentDraft, setDeploymentDraft] = useState<DeploymentConfig | null>(null);
-  const [removedDeployment, setRemovedDeployment] = useState<{ deployment: DeploymentConfig; index: number } | null>(null);
   const [ai, setAi] = useState<AiAutomationCredential>(null);
   const [rules, setRules] = useState<GenerationRuleRow[]>([]);
   const [rulesVersion, setRulesVersion] = useState(0);
@@ -417,30 +421,30 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
     setDeploymentFormOpen(false);
     setDeploymentEditIndex(null);
     setDeploymentDraft(null);
-    setRemovedDeployment(null);
     toast.notify(t(deploymentEditIndex === null ? 'Deployment gate added' : 'Deployment gate updated'));
   }
 
   function removeDeploymentAt(index: number) {
     const removed = configuredDeployments[index];
     setDraft((current) => removeDeployment(current, index));
-    setRemovedDeployment(removed ? { deployment: removed, index } : null);
     setDeploymentFormOpen(false);
     setDeploymentEditIndex(null);
     setDeploymentDraft(null);
-    toast.notify(t('Deployment gate removed'));
-  }
-
-  function undoRemoveDeployment() {
-    if (!removedDeployment) return;
-    const { deployment, index } = removedDeployment;
-    setDraft((current) => {
-      const deployments = [...deploymentConfigs(current)];
-      deployments.splice(Math.min(index, deployments.length), 0, deployment);
-      return { ...current, deployments };
+    if (!removed) {
+      toast.notify(t('Deployment gate removed'));
+      return;
+    }
+    toast.notify(tp('Removed {provider} · {target}', { provider: deploymentProviderName(removed.provider), target: removed.target }), 'info', {
+      label: t('undo'),
+      onAction: () => {
+        setDraft((current) => {
+          const deployments = [...deploymentConfigs(current)];
+          deployments.splice(Math.min(index, deployments.length), 0, removed);
+          return { ...current, deployments };
+        });
+        toast.notify(t('Deployment gate restored'));
+      },
     });
-    setRemovedDeployment(null);
-    toast.notify(t('Deployment gate restored'));
   }
 
   function syncDeployments() {
@@ -448,9 +452,25 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
       toast.error(t('Cannot sync deployment gates while GitHub Actions workflows are unavailable'));
       return;
     }
+    const before = deploymentConfigs(draft);
     const next = syncedDeployments(draft, options.workflows, options.environments, true);
+    const kept = next.filter((deployment) => before.some((candidate) => candidate.target === deployment.target
+      && candidate.provider === deployment.provider
+      && candidate.workflowName === deployment.workflowName));
+    const removedCount = before.length - kept.length;
+    const addedCount = next.length - kept.length;
+    if (!removedCount && !addedCount) {
+      toast.notify(t('Deployment gates already match the repository'));
+      return;
+    }
     setDraft((current) => ({ ...current, deployments: next }));
-    toast.notify(t('Deployment gates synced to the repository workflows'));
+    toast.notify(tp('Synced from the repository: kept {kept}, added {added}, removed {removed}', { kept: kept.length, added: addedCount, removed: removedCount }), 'info', {
+      label: t('undo'),
+      onAction: () => {
+        setDraft((current) => ({ ...current, deployments: before }));
+        toast.notify(t('Deployment gates restored'));
+      },
+    });
   }
 
   function applySuggestion(index: number) {
@@ -588,18 +608,23 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
             <div className="editor-stage-body">
               <label>
                 {t('source branch')}
-                <input
+                <BranchPicker
                   value={stage.source}
+                  onChange={(value) => patchStage(index, (current) => ({ ...current, source: value }))}
+                  branches={branches}
+                  placeholder="feature/*"
                   disabled={stage.source.includes('*')}
-                  onChange={(event) => patchStage(index, (current) => ({ ...current, source: event.target.value }))}
+                  ariaLabel={t('source branch')}
                 />
               </label>
               <span className="editor-arrow">→</span>
               <label>
                 {t('target branch')}
-                <input
+                <BranchPicker
                   value={stage.target}
-                  onChange={(event) => patchStage(index, (current) => ({ ...current, target: event.target.value }))}
+                  onChange={(value) => patchStage(index, (current) => ({ ...current, target: value }))}
+                  branches={branches}
+                  ariaLabel={t('target branch')}
                 />
               </label>
             </div>
@@ -767,12 +792,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
         ) : (
           <p className="drawer-empty">{t('No deployment gates configured')}</p>
         )}
-        {removedDeployment ? (
-          <div className="deployment-undo">
-            <span>{tp('Removed {provider} · {target}', { provider: deploymentProviderName(removedDeployment.deployment.provider), target: removedDeployment.deployment.target })}</span>
-            <button type="button" className="drawer-btn small" onClick={undoRemoveDeployment}>{t('undo')}</button>
-          </div>
-        ) : null}
         {suggestions.length ? (
           <div className="deployment-suggestions">
             <b>{t('Suggestions from this repository')}</b>

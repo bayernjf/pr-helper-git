@@ -25,6 +25,13 @@ import {
 } from './workflow-run';
 import { getLocale, t, tp } from '../../i18n';
 
+export type StageDecision = {
+  kind: string;
+  actionable?: boolean;
+  canCreateNext?: boolean;
+  message?: string;
+};
+
 export type WorkflowStageStateRow = {
   workflowId: string;
   stageIndex: number;
@@ -38,7 +45,14 @@ export type WorkflowStageStateRow = {
   checksState?: string;
   checksPassed?: number;
   checksTotal?: number;
+  approvals?: number;
+  requiredApprovals?: number;
+  mergeable?: boolean | null;
+  mergeableState?: string | null;
+  aheadBy?: number;
   updatedAt?: string | null;
+  /** Server-derived stage decision (deriveStageDecision); absent on degraded reads. */
+  decision?: StageDecision | null;
 };
 
 export type ActionQueueItem = {
@@ -63,6 +77,9 @@ export type AutomationActionRow = {
   kind?: string;
   state: 'queued' | 'running' | 'paused' | 'failed';
   message?: string | null;
+  failureReason?: string | null;
+  attempts?: number;
+  createdAt?: string;
   updatedAt?: string;
 };
 
@@ -150,11 +167,18 @@ export type LaneStepModel = {
   hasQueueItem: boolean;
 };
 
+export type LaneMergeGroup = {
+  target: string;
+  steps: LaneStepModel[];
+};
+
 export type LaneModel = {
   workflow: Workflow;
   muted: boolean;
   summary: { stageIndex: number; tone: StageRunTone; pullNumber: number | null; text: string };
   steps: LaneStepModel[];
+  /** Fan-in view (lane.ts hasFanIn): stages grouped by target when any target has several upstreams; null keeps the flat connector track. */
+  mergeGroups: LaneMergeGroup[] | null;
   attentionItems: ActionQueueItem[];
 };
 
@@ -189,6 +213,21 @@ export function blockedAutomationForStep(
 /** Stable key for one automation action on one stage route. */
 export function actionKey(action: Pick<AutomationActionRow, 'workflowId' | 'stageIndex' | 'source'>) {
   return `${action.workflowId}:${action.stageIndex ?? -1}:${action.source}`;
+}
+
+/** Newest automation action on one stage route (derive.ts automationActionFor). */
+export function automationActionFor(
+  state: BoardState,
+  workflowId: string,
+  stageIndex: number,
+  source: string,
+): AutomationActionRow | undefined {
+  return state.automationActions
+    .filter((action) => action.workflowId === workflowId && action.stageIndex === stageIndex && action.source === source)
+    .reduce<AutomationActionRow | undefined>(
+      (newest, action) => (!newest || (action.updatedAt ?? '') > (newest.updatedAt ?? '') ? action : newest),
+      undefined,
+    );
 }
 
 /** Six aggregate counters, identical to the original board summary. */
@@ -377,17 +416,25 @@ export function buildLaneModels(
 ): LaneModel[] {
   return visibleWorkflows(state, filter, search, sortMode, sortDirection, resolvedKeys).map((flow) => {
     const items = state.actionQueue.filter((item) => item.workflowId === flow.id);
-    const steps = flow.stages.flatMap((_stage, index) => {
+    const stepsForStage = (index: number) => {
       const routes = statesForStage(state, flow, index);
       return routes.length
         ? routes.map((route) => laneStepModel(state, flow, index, route))
         : [laneStepModel(state, flow, index)];
-    });
+    };
+    const steps = flow.stages.flatMap((_stage, index) => stepsForStage(index));
+    // Fan-in grouping keeps the target's first-appearance order (lane.ts targets Map).
+    const targets = new Map<string, number[]>();
+    flow.stages.forEach((stage, index) => targets.set(stage.target, [...(targets.get(stage.target) ?? []), index]));
+    const mergeGroups = [...targets.values()].some((indexes) => indexes.length > 1)
+      ? [...targets.entries()].map(([target, indexes]) => ({ target, steps: indexes.flatMap(stepsForStage) }))
+      : null;
     return {
       workflow: flow,
       muted: isWorkflowMuted(flow),
       summary: laneRunSummary(state, flow),
       steps,
+      mergeGroups,
       attentionItems: items,
     };
   });

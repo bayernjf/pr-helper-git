@@ -6,10 +6,13 @@
 // provides the credentials.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscape } from '../hooks/use-escape';
+import { useCheckDetails } from '../hooks/use-check-details';
+import { useApp } from '../app-state';
 import CodexRepairModal from './CodexRepairModal';
+import GateDisclosure from './GateDisclosure';
 import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
-import { stageStateText } from '../lib/automation/flows-detail';
+import { mergeabilityGateText, stageStateText } from '../lib/automation/flows-detail';
 import { deploymentConfigs, matchingStageProjections, type DeploymentConfig, type Workflow } from '../lib/automation/workflow';
 import { automationActionPresentation, type AutomationActionState } from '../lib/automation/workflow-run';
 import { githubPullUrl } from '../lib/domain';
@@ -81,13 +84,15 @@ function deploymentWarningText(warning: DeploymentConfigurationWarningRow): stri
   }
 }
 
-export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated }: {
+export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated, onResolved }: {
   flow: Workflow;
   stageIndex: number;
   inbox: InboxPayload;
   onClose: () => void;
   /** Called after a successful operation so the board can re-read the projection. */
   onMutated: () => void;
+  /** Marks the step handled locally so the board hides it until the projection catches up. */
+  onResolved?: (stageIndex: number, source: string) => void;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -106,6 +111,18 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   // Takeover form has its own Escape layer: first Esc cancels the form
   // (keeping the drawer and the typed text), only then does the drawer close.
   useEscape(onClose, takeoverFor === null);
+  const [mergeMenuOpen, setMergeMenuOpen] = useState(false);
+  const mergeControlRef = useRef<HTMLSpanElement>(null);
+  // The menu joins the Escape stack above the drawer, so Esc closes only it.
+  useEscape(() => setMergeMenuOpen(false), mergeMenuOpen);
+  useEffect(() => {
+    if (!mergeMenuOpen) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!mergeControlRef.current?.contains(event.target as Node)) setMergeMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [mergeMenuOpen]);
   const [takeoverTitle, setTakeoverTitle] = useState('');
   const [takeoverBody, setTakeoverBody] = useState('');
 
@@ -115,6 +132,8 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     [flow, stageIndex, inbox.states],
   );
   const primary: WorkflowStageStateRow | undefined = routes[0];
+  const { pat } = useApp();
+  const checkDetails = useCheckDetails(pat, flow.repository, primary?.headSha);
   const queueItem: ActionQueueItem | undefined = useMemo(
     () => inbox.items.find(
       (item) => item.workflowId === flow.id
@@ -178,12 +197,13 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const stateText = stageStateText(kind, primary?.checksState, Boolean(primary?.checksTotal));
   const pullNumber = queueItem?.pullNumber ?? primary?.pullNumber ?? null;
 
-  async function runOp(key: string, op: () => Promise<unknown>, successMessage: string) {
+  async function runOp(key: string, op: () => Promise<unknown>, successMessage: string, resolveSource?: string) {
     setBusy(key);
     setError('');
     try {
       await op();
       toast.notify(successMessage);
+      if (resolveSource !== undefined) onResolved?.(stageIndex, resolveSource);
       onMutated();
     } catch (err) {
       const message = errorMessage(err);
@@ -201,7 +221,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       source: primary?.source || stage.source,
       kind,
       idempotencyKey: `drawer-${flow.id}-${stageIndex}-${kind}-${Date.now().toString(36)}`,
-    }), kind === 'create-pr' ? t('create PR queued') : t('merge queued'));
+    }), kind === 'create-pr' ? t('create PR queued') : t('merge queued'), primary?.source || stage.source);
   }
 
   function rerun() {
@@ -209,7 +229,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       workflowId: flow.id,
       stageIndex,
       source: primary?.source || stage.source,
-    }), t('Actions rerun requested'));
+    }), t('Actions rerun requested'), primary?.source || stage.source);
   }
 
   function deploymentConfigFor(provider: DeploymentConfig['provider']) {
@@ -291,13 +311,24 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             <span className="drawer-label">PR</span>
             <PullReference url={githubPullUrl(flow.repository, pullNumber)} label={`#${pullNumber}`} />
             {primary?.checksTotal ? (
-              <span className="drawer-gate">{tp('checks {passed}/{total} {state}', {
-                passed: primary.checksPassed ?? 0,
-                total: primary.checksTotal,
-                state: primary.checksState === 'success'
-                  ? t('checks passed')
-                  : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
-              })}</span>
+              <GateDisclosure
+                className="drawer-gate"
+                target={stage.target}
+                details={checkDetails}
+                summary={tp('checks {passed}/{total} {state}', {
+                  passed: primary.checksPassed ?? 0,
+                  total: primary.checksTotal,
+                  state: primary.checksState === 'success'
+                    ? t('checks passed')
+                    : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
+                })}
+              />
+            ) : null}
+            {primary?.pullState === 'open' && primary.requiredApprovals ? (
+              <span className="drawer-gate">{tp('approvals {approvals}/{required}', { approvals: primary.approvals ?? 0, required: primary.requiredApprovals })}</span>
+            ) : null}
+            {primary?.pullState === 'open' && mergeabilityGateText(primary.mergeable, primary.mergeableState) ? (
+              <span className="drawer-gate">{mergeabilityGateText(primary.mergeable, primary.mergeableState)}</span>
             ) : null}
           </div>
         ) : null}
@@ -314,14 +345,49 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             </button>
           ) : null}
           {primary?.pullState === 'open' ? (
-            <button
-              type="button"
-              className="drawer-btn primary"
-              disabled={busy !== ''}
-              onClick={() => enqueue('merge-pr')}
-            >
-              {busy === 'merge-pr' ? t('Queuing…') : t('merge PR')}
-            </button>
+            <span className="merge-control" ref={mergeControlRef}>
+              <button
+                type="button"
+                className="drawer-btn primary merge-main"
+                disabled={busy !== ''}
+                onClick={() => enqueue('merge-pr')}
+              >
+                {busy === 'merge-pr' ? t('Queuing…') : t('merge PR')}
+              </button>
+              <button
+                type="button"
+                className="drawer-btn primary merge-arrow"
+                disabled={busy !== ''}
+                aria-label={t('Select merge method')}
+                aria-haspopup="menu"
+                aria-expanded={mergeMenuOpen}
+                onClick={() => setMergeMenuOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+              {mergeMenuOpen ? (
+                <span className="merge-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="merge-menu-option active"
+                    onClick={() => { setMergeMenuOpen(false); enqueue('merge-pr'); }}
+                  >
+                    <b>{t('Merge commit (merge)')}</b>
+                    <small>{t('Keeps every commit on this branch and adds a merge commit.')}</small>
+                  </button>
+                  {/* The engine merge path only creates merge commits; squash/rebase stay on GitHub's own page (old data-native-only boundary). */}
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                    <b>{t('Squash merge (squash)')}</b>
+                    <small>{t('Requires the GitHub page')}</small>
+                  </button>
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                    <b>{t('Rebase merge (rebase)')}</b>
+                    <small>{t('Requires the GitHub page')}</small>
+                  </button>
+                </span>
+              ) : null}
+            </span>
           ) : null}
           <button
             type="button"
@@ -514,7 +580,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
                             className="drawer-btn primary small"
                             disabled={busy !== ''}
                             onClick={() => {
-                              void runOp(`takeover-${id}`, () => takeoverAutomationAction(id, takeoverTitle, takeoverBody), t('takeover saved'))
+                              void runOp(`takeover-${id}`, () => takeoverAutomationAction(id, takeoverTitle, takeoverBody), t('takeover saved'), action.source)
                                 .then(() => setTakeoverFor(null));
                             }}
                           >

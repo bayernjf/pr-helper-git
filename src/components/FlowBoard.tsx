@@ -23,9 +23,11 @@ import CodexRepairModal from './CodexRepairModal';
 import FailureCenter from './FailureCenter';
 import FlowEditor from './FlowEditor';
 import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
+import { markResolved, pruneResolvedMarks, resolvedBoardState, type ResolvedMarks } from '../lib/automation/resolved-automation';
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
 import FlowPreflightModal from './FlowPreflightModal';
+import BoardPreflightModal from './BoardPreflightModal';
 import TeamsModal from './TeamsModal';
 import PullReference from './PullReference';
 import StepDrawer from './StepDrawer';
@@ -118,8 +120,11 @@ export default function FlowBoard() {
   const [auditOpen, setAuditOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
+  const [boardPreflightOpen, setBoardPreflightOpen] = useState(false);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  /** Local resolve marks: handled steps stay hidden until the projection catches up. */
+  const [resolvedMarks, setResolvedMarks] = useState<ResolvedMarks>(new Map());
   /** Timestamp of the last successful projection read; focus/visibility reload is TTL-gated. */
   const lastLoadedAt = useRef(0);
 
@@ -181,10 +186,21 @@ export default function FlowBoard() {
     recoveryStatuses: inbox?.recoveryStatuses ?? [],
   }), [inbox, workflows]);
 
-  const counts = useMemo(() => boardCounts(state), [state]);
+  // Resolve marks hide handled work from the board view only; the drawer and
+  // detail page keep the raw projection. Prune on every read so marks die
+  // once the server catches up (the old background reconcile loop).
+  useEffect(() => {
+    setResolvedMarks((marks) => pruneResolvedMarks(marks, state));
+  }, [state]);
+  const boardState = useMemo(() => resolvedBoardState(state, resolvedMarks), [state, resolvedMarks]);
+  const markStepResolved = useCallback((flowId: string, stageIndex: number, source: string) => {
+    setResolvedMarks((marks) => markResolved(marks, state.automationActions, flowId, stageIndex, source));
+  }, [state.automationActions]);
+
+  const counts = useMemo(() => boardCounts(boardState), [boardState]);
   const lanes = useMemo(
-    () => buildLaneModels(state, filter, search, sortMode, sortDirection),
-    [state, filter, search, sortMode, sortDirection],
+    () => buildLaneModels(boardState, filter, search, sortMode, sortDirection),
+    [boardState, filter, search, sortMode, sortDirection],
   );
   const moveLaneTo = useCallback((flowId: string, to: number) => {
     const order = state.workflows.map((w) => w.id);
@@ -284,6 +300,7 @@ export default function FlowBoard() {
             inbox={inbox}
             onClose={() => setDrawerStage(null)}
             onMutated={() => void load(true)}
+            onResolved={(stageIndex, source) => markStepResolved(drawerStage.flowId, stageIndex, source)}
           />
         ) : null}
       </>
@@ -312,6 +329,9 @@ export default function FlowBoard() {
         </button>
         <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
           {t('Teams')}
+        </button>
+        <button type="button" className="drawer-btn" onClick={() => setBoardPreflightOpen(true)}>
+          {t('Preflight all flows')}
         </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
@@ -348,9 +368,10 @@ export default function FlowBoard() {
 
       {inbox ? (
         <FailureCenter
-          state={state}
+          state={boardState}
           onOpenDrawer={(flowId, stageIndex) => setDrawerStage({ flowId, stageIndex })}
           onMutated={() => void load(true)}
+          onResolved={markStepResolved}
           onRepair={(item) => setRepairTarget({ flowId: item.workflowId, stageIndex: item.stageIndex, source: item.source })}
         />
       ) : null}
@@ -524,14 +545,30 @@ export default function FlowBoard() {
               </div>
             ) : null}
             {collapsedLanes.includes(lane.workflow.id) ? null : (
-            <div className="lane-track">
-              {lane.steps.map((step, index) => (
+            <div className={`lane-track${lane.mergeGroups ? ' has-fan-in' : ''}`}>
+              {lane.mergeGroups ? lane.mergeGroups.map((group) => (
+                <section key={group.target} className="lane-merge-group">
+                  <p>{tp('Merging into {target}', { target: group.target })}</p>
+                  <div>
+                    {group.steps.map((step) => (
+                      <StepCard
+                        key={`${step.stageIndex}:${step.source}`}
+                        lane={step}
+                        repository={lane.workflow.repository}
+                        automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
+                        stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
+                        onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )) : lane.steps.map((step, index) => (
                 <Fragment key={`${step.stageIndex}:${step.source}`}>
                   {index > 0 ? <span className="lane-connector" aria-hidden="true">→</span> : null}
                   <StepCard
                     lane={step}
                     repository={lane.workflow.repository}
-                    automationBlocked={Boolean(blockedAutomationForStep(state.automationActions, lane.workflow.id, step.stageIndex))}
+                    automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                     stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                     onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                   />
@@ -591,6 +628,9 @@ export default function FlowBoard() {
           flowName={state.workflows.find((workflow) => workflow.id === preflightFlowId)?.name ?? ''}
           onClose={() => setPreflightFlowId(null)}
         />
+      ) : null}
+      {boardPreflightOpen ? (
+        <BoardPreflightModal workflows={state.workflows} onClose={() => setBoardPreflightOpen(false)} />
       ) : null}
     </div>
   );

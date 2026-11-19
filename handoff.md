@@ -51,6 +51,18 @@ P3-4 编辑器 → P3-5 失败中心。
 
 **迁移会话更新（2026-11-17 → 11-19）：影子期运行中（11-14 启动，4 天累计 3400+ 轮观测；D-018 同步基础设施：`npm run sync:shadow` 每日云端→本地镜像，连接走 prh-sql 只读通道；11-19 中期同步完成——生产新增第 15 个流程 `agent-ops` dev→main 已进本地镜像，影子观测与云端一致）；**11-19 追加：19 对话框对照审计——真缺失 2 个全部落地（Codex 修复对话框 + 生成规则管理对话框【本地迁移 049 name 列 + rules CRUD 路由实测】）；看板细节批（步骤卡开抽屉/lane 收起/位置直跳）+ 排版/焦点环/空态/键盘可达性打磨**）；业务验收 34 项全部有结论（✅33 + 🔀1；#1 为 Device Flow 替代实现）（AI 凭据路由+规则库接线补齐 M-E5 尾巴，编辑器可配 AI 凭据与规则选择；旧加密凭据清除需重配 AI key）；D-014 仓库保持 PUBLIC、D-015 推进开关持久化（本地迁移 048）、D-016 切换/下线逐项审批铁律、D-017 飞书暂缓；UI v3/v4（v4=Catppuccin 清新护眼可爱主题+动效系统+排版/焦点环/空态打磨）；测试仓铁律+全量登记（`test-repos.md` 双表）。桌面单实例守卫+标题栏主题跟随已实测。测试 996/48、E2E 145/145（0.3.4 时点）→ 最新源码树 1099/61、E2E 162/162。**
 
+**2026-11-19 控制塔第二批 UI 补齐（已推送，随 0.3.12 发布）**：对照冻结源 9 项全落地——
+进度条语义+nextAction（639d02d）、fan-in 分组（7b7f637）、gateDisclosure（b6d1179）、
+merge 方法菜单（706ec0b）、resolve 消隐（5100b29，修正冻结源 derive.ts 参数倒置）、
+分支选择器（03aa15f）、toast undo（16a0168）、板级 preflight 聚合（67b3899，路由层
+fan-out 不改冻结 store）、open-PR 抽屉面测试网（806ea80，8 测试+变异对照）。
+门禁 **1160 tests / 66 files** + E2E 162/162 + build。浏览器只读走查（隔离 18776、
+无调度器、零写操作）：板级 preflight 15 flows/17 failed/8 warnings/56 passed、
+NEXT ACTION 与进度语义、分支选择器无 PAT 降级均实测；merge 菜单/gate chips/fan-in/
+resolve 因真实数据全 merged、无 PAT、无多上游而不可触发，由组件/域测试覆盖并登记
+数据缺口。dev 10 提交已推送（dev `ad4a79c`），随 `0.3.12` 发布。
+逐项口径见 `docs/migration-acceptance.md` 同日补充段。
+
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
 已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
 tag `v0.3.10`）；0.3.11 新增 CI 健康看板（发布提交 `3bb8030`，tag `v0.3.11`，
@@ -59,9 +71,40 @@ GitHub latest = **`v0.3.11`**。
 测试：1099 tests / 61 files + E2E 162/162，build 通过。备份目录最新
 `source-20261118-1311.bundle` 含 `main`、`dev`、`v0.3.11`。
 
-最近更新：2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
+最近更新：2026-11-19（发布 0.3.12：控制塔第二批 UI 对齐冻结源——进度/NEXT ACTION、fan-in、门禁披露、merge 菜单、resolve 消隐、分支选择器、toast undo、板级 preflight）。此前 2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.12 (2026-11-19)
+
+范围：控制塔第二批 UI 与看板语义补齐（9 项 + 测试网），并修正冻结源
+resolve 缺陷。
+
+客户端/控制塔：
+- 进度条按服务端阶段决策标注，新增 NEXT ACTION 面板；看板支持 fan-in
+  汇入分组；部署门禁移除/同步改为带 undo 的 toast。
+- 步骤抽屉 checks chip 实时展开逐检查明细；open 阶段显示 approvals 与
+  mergeability 门禁 chip；merge 按钮改为分裂菜单（merge commit 可用，
+  squash/rebase 保留 GitHub 页面边界）。
+- 看板本地 resolve 消隐（15 分钟 TTL，投影追平/更新事件/服务端不再
+  pending 时失效），只过滤看板视图。
+- 流程编辑器 source/target 改为可过滤分支 combobox，无 PAT/读取失败
+  降级自由文本；wildcard source 仍可手输。
+- 看板新增「Preflight all flows」，一次只读检查全部未归档流程，按流程
+  汇总 failed/warnings/passed，单个流程失败不中断整批。
+
+服务端：板级 preflight 在 `server/flows.mjs` 路由层顺序 fan-out，
+`{all:true}` 返回 `{results,errors}`；不改冻结 `workflows-store.mjs`，
+单流程路径的 400 契约不变。
+
+修复：移植 `resolved-automation` 时修正冻结源 wildcard 参数倒置缺陷
+（原实现 wildcard 永不匹配）；resolve 标记按
+`workflowId|stageIndex|source` 隔离，避免错误消隐。
+
+验证：1160 tests / 66 files；E2E 162/162；build 通过；CI Linux test +
+macOS desktop 双绿。隔离只读浏览器走查（15 flows / 17 failed /
+8 warnings / 56 passed）；open-PR fixture 覆盖 merge 菜单、gate chips、
+fan-in 与 resolve 接线。
 
 ## Release 0.3.11 (2026-11-18)
 

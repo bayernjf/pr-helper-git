@@ -1,5 +1,5 @@
 // Toast and confirm-dialog primitives.
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useEscape } from '../hooks/use-escape';
 import { IconAlert, IconCheck, IconInfo, IconX } from './icons';
@@ -7,14 +7,18 @@ import { t as translateText } from '../i18n';
 
 export type ToastKind = 'info' | 'error' | 'success';
 
+/** An action button on the toast (the old showToast undo affordance). */
+export type ToastAction = { label: string; onAction: () => void };
+
 interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
 }
 
-interface ToastApi {
-  notify: (message: string, kind?: ToastKind) => void;
+export interface ToastApi {
+  notify: (message: string, kind?: ToastKind, action?: ToastAction) => void;
   error: (message: string) => void;
 }
 
@@ -22,6 +26,8 @@ const ToastContext = createContext<ToastApi | null>(null);
 
 /** Both clients keep toasts on screen for the same window. */
 const TOAST_DURATION_MS = 3600;
+/** An undo affordance the reader cannot reach in time is worse than none. */
+const TOAST_ACTION_DURATION_MS = 7000;
 
 export interface ConfirmOptions {
   title: string;
@@ -36,19 +42,55 @@ const ConfirmContext = createContext<ConfirmFn>(null as never);
 
 let nextId = 1;
 
+type ToastTimer = { timer: number | undefined; deadline: number; remaining: number };
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  // Hover/focus pauses the countdown so an undo stays reachable while the
+  // reader is on it (the old toast's pause/resume), per toast in the stack.
+  const timers = useRef(new Map<number, ToastTimer>());
 
   const dismiss = useCallback((id: number) => {
+    const entry = timers.current.get(id);
+    if (entry?.timer !== undefined) window.clearTimeout(entry.timer);
+    timers.current.delete(id);
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const notify = useCallback((message: string, kind: ToastKind = 'info') => {
+  const pause = useCallback((id: number) => {
+    const entry = timers.current.get(id);
+    if (!entry || entry.timer === undefined) return;
+    window.clearTimeout(entry.timer);
+    entry.timer = undefined;
+    entry.remaining = Math.max(0, entry.deadline - Date.now());
+  }, []);
+
+  const resume = useCallback((id: number) => {
+    const entry = timers.current.get(id);
+    if (!entry || entry.timer !== undefined) return;
+    entry.deadline = Date.now() + entry.remaining;
+    entry.timer = window.setTimeout(() => dismiss(id), entry.remaining);
+  }, [dismiss]);
+
+  const notify = useCallback((message: string, kind: ToastKind = 'info', action?: ToastAction) => {
     const id = nextId++;
-    setToasts((prev) => [...prev, { id, kind, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, TOAST_DURATION_MS);
+    const duration = action ? TOAST_ACTION_DURATION_MS : TOAST_DURATION_MS;
+    setToasts((prev) => [...prev, { id, kind, message, action }]);
+    timers.current.set(id, {
+      timer: window.setTimeout(() => dismiss(id), duration),
+      deadline: Date.now() + duration,
+      remaining: duration,
+    });
+  }, [dismiss]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const entry of pending.values()) {
+        if (entry.timer !== undefined) window.clearTimeout(entry.timer);
+      }
+      pending.clear();
+    };
   }, []);
 
   const api = useMemo<ToastApi>(() => ({
@@ -61,11 +103,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="toast-stack" role="region" aria-live="polite" aria-label={translateText("Notifications")}>
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.kind}`} role={t.kind === 'error' ? 'alert' : 'status'}>
+          <div
+            key={t.id}
+            className={`toast toast-${t.kind}`}
+            role={t.kind === 'error' ? 'alert' : 'status'}
+            onMouseEnter={() => pause(t.id)}
+            onMouseLeave={() => resume(t.id)}
+            onFocus={() => pause(t.id)}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) resume(t.id);
+            }}
+          >
             <span className="toast-icon">
               {t.kind === 'success' ? <IconCheck /> : t.kind === 'error' ? <IconAlert /> : <IconInfo />}
             </span>
             <span className="toast-msg">{translateText(t.message)}</span>
+            {t.action ? (
+              <button
+                type="button"
+                className="toast-action toast-undo"
+                onClick={() => {
+                  dismiss(t.id);
+                  t.action?.onAction();
+                }}
+              >
+                {translateText(t.action.label)}
+              </button>
+            ) : null}
             <button type="button" className="toast-close" aria-label={translateText("Dismiss notification")} title={translateText("Dismiss")} onClick={() => dismiss(t.id)}>
               <IconX width={13} height={13} />
             </button>

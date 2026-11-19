@@ -369,6 +369,33 @@ describe('flows write routes (P3-3)', () => {
     expect(store.preflightWorkflow).not.toHaveBeenCalled();
   });
 
+  it('aggregates preflight across active flows, skipping archived and failing soft per flow', async () => {
+    (store.listWorkflows as any).mockResolvedValueOnce([
+      { id: 'w1', name: '主干发布', repository: 'octo/app', stages: [] },
+      { id: 'w2', name: '热修通道', repository: 'octo/hotfix', stages: [] },
+      { id: 'w-old', name: '旧通道', repository: 'octo/old', stages: [], archived: true },
+    ]);
+    (store.preflightWorkflow as any)
+      .mockImplementationOnce(async (_env: unknown, _identity: unknown, workflowId: string) => ({
+        workflowId, repository: 'octo/app', checkedAt: '2026-11-15T00:00:00.000Z', ok: true, findings: [],
+      }))
+      .mockImplementationOnce(async () => { throw new Error('未找到对应流程'); });
+    const result = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { all: true },
+    }));
+    expect(result?.status).toBe(200);
+    expect(result?.json.results).toHaveLength(1);
+    expect(result?.json.results[0]).toMatchObject({ workflowId: 'w1', ok: true });
+    expect(result?.json.errors).toEqual([{ workflowId: 'w2', message: '未找到对应流程' }]);
+    expect(store.preflightWorkflow).toHaveBeenCalledTimes(2);
+
+    (store.listWorkflows as any).mockResolvedValueOnce([]);
+    const empty = await handleFlowsRoute(ctx({
+      method: 'POST', pathname: '/api/flows/preflight', body: { all: true },
+    }));
+    expect(empty?.json).toEqual({ results: [], errors: [] });
+  });
+
   it('generates the Codex repair context via POST', async () => {
     const result = await handleFlowsRoute(ctx({
       method: 'POST', pathname: '/api/flows/repair-context',
