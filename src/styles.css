@@ -3846,12 +3846,32 @@ pre.diff {
 .flow-detail-page .detail-route { margin: 0; color: var(--muted); font-size: var(--fs-meta); font-family: var(--mono); }
 .flow-detail-page .detail-progress { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 14px; }
 .flow-detail-page .detail-progress-label { font-size: var(--fs-ui); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.flow-detail-page .detail-progress-bar { position: relative; flex: 1; height: 6px; background: var(--hover); border-radius: var(--radius-pill, 999px); }
-.flow-detail-page .detail-progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: var(--radius-pill, 999px); max-width: 100%; transition: width var(--dur-slow); }
-.flow-detail-page .detail-progress-bar i { position: absolute; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--panel); transform: translateX(-50%); background: var(--border-strong); }
-.flow-detail-page .detail-progress-bar i.succeeded { background: var(--green); }
-.flow-detail-page .detail-progress-bar i.failed { background: var(--red); }
-.flow-detail-page .detail-progress-bar i.running { background: var(--blue); }
+.flow-detail-page .flow-progress { flex-direction: column; align-items: stretch; gap: 8px; }
+.flow-detail-page .flow-progress-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.flow-detail-page .flow-progress-headline { font-size: var(--fs-ui); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.flow-detail-page .flow-progress-nodes { display: flex; gap: 6px; flex-wrap: wrap; }
+.flow-detail-page .fp-node { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--border); background: var(--hover); color: var(--muted); font-size: var(--fs-meta); cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast); }
+.flow-detail-page .fp-node:hover:not(:disabled) { border-color: var(--border-strong); background: var(--panel); }
+.flow-detail-page .fp-node:disabled { cursor: default; }
+.flow-detail-page .fp-node-index { font-weight: 600; font-variant-numeric: tabular-nums; }
+.flow-detail-page .fp-node.is-succeeded { color: var(--green); border-color: var(--green); background: transparent; }
+.flow-detail-page .fp-node.is-failed { color: var(--red); border-color: var(--red); background: transparent; }
+.flow-detail-page .fp-node.is-blocked, .flow-detail-page .fp-node.is-waiting-gates { color: var(--yellow); border-color: var(--yellow); background: transparent; }
+.flow-detail-page .fp-node.is-running { color: var(--blue); border-color: var(--blue); background: transparent; }
+.flow-detail-page .fp-node.is-ready { color: var(--green); border-color: var(--border-strong); }
+.flow-detail-page .fp-node.is-locked, .flow-detail-page .fp-node.is-idle { color: var(--faint); }
+.flow-detail-page .fp-node.is-current { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--blue); }
+.flow-detail-page .flow-progress-next { display: flex; gap: 8px; margin: 0; font-size: var(--fs-meta); color: var(--muted); flex-wrap: wrap; }
+.flow-detail-page .flow-progress-next > span:first-child { color: var(--text); font-weight: 600; }
+.flow-detail-page .flow-progress-next-reason { color: var(--yellow); }
+.flow-detail-page .flow-progress-sync { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.flow-detail-page .detail-next-action { margin-left: auto; flex-shrink: 0; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 14px; max-width: 260px; }
+.flow-detail-page .detail-next-action h2 { margin: 2px 0 0; font-size: var(--fs-ui); font-weight: 600; color: var(--text); }
+.flow-detail-page .detail-next-action.is-gateFailed { border-color: var(--red); }
+.flow-detail-page .detail-next-action.is-gateFailed h2 { color: var(--red); }
+.flow-detail-page .detail-next-action.is-canCheck h2 { color: var(--blue); }
+.flow-detail-page .detail-next-action.is-synced h2 { color: var(--green); }
+.flow-detail-page .detail-next-action.is-notStarted h2 { color: var(--muted); }
 .flow-detail-page .detail-stages { display: flex; flex-direction: column; gap: 8px; }
 .flow-detail-page .detail-stage { background: var(--panel); border: 1px solid var(--border); border-left-width: 2px; border-radius: var(--radius-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
 .flow-detail-page .detail-stage.idle { border-left-color: var(--border-strong); }

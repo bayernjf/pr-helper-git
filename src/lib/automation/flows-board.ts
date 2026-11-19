@@ -25,6 +25,13 @@ import {
 } from './workflow-run';
 import { getLocale, t, tp } from '../../i18n';
 
+export type StageDecision = {
+  kind: string;
+  actionable?: boolean;
+  canCreateNext?: boolean;
+  message?: string;
+};
+
 export type WorkflowStageStateRow = {
   workflowId: string;
   stageIndex: number;
@@ -38,7 +45,14 @@ export type WorkflowStageStateRow = {
   checksState?: string;
   checksPassed?: number;
   checksTotal?: number;
+  approvals?: number;
+  requiredApprovals?: number;
+  mergeable?: boolean | null;
+  mergeableState?: string | null;
+  aheadBy?: number;
   updatedAt?: string | null;
+  /** Server-derived stage decision (deriveStageDecision); absent on degraded reads. */
+  decision?: StageDecision | null;
 };
 
 export type ActionQueueItem = {
@@ -63,6 +77,9 @@ export type AutomationActionRow = {
   kind?: string;
   state: 'queued' | 'running' | 'paused' | 'failed';
   message?: string | null;
+  failureReason?: string | null;
+  attempts?: number;
+  createdAt?: string;
   updatedAt?: string;
 };
 
@@ -189,6 +206,21 @@ export function blockedAutomationForStep(
 /** Stable key for one automation action on one stage route. */
 export function actionKey(action: Pick<AutomationActionRow, 'workflowId' | 'stageIndex' | 'source'>) {
   return `${action.workflowId}:${action.stageIndex ?? -1}:${action.source}`;
+}
+
+/** Newest automation action on one stage route (derive.ts automationActionFor). */
+export function automationActionFor(
+  state: BoardState,
+  workflowId: string,
+  stageIndex: number,
+  source: string,
+): AutomationActionRow | undefined {
+  return state.automationActions
+    .filter((action) => action.workflowId === workflowId && action.stageIndex === stageIndex && action.source === source)
+    .reduce<AutomationActionRow | undefined>(
+      (newest, action) => (!newest || (action.updatedAt ?? '') > (newest.updatedAt ?? '') ? action : newest),
+      undefined,
+    );
 }
 
 /** Six aggregate counters, identical to the original board summary. */

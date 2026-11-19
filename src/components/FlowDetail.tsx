@@ -8,15 +8,38 @@ import { deleteFlowFromServer } from '../api/flows';
 import {
   buildStageDetails,
   flowProgress,
+  nextActionSummary,
+  stageProgressTooltip,
+  type NextActionKind,
   type StageEventRow,
 } from '../lib/automation/flows-detail';
+import type { StageProgressStatus } from '../lib/automation/workflow-run';
 import { workflowSummary } from '../lib/automation/workflow';
 import { githubPullUrl } from '../lib/domain';
 import { errorMessage } from '../lib/errors';
+import { formatRelative } from '../lib/format';
 import type { BoardState } from '../lib/automation/flows-board';
 import { getLocale, t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
 import PullReference from './PullReference';
+
+const NODE_LABEL: Record<StageProgressStatus, string> = {
+  succeeded: 'done',
+  failed: 'failed',
+  blocked: 'paused',
+  'waiting-gates': 'waiting for gates',
+  running: 'running',
+  ready: 'actionable',
+  locked: 'waiting for previous',
+  idle: 'waiting for sync',
+};
+
+const NEXT_ACTION_TEXT: Record<NextActionKind, string> = {
+  notStarted: 'Monitoring not started yet',
+  gateFailed: 'A gate failed and needs attention',
+  canCheck: 'Ready to check the next PR',
+  synced: 'Flow status synced',
+};
 
 /** "M/D HH:mm" in local time, matching the board's updated stamp. */
 function formatEventTime(occurredAt: string): string {
@@ -58,6 +81,7 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
     [state, flow, events],
   );
   const progress = useMemo(() => (flow ? flowProgress(state, flow) : null), [state, flow]);
+  const nextAction = useMemo(() => (flow ? nextActionSummary(state, flow) : 'notStarted'), [state, flow]);
   const recentRuns = useMemo(
     () => (inbox?.runs ?? []).filter((run) => run.workflowId === flowId).slice(0, 10),
     [inbox?.runs, flowId],
@@ -83,7 +107,15 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
     );
   }
   const summary = workflowSummary(flow);
-  const progressPct = progress && progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
+  const headline = !progress?.synced
+    ? t('Waiting for status sync')
+    : progress.currentIndex === null
+      ? tp('All done · {total} steps, waiting for new commits', { total: progress.total })
+      : tp('Step {step} of {total} · {completed} completed', {
+        step: progress.currentIndex + 1,
+        total: progress.total,
+        completed: progress.completed,
+      });
 
   return (
     <div className="flow-detail-page">
@@ -121,20 +153,46 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
           <h1>{flow.name}</h1>
           <p className="detail-route">{summary.route}</p>
         </div>
+        <aside className={`detail-next-action is-${nextAction}`}>
+          <p className="detail-eyebrow">{t('Next action')}</p>
+          <h2>{t(NEXT_ACTION_TEXT[nextAction])}</h2>
+        </aside>
       </section>
 
-      <section className="detail-progress">
-        <span className="detail-progress-label">{t('Progress')} {progress?.completed ?? 0}/{progress?.total ?? flow.stages.length}</span>
-        <div className="detail-progress-bar">
-          {flow.stages.map((stage, index) => (
-            <i
-              key={stage.stageId ?? index}
-              className={progress?.nodes[index] ?? 'idle'}
-              style={{ left: `${(index / Math.max(flow.stages.length, 1)) * 100}%` }}
-            />
-          ))}
-          <span className="detail-progress-fill" style={{ width: `${progressPct}%` }} />
+      <section className="detail-progress flow-progress">
+        <div className="flow-progress-head">
+          <span className="detail-progress-label">{t('Flow progress')}</span>
+          <span className="flow-progress-headline">{headline}</span>
         </div>
+        <div className="flow-progress-nodes">
+          {flow.stages.map((stage, index) => {
+            const status = progress?.nodes[index] ?? 'idle';
+            const isCurrent = progress?.synced && progress.currentIndex === index;
+            return (
+              <button
+                key={stage.stageId ?? index}
+                type="button"
+                className={`fp-node is-${status}${isCurrent ? ' is-current' : ''}`}
+                disabled={!onOpenDrawer}
+                title={stageProgressTooltip(state, flow, index)}
+                aria-label={`${tp('Step {step}', { step: index + 1 })} · ${t(NODE_LABEL[status])}`}
+                onClick={() => onOpenDrawer?.(index)}
+              >
+                <span className="fp-node-index">{index + 1}</span>
+                <span className="fp-node-status">{t(NODE_LABEL[status])}</span>
+              </button>
+            );
+          })}
+        </div>
+        {progress?.next && progress.synced ? (
+          <p className="flow-progress-next">
+            <span>{tp('Next · step {step}', { step: progress.next.index + 1 })}</span>
+            {progress.next.reason ? <span className="flow-progress-next-reason">{progress.next.reason}</span> : null}
+          </p>
+        ) : null}
+        {progress?.syncedAt ? (
+          <p className="flow-progress-sync">{tp('Server reconciliation · {time}', { time: formatRelative(progress.syncedAt) })}</p>
+        ) : null}
       </section>
 
       {recentRuns.length ? (

@@ -12,10 +12,21 @@
 
 import { githubPullUrl } from '../domain';
 import { matchingStageProjections, type Workflow } from './workflow';
-import { stageRunPresentation, workflowProgress, type StageRunTone } from './workflow-run';
-import { projectedStageStatus } from './projected-stage';
+import {
+  automationActionPresentation,
+  nextStepSummary,
+  progressActionKey,
+  stageProgressNode,
+  stageRunPresentation,
+  worstStageProgress,
+  workflowProgress,
+  type StageProgressStatus,
+  type StageRunTone,
+  type WorkflowProgress,
+} from './workflow-run';
+import { projectedStageStatus, type ProjectedStageState } from './projected-stage';
 import { t, tp } from '../../i18n';
-import type { BoardState, WorkflowStageStateRow } from './flows-board';
+import { automationActionFor, statesForStage, type BoardState, type WorkflowStageStateRow } from './flows-board';
 
 export type StageEventRow = {
   workflowId: string;
@@ -106,23 +117,7 @@ export function buildStageDetails(state: BoardState, flow: Workflow, events: rea
     }
 
     // The projected first paint: everything the persisted row can answer.
-    const projectedRow: import('./projected-stage').ProjectedStageState | undefined = primary
-      ? {
-          repository: flow.repository,
-          pullState: primary.pullState ?? '',
-          checksState: primary.checksState ?? '',
-          pullNumber: primary.pullNumber ?? null,
-          headSha: primary.headSha ?? null,
-          mergedAt: primary.mergedAt ?? null,
-          checksPassed: primary.checksPassed ?? 0,
-          checksTotal: primary.checksTotal ?? 0,
-          approvals: 0,
-          requiredApprovals: 0,
-          mergeable: null,
-          mergeableState: null,
-        }
-      : undefined;
-    const status = projectedStageStatus(projectedRow);
+    const status = projectedStageStatus(toProjectedRow(flow, primary));
     const run = stageRunPresentation(
       primary && (primary.pullState !== undefined || primary.checksState !== undefined || primary.pullNumber != null)
         ? { pullState: primary.pullState ?? '', checksState: primary.checksState ?? '', pullNumber: primary.pullNumber ?? null }
@@ -164,19 +159,113 @@ export function buildStageDetails(state: BoardState, flow: Workflow, events: rea
   });
 }
 
-/** Progress bar model over the per-stage tones (workflow-run.ts semantics). */
-export function flowProgress(state: BoardState, flow: Workflow) {
-  const tones = flow.stages.map((_stage, index) => {
-    const routes = matchingStageProjections(flow, index, state.states);
-    const primary = routes[0];
+/** Progress bar model over the server stage decisions (derive.ts flowProgressBar). */
+export type FlowProgressModel = WorkflowProgress & {
+  /** False while every node is idle — no projection has arrived yet. */
+  synced: boolean;
+  /** The first unfinished step plus the server decision's unlock condition. */
+  next: { index: number; reason?: string } | null;
+  /** Newest projection updatedAt across the flow's stages. */
+  syncedAt: string | null;
+};
+
+const PROGRESS_ACTION_LABEL: Record<string, string> = {
+  'create-pr': 'auto-create PR',
+  'merge-pr': 'auto-merge PR',
+  'advance-stage': 'auto-advance stage',
+};
+
+function toProjectedRow(flow: Workflow, primary: WorkflowStageStateRow | undefined): ProjectedStageState | undefined {
+  if (!primary) return undefined;
+  return {
+    repository: flow.repository,
+    pullState: primary.pullState ?? '',
+    checksState: primary.checksState ?? '',
+    pullNumber: primary.pullNumber ?? null,
+    headSha: primary.headSha ?? null,
+    mergedAt: primary.mergedAt ?? null,
+    checksPassed: primary.checksPassed ?? 0,
+    checksTotal: primary.checksTotal ?? 0,
+    approvals: primary.approvals ?? 0,
+    requiredApprovals: primary.requiredApprovals ?? 0,
+    mergeable: primary.mergeable ?? null,
+    mergeableState: primary.mergeableState ?? null,
+    aheadBy: primary.aheadBy ?? 0,
+  };
+}
+
+function toneProgressStatus(tone: StageRunTone): StageProgressStatus {
+  return tone === 'succeeded' ? 'succeeded' : tone === 'failed' ? 'failed' : tone === 'running' ? 'running' : 'idle';
+}
+
+/** One stage's progress node: worst across its routes (derive.ts stageProgressStatus). */
+export function stageProgressStatus(state: BoardState, flow: Workflow, stageIndex: number): StageProgressStatus {
+  const routes = statesForStage(state, flow, stageIndex);
+  const stageSource = flow.stages[stageIndex]?.source ?? '';
+  if (!routes.length) {
+    return stageProgressNode({ automation: automationActionFor(state, flow.id, stageIndex, stageSource) }).status;
+  }
+  return worstStageProgress(routes.map((route) => {
+    const automation = automationActionFor(state, flow.id, stageIndex, route.source);
+    if (route.decision) return stageProgressNode({ decision: route.decision, automation }).status;
+    // Degraded reads carry no server decision; keep the projection-tone first
+    // paint instead of re-deriving a gate in the browser.
+    if (automation) return stageProgressNode({ automation }).status;
     const run = stageRunPresentation(
-      primary && (primary.pullState !== undefined || primary.checksState !== undefined || primary.pullNumber != null)
-        ? { pullState: primary.pullState ?? '', checksState: primary.checksState ?? '', pullNumber: primary.pullNumber ?? null }
+      route.pullState !== undefined || route.checksState !== undefined || route.pullNumber != null
+        ? { pullState: route.pullState ?? '', checksState: route.checksState ?? '', pullNumber: route.pullNumber ?? null }
         : undefined,
     );
-    return run.tone;
-  });
-  return workflowProgress(tones.map((tone) => (tone === 'succeeded' ? 'succeeded' : tone === 'failed' ? 'failed' : tone === 'running' ? 'running' : 'idle')));
+    return toneProgressStatus(run.tone);
+  }));
+}
+
+/** Node tooltip: route, decision message, running automation, blocked reason. */
+export function stageProgressTooltip(state: BoardState, flow: Workflow, stageIndex: number): string {
+  const routes = statesForStage(state, flow, stageIndex);
+  const stage = flow.stages[stageIndex];
+  const action = automationActionFor(state, flow.id, stageIndex, routes[0]?.source || stage?.source || '');
+  const lines = [`${stage?.source ?? ''} → ${stage?.target ?? ''}`];
+  const message = routes.map((route) => route.decision?.message).find(Boolean);
+  if (message) lines.push(message);
+  // Name the running automation only when a server action exists and is moving.
+  if (action && progressActionKey(action.kind) && !automationActionPresentation(action).blocked) {
+    lines.push(`${t('Current action')}: ${t(PROGRESS_ACTION_LABEL[action.kind ?? ''] ?? action.kind ?? '')}`);
+  }
+  if (action && automationActionPresentation(action).blocked && action.failureReason?.trim()) {
+    lines.push(action.failureReason.trim());
+  }
+  return lines.join(' · ');
+}
+
+export function flowProgress(state: BoardState, flow: Workflow): FlowProgressModel {
+  const statuses = flow.stages.map((_stage, index) => stageProgressStatus(state, flow, index));
+  const progress = workflowProgress(statuses);
+  const synced = statuses.some((status) => status !== 'idle');
+  const reasons = flow.stages.map((_stage, index) =>
+    statesForStage(state, flow, index).map((route) => route.decision?.message).find(Boolean));
+  const next = nextStepSummary(progress.nodes, reasons);
+  const syncedAt = flow.stages
+    .flatMap((_stage, index) => statesForStage(state, flow, index).map((route) => route.updatedAt))
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? null;
+  return { ...progress, synced, next, syncedAt };
+}
+
+export type NextActionKind = 'notStarted' | 'gateFailed' | 'canCheck' | 'synced';
+
+/** The detail side panel's headline (detail.ts nextActionTitle). */
+export function nextActionSummary(state: BoardState, flow: Workflow): NextActionKind {
+  const routesPerStage = flow.stages.map((_stage, index) => statesForStage(state, flow, index));
+  if (!routesPerStage.some((routes) => routes.length)) return 'notStarted';
+  const dynamicFailure = flow.stages.some((stage, index) =>
+    stage.source.includes('*') && routesPerStage[index].some((route) => route.checksState === 'failure'));
+  if (dynamicFailure) return 'gateFailed';
+  const statuses = routesPerStage.map((routes) => projectedStageStatus(toProjectedRow(flow, routes[0])));
+  if (statuses.some((status, index) => status?.kind === 'open' && routesPerStage[index][0]?.checksState === 'failure')) return 'gateFailed';
+  if (statuses.some((status) => status?.kind === 'not-created')) return 'canCheck';
+  return 'synced';
 }
 
 function eventsFor(events: readonly StageEventRow[], workflowId: string, stageIndex: number) {

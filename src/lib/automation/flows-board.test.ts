@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   actionKey,
+  automationActionFor,
   boardCounts,
   buildLaneModels,
   laneStepModel,
@@ -188,5 +189,22 @@ describe('actionKey', () => {
   it('is stable per workflow/stage/source for resolve marks', () => {
     expect(actionKey({ workflowId: 'w', stageIndex: 2, source: 'dev' })).toBe('w:2:dev');
     expect(actionKey({ workflowId: 'w', stageIndex: null, source: 'dev' })).toBe('w:-1:dev');
+  });
+});
+
+describe('automationActionFor', () => {
+  const older: AutomationActionRow = { workflowId: 'flow-a', stageIndex: 0, source: 'feature', kind: 'merge-pr', state: 'failed', updatedAt: '2026-11-14T01:00:00Z' };
+  const newer: AutomationActionRow = { ...older, state: 'queued', updatedAt: '2026-11-14T02:00:00Z' };
+
+  it('returns the newest action for the exact workflow/stage/source', () => {
+    const state = baseState({ automationActions: [older, newer] });
+    expect(automationActionFor(state, 'flow-a', 0, 'feature')).toBe(newer);
+  });
+
+  it('ignores actions on other stages, sources or workflows', () => {
+    const state = baseState({ automationActions: [older] });
+    expect(automationActionFor(state, 'flow-a', 1, 'feature')).toBeUndefined();
+    expect(automationActionFor(state, 'flow-a', 0, 'dev')).toBeUndefined();
+    expect(automationActionFor(state, 'flow-b', 0, 'feature')).toBeUndefined();
   });
 });
