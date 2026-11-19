@@ -89,6 +89,19 @@ GitHub latest = **`v0.3.11`**。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
 
+## Release 0.3.14 (2026-11-19)
+
+范围：修复服务端 PAT 模式下 `FlowEditor` 分支选择器与 `StepDrawer`
+检查明细的降级。两个 hook 之前只认浏览器 PAT，空 PAT 时提前返回；
+现在接收 `hasServerPat`，空浏览器 PAT 仍走服务端代理（服务端注入
+admin PAT）。新增 3 个 hook 测试。
+
+验证：1163 tests / 67 files；E2E 162/162；build 通过；隔离 18777
+真实服务端 PAT 实测 source/target 列出 `dev`/`main`，StepDrawer checks
+展开 8 条真实 GitHub Actions 明细；真实 PR #14 走查覆盖 PR 列表、
+open-PR 抽屉、checks、文件 diff 与 New PR 分支列表。临时 PR #14 已关闭，
+临时分支已删除。
+
 ## Release 0.3.13 (2026-11-19)
 
 范围：修复 CI Health 指标卡标签在窄窗口下被省略。`src/styles.css` 的
