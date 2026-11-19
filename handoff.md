@@ -86,11 +86,18 @@ GitHub latest = **`v0.3.11`**。
 DOM 核对所有标签 `scrollWidth == clientWidth`，`Post-merge CI failures`
 正常两行，无省略号。
 
+更新器验收（2026-11-19）：用 0.3.12 独立 bundle-id 副本实测
+`Check for Updates…` → 提示 `v0.3.13 is available` → 下载窗从 0% 走到
+21%，显示 `4.5 MB of 46.2 MB · 454 KB/s · 1m 32s left`；最小化后
+`is_minimized=true`，下载继续，恢复窗口仍为 21%；取消后下载窗关闭。
+
 发布：提交 `e274d58`，tag `v0.3.13`（tag 对象 `31a0615`），PR #33
 合并 `89ea36b`；Release
 `https://github.com/bayernjf/pr-helper-git/releases/tag/v0.3.13`。
 本机 `/Applications/PR Helper Git.app` 已安装 0.3.13，0.3.12 备份于
-`/Users/jiangfeng/000mycodes-backups/pr-helper-git/PR Helper Git-0.3.12.app`。
+`/Users/jiangfeng/000mycodes-backups/pr-helper-git/PR Helper Git-0.3.12.app`；
+发布时备份 `source-20261119-1626.bundle` 含 `main=dbf6ed0`、
+`dev=a0bea00`、`v0.3.13`。
 
 ## Release 0.3.12 (2026-11-19)
 
