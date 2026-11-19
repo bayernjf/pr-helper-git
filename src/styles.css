@@ -1238,6 +1238,8 @@ pre.diff {
 .toast.toast-error .toast-icon { color: var(--red); }
 .toast.toast-info .toast-icon { color: var(--accent); }
 .toast .toast-msg { flex: 1; }
+.toast .toast-action { border: 1px solid var(--accent-line); background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-sm); padding: 2px 10px; font-size: var(--fs-meta); cursor: pointer; transition: background var(--dur-fast); white-space: nowrap; }
+.toast .toast-action:hover { background: var(--hover); }
 .toast .toast-close { border: 0; background: transparent; color: var(--faint); display: inline-flex; padding: 2px; }
 
 /* ---------- Context menu ---------- */
@@ -4060,7 +4062,6 @@ pre.diff {
 .deployment-chip.env-production { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 .deployment-config-warnings, .deployment-row-warnings, .drawer-deployment-warnings ul { margin: 0; padding-left: 18px; color: var(--amber); font-size: var(--fs-meta); }
 .deployment-row-actions { display: flex; gap: 6px; }
-.deployment-undo { display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--muted); }
 .deployment-suggestions { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-soft); padding-top: 8px; font-size: var(--fs-meta); }
 .deployment-suggestions > div { display: flex; align-items: center; gap: 8px; }
 .deployment-suggestions small { flex: 1; color: var(--muted); }
