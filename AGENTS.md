@@ -218,21 +218,23 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of 0.3.11 (2026-11-18):
+As of 2026-11-19 (dev, unreleased control-tower parity batch):
 
-- unit/route tests: **1099 tests / 61 files** (includes the migrated pr-helper
+- unit/route tests: **1160 tests / 66 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
   prerequisite tests under `src/lib/automation/`, 5 flow-preflight semantics
   tests in `server/workflow-preflight.test.ts`, 33 control-tower route tests in
-  `server/flows.test.ts`, 3 team-permission tests in
+  `server/flows.test.ts` (incl. the board preflight fan-out), 3 team-permission tests in
   `src/lib/automation/team-permissions.test.ts`, 9 webhook contract tests in
   `server/automation-webhook.test.mjs`, 3 credentials-file parsing tests in
   `server/credentials-env.test.mjs`, plus the GitHub Device Flow / A2A /
   proxy-client suites in `server/github-oauth.test.mjs`,
   `server/github-http.test.mjs`, `server/a2a.test.mjs` and
-  `server/pat-oauth-merge.test.mjs`)
+  `server/pat-oauth-merge.test.mjs`; the parity batch adds 17 resolve-mark
+  semantics tests, 4 preflight-aggregate tests, 3 branch-filter tests,
+  4 toast-undo jsdom tests and 8 open-PR StepDrawer/GateDisclosure jsdom tests)
 - E2E: **162 passed / 0 failed**
 - build: passes
 - CI: `main` and `dev` both green; workflow runs Linux test and macOS desktop jobs

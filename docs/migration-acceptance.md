@@ -56,3 +56,24 @@
 数据走 D-018 镜像（15 流程含新增 agent-ops）。原版对照审计（本地 checkout 仍在
 000mycodes/pr-helper）确认 19 对话框语义全有对应——真缺失 2 个已落地（Codex 修复
 对话框 4c60ef4 + 生成规则管理对话框 a41e05d，规则名迁移 049）。
+
+### 第二批功能补齐（2026-11-19，dev 未推送）
+
+对照冻结源 `docs/archive/pr-helper-source/` 的第二批 9 项全部落地（进度条语义与
+nextAction 面板同提交），8 个功能提交 + 1 个测试提交：
+
+| 项 | 提交 | 验证口径 |
+|---|---|---|
+| 进度条语义增强 + nextAction 面板 | 639d02d | 浏览器实测（隔离 18776，真实镜像数据）：NEXT ACTION「Flow status synced」、`All done · 1 steps, waiting for new commits`、`checks 8/8`、`merged · post-merge checks passed` |
+| fan-in 分组 | 7b7f637 | 域测试覆盖；真实 15 流程无多上游 target，浏览器无触发数据（登记为数据缺口，非功能缺口） |
+| gateDisclosure 门禁披露 | b6d1179 | 无 PAT 降级为纯 chip 浏览器实测；live 展开/分组/Cloudflare 摘要 retarget 由 806ea80 组件测试覆盖（open-PR fixture + mock proxy） |
+| merge 方法菜单 | 706ec0b | 真实 15 stage 全 merged 无 open PR，浏览器不可触发；菜单选项/squash-rebase 禁用边界/Escape 层级/外点关闭由 806ea80 覆盖 |
+| resolve 消隐 | 5100b29 | 17 个语义单测（TTL/新事件复现/prune/投影不变）；rerun/merge 成功回调接线由 806ea80 覆盖（含失败不消隐的反例）；浏览器不做写操作故未实测消隐 |
+| 分支选择器 | 03aa15f | 无 PAT 降级自由文本浏览器实测（combobox 无 toggle/listbox）；过滤语义 3 单测；live 分支列表需 PAT，登记为待实网走查 |
+| toast undo | 16a0168 | 4 个 jsdom 测试（undo 回调+消隐、7s/3.6s 窗口、focus 暂停/blur 续期、close 不触发）；浏览器无部署门禁草稿操作故未实测 |
+| 板级 preflight 聚合 | 67b3899 | 浏览器实测：15 flow(s) checked、17 failed/8 warnings/56 passed、按流程 details 分组、无 App 凭据 fail-soft（App access FAILED + branches SKIPPED 为隔离环境预期降级）；路由 fan-out 1 测试 + 聚合 4 单测 |
+| open-PR 抽屉面组件测试网 | 806ea80 | 8 测试；变异对照（移除 resolve 回调）恰红 2 个接线测试后恢复，哈希校验一致 |
+
+门禁：lint、typecheck:server、**1160 tests / 66 files**、build、E2E **162/162**。
+浏览器验证只读：隔离 `PR_HELPER_HOME` + 无 `PR_HELPER_GIT_AUTOMATION`（调度器 opt-in
+不启动），未点任何写操作与看板 Refresh；验证后仅 kill 自启 PID 并清理临时目录。

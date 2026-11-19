@@ -2,6 +2,23 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [Unreleased]
+
+### 新增
+- **看板预检全部流程**：Flows 看板新增「Preflight all flows」，一次只读检查所有未归档流程，汇总 failed/warnings/passed 与受检流程数，按流程展开分类 findings；单个流程检查失败不中断整批（fail-soft 列出失败原因）。
+- **下一步行动面板**：流程详情顶部 NEXT ACTION 面板按服务端阶段决策给出当前应做之事；进度条按决策标注每一步（含「全部完成 · 等待新提交」态），checks 计数与合并后语义（`merged · post-merge checks passed`）上桌。
+- **fan-in 分组**：看板对多上游汇入同一 target 的步骤按汇入组展示。
+- **门禁披露**：步骤抽屉 checks chip 在有 PAT 且实时读取成功时展开为按来源分组的逐检查明细（状态图标、部署摘要按阶段分支 retarget、跳转 run 链接）；无 PAT 或读取失败保持纯 chip。open 阶段另显示 approvals 与 mergeability 门禁 chip。
+- **merge 方法菜单**：抽屉 merge 按钮变为分裂按钮，箭头展开方法菜单；merge commit 为可用选项并入队引擎动作，squash/rebase 禁用并提示需到 GitHub 页面操作（引擎合并路径只产生 merge commit 的既有边界）。
+- **分支选择器**：流程编辑器 source/target 变为可过滤 combobox，列出仓库真实分支（PAT 代理读取）；无 PAT 或读取失败降级为自由文本输入，wildcard source 规则仍可手输。
+- **toast undo**：移除部署门禁与同步门禁结果改为带 undo 的 toast（7s 窗口、悬停/聚焦暂停倒计时）；同步 toast 显示 kept/added/removed 计数，无变化时明确提示。
+
+### 变更
+- **resolve 消隐**：抽屉/失败中心重跑、入队、接管成功后该步骤在看板本地消隐，直到投影追平、出现更新事件或 15 分钟 TTL 到期；详情/抽屉/进度仍显示原始投影。修正冻结源 wildcard resolve 参数倒置导致永不匹配的缺陷。
+
+### 验证
+- 1160 tests / 66 files；E2E 162/162；build 通过。隔离只读浏览器走查：板级预检 15 flows（17 failed/8 warnings/56 passed）、NEXT ACTION/进度语义、分支选择器降级实测；merge 菜单与 gate chips 由 open-PR fixture 组件测试覆盖（真实受管步骤当前全 merged）。
+
 ## [0.3.11] - 2026-11-18
 
 ### 新增
