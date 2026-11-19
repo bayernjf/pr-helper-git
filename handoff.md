@@ -63,6 +63,20 @@ resolve 因真实数据全 merged、无 PAT、无多上游而不可触发，由�
 数据缺口。dev 10 提交已推送（dev `ad4a79c`），随 `0.3.12` 发布。
 逐项口径见 `docs/migration-acceptance.md` 同日补充段。
 
+**2026-11-19 Live-PAT 实网走查 + 服务端 PAT 修复**：在已登记测试仓
+`bayernjf/git-e2e-test` 建真实 PR [#14](https://github.com/bayernjf/git-e2e-test/pull/14)
+（临时 fixture，仍 OPEN，未 merge/close），补 `.github/workflows/live-pat-check.yml`，
+真实 Actions `smoke` run `44493987714` 成功。桌面端 0.3.13 用真实服务端 PAT 走查：
+PR 列表 Open 1 / Merged 6 / Closed 7、#14 抽屉 2 commits / 2 files / `+13 -0` /
+`CHECKS smoke success`、文件 diff、New PR Base/Compare 分支列表全部真实加载。
+走查发现 `FlowEditor` / `StepDrawer` 的 `useBranches` / `useCheckDetails` 只认浏览器
+PAT，服务端 PAT 模式下会提前返回，分支列表和 checks 明细降级；已修为接收
+`hasServerPat` 并保持空 PAT 时走服务端代理，新增 3 个 hook 测试。隔离 18777
+（真实服务端 PAT、无调度器、零写）实测 source/target 列出 `dev`/`main`，StepDrawer
+checks 展开 8 条真实 GitHub Actions 明细。门禁 **1163 tests / 67 files** + E2E
+162/162 + build。PR 列表卡片在 GitHub REST 已 `mergeable=true / clean` 时仍显示
+`computing`，属列表端点 mergeability 延迟计算，抽屉单 PR 读取正常，本次未改。
+
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
 已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
 tag `v0.3.10`）；0.3.11 新增 CI 健康看板（发布提交 `3bb8030`，tag `v0.3.11`，

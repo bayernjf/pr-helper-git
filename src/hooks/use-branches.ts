@@ -5,13 +5,22 @@ type BranchesPayload = { name?: string }[];
 
 /**
  * The repository's branch names through the PAT proxy (the same read the old
- * editor's loadBranches did). Null without a PAT or on a failed read, so the
- * branch picker degrades to a plain free-text input.
+ * editor's loadBranches did). Null without either a browser PAT or a server
+ * PAT, or on a failed read, so the branch picker degrades to a plain
+ * free-text input.
+ *
+ * An empty `pat` is intentional in server-stored mode: the server injects
+ * its own admin PAT when the header is absent, so the UI must not short-circuit
+ * before making the request.
  */
-export function useBranches(pat: string, repository: string): string[] | null {
+export function useBranches(
+  pat: string,
+  hasServerPat: boolean,
+  repository: string,
+): string[] | null {
   const [branches, setBranches] = useState<string[] | null>(null);
   useEffect(() => {
-    if (!pat || !repository.includes('/')) {
+    if ((!pat && !hasServerPat) || !repository.includes('/')) {
       setBranches(null);
       return;
     }
@@ -30,6 +39,6 @@ export function useBranches(pat: string, repository: string): string[] | null {
     return () => {
       alive = false;
     };
-  }, [pat, repository]);
+  }, [pat, hasServerPat, repository]);
   return branches;
 }

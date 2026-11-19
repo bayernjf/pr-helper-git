@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 修复
+- **服务端 PAT 模式下的分支选择器与步骤检查明细**：`FlowEditor` 与 `StepDrawer` 之前只把浏览器 PAT 传给 `useBranches` / `useCheckDetails`，服务端 PAT 模式下两个 hook 会提前返回，分支列表退化为自由文本、checks chip 无法展开。现在 hook 接收 `hasServerPat`，空浏览器 PAT 时仍走服务端代理（由服务端注入 admin PAT）；新增 3 个 hook 测试，真实服务端 PAT + 真实 PR #14 走查通过。
+
+### 验证
+- 1163 tests / 67 files；E2E 162/162；build 通过；隔离 18777 真实服务端 PAT 实测：FlowEditor source/target 列出 `dev`/`main`，StepDrawer checks 展开为 8 条真实 GitHub Actions 明细。
+
 ## [0.3.13] - 2026-11-19
 
 ### 修复
