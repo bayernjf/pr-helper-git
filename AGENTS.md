@@ -218,7 +218,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of 0.3.14 (2026-11-19):
+As of 0.3.15 (2026-11-19):
 
 - unit/route tests: **1173 tests / 69 files** (includes the migrated pr-helper
   engine test nets: 418 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
