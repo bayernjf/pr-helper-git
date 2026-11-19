@@ -63,6 +63,20 @@ resolve 因真实数据全 merged、无 PAT、无多上游而不可触发，由�
 数据缺口。dev 10 提交已推送（dev `ad4a79c`），随 `0.3.12` 发布。
 逐项口径见 `docs/migration-acceptance.md` 同日补充段。
 
+**2026-11-19 Live-PAT 实网走查 + 服务端 PAT 修复**：在已登记测试仓
+`bayernjf/git-e2e-test` 建真实 PR [#14](https://github.com/bayernjf/git-e2e-test/pull/14)
+（临时 fixture，仍 OPEN，未 merge/close），补 `.github/workflows/live-pat-check.yml`，
+真实 Actions `smoke` run `44493987714` 成功。桌面端 0.3.13 用真实服务端 PAT 走查：
+PR 列表 Open 1 / Merged 6 / Closed 7、#14 抽屉 2 commits / 2 files / `+13 -0` /
+`CHECKS smoke success`、文件 diff、New PR Base/Compare 分支列表全部真实加载。
+走查发现 `FlowEditor` / `StepDrawer` 的 `useBranches` / `useCheckDetails` 只认浏览器
+PAT，服务端 PAT 模式下会提前返回，分支列表和 checks 明细降级；已修为接收
+`hasServerPat` 并保持空 PAT 时走服务端代理，新增 3 个 hook 测试。隔离 18777
+（真实服务端 PAT、无调度器、零写）实测 source/target 列出 `dev`/`main`，StepDrawer
+checks 展开 8 条真实 GitHub Actions 明细。门禁 **1163 tests / 67 files** + E2E
+162/162 + build。PR 列表卡片在 GitHub REST 已 `mergeable=true / clean` 时仍显示
+`computing`，属列表端点 mergeability 延迟计算，抽屉单 PR 读取正常，本次未改。
+
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
 已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
 tag `v0.3.10`）；0.3.11 新增 CI 健康看板（发布提交 `3bb8030`，tag `v0.3.11`，
@@ -74,6 +88,19 @@ GitHub latest = **`v0.3.11`**。
 最近更新：2026-11-19（发布 0.3.13：CI Health 窄窗指标标签换行修复）。此前 2026-11-19（发布 0.3.12：控制塔第二批 UI 对齐冻结源——进度/NEXT ACTION、fan-in、门禁披露、merge 菜单、resolve 消隐、分支选择器、toast undo、板级 preflight）。此前 2026-11-18（发布 0.3.11：只读 PR CI 健康看板（通过率/失败原因/CI 阻塞/合并后 CI，账号仓库 + 7/30/90 天窗口 + 10 分钟缓存）。此前 0.3.10：更新器下载速度/剩余时间与失败一键重试；admin 权限错误统一转为可操作提示，仓库管理弹窗对 member 直接提示并禁用提交。此前 0.3.9：权限边界收紧（仓库/控制塔写入需 admin）、webhook 请求体 256KB 上限、Dashboard 30 秒刷新与 PR 探测修复、并发保存/审计原子性、grep-all 预算、损坏 config 失败关闭，以及一批 UI 可访问性/懒加载修复。此前 0.3.8：`Check for Updates…` 菜单项随状态变为 `Checking…` / 文本进度条 / `Update ready` / `Update failed`，并作为恢复进度窗口入口；此前 0.3.7 为可最小化独立进度窗口；此前 0.3.6：桌面更新器增加下载进度、SHA-256 校验状态和 `Install & Restart` 确认；0.3.5 为 UI 体验版。生产巡检：14 个受管仓库 0 open PR、13 个 CI 全绿，唯一异常为 `agent-world` 自托管 runner 离线，详见下方 2026-11-16 段。此前 2026-11-16：发布 0.3.4，修复工具栏仓库下拉框选项被裁剪。此前 2026-11-15：GitHub Device Flow 身份连接 + A2A/Agent Card 真接线落地，见下方 D-020/D-021 段；实网 Device Flow 待用户启用 App 设置后走查。此前 PR 写操作终验：在 `bayernjf/git-e2e-test` 走产品真实路径——`/api/github` 代理 + `/api/merge-pull` 路由——建 PR #12 后**真实执行 Close/Reopen/Merge(squash) 全成功**，PR 合并 `main` 前进、本地 reset 回 `da284ca`、临时分支清理。**关键边界**：Approve/Request-changes 对自己 PR 被 GitHub 硬性拒绝（422 "Cannot approve/request changes on your own pull request"），这是 GitHub 平台约束、非产品缺陷；COMMENT review 对自己 PR 走通（200/COMMENTED）。单账号下 approve/request-changes 无法真实验证，需第二账号或接受"产品已正确透传 GitHub 422 错误"作为验收口径。测试 1099/61、E2E 162/162、build 通过。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
+
+## Release 0.3.14 (2026-11-19)
+
+范围：修复服务端 PAT 模式下 `FlowEditor` 分支选择器与 `StepDrawer`
+检查明细的降级。两个 hook 之前只认浏览器 PAT，空 PAT 时提前返回；
+现在接收 `hasServerPat`，空浏览器 PAT 仍走服务端代理（服务端注入
+admin PAT）。新增 3 个 hook 测试。
+
+验证：1163 tests / 67 files；E2E 162/162；build 通过；隔离 18777
+真实服务端 PAT 实测 source/target 列出 `dev`/`main`，StepDrawer checks
+展开 8 条真实 GitHub Actions 明细；真实 PR #14 走查覆盖 PR 列表、
+open-PR 抽屉、checks、文件 diff 与 New PR 分支列表。临时 PR #14 已关闭，
+临时分支已删除。
 
 ## Release 0.3.13 (2026-11-19)
 

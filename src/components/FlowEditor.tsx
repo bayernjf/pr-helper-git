@@ -155,8 +155,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   );
   const [draft, setDraft] = useState<Workflow>(initial);
   const [createMode, setCreateMode] = useState(workflow === undefined);
-  const { pat } = useApp();
-  const branches = useBranches(pat, draft.repository);
+  const { pat, hasServerPat } = useApp();
+  const branches = useBranches(pat, hasServerPat, draft.repository);
   // Existing flows open with every step form folded; a new flow keeps its
   // first step open so the user can start typing immediately (#5/#6).
   const [expandedStages, setExpandedStages] = useState<Set<string>>(() => new Set(

@@ -9,16 +9,21 @@ type CommitStatusPayload = { statuses?: Parameters<typeof summarizeGitHubCheckDe
  * Live per-check breakdown for one head sha through the PAT proxy (the same
  * read PrDetailModal does). Null until a read succeeds with entries, so the
  * gate chip degrades to its plain summary exactly like the old gateDisclosure
- * without details. Fail-soft: a missing PAT or a failed read keeps the chip.
+ * without details. Fail-soft: a missing auth or a failed read keeps the chip.
+ *
+ * An empty `pat` is intentional in server-stored mode: the server injects its
+ * own admin PAT when the header is absent, so the UI must not short-circuit
+ * before making the request.
  */
 export function useCheckDetails(
   pat: string,
+  hasServerPat: boolean,
   repository: string,
   headSha: string | null | undefined,
 ): GitHubCheckDetail[] | null {
   const [details, setDetails] = useState<GitHubCheckDetail[] | null>(null);
   useEffect(() => {
-    if (!pat || !headSha || !repository.includes('/')) {
+    if ((!pat && !hasServerPat) || !headSha || !repository.includes('/')) {
       setDetails(null);
       return;
     }
@@ -41,6 +46,6 @@ export function useCheckDetails(
     return () => {
       alive = false;
     };
-  }, [pat, repository, headSha]);
+  }, [pat, hasServerPat, repository, headSha]);
   return details;
 }

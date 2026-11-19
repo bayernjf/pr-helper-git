@@ -74,6 +74,27 @@ nextAction 面板同提交），8 个功能提交 + 1 个测试提交：
 | 板级 preflight 聚合 | 67b3899 | 浏览器实测：15 flow(s) checked、17 failed/8 warnings/56 passed、按流程 details 分组、无 App 凭据 fail-soft（App access FAILED + branches SKIPPED 为隔离环境预期降级）；路由 fan-out 1 测试 + 聚合 4 单测 |
 | open-PR 抽屉面组件测试网 | 806ea80 | 8 测试；变异对照（移除 resolve 回调）恰红 2 个接线测试后恢复，哈希校验一致 |
 
-门禁：lint、typecheck:server、**1160 tests / 66 files**、build、E2E **162/162**。
+门禁：lint、typecheck:server、**1163 tests / 67 files**、build、E2E **162/162**。
 浏览器验证只读：隔离 `PR_HELPER_HOME` + 无 `PR_HELPER_GIT_AUTOMATION`（调度器 opt-in
 不启动），未点任何写操作与看板 Refresh；验证后仅 kill 自启 PID 并清理临时目录。
+
+### Live-PAT 实网走查（2026-11-19）
+
+在已登记测试仓 `bayernjf/git-e2e-test` 建真实 PR
+[#14](https://github.com/bayernjf/git-e2e-test/pull/14)（临时 fixture，**当前仍 OPEN**，
+未 merge/close；临时分支 `live-pat-walkthrough-20261119-1708` 与
+`.github/workflows/live-pat-check.yml` 仍在）。PR 真实状态：2 commits / 2 files
+（`live-pat-walkthrough.md` +3、workflow +10），head `54e3bb1`，GitHub Actions
+`live-pat-check / smoke` run `44493987714` 结论 **SUCCESS**。
+
+桌面端 0.3.13 用真实服务端 PAT 走查：
+- PR 列表真实加载 Open 1 / Merged 6 / Closed 7；#14 抽屉显示 commits、files、`+13 -0`、
+  `CHECKS smoke success`、merge 方法三项；文件 Review 展开真实 diff（`@@ -0,0 +1,3 @@`）。
+- `New pull request` 的 Base/Compare 下拉真实列出 `live-pat-walkthrough-20261119-1708`
+  与 `main`，未创建第二个 PR。
+- 发现并修复服务端 PAT 缺口：`FlowEditor` / `StepDrawer` 的 `useBranches` /
+  `useCheckDetails` 之前只认浏览器 PAT，服务端 PAT 模式会提前返回；修复后隔离
+  18777（真实服务端 PAT、无调度器、零写）实测 source/target 列出 `dev`/`main`，
+  StepDrawer checks 展开为 8 条真实 GitHub Actions 明细。
+- PR 列表卡片在 GitHub REST 已是 `mergeable=true / merge_state=clean` 时仍显示
+  `computing`；这是列表端点 `mergeable_state` 延迟计算，抽屉单 PR 读取正常，未改。

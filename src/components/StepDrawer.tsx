@@ -132,8 +132,8 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     [flow, stageIndex, inbox.states],
   );
   const primary: WorkflowStageStateRow | undefined = routes[0];
-  const { pat } = useApp();
-  const checkDetails = useCheckDetails(pat, flow.repository, primary?.headSha);
+  const { pat, hasServerPat } = useApp();
+  const checkDetails = useCheckDetails(pat, hasServerPat, flow.repository, primary?.headSha);
   const queueItem: ActionQueueItem | undefined = useMemo(
     () => inbox.items.find(
       (item) => item.workflowId === flow.id
