@@ -75,6 +75,17 @@ GitHub latest = **`v0.3.11`**。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
 
+## Release 0.3.13 (2026-11-19)
+
+范围：修复 CI Health 指标卡标签在窄窗口下被省略。`src/styles.css` 的
+`.ci-stat-label` 改为按卡片宽度换行（`line-height: 1.3` /
+`overflow-wrap: anywhere`），不再使用 `nowrap + ellipsis`；数值、提示、
+颜色语义不变。
+
+验证：1160 tests / 66 files；E2E 162/162；build 通过；786px 窄卡片
+DOM 核对所有标签 `scrollWidth == clientWidth`，`Post-merge CI failures`
+正常两行，无省略号。
+
 ## Release 0.3.12 (2026-11-19)
 
 范围：控制塔第二批 UI 与看板语义补齐（9 项 + 测试网），并修正冻结源
