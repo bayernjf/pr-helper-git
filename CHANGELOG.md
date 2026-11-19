@@ -2,6 +2,14 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [Unreleased]
+
+### 修复
+- **PR 列表合并状态**：GitHub REST 的 pulls 列表即使对 open PR 也返回 `mergeable=null`，导致所有卡片显示「计算中」。新增 `POST /api/pull-mergeability`，按仓库用 GraphQL 批量读取 open PR 的 `mergeable` / `mergeStateStatus`，映射成 REST 字段后合并进列表；查询失败时保持原列表，不阻塞加载。
+
+### 验证
+- 1169 tests / 68 files；E2E 162/162；build 通过；隔离 18777 用真实 Hello-World 仓库验证接口返回 `mergeable:true` / `mergeable_state:clean`（GraphQL 的 `MERGEABLE` 枚举映射为 true）。
+
 ## [0.3.14] - 2026-11-19
 
 ### 修复

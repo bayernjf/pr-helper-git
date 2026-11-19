@@ -89,6 +89,22 @@ GitHub latest = **`v0.3.11`**。
 
 **2026-11-16 文档校正**：Phase 4 已全部完成，P3-15 团队 UI 已收口，Phase 5 仅余 P5-1 影子期日历等待与 P5-2/P5-3 的 D-016 逐项审批；该轮无代码变更。
 
+### PR 列表 mergeability（2026-11-19，未发布）
+
+`GET /repos/{owner}/{repo}/pulls` 对 open PR 也只返回 `mergeable=null`，所以
+PR 列表卡片一直显示「计算中」，而单 PR 详情已是 `mergeable=true / clean`。
+新增 `POST /api/pull-mergeability`：按本地已登记仓库解析 GitHub origin，
+用 GraphQL 一次读取仓库全部 open PR 的 `mergeable` / `mergeStateStatus`，
+转成 REST 字段后由 `PrBoard` 合并进列表；查询失败保持原列表（fail-soft）。
+GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码里
+显式映射为 `true / false / null`，不能直接当布尔用。
+
+验证：1169 tests / 68 files；E2E 162/162；build 通过；隔离 18777 用真实
+`octocat/Hello-World` 验证接口返回 `mergeable=true / mergeable_state=clean`。
+另在 `bayernjf/git-e2e-test` 开临时 PR #15 做列表视觉验收，卡片显示
+`mergeable`（不再 `computing`）；验收后 PR 已关闭、临时分支已删除。
+未发版，待用户指令。
+
 ## Release 0.3.14 (2026-11-19)
 
 范围：修复服务端 PAT 模式下 `FlowEditor` 分支选择器与 `StepDrawer`

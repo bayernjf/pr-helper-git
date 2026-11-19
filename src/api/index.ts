@@ -172,4 +172,4 @@ export {
   type AiConfig,
 } from './ai';
 
-export { githubProxy, markReadyForReview, mergePull } from './github';
+export { githubProxy, markReadyForReview, mergePull, pullMergeability } from './github';

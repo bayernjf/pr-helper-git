@@ -348,7 +348,10 @@ application never pushes it for you.
 - Three-column board: open, merged and closed, with a per-user review-state
   badge (approved, changes requested, comment only, none).
 - Pull-request cards render their GitHub labels using each label's own color,
-  alongside per-PR mergeability and check-run summaries.
+  alongside per-PR mergeability and check-run summaries. The GitHub REST
+  pulls list returns `mergeable=null` even for open PRs, so the board enriches
+  open cards through one repository-wide GraphQL lookup
+  (`POST /api/pull-mergeability`) instead of issuing one request per card.
 - Create a pull request from any local branch, optionally as a draft, with a
   prefilled commit summary.
 - Merge gating: the PR panel merges check runs *and* classic commit statuses

@@ -45,6 +45,29 @@ async function githubGraphql(pat, query, variables) {
   }
 }
 
+/**
+ * Map GraphQL pull-request nodes to the REST field names the client already
+ * understands. GraphQL uses upper-case MergeStateStatus enums; the list view
+ * expects REST-style lower-case mergeable_state.
+ * @param {Array<{ number: number, mergeable: string | null, mergeStateStatus?: string | null }>} nodes
+ */
+export function mergeabilityRows(nodes) {
+  return nodes
+    .filter((node) => Number.isInteger(node?.number))
+    .map((node) => {
+      const mergeable = String(node.mergeable || '').toUpperCase();
+      return {
+        number: node.number,
+        // GraphQL's PullRequest.mergeable is an enum (MERGEABLE /
+        // CONFLICTING / UNKNOWN), not the REST boolean.
+        mergeable: mergeable === 'MERGEABLE'
+          ? true
+          : mergeable === 'CONFLICTING' ? false : null,
+        mergeable_state: String(node.mergeStateStatus || '').toLowerCase() || null,
+      };
+    });
+}
+
 // Parse an origin remote URL into owner/repo when hosted on GitHub.
 // ssh:// URLs are accepted because the clone dialog allows that transport.
 export function parseRemoteUrl(rawUrl) {
@@ -85,6 +108,37 @@ export async function handleGithubRoute({ method, pathname, query, body, headers
       return ok({ remote: parseRemoteUrl(url) });
     } catch (err) {
       return ok({ remote: null, detail: err.stderr || err.message });
+    }
+  }
+
+  if (pathname === '/api/pull-mergeability' && method === 'POST') {
+    const pat = String(headers['x-github-pat'] || '').trim();
+    if (!pat) return fail(401, 'missing GitHub token');
+    const repoPath = typeof body.repo === 'string' ? body.repo : '';
+    const registered = await listRepos();
+    if (!registered.includes(repoPath)) return fail(403, 'unknown or unregistered repo');
+    try {
+      const originUrl = (await git(['remote', 'get-url', 'origin'], repoPath)).trim();
+      const remoteInfo = parseRemoteUrl(originUrl);
+      if (!remoteInfo?.isGithub) return fail(400, 'origin remote is not hosted on GitHub');
+      // The REST pulls list omits mergeability (GitHub reports null even for
+      // open PRs), while GraphQL computes it per repository in one call.
+      const lookup = `query($owner:String!, $name:String!) {
+        repository(owner:$owner, name:$name) {
+          pullRequests(first:100, states:OPEN) {
+            nodes { number mergeable mergeStateStatus }
+          }
+        }
+      }`;
+      const data = await githubGraphql(
+        pat,
+        lookup,
+        { owner: remoteInfo.owner, name: remoteInfo.repo },
+      );
+      const nodes = data.repository?.pullRequests?.nodes;
+      return ok({ pulls: mergeabilityRows(Array.isArray(nodes) ? nodes : []) });
+    } catch (err) {
+      return fail(err.status || 502, 'mergeability lookup failed', err.message);
     }
   }
 
