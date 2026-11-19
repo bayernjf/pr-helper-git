@@ -22,7 +22,7 @@ export function GroupHead({
     <div className="ref-group-head" style={{ paddingRight: 10 }}>
       <button type="button" className="ref-group-head" style={{ padding: 0, flex: 1 }} onClick={onToggle}>
         <span className="chev">{open ? <IconChevronDown width={13} height={13} /> : <IconChevronRight width={13} height={13} />}</span>
-        {label}
+        <span className="gh-label">{label}</span>
         <span className="count">{count}</span>
       </button>
       {action}
