@@ -14,7 +14,8 @@ import {
   stageAll,
   stageFile,
 } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
 import { getPref, setPref, repoPref } from '../lib/prefs';
@@ -49,7 +50,9 @@ function countLine(message: string): string {
 }
 
 export default function WorkPanel() {
-  const { activeRepo, status, runAction, commits, toast } = useApp();
+  const { activeRepo, status, commits } = useRepoData();
+  const { runAction } = useRunAction();
+  const toast = useAppToast();
   const confirm = useConfirm();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);

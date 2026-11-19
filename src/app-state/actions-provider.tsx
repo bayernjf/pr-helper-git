@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useToast } from '../components/ui';
@@ -6,27 +6,33 @@ import { t as translateText } from '../i18n';
 import type { Actions } from './types';
 import { useRepoData } from './repo-provider';
 
-const ActionsContext = createContext<Actions | null>(null);
-const BusyContext = createContext<boolean>(false);
+export const ActionsContext = createContext<Actions | null>(null);
+export const BusyContext = createContext<boolean>(false);
 
 export function ActionsProvider({ children }: { children: ReactNode }) {
   const toastApi = useToast();
   const { refresh } = useRepoData();
   const [busy, setBusy] = useState(false);
 
+  // Keep the latest refresh in a ref so runAction has a stable identity: it no
+  // longer re-creates when activeRepo or log options change, and it never
+  // reads a stale refresh closure.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   // Run a write action, then refresh all data. Errors are surfaced as toasts.
   const runAction = useCallback(async <T,>(action: Promise<T>, successMessage?: string) => {
     setBusy(true);
     try {
       const result = await action;
-      await refresh();
+      await refreshRef.current();
       if (successMessage) toastApi.notify(successMessage, 'success');
       return result;
     } catch (err) {
       // A failed write can still change the repository (conflicted merge,
       // revert or rebase), so reload before reporting the error; otherwise
       // the operation banner and unmerged files would not appear.
-      try { await refresh(); } catch { /* surfaced by the original error */ }
+      try { await refreshRef.current(); } catch { /* surfaced by the original error */ }
       const message = errorDetail(err)
         ? `${translateText(errorMessage(err) || 'action failed')}: ${errorDetail(err)}`
         : translateText(errorMessage(err) || 'action failed');
@@ -35,7 +41,7 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [refresh, toastApi]);
+  }, [toastApi]);
 
   const actions = useMemo<Actions>(() => ({ runAction }), [runAction]);
 

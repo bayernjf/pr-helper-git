@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useApp } from '../app-state';
+import { usePreferences, useRepoData } from '../app-state/hooks';
 
 function isEditable(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -19,7 +19,8 @@ function isModalOpen(): boolean {
 // Global keyboard shortcuts. Plain-key shortcuts are ignored while a form
 // field is focused so they never interfere with typing.
 export function useShortcuts() {
-  const { setView, refresh, activeRepo } = useApp();
+  const { setView } = usePreferences();
+  const { refresh, activeRepo } = useRepoData();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

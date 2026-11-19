@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createTag } from '../api';
-import { useApp } from '../app-state';
+import { useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 import { t } from '../i18n';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function TagModal({ repo, fromRef, onClose }: Props) {
-  const { runAction } = useApp();
+  const { runAction } = useRunAction();
   const [name, setName] = useState('');
   useEscape(onClose);
   const [annotated, setAnnotated] = useState(true);

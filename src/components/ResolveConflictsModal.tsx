@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { resolveConflict } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import ConflictEditorModal from './ConflictEditorModal';
@@ -17,7 +17,8 @@ export default function ResolveConflictsModal({
   repo: string;
   onClose: () => void;
 }) {
-  const { status, runAction } = useApp();
+  const { status } = useRepoData();
+  const { runAction } = useRunAction();
   const [pending, setPending] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);

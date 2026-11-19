@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../app-state';
+import { useRepoData, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { moveFile } from '../api';
 import { IconX } from './icons';
@@ -11,7 +11,8 @@ interface Props {
 }
 
 export default function RenameFileModal({ path: currentPath, onClose }: Props) {
-  const { activeRepo, runAction } = useApp();
+  const { activeRepo } = useRepoData();
+  const { runAction } = useRunAction();
   const [value, setValue] = useState(currentPath);
   useEscape(onClose);
 

@@ -1,7 +1,8 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
 import { getCommitDiff, getCommitFiles, getCommitInfo, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
 import { formatFullDate, shortHash } from '../lib/format';
@@ -35,7 +36,8 @@ function statusColor(status: string): string {
 }
 
 export default function CommitDetail() {
-  const { commits, selectedHash, selectCommit, activeRepo, toast } = useApp();
+  const { commits, selectedHash, selectCommit, activeRepo } = useRepoData();
+  const toast = useAppToast();
   // Whole-history search can select a commit outside the loaded log window;
   // fall back to an on-demand lookup so the detail pane is not blank.
   const [extraCommit, setExtraCommit] = useState<Commit | null>(null);

@@ -6,7 +6,8 @@ import { errorMessage } from '../lib/errors';
 // header aggregates work in progress across every repository.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchRepo, pullReposBatch } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import type { RepoBrief } from '../types';
 import { activityLevel, relativeAge, sortRepos, summarizeRepos } from '../lib/repo-sort';
@@ -41,13 +42,8 @@ function parentDir(p: string) {
 }
 
 export default function RepositoriesModal({ onClose }: { onClose: () => void }) {
-  const {
-    repos,
-    activeRepo,
-    selectRepo,
-    refresh,
-    toast,
-  } = useApp();
+  const { repos, activeRepo, selectRepo, refresh } = useRepoData();
+  const toast = useAppToast();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);

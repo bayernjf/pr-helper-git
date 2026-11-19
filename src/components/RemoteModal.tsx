@@ -7,7 +7,8 @@ import {
   renameRemote,
   setRemoteUrl,
 } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import type { RemoteEntry } from '../types';
 import { IconCheck, IconEdit, IconTrash, IconX } from './icons';
@@ -15,7 +16,8 @@ import { useConfirm } from './ui';
 import { t } from '../i18n';
 
 export default function RemoteModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo, toast } = useApp();
+  const { activeRepo } = useRepoData();
+  const toast = useAppToast();
   const confirm = useConfirm();
   useEscape(onClose);
   const [remotes, setRemotes] = useState<RemoteEntry[]>([]);

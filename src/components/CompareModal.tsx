@@ -1,7 +1,7 @@
 import { errorMessage } from '../lib/errors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCompare, type CompareResult } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
@@ -21,7 +21,7 @@ function statusColor(status: string): string {
 }
 
 export default function CompareModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo, refs, status, commits } = useApp();
+  const { activeRepo, refs, status, commits } = useRepoData();
   useEscape(onClose);
   const refNames = useMemo(
     () => refs.filter((r) => !r.name.startsWith('refs/stash')).map((r) => r.shortName),

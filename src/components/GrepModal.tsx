@@ -1,14 +1,16 @@
 import { errorMessage } from '../lib/errors';
 import { useMemo, useRef, useState } from 'react';
 import { searchGrep, type GrepMatch } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
 import { IconSearch, IconX } from './icons';
 import { t } from '../i18n';
 
 export default function GrepModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo, toast } = useApp();
+  const { activeRepo } = useRepoData();
+  const toast = useAppToast();
   const [pattern, setPattern] = useState('');
   const [path, setPath] = useState('');
   const [glob, setGlob] = useState('');

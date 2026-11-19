@@ -9,14 +9,16 @@ import {
   startBisect,
   type BisectState,
 } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconX } from './icons';
 import { t } from '../i18n';
 
 export default function BisectModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo, commits, toast, refresh } = useApp();
+  const { activeRepo, commits, refresh } = useRepoData();
+  const toast = useAppToast();
   const [state, setState] = useState<BisectState | null>(null);
   const [good, setGood] = useState('');
   const [bad, setBad] = useState('');

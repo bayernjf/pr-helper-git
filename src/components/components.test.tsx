@@ -4,8 +4,9 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AppContext } from '../app-state';
 import { PreferencesContext } from '../app-state/preferences-provider';
+import { RepoDataContext } from '../app-state/repo-provider';
+import { ActionsContext, BusyContext } from '../app-state/actions-provider';
 import { ToastProvider } from './ui';
 import type { RepoBrief } from '../types';
 import AddRepoModal from './AddRepoModal';
@@ -30,17 +31,47 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
     view: 'git',
     theme: 'dark',
     accent: 'violet',
+    pat: '',
+    hasServerPat: false,
     busy: false,
+    status: null,
+    commits: [],
+    refs: [],
+    remote: null,
+    selectedHash: null,
+    repoLoading: false,
+    logLimit: 200,
+    logScope: 'all',
+    logPath: '',
+    logFilters: {},
     selectRepo: () => {},
+    selectCommit: () => {},
+    refreshRepos: async () => [],
+    refresh: async () => {},
+    loadMore: async () => {},
     setView: () => {},
     setTheme: () => {},
     setAccent: () => {},
     toggleTheme: () => {},
+    setLogScope: () => {},
+    setLogPath: () => {},
+    setLogFilters: () => {},
     runAction: async () => null,
     toast: () => {},
     ...overrides,
   };
-  return render(createElement(AppContext.Provider, { value } as never, node));
+  // The split components read from their domain contexts; one flat value feeds
+  // all of them, with only busy kept as a plain boolean.
+  return render(createElement(
+    PreferencesContext.Provider, { value: value as never },
+    createElement(RepoDataContext.Provider, { value: value as never },
+      createElement(ActionsContext.Provider, { value: value as never },
+        createElement(BusyContext.Provider, { value: value.busy as boolean },
+          createElement(ToastProvider, null, node),
+        ),
+      ),
+    ),
+  ));
 }
 
 // Migrated components read PreferencesContext / ToastProvider directly instead
@@ -349,7 +380,7 @@ describe('CommitGraph accessibility', () => {
       commits,
       selectedHash,
       selectCommit: () => {},
-      currentRepo: '/tmp/repo',
+      activeRepo: '/tmp/repo',
       toast: () => {},
       loadMore: () => {},
       logLimit: 50,

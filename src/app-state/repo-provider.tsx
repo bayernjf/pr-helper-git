@@ -12,7 +12,9 @@ const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
 const LOG_PAGE_SIZE = 200;
 export const LOG_MAX = 1000;
 
-const RepoDataContext = createContext<RepoData | null>(null);
+// Exported so render tests can inject a mock context without booting the full
+// provider (which performs network and local-storage side effects).
+export const RepoDataContext = createContext<RepoData | null>(null);
 
 export function RepoDataProvider({ children }: { children: ReactNode }) {
   const toastApi = useToast();

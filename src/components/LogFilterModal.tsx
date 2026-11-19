@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import type { LogFilters } from '../types';
 import { IconX } from './icons';
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function LogFilterModal({ onClose }: Props) {
-  const { logFilters, setLogFilters } = useApp();
+  const { logFilters, setLogFilters } = useRepoData();
   const [draft, setDraft] = useState<Required<LogFilters>>({
     author: logFilters.author || '',
     message: logFilters.message || '',

@@ -12,14 +12,16 @@ import {
   type Me,
   type TeamMember,
 } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { IconCopy, IconTrash, IconUser, IconX } from './icons';
 import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 export default function TeamModal({ onClose }: { onClose: () => void }) {
-  const { refresh, toast } = useApp();
+  const { refresh } = useRepoData();
+  const toast = useAppToast();
   const [me, setMe] = useState<Me | null>(null);
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [owner, setOwner] = useState<Me | null>(null);
