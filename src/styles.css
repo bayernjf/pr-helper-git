@@ -344,8 +344,10 @@ button {
 /* The inner toggle button holds the label; keep it on one line and clip. */
 button.ref-group-head { min-width: 0; overflow: hidden; }
 .ref-group-head .chev { display: inline-flex; margin-right: 2px; }
+.ref-group-head .gh-label { overflow: hidden; text-overflow: ellipsis; }
 .ref-group-head .count {
   margin-left: auto;
+  flex-shrink: 0;
   font-weight: 600;
   color: var(--faint);
 }
@@ -1947,17 +1949,20 @@ pre.diff {
   margin-right: 4px;
   color: var(--accent);
 }
-.branch-sort {
-  height: 22px;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
+/* Branch-sort is a custom Dropdown since 0.3.x — keep the trigger compact
+   so it fits the group-head row instead of covering the section title. */
+.branch-sort .dropdown-trigger {
+  height: 20px;
+  padding: 0 6px;
+  gap: 4px;
+  background: transparent;
+  border-color: var(--border);
   color: var(--muted);
   font-size: var(--fs-meta);
-  cursor: pointer;
 }
-.branch-sort option { color: var(--text); background: var(--bg-elevated); }
+.branch-sort .dropdown-trigger:hover { background: var(--hover); border-color: var(--border-strong); color: var(--text); }
+.branch-sort .dropdown-value { max-width: 88px; }
+.branch-sort .dropdown-caret { font-size: 9px; }
 
 /* ---------- keyboard shortcut help ---------- */
 .shortcuts-body { padding: 8px 20px 12px; }
