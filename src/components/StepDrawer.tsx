@@ -84,13 +84,15 @@ function deploymentWarningText(warning: DeploymentConfigurationWarningRow): stri
   }
 }
 
-export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated }: {
+export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated, onResolved }: {
   flow: Workflow;
   stageIndex: number;
   inbox: InboxPayload;
   onClose: () => void;
   /** Called after a successful operation so the board can re-read the projection. */
   onMutated: () => void;
+  /** Marks the step handled locally so the board hides it until the projection catches up. */
+  onResolved?: (stageIndex: number, source: string) => void;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -195,12 +197,13 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const stateText = stageStateText(kind, primary?.checksState, Boolean(primary?.checksTotal));
   const pullNumber = queueItem?.pullNumber ?? primary?.pullNumber ?? null;
 
-  async function runOp(key: string, op: () => Promise<unknown>, successMessage: string) {
+  async function runOp(key: string, op: () => Promise<unknown>, successMessage: string, resolveSource?: string) {
     setBusy(key);
     setError('');
     try {
       await op();
       toast.notify(successMessage);
+      if (resolveSource !== undefined) onResolved?.(stageIndex, resolveSource);
       onMutated();
     } catch (err) {
       const message = errorMessage(err);
@@ -218,7 +221,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       source: primary?.source || stage.source,
       kind,
       idempotencyKey: `drawer-${flow.id}-${stageIndex}-${kind}-${Date.now().toString(36)}`,
-    }), kind === 'create-pr' ? t('create PR queued') : t('merge queued'));
+    }), kind === 'create-pr' ? t('create PR queued') : t('merge queued'), primary?.source || stage.source);
   }
 
   function rerun() {
@@ -226,7 +229,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       workflowId: flow.id,
       stageIndex,
       source: primary?.source || stage.source,
-    }), t('Actions rerun requested'));
+    }), t('Actions rerun requested'), primary?.source || stage.source);
   }
 
   function deploymentConfigFor(provider: DeploymentConfig['provider']) {
@@ -577,7 +580,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
                             className="drawer-btn primary small"
                             disabled={busy !== ''}
                             onClick={() => {
-                              void runOp(`takeover-${id}`, () => takeoverAutomationAction(id, takeoverTitle, takeoverBody), t('takeover saved'))
+                              void runOp(`takeover-${id}`, () => takeoverAutomationAction(id, takeoverTitle, takeoverBody), t('takeover saved'), action.source)
                                 .then(() => setTakeoverFor(null));
                             }}
                           >

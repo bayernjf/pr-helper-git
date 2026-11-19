@@ -23,6 +23,7 @@ import CodexRepairModal from './CodexRepairModal';
 import FailureCenter from './FailureCenter';
 import FlowEditor from './FlowEditor';
 import { createWorkflow, moveWorkflowToPosition, sortWorkflowsForView, type Workflow } from '../lib/automation/workflow';
+import { markResolved, pruneResolvedMarks, resolvedBoardState, type ResolvedMarks } from '../lib/automation/resolved-automation';
 import FlowDetail from './FlowDetail';
 import FlowAuditModal from './FlowAuditModal';
 import FlowPreflightModal from './FlowPreflightModal';
@@ -120,6 +121,8 @@ export default function FlowBoard() {
   const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'custom' | 'name' | 'createdAt'>('custom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  /** Local resolve marks: handled steps stay hidden until the projection catches up. */
+  const [resolvedMarks, setResolvedMarks] = useState<ResolvedMarks>(new Map());
   /** Timestamp of the last successful projection read; focus/visibility reload is TTL-gated. */
   const lastLoadedAt = useRef(0);
 
@@ -181,10 +184,21 @@ export default function FlowBoard() {
     recoveryStatuses: inbox?.recoveryStatuses ?? [],
   }), [inbox, workflows]);
 
-  const counts = useMemo(() => boardCounts(state), [state]);
+  // Resolve marks hide handled work from the board view only; the drawer and
+  // detail page keep the raw projection. Prune on every read so marks die
+  // once the server catches up (the old background reconcile loop).
+  useEffect(() => {
+    setResolvedMarks((marks) => pruneResolvedMarks(marks, state));
+  }, [state]);
+  const boardState = useMemo(() => resolvedBoardState(state, resolvedMarks), [state, resolvedMarks]);
+  const markStepResolved = useCallback((flowId: string, stageIndex: number, source: string) => {
+    setResolvedMarks((marks) => markResolved(marks, state.automationActions, flowId, stageIndex, source));
+  }, [state.automationActions]);
+
+  const counts = useMemo(() => boardCounts(boardState), [boardState]);
   const lanes = useMemo(
-    () => buildLaneModels(state, filter, search, sortMode, sortDirection),
-    [state, filter, search, sortMode, sortDirection],
+    () => buildLaneModels(boardState, filter, search, sortMode, sortDirection),
+    [boardState, filter, search, sortMode, sortDirection],
   );
   const moveLaneTo = useCallback((flowId: string, to: number) => {
     const order = state.workflows.map((w) => w.id);
@@ -284,6 +298,7 @@ export default function FlowBoard() {
             inbox={inbox}
             onClose={() => setDrawerStage(null)}
             onMutated={() => void load(true)}
+            onResolved={(stageIndex, source) => markStepResolved(drawerStage.flowId, stageIndex, source)}
           />
         ) : null}
       </>
@@ -348,9 +363,10 @@ export default function FlowBoard() {
 
       {inbox ? (
         <FailureCenter
-          state={state}
+          state={boardState}
           onOpenDrawer={(flowId, stageIndex) => setDrawerStage({ flowId, stageIndex })}
           onMutated={() => void load(true)}
+          onResolved={markStepResolved}
           onRepair={(item) => setRepairTarget({ flowId: item.workflowId, stageIndex: item.stageIndex, source: item.source })}
         />
       ) : null}
@@ -534,7 +550,7 @@ export default function FlowBoard() {
                         key={`${step.stageIndex}:${step.source}`}
                         lane={step}
                         repository={lane.workflow.repository}
-                        automationBlocked={Boolean(blockedAutomationForStep(state.automationActions, lane.workflow.id, step.stageIndex))}
+                        automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                         stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                         onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                       />
@@ -547,7 +563,7 @@ export default function FlowBoard() {
                   <StepCard
                     lane={step}
                     repository={lane.workflow.repository}
-                    automationBlocked={Boolean(blockedAutomationForStep(state.automationActions, lane.workflow.id, step.stageIndex))}
+                    automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                     stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                     onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                   />

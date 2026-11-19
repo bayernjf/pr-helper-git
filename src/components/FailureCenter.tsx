@@ -71,10 +71,12 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover
   );
 }
 
-export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeover, onRepair }: {
+export default function FailureCenter({ state, onOpenDrawer, onMutated, onResolved, onTakeover, onRepair }: {
   state: BoardState;
   onOpenDrawer: (flowId: string, stageIndex: number) => void;
   onMutated: () => void;
+  /** Marks the step handled locally so the board hides it until the projection catches up. */
+  onResolved?: (workflowId: string, stageIndex: number, source: string) => void;
   /** Opens the step drawer preloaded with the paused create-pr action. */
   onTakeover?: (item: FailureItem) => void;
   /** Opens the Codex repair modal for a check-failure row. */
@@ -95,6 +97,7 @@ export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeov
     })
       .then(() => {
         toast.notify(t('Actions rerun requested'));
+        onResolved?.(item.workflowId, item.stageIndex, item.source);
         onMutated();
       })
       .catch((err) => {
@@ -103,7 +106,7 @@ export default function FailureCenter({ state, onOpenDrawer, onMutated, onTakeov
         toast.error(message);
       })
       .finally(() => setBusy(''));
-  }, [state.workflows, toast, onMutated]);
+  }, [state.workflows, toast, onMutated, onResolved]);
 
   if (!sections.total) return null;
 
