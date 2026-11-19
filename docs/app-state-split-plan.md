@@ -1,9 +1,11 @@
 # app-state 上下文拆分方案
 
-状态：草案，等待批准；本文只描述方案，未改代码。
+状态：执行清单版（已批准）；Phase 1 拆为 S1a/S1b/S1c 三步，每步独立提交、
+验收、回滚，可“做一步、验一步、停一步”。
 日期：2026-11-19
-范围：`src/app-state.tsx`（410 行、`AppData` 37 个字段、43 个生产
-`useApp()` 调用点）。
+范围：`src/app-state.tsx`（411 行、`AppData` 37 个字段、43 个生产
+`useApp()` 调用点；`rg 'useApp\('` 共 44 个匹配，含 `app-state.tsx` 里
+`export function useApp():` 这 1 个声明）。
 
 ## 1. 为什么要拆
 
@@ -127,35 +129,105 @@ src/app-state/
   切主题、`busy` 翻转、SSE 刷新；
 - 不提交临时探针，基线数字写进实施记录。
 
-### Phase 1：抽 provider，保留兼容层（0.5 天）
+### Phase 1：抽 provider，保留兼容层（0.75 天，拆 3 个可停止 checkpoint）
 
-改动：
+一次性搬 `Preferences`、`RepoData`、`Actions/Busy` 四个 provider 的 diff 和
+回归面都太大，拆成三步。每步独立提交、独立验收、可独立回滚；任何一步之后
+都能停在“已拆分但未迁移消费者”的安全状态。
 
-- 新建 `src/app-state/{types,preferences-provider,repo-provider,actions-provider,toast}.tsx`；
-- 把 `app-state.tsx` 中的 state/effect/callback 原样搬进对应 provider；
-- `AppDataProvider` 组合四个 provider + `LegacyAppBridge`；
-- `AppContext` / `useApp()` 继续可用，消费者零改动；
-- `src/app-state.tsx` 只保留 barrel、`AppDataProvider` 和兼容 bridge。
-
-必须保持的语义：
+#### 不可改变语义（全 Phase 1 通用，每步验收都要覆盖）
 
 - `loadSeqRef` / `activeRepoRef` 的代际丢弃逻辑原样保留；
+- **`loadSeqRef.current + 1` 的 `+ 1` 必须保留**：`loadRepoData` 开头用
+  `++loadSeqRef.current` 递增代际，触发加载的调用方（`selectRepo` /
+  `loadMore` / `setLogScope` / `setLogPath` / `setLogFilters`）必须先
+  `const seq = loadSeqRef.current + 1` 再调用 `loadRepoData`，最后在
+  `.finally` 里 `if (seq === loadSeqRef.current) setRepoLoading(false)`。
+  若漏掉 `+ 1`，最新一次加载的 `finally` 永远判不等，`setRepoLoading(false)`
+  不会执行，顶部加载条会卡住；
 - SSE 只建立一次，参数走 ref，不因日志参数变化重连；
 - 初始加载：`refreshRepos()` → 读取 remembered repo → `selectRepo()`；
 - `refresh()` 在仓库被移除时清空 status/commits/refs/remote/selectedHash；
 - `runAction` 失败后仍先 `refresh()` 再报错；
 - 主题 effect、PAT 本地/服务端行为原样保留。
 
+#### S1a：抽 `PreferencesProvider` + `useAppToast`（保留 `AppContext`）
+
+范围：
+
+- 新建 `src/app-state/{types,preferences-provider,toast}.tsx`；
+- 把 `view/theme/accent/pat/hasServerPat` 及其 setter（`setView/setTheme/
+  setAccent/toggleTheme/setPat/setServerPat/clearServerPat`）、appearance
+  effect 原样搬进 `PreferencesProvider`；
+- 把 `toast`（`toastApi.notify` 的包装）抽成 `useAppToast()`；
+- `AppDataProvider` 仍直接持有 repo / actions 相关 state，`useApp()` /
+  `AppContext` 完全不变；此步不引入 `LegacyAppBridge`。
+
 验收：
 
-- 1160 tests / 66 files、E2E 162/162、build 全绿；
-- 手工切仓、加载更多、日志过滤、SSE 刷新、写操作各一次。
+- 1169 tests / 68 files、E2E 162/162、build 全绿；
+- 手工：切主题（dark/light/auto）、改 accent、浏览器 PAT / 服务端 PAT
+  互斥切换、view 切换后刷新仍恢复。
 
 提交边界：
 
 ```text
-refactor(app-state): extract domain providers behind compatibility facade
+refactor(app-state): extract preferences provider and useAppToast
 ```
+
+回滚：`git revert` 该提交即回到原单 provider 状态。
+
+#### S1b：抽 `RepoDataProvider`
+
+范围：
+
+- 新建 `src/app-state/repo-provider.tsx`；
+- 把 `repos/activeRepo/status/commits/refs/remote/selectedHash/repoLoading/
+  logLimit/logScope/logPath/logFilters` 及其 setter、`selectRepo`、
+  `selectCommit`、`refreshRepos`、`refresh`、`loadMore`、`loadRepoData`、
+  `activeRepoRef`、`loadSeqRef`、SSE effect、初始仓库恢复 effect 原样搬进
+  `RepoDataProvider`；
+- 重点核对 `loadSeqRef.current + 1` 与“SSE 只建立一次”两条语义。
+
+验收：
+
+- 1169 tests / 68 files、E2E 162/162、build 全绿；
+- 手工：切仓、加载更多、三种日志过滤、SSE 自动刷新、初始 remembered
+  repo 恢复、顶部加载条正常收尾（不卡住）。
+
+提交边界：
+
+```text
+refactor(app-state): extract repo data provider
+```
+
+回滚：`git revert` 该提交。
+
+#### S1c：抽 `Actions/Busy`，加 `LegacyAppBridge`
+
+范围：
+
+- 新建 `src/app-state/{actions-provider,hooks}.tsx`；
+- 把 `busy`、`runAction` 搬进 `ActionsProvider`（同时提供 `ActionsContext`
+  与 `BusyContext`）；
+- `AppDataProvider` 组合 Preferences → RepoData → Actions，并在内部挂
+  `LegacyAppBridge` 把四个 context 组装成原 `AppData`，`useApp()` /
+  `AppContext` 继续可用，43 个消费者零改动；
+- `src/app-state.tsx` 收敛为 barrel + `AppDataProvider` + 兼容 bridge。
+
+验收：
+
+- 1169 tests / 68 files、E2E 162/162、build 全绿；
+- 手工：merge/revert/cherry-pick、冲突解决等写操作，成功与失败路径的
+  refresh / busy / toast 行为不变。
+
+提交边界：
+
+```text
+refactor(app-state): extract actions/busy providers behind compatibility facade
+```
+
+回滚：`git revert` 该提交；S1c 之后任何时点都可停在“已拆分未迁移”状态。
 
 ### Phase 2：迁移低风险消费者（0.5 天）
 
@@ -291,7 +363,7 @@ npm run build
 npm run e2e
 ```
 
-基线为 1160 tests / 66 files、E2E 162/162；新增隔离测试后同步更新
+基线为 1169 tests / 68 files、E2E 162/162；新增隔离测试后同步更新
 `AGENTS.md`。桌面壳不改，不需要 `desktop:native-test`；如果实施中碰到
 `desktop/` 则按 AGENTS 的 desktop gate 补跑。
 
@@ -333,18 +405,28 @@ RepoData 消费者。若 Phase 3 后性能仍不达标，再评估独立
 | 阶段 | 估时 | 可独立验收 |
 |---|---|---|
 | Phase 0 基线 | 0.25 天 | 是 |
-| Phase 1 抽 provider | 0.5 天 | 是 |
+| Phase 1 抽 provider | 0.75 天 | 是（S1a/S1b/S1c 各一步） |
 | Phase 2 低风险消费者 | 0.5 天 | 是 |
 | Phase 3 核心消费者 | 1 天 | 是 |
 | Phase 4 移除兼容层 + 测试 | 0.5 天 | 是 |
-| 合计 | 约 2.5–3 天 | 4–5 个提交 |
+| 合计 | 约 2.75–3.25 天 | 6–7 个提交 |
 
-建议先做 Phase 1 + Phase 2，拿一次真实渲染计数对比；确认收益后再做
+Phase 1 执行节奏：**S1a → 全 gate → 确认 → S1b → 全 gate → 确认 →
+S1c → 全 gate**，每一步停下都能独立回滚，不会留下半迁移状态。
+
+建议 Phase 1 完成后先做 Phase 2，拿一次真实渲染计数对比；确认收益后再做
 Phase 3。这样即使中途暂停，也不会留下半迁移的核心视图。
 
-## 9. 需要确认的点
+## 9. 已确认与剩余约束
 
-1. 是否接受“4 个领域 context + 保留 ToastProvider”的目标结构；
-2. 是否接受分阶段迁移、Phase 1 保留 `useApp()` 兼容层；
-3. `selectedHash` 是否按建议留到后续，不纳入本次；
-4. 实施时是否仍按项目规则只在 `dev` 本地提交，推送/发版另等明确指令。
+已确认（2026-11-19）：
+
+1. “4 个领域 context + 保留 ToastProvider”的目标结构；
+2. 分阶段迁移、Phase 1 保留 `useApp()` 兼容层；
+3. `selectedHash` 留到后续，不纳入本次；
+4. Phase 1 拆为 S1a/S1b/S1c，按“S1a → gate → 确认 → S1b”节奏推进。
+
+剩余约束：
+
+- 只在 `dev` 本地提交，推送/发版另等明确指令；
+- 每步 gate 全绿并停下确认后，才进入下一步。
