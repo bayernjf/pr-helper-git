@@ -208,3 +208,48 @@ describe('automationActionFor', () => {
     expect(automationActionFor(state, 'flow-b', 0, 'feature')).toBeUndefined();
   });
 });
+
+describe('fan-in merge groups', () => {
+  const FLOW_FAN: Workflow = {
+    id: 'flow-fan',
+    name: '双上游',
+    repository: 'octo/fan',
+    stages: [
+      { source: 'feature', target: 'dev', stageId: 's-f-1' },
+      { source: 'fix', target: 'dev', stageId: 's-f-2' },
+      { source: 'dev', target: 'main', stageId: 's-f-3' },
+    ],
+  };
+
+  it('keeps the flat connector track when every target has one upstream', () => {
+    const lanes = buildLaneModels(baseState(), 'all', '');
+    expect(lanes.every((lane) => lane.mergeGroups === null)).toBe(true);
+  });
+
+  it('groups stages by target in first-appearance order when a target has several upstreams', () => {
+    const lanes = buildLaneModels(baseState({ workflows: [FLOW_FAN] }), 'all', '');
+    const lane = lanes[0];
+    expect(lane.steps).toHaveLength(3);
+    expect(lane.mergeGroups).toEqual([
+      { target: 'dev', steps: [expect.objectContaining({ source: 'feature' }), expect.objectContaining({ source: 'fix' })] },
+      { target: 'main', steps: [expect.objectContaining({ source: 'dev' })] },
+    ]);
+  });
+
+  it('expands a dynamic stage into its matched route cards inside the group', () => {
+    const flow: Workflow = {
+      ...FLOW_FAN,
+      stages: [{ source: 'release/*', target: 'dev', stageId: 's-f-1' }, FLOW_FAN.stages[1], FLOW_FAN.stages[2]],
+    };
+    const state = baseState({
+      workflows: [flow],
+      states: [
+        stateRow({ workflowId: 'flow-fan', stageIndex: 0, stageId: 's-f-1', source: 'release/1.2', target: 'dev', pullState: 'open', checksState: 'running', pullNumber: 7 }),
+        stateRow({ workflowId: 'flow-fan', stageIndex: 0, stageId: 's-f-1', source: 'release/1.3', target: 'dev', pullState: 'open', checksState: 'failure', pullNumber: 8 }),
+      ],
+    });
+    const [lane] = buildLaneModels(state, 'all', '');
+    expect(lane.mergeGroups?.[0].steps.map((step) => step.source)).toEqual(['release/1.2', 'release/1.3', 'fix']);
+    expect(lane.mergeGroups?.[0].steps[1].tone).toBe('failed');
+  });
+});

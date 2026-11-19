@@ -167,11 +167,18 @@ export type LaneStepModel = {
   hasQueueItem: boolean;
 };
 
+export type LaneMergeGroup = {
+  target: string;
+  steps: LaneStepModel[];
+};
+
 export type LaneModel = {
   workflow: Workflow;
   muted: boolean;
   summary: { stageIndex: number; tone: StageRunTone; pullNumber: number | null; text: string };
   steps: LaneStepModel[];
+  /** Fan-in view (lane.ts hasFanIn): stages grouped by target when any target has several upstreams; null keeps the flat connector track. */
+  mergeGroups: LaneMergeGroup[] | null;
   attentionItems: ActionQueueItem[];
 };
 
@@ -409,17 +416,25 @@ export function buildLaneModels(
 ): LaneModel[] {
   return visibleWorkflows(state, filter, search, sortMode, sortDirection, resolvedKeys).map((flow) => {
     const items = state.actionQueue.filter((item) => item.workflowId === flow.id);
-    const steps = flow.stages.flatMap((_stage, index) => {
+    const stepsForStage = (index: number) => {
       const routes = statesForStage(state, flow, index);
       return routes.length
         ? routes.map((route) => laneStepModel(state, flow, index, route))
         : [laneStepModel(state, flow, index)];
-    });
+    };
+    const steps = flow.stages.flatMap((_stage, index) => stepsForStage(index));
+    // Fan-in grouping keeps the target's first-appearance order (lane.ts targets Map).
+    const targets = new Map<string, number[]>();
+    flow.stages.forEach((stage, index) => targets.set(stage.target, [...(targets.get(stage.target) ?? []), index]));
+    const mergeGroups = [...targets.values()].some((indexes) => indexes.length > 1)
+      ? [...targets.entries()].map(([target, indexes]) => ({ target, steps: indexes.flatMap(stepsForStage) }))
+      : null;
     return {
       workflow: flow,
       muted: isWorkflowMuted(flow),
       summary: laneRunSummary(state, flow),
       steps,
+      mergeGroups,
       attentionItems: items,
     };
   });

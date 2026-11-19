@@ -842,6 +842,7 @@ export const ZH: Record<string, string> = {
   'checks failed': '检查失败',
   'merged, awaiting advance': '已合并待推进',
   'flow.board.error': '看板读取失败',
+  'Merging into {target}': '汇聚到 {target}',
   // Flow detail (P3-2)
   'Back': '返回',
   'Release timeline': '发布时间线',

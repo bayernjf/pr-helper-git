@@ -3782,6 +3782,11 @@ pre.diff {
 
 .flow-board-page .lane-track { display: flex; align-items: stretch; gap: 8px; margin-top: 9px; }
 .flow-board-page .lane-connector { align-self: center; color: var(--faint); font-size: var(--fs-ui); flex-shrink: 0; }
+.flow-board-page .lane-track.has-fan-in { align-items: stretch; flex-wrap: wrap; }
+.flow-board-page .lane-merge-group { display: grid; gap: 8px; align-content: start; min-width: 226px; flex: 1; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--hover); }
+.flow-board-page .lane-merge-group > p { margin: 0; color: var(--muted); font-size: var(--fs-meta); font-weight: 700; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.04em; }
+.flow-board-page .lane-merge-group > div { display: grid; gap: 8px; }
+.flow-board-page .lane-merge-group .lane-step { width: 100%; min-width: 0; }
 .flow-board-page .lane-step {
   flex: 1 1 260px; max-width: 430px; min-width: 200px;
   background: var(--panel-2); border: 1px solid var(--border); border-left-width: 2px;

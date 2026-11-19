@@ -524,8 +524,24 @@ export default function FlowBoard() {
               </div>
             ) : null}
             {collapsedLanes.includes(lane.workflow.id) ? null : (
-            <div className="lane-track">
-              {lane.steps.map((step, index) => (
+            <div className={`lane-track${lane.mergeGroups ? ' has-fan-in' : ''}`}>
+              {lane.mergeGroups ? lane.mergeGroups.map((group) => (
+                <section key={group.target} className="lane-merge-group">
+                  <p>{tp('Merging into {target}', { target: group.target })}</p>
+                  <div>
+                    {group.steps.map((step) => (
+                      <StepCard
+                        key={`${step.stageIndex}:${step.source}`}
+                        lane={step}
+                        repository={lane.workflow.repository}
+                        automationBlocked={Boolean(blockedAutomationForStep(state.automationActions, lane.workflow.id, step.stageIndex))}
+                        stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
+                        onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )) : lane.steps.map((step, index) => (
                 <Fragment key={`${step.stageIndex}:${step.source}`}>
                   {index > 0 ? <span className="lane-connector" aria-hidden="true">→</span> : null}
                   <StepCard
