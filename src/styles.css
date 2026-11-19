@@ -4240,7 +4240,7 @@ pre.diff {
 .ci-stat.is-good { box-shadow: inset 3px 0 0 var(--green), var(--shadow-sm); }
 .ci-stat.is-bad { box-shadow: inset 3px 0 0 var(--red), var(--shadow-sm); }
 .ci-stat.is-warn { box-shadow: inset 3px 0 0 var(--yellow), var(--shadow-sm); }
-.ci-stat-label { color: var(--muted); font-size: var(--fs-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-stat-label { color: var(--muted); font-size: var(--fs-meta); line-height: 1.3; overflow-wrap: anywhere; }
 .ci-stat-value { margin-top: 3px; font-size: 24px; line-height: 1.1; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .ci-stat-hint { margin-top: 3px; color: var(--faint); font-size: var(--fs-meta); }
 .ci-columns { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
