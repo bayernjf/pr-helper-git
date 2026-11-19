@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-11-19
+
 ### 新增
 - **看板预检全部流程**：Flows 看板新增「Preflight all flows」，一次只读检查所有未归档流程，汇总 failed/warnings/passed 与受检流程数，按流程展开分类 findings；单个流程检查失败不中断整批（fail-soft 列出失败原因）。
 - **下一步行动面板**：流程详情顶部 NEXT ACTION 面板按服务端阶段决策给出当前应做之事；进度条按决策标注每一步（含「全部完成 · 等待新提交」态），checks 计数与合并后语义（`merged · post-merge checks passed`）上桌。

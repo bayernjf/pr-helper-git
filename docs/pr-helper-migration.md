@@ -53,7 +53,7 @@ P3-4 编辑器 → P3-5 失败中心。
 
 **2026-11-19 影子期中期状态**：生产新增第 15 个流程 `agent-ops`（dev→main，auto-create/merge 全开）——`npm run sync:shadow` 已跟进（本地 15/15），影子观测与云端同步；迁移文档"14 流程"为导出时点基线，滚动值以"本地与云端一致"为准。
 
-**2026-11-19 控制塔第二批 UI 补齐**：对照冻结源的第二批 9 项（fan-in 分组、nextAction 面板、gateDisclosure、进度条语义、merge 方法菜单、resolve 消隐、分支选择器、toast undo、板级 preflight 聚合）全部落地于 dev：639d02d / 7b7f637 / b6d1179 / 706ec0b / 5100b29 / 03aa15f / 16a0168 / 67b3899，open-PR 抽屉面组件测试网 806ea80（真实数据 15 stage 全 merged，merge 菜单与 gate chips 无浏览器触发路径，通过变异对照证明可红）。resolve 移植修正冻结源 derive.ts 的参数倒置缺陷（wildcard 永不匹配），按文档意图实现并在模块注释记录。板级 preflight 走路由层 fan-out（`POST /api/flows/preflight {all:true}`），不改冻结 store。门禁 1160/66 + E2E 162/162 + build；浏览器只读走查隔离 18776（无调度器、无写操作）。**dev 领先 origin/dev 9 个提交，未推送**；逐项验证口径见 `docs/migration-acceptance.md` 同日补充段。剩余：app-state 上下文拆分（专项规划）、影子期第 5 天判定窗口 11-21 起。
+**2026-11-19 控制塔第二批 UI 补齐**：对照冻结源的第二批 9 项（fan-in 分组、nextAction 面板、gateDisclosure、进度条语义、merge 方法菜单、resolve 消隐、分支选择器、toast undo、板级 preflight 聚合）全部落地于 dev：639d02d / 7b7f637 / b6d1179 / 706ec0b / 5100b29 / 03aa15f / 16a0168 / 67b3899，open-PR 抽屉面组件测试网 806ea80（真实数据 15 stage 全 merged，merge 菜单与 gate chips 无浏览器触发路径，通过变异对照证明可红）。resolve 移植修正冻结源 derive.ts 的参数倒置缺陷（wildcard 永不匹配），按文档意图实现并在模块注释记录。板级 preflight 走路由层 fan-out（`POST /api/flows/preflight {all:true}`），不改冻结 store。门禁 1160/66 + E2E 162/162 + build；浏览器只读走查隔离 18776（无调度器、无写操作）。**已推送（dev `ad4a79c`）并随 `0.3.12` 发布**；逐项验证口径见 `docs/migration-acceptance.md` 同日补充段。剩余：app-state 上下文拆分（专项规划）、影子期第 5 天判定窗口 11-21 起。
 
 **2026-11-18 会话快照**：[`docs/session-handoff-2026-11-18.md`](docs/session-handoff-2026-11-18.md)
 已按仓库实际状态校正。0.3.9 之后补发 0.3.10（PR #23，发布提交 `067ae83`，
