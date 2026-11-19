@@ -934,6 +934,7 @@ export const ZH: Record<string, string> = {
   'Steps': '步骤',
   'source branch': '来源分支',
   'target branch': '目标分支',
+  'No matching branches': '没有匹配的分支',
   'Recovery policy': '恢复策略',
   'max retries': '最大重试次数',
   'cooldown seconds': '冷却秒数',

@@ -49,6 +49,9 @@ import {
   type GenerationRuleRow,
 } from '../api/flows';
 import type { BoardState } from '../lib/automation/flows-board';
+import { useApp } from '../app-state';
+import { useBranches } from '../hooks/use-branches';
+import BranchPicker from './BranchPicker';
 import { t, tp } from '../i18n';
 
 type EditorStage = Workflow['stages'][number];
@@ -152,6 +155,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   );
   const [draft, setDraft] = useState<Workflow>(initial);
   const [createMode, setCreateMode] = useState(workflow === undefined);
+  const { pat } = useApp();
+  const branches = useBranches(pat, draft.repository);
   // Existing flows open with every step form folded; a new flow keeps its
   // first step open so the user can start typing immediately (#5/#6).
   const [expandedStages, setExpandedStages] = useState<Set<string>>(() => new Set(
@@ -588,18 +593,23 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
             <div className="editor-stage-body">
               <label>
                 {t('source branch')}
-                <input
+                <BranchPicker
                   value={stage.source}
+                  onChange={(value) => patchStage(index, (current) => ({ ...current, source: value }))}
+                  branches={branches}
+                  placeholder="feature/*"
                   disabled={stage.source.includes('*')}
-                  onChange={(event) => patchStage(index, (current) => ({ ...current, source: event.target.value }))}
+                  ariaLabel={t('source branch')}
                 />
               </label>
               <span className="editor-arrow">→</span>
               <label>
                 {t('target branch')}
-                <input
+                <BranchPicker
                   value={stage.target}
-                  onChange={(event) => patchStage(index, (current) => ({ ...current, target: event.target.value }))}
+                  onChange={(value) => patchStage(index, (current) => ({ ...current, target: value }))}
+                  branches={branches}
+                  ariaLabel={t('target branch')}
                 />
               </label>
             </div>
