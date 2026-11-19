@@ -48,6 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         setupMenu()
         setupWindow()
+        // Double-click the top strip = zoom. The transparent titlebar + web
+        // toolbar means the system's own titlebar double-click is ambiguous
+        // (the toolbar buttons live in that strip), so recognize it here and
+        // only for the very top of the window — clicks on toolbar controls
+        // below still reach the web content.
+        let titlebarDoubleClick = NSClickGestureRecognizer(target: self, action: #selector(handleTitlebarDoubleClick(_:)))
+        titlebarDoubleClick.numberOfClicksRequired = 2
+        webView.addGestureRecognizer(titlebarDoubleClick)
         startServer(node: node, script: serverScript)
 
         // Wait for readiness off the main thread so the UI stays responsive.
@@ -67,6 +75,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                 let url = URL(string: "http://127.0.0.1:\(port)/?token=\(token)")!
                 self.webView.load(URLRequest(url: url))
             }
+        }
+    }
+
+    @objc func handleTitlebarDoubleClick(_ gesture: NSClickGestureRecognizer) {
+        // Only the strip at the very top of the window (titlebar zone); the
+        // web toolbar buttons render below it and keep working.
+        if gesture.location(in: webView).y <= 28 {
+            window.performZoom(gesture)
         }
     }
 
@@ -417,7 +433,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         // client corrects the appearance via the themeSync bridge on load.
         window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0x10 / 255.0, green: 0x12 / 255.0, blue: 0x16 / 255.0, alpha: 1)
+        window.backgroundColor = NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
@@ -542,8 +558,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let light = mode == "light"
         window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         window.backgroundColor = light
-            ? NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
-            : NSColor(red: 0x10 / 255.0, green: 0x12 / 255.0, blue: 0x16 / 255.0, alpha: 1)
+            ? NSColor(red: 0.93, green: 0.95, blue: 0.97, alpha: 1)
+            : NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
     }
 
     // MARK: Errors
