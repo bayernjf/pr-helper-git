@@ -133,7 +133,7 @@ export type InboxPayload = {
   configurationWarnings: DeploymentConfigurationWarningRow[];
   syncHealth: SyncHealth | null;
   runs: WorkflowRunRow[];
-  timeline: Array<Record<string, unknown>>;
+  timeline: import('../lib/automation/flows-board').TimelineRow[];
   recoveryStatuses: Array<import('../lib/automation/flows-board').RecoveryStatusRow>;
   automation: AutomationActionRow[];
   readWarnings?: Array<{ source: string; message: string }>;

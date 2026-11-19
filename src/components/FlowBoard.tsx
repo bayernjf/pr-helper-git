@@ -8,8 +8,11 @@ import { fetchFlows, fetchInbox, type InboxPayload } from '../api/flows';
 import { errorMessage } from '../lib/errors';
 import {
   boardCounts,
+  blockedAutomationForStep,
   buildLaneModels,
+  configurationWarningsFor,
   flowPullUrl,
+  stageStaleness,
   type BoardFilter,
   type BoardState,
 } from '../lib/automation/flows-board';
@@ -55,10 +58,12 @@ const FILTER_COUNT: Record<BoardFilter, keyof ReturnType<typeof boardCounts>> = 
   archived: 'archived',
 };
 
-function StepCard({ lane, repository, onOpen }: {
+function StepCard({ lane, repository, onOpen, automationBlocked, stale }: {
   lane: ReturnType<typeof buildLaneModels>[number]['steps'][number];
   repository: string;
   onOpen: () => void;
+  automationBlocked?: boolean;
+  stale?: boolean;
 }) {
   return (
     <button
@@ -70,6 +75,8 @@ function StepCard({ lane, repository, onOpen }: {
       <div className="step-route">
         <span className="step-index">{lane.stageIndex + 1}</span>
         <b>{lane.source} → {lane.target}</b>
+        {automationBlocked ? <span className="lane-automation-badge" title={t('automation blocked on this step')}>{t('automation blocked')}</span> : null}
+        {stale ? <span className="lane-stale-badge" title={t('projection stale — waiting for reconciliation')}>{t('stale')}</span> : null}
       </div>
       <small>
         {lane.label}
@@ -509,6 +516,13 @@ export default function FlowBoard() {
                 <span className="run-text">{lane.summary.text}</span>
               </span>
             </header>
+            {configurationWarningsFor(state, lane.workflow.id).length ? (
+              <div className="lane-config-warning">
+                {configurationWarningsFor(state, lane.workflow.id).map((warning, wIndex) => (
+                  <span key={wIndex} className="lane-config-warning-item" title={warning.code}>{warning.code}</span>
+                ))}
+              </div>
+            ) : null}
             {collapsedLanes.includes(lane.workflow.id) ? null : (
             <div className="lane-track">
               {lane.steps.map((step, index) => (
@@ -517,12 +531,40 @@ export default function FlowBoard() {
                   <StepCard
                     lane={step}
                     repository={lane.workflow.repository}
+                    automationBlocked={Boolean(blockedAutomationForStep(state.automationActions, lane.workflow.id, step.stageIndex))}
+                    stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                     onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                   />
                 </Fragment>
               ))}
             </div>
             )}
+            {(inbox?.runs ?? []).some((run) => run.workflowId === lane.workflow.id) ? (
+              <details className="lane-history">
+                <summary>{t('Run history')}</summary>
+                <ol>
+                  {(inbox?.runs ?? []).filter((run) => run.workflowId === lane.workflow.id).slice(0, 5).map((run, runIndex) => (
+                    <li key={runIndex}>
+                      <span>{run.state ?? '—'}{run.pullNumber ? ` · #${run.pullNumber}` : ''}</span>
+                      <time>{run.startedAt?.slice(0, 16).replace('T', ' ')}</time>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
+            {(inbox?.timeline ?? []).some((row) => row.workflowId === lane.workflow.id) ? (
+              <details className="lane-timeline">
+                <summary>{t('Timeline')}</summary>
+                <ol>
+                  {(inbox?.timeline ?? []).filter((row) => row.workflowId === lane.workflow.id).slice(0, 8).map((row, rowIndex) => (
+                    <li key={rowIndex}>
+                      <span>{row.message ?? row.kind ?? '—'}</span>
+                      <time>{row.occurredAt?.slice(0, 16).replace('T', ' ')}</time>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
           </article>
         )) : error ? null : (
           <article className="board-empty">

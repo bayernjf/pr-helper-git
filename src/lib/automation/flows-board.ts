@@ -18,6 +18,7 @@ import {
 } from './workflow';
 import {
   automationActionPresentation,
+  type AutomationActionState,
   stageRunPresentation,
   workflowRunSummary,
   type StageRunTone,
@@ -76,12 +77,56 @@ export type RecoveryStatusRow = {
   escalationNeeded?: boolean;
 };
 
+export type SyncHealthStageRow = {
+  workflowId: string;
+  stageIndex: number;
+  stageId?: string | null;
+  source: string;
+  ageSeconds?: number;
+  stale?: boolean;
+};
+
+export type ConfigurationWarningRow = {
+  workflowId: string;
+  code: string;
+  target?: string | null;
+  provider?: string | null;
+  value?: string | null;
+};
+
+export type RunRow = {
+  id?: number | string;
+  workflowId: string;
+  stageIndex?: number | null;
+  stageId?: string | null;
+  source?: string | null;
+  state?: string;
+  conclusion?: string | null;
+  pullNumber?: number | null;
+  version?: number | null;
+  startedAt?: string;
+  completedAt?: string | null;
+};
+
+export type TimelineRow = {
+  workflowId: string;
+  stageIndex: number;
+  source?: string | null;
+  kind?: string;
+  message?: string;
+  occurredAt?: string;
+};
+
 export type BoardState = {
   workflows: readonly Workflow[];
   states: readonly WorkflowStageStateRow[];
   actionQueue: readonly ActionQueueItem[];
   automationActions: readonly AutomationActionRow[];
   recoveryStatuses?: readonly RecoveryStatusRow[];
+  syncHealth?: { stages?: readonly SyncHealthStageRow[]; triggerHealth?: readonly Record<string, unknown>[] } | null;
+  configurationWarnings?: readonly ConfigurationWarningRow[];
+  runs?: readonly RunRow[];
+  timeline?: readonly TimelineRow[];
 };
 
 export type BoardFilter = 'attention' | 'running' | 'all' | 'failed' | 'automation' | 'archived';
@@ -125,6 +170,19 @@ export function blockedAutomationActions(
 ): AutomationActionRow[] {
   return automationActions.filter(
     (action) => automationActionPresentation(action).blocked && !resolvedKeys.has(actionKey(action)),
+  );
+}
+
+/** Blocked automation for one stage (automationStageBadge source). */
+export function blockedAutomationForStep(
+  automationActions: readonly AutomationActionRow[],
+  workflowId: string,
+  stageIndex: number,
+): AutomationActionRow | undefined {
+  return automationActions.find(
+    (action) => action.workflowId === workflowId
+      && action.stageIndex === stageIndex
+      && automationActionPresentation({ state: action.state as AutomationActionState }).blocked,
   );
 }
 
@@ -294,6 +352,18 @@ export function stageStateFor(
 /** All persisted projections for one stage (derive.ts statesForStage). */
 export function statesForStage(state: BoardState, flow: Workflow, stageIndex: number) {
   return matchingStageProjections(flow, stageIndex, state.states);
+}
+
+/** Per-stage staleness from the sync-health projection. */
+export function stageStaleness(state: BoardState, workflowId: string, stageIndex: number): { stale: boolean; ageSeconds: number | null } {
+  const stages = state.syncHealth?.stages ?? [];
+  const health = stages.find((row) => row.workflowId === workflowId && row.stageIndex === stageIndex);
+  return { stale: Boolean(health?.stale), ageSeconds: health ? health.ageSeconds ?? null : null };
+}
+
+/** Configuration warnings for one flow (lane-config-warning source). */
+export function configurationWarningsFor(state: BoardState, workflowId: string): ConfigurationWarningRow[] {
+  return (state.configurationWarnings ?? []).filter((w) => w.workflowId === workflowId);
 }
 
 /** Full lane models for rendering, in visible order. */
