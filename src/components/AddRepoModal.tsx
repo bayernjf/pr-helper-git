@@ -1,7 +1,8 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { addRepo, cloneRepo, getMe, initRepo } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { t } from '../i18n';
 import { STORAGE_KEYS } from '../lib/storage-keys';
@@ -50,7 +51,8 @@ export default function AddRepoModal({
   onClose: () => void;
   initialPath?: string;
 }) {
-  const { selectRepo, refreshRepos, toast, activeRepo } = useApp();
+  const { selectRepo, refreshRepos, activeRepo } = useRepoData();
+  const toast = useAppToast();
   useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');
   const [saving, setSaving] = useState(false);

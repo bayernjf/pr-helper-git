@@ -5,7 +5,8 @@ import { errorMessage, errorStatus } from '../lib/errors';
 // optimistic lock) and stage the file.
 import { useEffect, useMemo, useState } from 'react';
 import { getFile, saveFile, stageFile } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { parseConflictMarkers, assembleResolved, hasConflictMarkers, type ConflictSegment, type RegionDecision } from '../lib/diff/conflict';
 import { IconX } from './icons';
@@ -22,7 +23,8 @@ export default function ConflictEditorModal({
   onClose: () => void;
   onResolved?: () => void;
 }) {
-  const { toast, refresh } = useApp();
+  const { refresh } = useRepoData();
+  const toast = useAppToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [segments, setSegments] = useState<ConflictSegment[]>([]);

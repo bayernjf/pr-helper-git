@@ -1,7 +1,8 @@
 import { errorMessage, errorDetail, errorStatus } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { checkoutPrHead, githubProxy, markReadyForReview, mergePull } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { formatFullDate, shortHash } from '../lib/format';
 import type { CheckRun, PullRequest } from '../types';
@@ -50,7 +51,9 @@ export default function PrDetailModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { pat, remote, activeRepo, toast, refresh } = useApp();
+  const { pat } = usePreferences();
+  const { remote, activeRepo, refresh } = useRepoData();
+  const toast = useAppToast();
   const confirm = useConfirm();
   useEscape(onClose);
   const [checks, setChecks] = useState<CheckRun[]>([]);

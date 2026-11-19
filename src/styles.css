@@ -1505,6 +1505,18 @@ pre.diff {
   .detail { width: 268px; }
   .graph-author, .graph-time { display: none; }
   .graph-subject { max-width: 300px; }
+
+  /* The toolbar carries repo actions plus six view tabs. Below 1120px that
+     exceeds one row and clipped Pull Requests behind a hidden scrollbar; wrap
+     instead so every navigation target stays visible without scrolling. */
+  .toolbar {
+    height: auto;
+    min-height: 48px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    overflow: visible;
+  }
+  .toolbar .spacer { display: none; }
 }
 
 @media (max-width: 880px) {

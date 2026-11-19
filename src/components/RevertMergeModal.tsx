@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../app-state';
+import { useRepoData, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { revertCommit } from '../api';
 import { IconX } from './icons';
@@ -13,7 +13,8 @@ interface Props {
 }
 
 export default function RevertMergeModal({ hash, parentCount, onClose }: Props) {
-  const { currentRepo, runAction } = useApp();
+  const { activeRepo: currentRepo } = useRepoData();
+  const { runAction } = useRunAction();
   const [mainline, setMainline] = useState(1);
   useEscape(onClose);
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAudit } from '../api';
-import { useApp } from '../app-state';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { formatFullDate } from '../lib/format';
 import type { AuditEntry } from '../types';
@@ -37,7 +37,7 @@ function extraFields(entry: AuditEntry): string | null {
 }
 
 export default function AuditModal({ onClose }: { onClose: () => void }) {
-  const { toast } = useApp();
+  const toast = useAppToast();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

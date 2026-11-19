@@ -6,7 +6,8 @@ import {
   getA2aStatus, generateA2aToken, revokeA2aToken,
   type A2aStatus, type GithubAuthStatus, type GithubDeviceStart, type GithubInstallation, type StorageInfo,
 } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences } from '../app-state/preferences-provider';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 import { Dropdown } from './Dropdown';
@@ -15,7 +16,8 @@ import { getLocale, setLocale, t, tp, type Locale } from '../i18n';
 import { ACCENTS, type Accent, type ThemeMode } from '../lib/appearance';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { pat, setPat, hasServerPat, setServerPat, clearServerPat, toast, theme, accent, setTheme, setAccent } = useApp();
+  const { pat, setPat, hasServerPat, setServerPat, clearServerPat, theme, accent, setTheme, setAccent } = usePreferences();
+  const toast = useAppToast();
   const [value, setValue] = useState(pat);
   const [serverPatValue, setServerPatValue] = useState('');
   const [storage, setStorage] = useState<StorageInfo | null>(null);

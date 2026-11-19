@@ -6,7 +6,10 @@ import { createElement } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppContext } from '../app-state';
+import { PreferencesContext } from '../app-state/preferences-provider';
+import { RepoDataContext } from '../app-state/repo-provider';
+import { ActionsContext } from '../app-state/actions-provider';
+import { ToastProvider } from './ui';
 import CommitGraph from './CommitGraph';
 
 const commits = [
@@ -36,12 +39,12 @@ afterEach(() => {
 });
 
 function mount(selectedHash: string | null, selectCommit: (hash: string | null) => void) {
-  const value = {
+  const prefs = { pat: '', hasServerPat: false };
+  const repo = {
     commits,
     selectedHash,
     selectCommit,
-    currentRepo: '/tmp/repo',
-    toast: () => {},
+    activeRepo: '/tmp/repo',
     loadMore: () => {},
     logLimit: 50,
     logScope: 'current',
@@ -52,10 +55,19 @@ function mount(selectedHash: string | null, selectCommit: (hash: string | null) 
     repoLoading: false,
     status: null,
     refs: [],
-    runAction: async () => null,
+    remote: null,
   };
+  const actions = { runAction: async () => null };
   act(() => {
-    root?.render(createElement(AppContext.Provider, { value } as never, createElement(CommitGraph)));
+    root?.render(createElement(
+      PreferencesContext.Provider,
+      { value: prefs as never },
+      createElement(RepoDataContext.Provider, { value: repo as never },
+        createElement(ActionsContext.Provider, { value: actions as never },
+          createElement(ToastProvider, null, createElement(CommitGraph)),
+        ),
+      ),
+    ));
   });
   const list = document.querySelector('[role="listbox"]') as HTMLElement;
   expect(list).toBeTruthy();

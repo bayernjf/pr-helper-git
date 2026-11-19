@@ -1,4 +1,4 @@
-import { useApp } from './app-state';
+import { usePreferences, useRepoData } from './app-state/hooks';
 import { useFocusTrap } from './hooks/use-focus-trap';
 import { useShortcuts } from './hooks/use-shortcuts';
 import CommandPalette from './components/CommandPalette';
@@ -34,7 +34,8 @@ function LoadingPanel() {
 }
 
 export default function App() {
-  const { activeRepo, view, repoLoading, status, commits } = useApp();
+  const { activeRepo, repoLoading, status, commits } = useRepoData();
+  const { view } = usePreferences();
   // Re-render the whole tree when the language changes.
   useLocale();
   useShortcuts();

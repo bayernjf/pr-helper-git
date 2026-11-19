@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppContext } from '../app-state';
+import { RepoDataContext } from '../app-state/repo-provider';
 import { getCompare } from '../api';
 import { setLocale } from '../i18n';
 import type { Commit, Ref } from '../types';
@@ -203,7 +203,7 @@ async function mountModal() {
   const onClose = vi.fn();
   act(() => root!.render(
     createElement(
-      AppContext.Provider,
+      RepoDataContext.Provider,
       { value: appContext() as never },
       createElement(CompareModal, { onClose }),
     ),

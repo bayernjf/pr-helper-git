@@ -7,7 +7,8 @@ import { errorMessage } from '../lib/errors';
 //   30s auto-refresh, silent background fetch-all every 10 minutes.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { activityLevel, relativeAge, wipCount } from '../lib/repo-sort';
 import type { RepoBrief } from '../types';
 import { Dropdown } from './Dropdown';
@@ -43,7 +44,9 @@ function parentDir(p: string) {
 }
 
 export default function DashboardPage() {
-  const { repos, activeRepo, selectRepo, refresh, pat, hasServerPat, toast } = useApp();
+  const { repos, activeRepo, selectRepo, refresh } = useRepoData();
+  const { pat, hasServerPat } = usePreferences();
+  const toast = useAppToast();
   const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem(SORT_KEY) as SortKey) || 'conflict');

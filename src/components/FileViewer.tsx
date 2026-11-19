@@ -9,7 +9,7 @@ import {
   type BlameResult,
   type FileContent,
 } from '../api';
-import { useApp } from '../app-state';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
 import type { Commit } from '../types';
@@ -54,7 +54,7 @@ export default function FileViewer({
   highlight?: string | null;
   onClose: () => void;
 }) {
-  const { toast } = useApp();
+  const toast = useAppToast();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [viewRev, setViewRev] = useState<string | null>(null);
   const effectiveRev = viewRev ?? rev ?? null;

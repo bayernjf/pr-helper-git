@@ -5,7 +5,7 @@ import {
   pushRepo,
   type ForcePushMode,
 } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences, useRepoData, useRunAction, useBusy } from '../app-state/hooks';
 import AddRepoModal from './AddRepoModal';
 import { Dropdown } from './Dropdown';
 import AuditModal from './AuditModal';
@@ -55,18 +55,10 @@ import {
 } from './icons';
 
 export default function Toolbar() {
-  const {
-    repos,
-    activeRepo,
-    activeBrief,
-    view,
-    theme,
-    busy,
-    selectRepo,
-    setView,
-    toggleTheme,
-    runAction,
-  } = useApp();
+  const { repos, activeRepo, activeBrief, selectRepo } = useRepoData();
+  const { view, theme, setView, toggleTheme } = usePreferences();
+  const busy = useBusy();
+  const { runAction } = useRunAction();
   const [showAdd, setShowAdd] = useState(false);
   const [addRepoPath, setAddRepoPath] = useState('');
   const [showRepositories, setShowRepositories] = useState(false);

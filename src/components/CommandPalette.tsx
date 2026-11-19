@@ -11,7 +11,7 @@ import {
   pullRepo,
   pushRepo,
 } from '../api';
-import { useApp } from '../app-state';
+import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
 import { matchesCommand } from '../lib/fuzzy';
 import { t } from '../i18n';
 import {
@@ -41,15 +41,9 @@ interface Command {
 }
 
 export default function CommandPalette() {
-  const {
-    repos,
-    activeRepo,
-    setView,
-    selectRepo,
-    setLogScope,
-    refresh,
-    runAction,
-  } = useApp();
+  const { repos, activeRepo, selectRepo, setLogScope, refresh } = useRepoData();
+  const { setView } = usePreferences();
+  const { runAction } = useRunAction();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);

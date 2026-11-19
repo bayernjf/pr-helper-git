@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { STORAGE_KEYS } from '../lib/storage-keys';
 import { discardHunk, stageHunk, stageLines } from '../api';
-import { useApp } from '../app-state';
+import { useRunAction } from '../app-state/hooks';
 import {
   parseDiffLines,
   pairDiffRows,
@@ -156,7 +156,7 @@ export default function DiffView({
   repo?: string;
   staged?: boolean;
 }) {
-  const { runAction } = useApp();
+  const { runAction } = useRunAction();
   const FONT_SIZES = [12, 13, 14];
   const [fontIdx, setFontIdx] = useState(() => {
     const saved = Number(localStorage.getItem(STORAGE_KEYS.diffFont));

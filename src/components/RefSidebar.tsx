@@ -25,7 +25,8 @@ import {
   type SubmoduleEntry,
   type TagDetail,
 } from '../api';
-import { useApp } from '../app-state';
+import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
 import { ContextMenu, type MenuItem } from './context-menu';
@@ -80,14 +81,9 @@ interface RenameState {
 }
 
 export default function RefSidebar() {
-  const {
-    activeRepo,
-    refs,
-    status,
-    commits,
-    runAction,
-    toast,
-  } = useApp();
+  const { activeRepo, refs, status, commits } = useRepoData();
+  const { runAction } = useRunAction();
+  const toast = useAppToast();
   const confirm = useConfirm();
   const { widthStyle: sidebarStyle, separatorProps: sidebarSeparator } = useResizable({
     prefKey: 'sidebarWidth',
