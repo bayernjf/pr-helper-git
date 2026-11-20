@@ -2,6 +2,7 @@
 // collects the failed-runs repair context markdown from the engine route and
 // presents it for copying into Codex, with the Actions page one click away.
 import { useEffect, useRef, useState } from 'react';
+import { useEscape } from '../hooks/use-escape';
 import { createPortal } from 'react-dom';
 import { errorMessage } from '../lib/errors';
 import { repairContext } from '../api/flows';
@@ -21,6 +22,7 @@ export default function CodexRepairModal({ workflowId, stageIndex, source, pullN
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'collecting' });
+  useEscape(onClose);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

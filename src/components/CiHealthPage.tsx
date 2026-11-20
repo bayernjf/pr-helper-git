@@ -219,7 +219,7 @@ export default function CiHealthPage() {
             <option value={30}>{t('Last 30 days')}</option>
             <option value={90}>{t('Last 90 days')}</option>
           </select>
-          <button type="button" className="btn" onClick={refresh} disabled={loading || authMissing}>
+          <button type="button" className="btn" onClick={refresh} disabled={loading || authMissing} aria-label={t("Refresh")}>
             <IconRefresh width={14} height={14} />
             {loading ? t('Scanning…') : t('Refresh')}
           </button>

@@ -2,6 +2,7 @@
 // migrated pr_helper_generation_rules. Names are a local-only column
 // (migration 049 — the original kept names in its client localStorage).
 import { useEffect, useState } from 'react';
+import { useEscape } from '../hooks/use-escape';
 import { createPortal } from 'react-dom';
 import { errorMessage } from '../lib/errors';
 import { deleteRule, fetchGenerationRules, saveRule, type GenerationRuleRow } from '../api/flows';
@@ -14,6 +15,7 @@ export default function GenerationRulesModal({ onClose, onChanged }: {
   onChanged?: () => void;
 }) {
   const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+  useEscape(onClose);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<{ hash: string | null; name: string; content: string } | null>(null);
