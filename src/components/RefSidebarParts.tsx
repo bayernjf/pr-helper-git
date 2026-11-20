@@ -23,9 +23,12 @@ export function GroupHead({
       <button type="button" className="ref-group-head" style={{ padding: 0, flex: 1 }} onClick={onToggle}>
         <span className="chev">{open ? <IconChevronDown width={13} height={13} /> : <IconChevronRight width={13} height={13} />}</span>
         <span className="gh-label">{label}</span>
-        <span className="count">{count}</span>
       </button>
       {action}
+      {/* Count is the LAST flex item so it always lands on the group-head
+          right edge — groups with an action cluster (sort/add) keep the same
+          count column as the ones without. Clicking it toggles too. */}
+      <span className="count" onClick={onToggle}>{count}</span>
     </div>
   );
 }
