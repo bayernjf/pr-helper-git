@@ -343,6 +343,8 @@ button {
 }
 /* The inner toggle button holds the label; keep it on one line and clip. */
 button.ref-group-head { min-width: 0; overflow: hidden; }
+/* The outer wrapper row: space the title, sort dropdown and add-branch button. */
+div.ref-group-head { gap: 6px; }
 .ref-group-head .chev { display: inline-flex; margin-right: 2px; }
 .ref-group-head .gh-label { overflow: hidden; text-overflow: ellipsis; }
 .ref-group-head .count {
@@ -389,13 +391,22 @@ button.ref-group-head { min-width: 0; overflow: hidden; }
 }
 .ref-row .row-more {
   margin-left: auto;
-  opacity: 0;
+  flex: 0 0 auto;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--faint);
-  padding: 2px;
   border-radius: var(--radius-xs);
+  opacity: 0;
+  transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 .ref-row:hover .row-more { opacity: 1; }
+.ref-row .row-more:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 1px; }
 .ref-row .row-more:hover { color: var(--text); background: var(--active); }
 
 /* ---------- Center column ---------- */
