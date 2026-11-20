@@ -29,16 +29,10 @@ const ROW_H = 34;
 const COL_W = 20;
 const PAD_X = 14;
 
-const LANE_COLORS = [
-  '#4f9dff',
-  '#3fb950',
-  '#d29922',
-  '#bc8cff',
-  '#f778ba',
-  '#39c5cf',
-  '#f0883e',
-  '#7ee787',
-];
+// Lane colors come from the theme (design/tokens.json → --graph-1..8) so the
+// graph follows dark/light instead of staying GitHub-dark. SVG presentation
+// attributes cannot resolve var(), so colors are applied through style props.
+const LANE_COLORS = Array.from({ length: 8 }, (_, i) => `var(--graph-${i + 1})`);
 
 function laneColor(lane: number): string {
   return LANE_COLORS[lane % LANE_COLORS.length];
@@ -407,7 +401,7 @@ export default function CommitGraph() {
       >
         <svg className="graph-svg" width={graphWidth} height={totalHeight}>
           {windowEdges.map((e) => (
-            <path key={e.key} d={e.d} fill="none" stroke={e.color} strokeWidth={2} />
+            <path key={e.key} d={e.d} fill="none" style={{ stroke: e.color }} strokeWidth={2} />
           ))}
           {layout.commits.slice(range.start, range.end).map((commit, index) => {
             const row = range.start + index;
@@ -419,8 +413,8 @@ export default function CommitGraph() {
             if (isMerge) {
               return (
                 <g key={commit.hash}>
-                  <circle cx={x} cy={y} r={6.5} fill="#15151c" stroke={color} strokeWidth={2.2} />
-                  <circle cx={x} cy={y} r={2.4} fill={color} />
+                  <circle cx={x} cy={y} r={6.5} style={{ fill: 'var(--graph-node)', stroke: color }} strokeWidth={2.2} />
+                  <circle cx={x} cy={y} r={2.4} style={{ fill: color }} />
                 </g>
               );
             }
@@ -430,8 +424,7 @@ export default function CommitGraph() {
                 cx={x}
                 cy={y}
                 r={isRoot ? 5 : 4.5}
-                fill={color}
-                stroke="#15151c"
+                style={{ fill: color, stroke: 'var(--graph-node)' }}
                 strokeWidth={1.5}
               />
             );
