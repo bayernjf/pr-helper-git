@@ -29,10 +29,10 @@ function signatureLabel(signature: CommitSignature): string {
 }
 
 function statusColor(status: string): string {
-  if (status.startsWith('A')) return 'var(--green)';
+  if (status.startsWith('A')) return 'var(--green-strong)';
   if (status.startsWith('D')) return 'var(--red)';
-  if (status.startsWith('R') || status.startsWith('C')) return 'var(--cyan)';
-  return 'var(--yellow)';
+  if (status.startsWith('R') || status.startsWith('C')) return 'var(--cyan-strong)';
+  return 'var(--amber-strong)';
 }
 
 export default function CommitDetail() {
@@ -154,7 +154,7 @@ export default function CommitDetail() {
         <span className="detail-label">{t("Commit")}</span>
         <div className="detail-value hash-row">
           <span className="hash-text">{commit.hash}</span>
-          <button type="button" className="icon-btn" title={t("Copy full hash")} onClick={copyHash}>
+          <button type="button" className="icon-btn" title={t("Copy full hash")} aria-label={t("Copy full hash")} onClick={copyHash}>
             <IconCopy width={14} height={14} />
           </button>
         </div>

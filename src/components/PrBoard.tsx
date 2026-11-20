@@ -33,10 +33,13 @@ function MergePill({ pr }: { pr: PullRequest }) {
   return <span className="merge-pill unknown">{t("computing")}</span>;
 }
 
-function ReviewPill({ state }: { state: ReviewState }) {
+export function ReviewPill({ state }: { state: ReviewState }) {
   if (state === 'APPROVED') return <span className="review-pill approved">{t("Approved")}</span>;
   if (state === 'CHANGES_REQUESTED') return <span className="review-pill changes">{t("Changes requested")}</span>;
   if (state === 'COMMENTED') return <span className="review-pill commented">{t("Review comments")}</span>;
+  // UNKNOWN covers both "still loading" and "the summary call failed" — the
+  // card must not claim "No review" while the truth is unknown; refresh retries.
+  if (state === 'UNKNOWN') return <span className="review-pill unknown" title={t('Review summary unavailable — refresh to retry')}>{t('review ?')}</span>;
   return <span className="review-pill none">{t("No review")}</span>;
 }
 
@@ -45,7 +48,9 @@ function PrCard({ pr, onOpen, fetchReviews }: {
   onOpen: () => void;
   fetchReviews: (number: number) => Promise<GithubReview[]>;
 }) {
-  const [reviewState, setReviewState] = useState<ReviewState>(pr.reviewState);
+  // Open cards start UNKNOWN: the list API carries no review summary, so
+  // claiming the server default (NONE) before the lazy call lands would lie.
+  const [reviewState, setReviewState] = useState<ReviewState>(pr.state === 'open' ? 'UNKNOWN' : pr.reviewState);
   // Lazy review summary: one GitHub call per open card, when it mounts.
   useEffect(() => {
     if (pr.state !== 'open') return;
@@ -54,7 +59,9 @@ function PrCard({ pr, onOpen, fetchReviews }: {
       .then((reviews) => {
         if (alive) setReviewState(summarizeReviews(reviews));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // Leave the pill at UNKNOWN instead of the misleading "No review".
+      });
     return () => {
       alive = false;
     };
@@ -295,19 +302,29 @@ export default function PrBoard() {
           <IconPlus width={14} height={14} />
           {t("New pull request")}</button>
       </div>
-      {error && <div className="toast error" style={{ position: 'static', margin: 10 }}>{error}</div>}
+      {error && <div className="inline-error" role="alert">{error}</div>}
       <div className="pr-board">
         {COLUMNS.map((col) => (
           <div key={col.key} className="pr-column">
             <div className="pr-column-head">
-              {col.label}
+              {t(col.label)}
               <span className="pr-count">{columns[col.key].length}</span>
             </div>
             <div className="pr-column-body">
-              {columns[col.key].map((pr) => (
-                <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} fetchReviews={fetchReviewsFor} />
-              ))}
-              {columns[col.key].length === 0 && (
+              {loading && pulls.length === 0 ? (
+                // First load: skeleton rows, so loading never masquerades as a
+                // genuinely empty column.
+                <div className="pr-skeleton" aria-hidden="true">
+                  <span className="pr-skeleton-card" />
+                  <span className="pr-skeleton-card" />
+                  <span className="pr-skeleton-card" />
+                </div>
+              ) : (
+                columns[col.key].map((pr) => (
+                  <PrCard key={pr.number} pr={pr} onOpen={() => setDetailNumber(pr.number)} fetchReviews={fetchReviewsFor} />
+                ))
+              )}
+              {!(loading && pulls.length === 0) && columns[col.key].length === 0 && (
                 <div className="empty-state-visual">
                   <span className="empty-icon"><IconPullRequest width={26} height={26} /></span>
                   <span className="empty-title">{query.trim() ? t('No matches') : t('Nothing here')}</span>
@@ -324,7 +341,7 @@ export default function PrBoard() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 14px' }}>
           <button type="button" className="btn" onClick={loadMore} disabled={loading}>
             <IconRefresh width={14} height={14} />
-            {loading ? 'Loading' : 'Load more pull requests'}
+            {loading ? t('Loading') : t('Load more pull requests')}
           </button>
         </div>
       )}

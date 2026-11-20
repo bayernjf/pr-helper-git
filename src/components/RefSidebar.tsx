@@ -63,7 +63,7 @@ import ResolveConflictsModal from './ResolveConflictsModal';
 import { useConfirm } from './ui';
 import { getPref, setPref, repoPref } from '../lib/prefs';
 import type { Ref } from '../types';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type MenuKind = 'local' | 'remote' | 'tag' | 'stash';
 
@@ -210,7 +210,8 @@ export default function RefSidebar() {
       const res = await getStashList(activeRepo);
       setStashList(res.entries);
     } catch {
-      setStashList([]);
+      // Keep the previous list — resetting to [] would present a load
+      // failure as "no stashes".
     }
   }, [activeRepo]);
 
@@ -226,7 +227,7 @@ export default function RefSidebar() {
     if (!ok) return;
     const result = await runAction(deleteBranch(activeRepo!, branch, false));
     if (result === null) {
-      const force = await confirm(`Force delete ${branch}?`, 'Unmerged work will be lost.');
+      const force = await confirm(tp('Force delete {name}?', { name: branch }), t('Unmerged work will be lost.'));
       if (force) await runAction(deleteBranch(activeRepo!, branch, true), `Deleted ${branch}`);
     }
   }
@@ -295,7 +296,7 @@ export default function RefSidebar() {
       if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
       else if (id === 'delete-remote') {
         const branch = name.includes('/') ? name.slice(name.indexOf('/') + 1) : name;
-        const ok = await confirm(`Delete remote branch ${name}?`, 'This affects the shared remote.');
+        const ok = await confirm(tp('Delete remote branch {name}?', { name }), t('This affects the shared remote.'));
         if (ok) await runAction(deleteRemoteBranch(activeRepo, branch), `Deleted remote ${name}`);
       }
     } else if (kind === 'tag') {
@@ -309,12 +310,12 @@ export default function RefSidebar() {
       } else if (id === 'checkout') await runAction(checkoutRef(activeRepo, name), `Checked out ${name}`);
       else if (id === 'push-tag') await runAction(pushTag(activeRepo, name), `Pushed tag ${name}`);
       else if (id === 'delete-tag') {
-        const ok = await confirm(`Delete tag ${name}?`);
+        const ok = await confirm(tp('Delete tag {name}?', { name }));
         if (ok) await runAction(deleteTag(activeRepo, name), `Deleted tag ${name}`);
       } else if (id === 'delete-remote-tag') {
         const ok = await confirm(
-          `Delete remote tag ${name}?`,
-          'This affects the shared remote. The local tag is kept.',
+          tp('Delete remote tag {name}?', { name }),
+          t('This affects the shared remote. The local tag is kept.'),
         );
         if (ok) await runAction(deleteRemoteTag(activeRepo, name), `Deleted remote tag ${name}`);
       }
@@ -330,7 +331,7 @@ export default function RefSidebar() {
       } else if (id === 'apply') await runAction(stashApply(activeRepo, idx, false), 'Stash applied');
       else if (id === 'pop') await runAction(stashApply(activeRepo, idx, true), 'Stash popped');
       else if (id === 'drop') {
-        const ok = await confirm('Drop this stash?');
+        const ok = await confirm(t('Drop this stash?'));
         if (ok) {
           await runAction(stashDrop(activeRepo, idx), 'Stash dropped');
           loadStash();
@@ -387,7 +388,7 @@ export default function RefSidebar() {
                 { value: 'recent', label: t('Recent') },
               ]}
             />
-            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title={t("New branch")} onClick={() => setShowNew(true)}>
+            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title={t("New branch")} aria-label={t("New branch")} onClick={() => setShowNew(true)}>
               <IconPlus width={15} height={15} />
             </button>
           </>

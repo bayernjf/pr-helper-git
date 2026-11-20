@@ -35,6 +35,9 @@ export interface Preferences {
 // history window (limit/scope/path/filters) and the load-generation guards.
 export interface RepoData {
   repos: RepoBrief[];
+  /** False until the first registry load resolves — distinguishes "loading"
+      from a genuinely empty registry so views never fake an empty state. */
+  reposLoaded: boolean;
   activeRepo: string | null;
   activeBrief: RepoBrief | null;
   status: ParsedStatus | null;

@@ -3,7 +3,7 @@ import { useEscape } from '../hooks/use-escape';
 import { IconChevronDown, IconChevronRight, IconMore, IconX } from './icons';
 import type { TagDetail } from '../api';
 import type { Ref } from '../types';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 export function GroupHead({
   label,
@@ -46,7 +46,20 @@ export function Row({
   onMenu: (e: MouseEvent) => void;
 }) {
   return (
-    <div className={`ref-row${current ? ' current' : ''}`} onClick={onOpen} title={name}>
+    <div
+      className={`ref-row${current ? ' current' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-current={current || undefined}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      title={name}
+    >
       <span className="ref-icon">{icon}</span>
       <span className="ref-name">{name}</span>
       {badge}
@@ -120,7 +133,7 @@ export function submoduleLabel(state: string): string {
 export function submoduleColor(state: string): string {
   if (state === ' ') return 'var(--green)';
   if (state === '-') return 'var(--text-dim)';
-  if (state === '+') return 'var(--amber)';
+  if (state === '+') return 'var(--amber-strong)';
   return 'var(--red)';
 }
 
@@ -300,7 +313,7 @@ export function UpstreamPickerModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Set upstream for {branch}</h2>
+          <h2>{tp('Set upstream for {name}', { name: branch })}</h2>
           <button type="button" className="icon-btn" aria-label={t("Close upstream picker")} title={t("Close")} onClick={onClose}>
             <IconX />
           </button>

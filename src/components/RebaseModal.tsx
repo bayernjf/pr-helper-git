@@ -9,7 +9,7 @@ import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
 import { IconAlert, IconX } from './icons';
 import { Dropdown } from './Dropdown';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 type Action = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
 
@@ -140,7 +140,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
             {plan?.dirty ? (
               <span>{t("Commit or stash your changes first — the working tree is not clean.")}</span>
             ) : (
-              <span>The range contains merge commits ({merges.join(', ')}); flattening them would lose history.</span>
+              <span>{tp('The range contains merge commits ({names}); flattening them would lose history.', { names: merges.join(', ') })}</span>
             )}
           </div>
         )}

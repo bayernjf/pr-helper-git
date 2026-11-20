@@ -13,7 +13,7 @@ import {
 } from '../api';
 import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
 import { matchesCommand } from '../lib/fuzzy';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import {
   IconAudit,
   IconBranch,
@@ -292,7 +292,7 @@ export default function CommandPalette() {
         </div>
         <div className="cmdk-list" ref={listRef}>
           {filtered.length === 0 ? (
-            <div className="cmdk-empty">No commands match “{query}”.</div>
+            <div className="cmdk-empty">{query.trim() ? tp('No commands match “{query}”.', { query }) : t('Type a command…')}</div>
           ) : (
             filtered.map((command, index) => (
               <button

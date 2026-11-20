@@ -10,8 +10,12 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// Every full-screen surface the app opens: standard modals, the step drawer
+// and the command palette all get the same trap + focus-restore treatment.
+const BACKDROP_SELECTOR = '.modal-backdrop, .drawer-backdrop, .cmdk-backdrop';
+
 function topBackdrop(): HTMLElement | null {
-  const list = document.querySelectorAll<HTMLElement>('.modal-backdrop');
+  const list = document.querySelectorAll<HTMLElement>(BACKDROP_SELECTOR);
   return list.length ? list[list.length - 1] : null;
 }
 
@@ -21,12 +25,12 @@ function focusableInside(backdrop: HTMLElement): HTMLElement[] {
 }
 
 function insideBackdrop(el: HTMLElement): boolean {
-  return !!el.closest('.modal-backdrop');
+  return !!el.closest(BACKDROP_SELECTOR);
 }
 
-// Mounted once at the app root. Whenever a modal is open, focus moves into it,
+// Mounted once at the app root. Whenever a backdrop is open, focus moves into it,
 // Tab is trapped inside (with wrap-around), and focus returns to the opener
-// when the modal closes. Works for every existing .modal-backdrop without
+// when the surface closes. Works for every backdrop without
 // requiring changes to individual modal components.
 export function useFocusTrap() {
   useEffect(() => {
@@ -60,7 +64,7 @@ export function useFocusTrap() {
         moveFocusIn(current);
       } else {
         activeBackdrop = null;
-        // If another modal is still open (nested dialog just closed), return
+        // If another surface is still open (nested dialog just closed), return
         // focus to it; otherwise restore the original opener.
         const remaining = topBackdrop();
         if (remaining) {

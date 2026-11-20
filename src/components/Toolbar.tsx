@@ -210,7 +210,7 @@ export default function Toolbar() {
         {branchLabel}
         {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
           <span style={{ fontFamily: 'var(--mono)', fontSize: 11, marginLeft: 2 }}>
-            {activeBrief.ahead > 0 && <span style={{ color: 'var(--green)' }}>↑{activeBrief.ahead} </span>}
+            {activeBrief.ahead > 0 && <span style={{ color: 'var(--green-strong)' }}>↑{activeBrief.ahead} </span>}
             {activeBrief.behind > 0 && <span style={{ color: 'var(--red)' }}>↓{activeBrief.behind}</span>}
           </span>
         )}
@@ -232,7 +232,8 @@ export default function Toolbar() {
           type="button"
           className="btn"
           disabled={!activeRepo || busy}
-          title="git pull"
+          title={t("git pull")}
+          aria-label={t("Pull")}
           onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
         >
           <IconDownload width={14} height={14} />
@@ -253,7 +254,8 @@ export default function Toolbar() {
           type="button"
           className="btn"
           disabled={!activeRepo || busy}
-          title="git push"
+          title={t("git push")}
+          aria-label={t("Push")}
           onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
         >
           <IconUpload width={14} height={14} />
@@ -320,7 +322,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title="Search repository contents (git grep)"
+        title={t("Search repository contents (git grep)")}
+        aria-label={t("Search repository contents (git grep)")}
         disabled={!activeRepo}
         onClick={() => setShowGrep(true)}
       >

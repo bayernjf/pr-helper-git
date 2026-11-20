@@ -14,10 +14,10 @@ type Tab = 'commits' | 'files';
 const WORKTREE = ':worktree';
 
 function statusColor(status: string): string {
-  if (status.startsWith('A')) return 'var(--green)';
+  if (status.startsWith('A')) return 'var(--green-strong)';
   if (status.startsWith('D')) return 'var(--red)';
-  if (status.startsWith('R') || status.startsWith('C')) return 'var(--cyan)';
-  return 'var(--yellow)';
+  if (status.startsWith('R') || status.startsWith('C')) return 'var(--cyan-strong)';
+  return 'var(--amber-strong)';
 }
 
 export default function CompareModal({ onClose }: { onClose: () => void }) {

@@ -44,7 +44,7 @@ function parentDir(p: string) {
 }
 
 export default function DashboardPage() {
-  const { repos, activeRepo, selectRepo, refresh } = useRepoData();
+  const { repos, reposLoaded, activeRepo, selectRepo, refresh } = useRepoData();
   const { pat, hasServerPat } = usePreferences();
   const toast = useAppToast();
   const confirm = useConfirm();
@@ -168,7 +168,7 @@ export default function DashboardPage() {
       await refresh().catch(() => undefined);
       toast(t('{name} removed').replace('{name}', name), 'success');
     } catch (err) {
-      toast(errorMessage(err) || 'remove failed', 'error');
+      toast(errorMessage(err) || t('remove failed'), 'error');
     }
   }
 
@@ -376,7 +376,12 @@ export default function DashboardPage() {
         <span className="dash-hint">{view === 'cards' ? t('Right-click a card for more actions') : t('Right-click a row for more actions')}</span>
       </div>
 
-      {repos.length === 0 ? (
+      {!reposLoaded ? (
+        <div className="dash-empty">
+          <span className="spinner" aria-hidden="true" />
+          <p>{t('Loading repositories…')}</p>
+        </div>
+      ) : repos.length === 0 ? (
         <div className="dash-empty">
           <p>{t('No repositories yet. Add one to get started.')}</p>
           <button type="button" className="btn btn-primary" onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>

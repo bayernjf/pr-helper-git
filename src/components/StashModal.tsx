@@ -47,7 +47,7 @@ export default function StashModal({ onClose }: { onClose: () => void }) {
               checked={includeUntracked}
               onChange={(e) => setIncludeUntracked(e.target.checked)}
             />
-            <span>Include untracked files (<code>--include-untracked</code>)</span>
+            <span>{t("Include untracked files")} (<code>--include-untracked</code>)</span>
           </label>
         </div>
         <div className="modal-footer">

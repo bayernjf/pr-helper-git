@@ -14,6 +14,7 @@ import { Dropdown } from './Dropdown';
 import { useConfirm } from './ui';
 import { getLocale, setLocale, t, tp, type Locale } from '../i18n';
 import { ACCENTS, type Accent, type ThemeMode } from '../lib/appearance';
+import { ACCENT_SWATCH } from '../design/accents';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { pat, setPat, hasServerPat, setServerPat, clearServerPat, theme, accent, setTheme, setAccent } = usePreferences();
@@ -470,9 +471,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <span
                     className="accent-dot"
                     style={{
-                      background: {
-                        violet: '#c3a6f7', rose: '#f5c2e7', ocean: '#89b4fa', forest: '#a6e3a1', amber: '#fab387',
-                      }[name],
+                      background: theme === 'light' ? ACCENT_SWATCH[name].light : ACCENT_SWATCH[name].dark,
                     }}
                   />
                   {t(name[0].toUpperCase() + name.slice(1))}

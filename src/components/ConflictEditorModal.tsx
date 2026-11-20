@@ -144,7 +144,7 @@ export default function ConflictEditorModal({
                       <button
                         key={d}
                         type="button"
-                        className={`btn btn-sm${decisions[i] === d ? ' btn-primary' : ''}`}
+                        className={`btn btn-small${decisions[i] === d ? ' btn-primary' : ''}`}
                         onClick={() => decide(i, d)}
                       >
                         {d === 'ours' ? t('Current side') : d === 'theirs' ? t('Incoming side') : t('Both')}

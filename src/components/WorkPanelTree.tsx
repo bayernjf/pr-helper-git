@@ -14,7 +14,7 @@ import {
   IconTrash,
   IconX,
 } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 function statusLabel(file: StatusFile): string {
   if (file.area === 'untracked') return 'U';
@@ -57,7 +57,7 @@ export function TreeRow({
           type="button"
           className="icon-btn"
           style={{ width: 18, height: 18 }}
-          aria-label={isCollapsed ? `Expand ${node.name}` : `Collapse ${node.name}`}
+          aria-label={isCollapsed ? tp('Expand {name}', { name: node.name }) : tp('Collapse {name}', { name: node.name })}
           title={isCollapsed ? 'Expand folder' : 'Collapse folder'}
           aria-expanded={!isCollapsed}
           onClick={() => toggleFolder(node.path)}
@@ -76,13 +76,23 @@ export function TreeRow({
     <div
       className={`file-row tree-row${selected ? ' selected' : ''}`}
       style={{ paddingLeft: 10 + node.depth * 13 }}
+      role="button"
+      tabIndex={0}
+      aria-selected={selected || undefined}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       <button
         type="button"
         className="icon-btn"
         style={{ width: 20, height: 20, color: isStaged ? 'var(--accent)' : 'var(--green)' }}
         title={isStaged ? 'Unstage' : 'Stage'}
+        aria-label={isStaged ? 'Unstage' : 'Stage'}
         onClick={(e) => {
           e.stopPropagation();
           onStageToggle();
