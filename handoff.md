@@ -114,6 +114,25 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 永远不成立。改为捕获即将占用的序号（`current + 1`），并用 18777
 浏览器实测：切换仓库完成后 `.loading-bar` 数量为 0。
 
+## Release 0.3.18 (2026-11-21)
+
+范围：2026-11-21 设计审计（主题/UI/UX 两路并行扫描）全部可修复项 + 当日两个
+独立 bug 修复。四个提交：`a8c15c7`（主题：--on-accent 对比度体系、语义色
+strong 变体、GitHub 时代第二调色板并入 Catppuccin token、提交图主题化、accent
+预设单源化为 tokens.json → accents.css/accents.ts 双产物、z-index/圆角 token
+标尺、死 token 清理）、`db77e10`（a11y：两个新模态补 Esc、焦点陷阱覆盖
+drawer/命令面板、btn-small 修正、RefSidebar/文件树行键盘可达、11 处
+aria-label）、`4663e95`（诚实状态：PR 列表骨架屏、Dashboard reposLoaded 门闸、
+review 徽章 UNKNOWN 化、inline-error、FailureCenter 去双报、stash 不重置，
+新增 honest-states 测试）、`433ace1`（i18n：剩余裸文案 t()/tp() + 中文词条）。
+当日早些时候独立修复：侧栏排序下拉遮挡分组标题（b7500b9）、行内"更多"按钮
+UA 灰底（ed454b5）。
+
+验证：1177 tests / 70 files；E2E 162/162；lint / typecheck:server / build
+全绿；对比度实测 primary 按钮 dark 8.12 / light-violet 5.41 / light-rose
+6.38（rose 修复前为 2.64）；dark/light/forest 三主题 CDP 截图走查；本批无
+desktop/ 或构建脚本改动，桌面端无需重建（沿用 0.3.17 壳）。
+
 ## Release 0.3.17 (2026-11-20)
 
 范围：修复 0.3.16 桌面端顶部双击缩放的覆盖范围。0.3.16 把

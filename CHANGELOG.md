@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.18] - 2026-11-21
+
+### 修复
+- **侧栏排序下拉遮挡分组标题**：0.3.x Dropdown 组件化后全局 `.dropdown-trigger` 大样式压过原生 select 时代的 `.branch-sort` 规则，触发器溢出行高盖住 LOCAL BRANCHES。现在直接以紧凑样式（20px 高、透明底、meta 字号）接管该触发器，分组标题窄宽度下优雅省略且计数不被挤掉。
+- **行内"更多"按钮浏览器默认灰底**：`.row-more` 从未重置 UA 按钮外观，悬停行时露出浅灰原生按钮。现与 `.icon-btn` 同基线（透明、无边框、24px 方形），并补 `focus-visible`。
+- **主题对比度体系（审计批）**：新增 `--on-accent`（深色主题粉彩 accent 上深字 8.0–11.3，亮色主题深 accent 上白字 5.41，light forest/amber/rose 单独深字）替换全部实底 accent/红色面上的白字；新增 `--green/amber/orange/cyan-strong` 文字安全变体救回亮色下状态字母与徽章；`--text-faint` 亮色 2.60→4.20。
+- **双调色板合并**：badge/diff/pill/sticky/overlay/toolbar 的 GitHub 时代硬编码色值全部并入 Catppuccin token 体系（两主题，0 残留）；提交图泳道/节点改走 `--graph-1..8`/`--graph-node`，亮色主题不再残留近黑节点；accent 预设搬进 `design/tokens.json`，生成器同时产出 `accents.css` 与 `accents.ts`（设置面板色板单源、主题感知）。
+- **对话框规范与键盘可达**：CodexRepair/GenerationRules 两个模态补 Esc；焦点陷阱覆盖 StepDrawer 与命令面板（Tab 不再逃出浮层、关闭归还焦点）；`btn-sm`→存在的 `btn-small`；RefSidebar 行与文件树行可键盘操作（Enter/Space）；11 处图标按钮补 `aria-label`。
+- **加载与失败状态诚实化**：PR 列表首载渲染骨架屏（reduced-motion 静态降级），不再伪装成空列；Dashboard 以 `reposLoaded` 门闸消灭 "No repositories yet" 闪现；开着 PR 卡片 review 摘要未知时显示 `review ?` 而非误导性 "No review"；错误横幅用真 `inline-error`（`role=alert`），失败中心不再同事件双报；stash 加载失败保留原列表。
+- **i18n 收尾**：命令面板空态、rebase 合并提交警告、stash 标签、上游选择器标题、确认弹窗、树展开/折叠 aria 等裸文案全部过 `t()/tp()` 并补中文词条。
+- **token 卫生**：21 处裸 z-index 收进 `--z-*` 标尺（值 1:1 保留）、16 处 `999px` 走 `--radius-pill`、被覆盖的生成版 `--shadow-lg` 复活、无引用的 `--sp-*` 间距 scale 移除。
+
+### 验证
+- 1177 tests / 70 files（新增 honest-states：reposLoaded 生命周期 + ReviewPill UNKNOWN/NONE/APPROVED）；E2E 162/162；lint / typecheck:server / build 全绿；对比度实测 dark 8.12 / light-violet 5.41 / light-rose 6.38，dark/light/forest 三主题截图走查；CI（test+desktop）双绿后合并 PR #49。
+
 ## [0.3.17] - 2026-11-20
 
 ### 修复
