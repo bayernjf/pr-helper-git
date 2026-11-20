@@ -37,7 +37,7 @@ every committed file as world-readable.
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ✅（11-15 团队 UI 收口，原暂缓裁决已被后续实现覆盖）；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。**A2A 实网 ✅**；Device Flow 实网待账号启用 2FA / 刷新 GitHub 会话后重试 |
-| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；P5-2/P5-3 未开始，需 P5-1 连续 5–7 天一致 + D-016 逐动作审批 |
+| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；P5-2/P5-3 未开始，需 P5-1 连续 5–7 天一致 + D-016 逐动作审批；P5-2 审批清单草案见 `docs/phase5-p5-2-approval.md`（未批准、未执行） |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token
@@ -124,6 +124,10 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 验证：1173 tests / 69 files；E2E 162/162；lint / typecheck:server / build
 全绿；desktop:native-test / desktop:smoke 通过；真实桌面双击原生标题栏和
 内容区顶部，窗口均 1280×852 → 1411×923，再双击恢复。
+
+安装副本复验（2026-11-20）：`/Applications/PR Helper Git.app` 为 0.3.17；
+双击原生标题栏和 Web 内容顶部 28px，窗口均 1280×852 → 1411×923 →
+1280×852（无阴影窗口截图 2560×1704 / 2822×1846 px，2× Retina）。
 
 ## Release 0.3.16 (2026-11-20)
 

@@ -82,6 +82,9 @@ shadow = 只读观测，见 server/automation.mjs 注释）——云端 pr-helpe
 
 ## P5-2 切换日（1 天，需用户执行）
 
+> 逐项审批、验证命令和回滚清单见
+> [`phase5-p5-2-approval.md`](phase5-p5-2-approval.md)；本节的 D-016 铁律不变。
+
 按序执行，每步可回滚：
 
 1. **本地引擎转执行**：`PR_HELPER_GIT_AUTOMATION=1`（不带 shadow）重启
