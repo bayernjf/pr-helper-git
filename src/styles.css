@@ -363,7 +363,10 @@ div.ref-group-head { gap: 8px; }
 .ref-group-head .chev { display: inline-flex; margin-right: 2px; }
 .ref-group-head .gh-label { overflow: hidden; text-overflow: ellipsis; }
 .ref-group-head .count {
-  margin-left: auto;
+  /* Inline after the label (not right-aligned): groups with an action
+     cluster (sort + add) would otherwise break the count column, and the
+     count reads as part of the controls instead of the label. */
+  margin-left: 5px;
   flex-shrink: 0;
   font-weight: 600;
   color: var(--faint);
