@@ -429,7 +429,6 @@ export default function FlowBoard() {
                 type="button"
                 className="lane-title-block"
                 onClick={() => setSelectedFlowId(lane.workflow.id)}
-                title={t('Flow board')}
               >
                 {/* The original board shows repository as eyebrow and name as
                     the title; flows named after their repository would render

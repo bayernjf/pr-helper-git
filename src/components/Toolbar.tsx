@@ -232,7 +232,6 @@ export default function Toolbar() {
           type="button"
           className="btn"
           disabled={!activeRepo || busy}
-          title={t("git pull")}
           aria-label={t("Pull")}
           onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
         >
@@ -254,7 +253,6 @@ export default function Toolbar() {
           type="button"
           className="btn"
           disabled={!activeRepo || busy}
-          title={t("git push")}
           aria-label={t("Push")}
           onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
         >

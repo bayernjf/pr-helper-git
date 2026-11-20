@@ -70,7 +70,7 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setGlob(e.target.value)}
             />
           </div>
-          <label className="grep-case" title={t("Ignore case (git grep -i)")}>
+          <label className="grep-case">
             <input
               type="checkbox"
               checked={ignoreCase}
