@@ -363,13 +363,13 @@ div.ref-group-head { gap: 8px; }
 .ref-group-head .chev { display: inline-flex; margin-right: 2px; }
 .ref-group-head .gh-label { overflow: hidden; text-overflow: ellipsis; }
 .ref-group-head .count {
-  /* Inline after the label (not right-aligned): groups with an action
-     cluster (sort + add) would otherwise break the count column, and the
-     count reads as part of the controls instead of the label. */
-  margin-left: 5px;
+  /* Last flex item of the group head: always flush right, same column for
+     every group whether or not it carries an action cluster. */
+  margin-left: 0;
   flex-shrink: 0;
   font-weight: 600;
   color: var(--faint);
+  cursor: pointer;
 }
 
 .ref-row {
