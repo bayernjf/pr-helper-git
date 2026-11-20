@@ -20,13 +20,17 @@ an archived private repo, checkpoint is unrelated).
 | 1 | [bayernjf/git-e2e-test](https://github.com/bayernjf/git-e2e-test) | Private | 2026-11-05 | **Primary E2E repo** (active): commit graph with forks/merge nodes, branches, tags, SSE auto-refresh, stage/commit/push, create/convert/merge pull requests. Also the candidate for the migration P2-1 live acceptance run. |
 | 2 | [bayernjf/pr-helper-git-sync-test](https://github.com/bayernjf/pr-helper-git-sync-test) | Private | 2026-11-05 | "Temporary test repo for pr-helper-git client sync testing". No local clone. |
 | 5 | [bayernjf/e2e-test-real](https://github.com/bayernjf/e2e-test-real) | Private | 2026-08-07 | pr-helper-era E2E repo. |
-| 8 | [bayernjf/aw-pr-dogfood](https://github.com/bayernjf/aw-pr-dogfood) | Private | 2026-09-01 | "Temporary dogfood target for agent-world tpl-release-pr (delete me)" — near-empty (1KB), registered 2026-11-14 on the owner's direction. |
 
 Deleted on 2026-11-19 after owner review (local clones: none):
 `bayernjf/pr-helper-e2e-sandbox` (#3),
 `bayernjf/pr-helper-e2e-sandbox-private` (#4),
 `bayernjf/e2e-test` (#6), and `bayernjf/receipt-test` (#7).
-`git-e2e-test` (#1) stays as the primary E2E repo; #2, #5, #8 remain registered.
+
+Deleted on 2026-11-20 after owner review (no local clone):
+`bayernjf/aw-pr-dogfood` (#8), whose description carried the owner's own
+"(delete me)" note.
+
+`git-e2e-test` (#1) stays as the primary E2E repo; #2 and #5 remain registered.
 
 Excluded from this registry (reviewed 2026-11-14): `hello-world` (archived
 private repo, not a test fixture) and `checkpoint` (unrelated).
@@ -48,8 +52,8 @@ GitHub repo was renamed too, so the old URL still redirects) and
 
 ## Deletion
 
-`aw-pr-dogfood` carries the owner's own "(delete me)" note in its
-description — deleting it is pre-approved whenever convenient.
+`aw-pr-dogfood` (#8) carried the owner's own "(delete me)" note in its
+description and was deleted on 2026-11-20.
 
 Do not delete anything else from this list unless the user explicitly asks. When a
 repository is removed, delete both:

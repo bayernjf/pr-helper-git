@@ -30,6 +30,7 @@ Start with the document that matches your question. Do not read all of
 | `docs/session-handoff-2026-11-18.md` | Dated session handoff snapshot (current versions, shadow state, TODOs, pitfalls); not a live status source | When a new dated snapshot is produced; do not use it to override `handoff.md` |
 | `docs/parity-archive.md` | Record of cross-repo parity work with the archived product | Parity work changes |
 | `docs/pr-helper-migration.md` | **Core migration ledger**: pr-helper → pr-helper-git plan, traceability matrix, decisions, acceptance, change log | Any migration scope/acceptance/status change |
+| `docs/phase5-p5-2-approval.md` | P5-2 switch approval checklist: prerequisite evidence, four actions, verification, rollback, sign-off table | P5-1 judgment passes or the switch plan changes |
 | `docs/app-state-split-plan.md` | Phased plan for splitting the single app-state context into repo/preferences/actions/busy domains | App-state architecture or migration phases change |
 | `docs/desktop-distribution.md` | macOS signing, notarization, zip/dmg artifacts and verification | Desktop distribution workflow changes |
 | `docs/archive/` | Frozen historical material; do not append new decisions here | Only when archiving |
