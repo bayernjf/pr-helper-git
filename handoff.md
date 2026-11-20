@@ -114,6 +114,17 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 永远不成立。改为捕获即将占用的序号（`current + 1`），并用 18777
 浏览器实测：切换仓库完成后 `.loading-bar` 数量为 0。
 
+## Release 0.3.17 (2026-11-20)
+
+范围：修复 0.3.16 桌面端顶部双击缩放的覆盖范围。0.3.16 把
+`NSClickGestureRecognizer` 挂在 webView 上，只覆盖 web 内容顶部 28px；
+原生标题栏那一条点击不触发。现在改为应用级 `NSEvent` 左键监听，同时覆盖
+原生标题栏和 web 内容顶部 28px，工具栏按钮单击不受影响。
+
+验证：1173 tests / 69 files；E2E 162/162；lint / typecheck:server / build
+全绿；desktop:native-test / desktop:smoke 通过；真实桌面双击原生标题栏和
+内容区顶部，窗口均 1280×852 → 1411×923，再双击恢复。
+
 ## Release 0.3.16 (2026-11-20)
 
 范围：把 0.3.15 之后已合并进 `main` 的改动带入桌面端：app-state context

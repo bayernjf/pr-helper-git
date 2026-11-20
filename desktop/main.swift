@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var readyToken: String?
     private var isTerminating = false
     private var pendingOpenPath: String?
+    private var titlebarDoubleClickMonitor: Any?
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
@@ -48,14 +49,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         setupMenu()
         setupWindow()
-        // Double-click the top strip = zoom. The transparent titlebar + web
-        // toolbar means the system's own titlebar double-click is ambiguous
-        // (the toolbar buttons live in that strip), so recognize it here and
-        // only for the very top of the window — clicks on toolbar controls
-        // below still reach the web content.
-        let titlebarDoubleClick = NSClickGestureRecognizer(target: self, action: #selector(handleTitlebarDoubleClick(_:)))
-        titlebarDoubleClick.numberOfClicksRequired = 2
-        webView.addGestureRecognizer(titlebarDoubleClick)
+        // Double-click the top strip = zoom. The transparent titlebar makes
+        // the native titlebar and the web toolbar share the same top edge, so
+        // a WKWebView gesture alone misses clicks that land on the native
+        // titlebar. A local monitor sees both zones before hit testing; clicks
+        // on toolbar controls below the strip still reach the web content.
+        titlebarDoubleClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self,
+                  event.window === self.window,
+                  event.clickCount == 2 else { return event }
+            let inWebTop = self.webView.convert(event.locationInWindow, from: nil).y <= 28
+            let inNativeTitlebar = event.locationInWindow.y >= self.webView.frame.height
+            guard inWebTop || inNativeTitlebar else { return event }
+            self.window.performZoom(nil)
+            return nil
+        }
         startServer(node: node, script: serverScript)
 
         // Wait for readiness off the main thread so the UI stays responsive.
@@ -78,14 +86,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         }
     }
 
-    @objc func handleTitlebarDoubleClick(_ gesture: NSClickGestureRecognizer) {
-        // Only the strip at the very top of the window (titlebar zone); the
-        // web toolbar buttons render below it and keep working.
-        if gesture.location(in: webView).y <= 28 {
-            window.performZoom(gesture)
-        }
-    }
-
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
@@ -96,6 +96,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func applicationWillTerminate(_ notification: Notification) {
         isTerminating = true
+        if let monitor = titlebarDoubleClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            titlebarDoubleClickMonitor = nil
+        }
         guard let process = server, process.isRunning else { return }
         process.terminate()
         // Bounded wait so a wedged server can never stall termination forever.
