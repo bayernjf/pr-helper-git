@@ -359,7 +359,7 @@ button {
 /* The inner toggle button holds the label; keep it on one line and clip. */
 button.ref-group-head { min-width: 0; overflow: hidden; }
 /* The outer wrapper row: space the title, sort dropdown and add-branch button. */
-div.ref-group-head { gap: 6px; }
+div.ref-group-head { gap: 8px; }
 .ref-group-head .chev { display: inline-flex; margin-right: 2px; }
 .ref-group-head .gh-label { overflow: hidden; text-overflow: ellipsis; }
 .ref-group-head .count {
@@ -1997,13 +1997,14 @@ pre.diff {
   color: var(--accent);
 }
 /* Branch-sort is a custom Dropdown since 0.3.x — keep the trigger compact
-   so it fits the group-head row instead of covering the section title. */
+   so it fits the group-head row instead of covering the section title, and
+   ghost it at rest so the count/control cluster does not shout. */
 .branch-sort .dropdown-trigger {
   height: 20px;
   padding: 0 6px;
   gap: 4px;
   background: transparent;
-  border-color: var(--border);
+  border-color: transparent;
   color: var(--muted);
   font-size: var(--fs-meta);
 }
