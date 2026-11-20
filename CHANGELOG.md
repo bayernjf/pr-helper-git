@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.16] - 2026-11-20
+
+### 变更
+- **app-state 领域拆分**：把单例 `AppDataProvider` / `useApp()`（411 行、43 个生产消费点）拆成 Preferences / RepoData / Actions / Busy 四个领域 context，`runAction` 稳定化，保留 `loadSeqRef + 1` 不变量；切主题、改 PAT、busy 翻转、日志过滤不再触发无关消费者重渲染。新增 `src/app-state/context-isolation.test.tsx` 隔离测试。
+
+### 修复
+- **桌面端顶部双击缩放**：透明标题栏下网页内容覆盖标题条，系统自带的双击缩放不触发。现在在 webView 顶部 28px 区域内识别双击并调用 `window.performZoom`，工具栏按钮不受影响；窗口背景色同时对齐 v4 调色板。
+- **分支排序触发器遮挡分组标题**：0.3.x Dropdown 组件化后全局 `.dropdown-trigger` 样式压过旧的 `.branch-sort`，触发器溢出分组行并盖住 `LOCAL BRANCHES`。现在直接约束 `.branch-sort` 触发器为 20px 高、透明底、88px 值宽，并让分组标题在空间不足时省略而不是硬裁切。
+
+### 验证
+- 1173 tests / 69 files；E2E 162/162；lint / typecheck:server / build 全绿；desktop:native-test / desktop:smoke 通过；桌面端构建版本为 0.3.16。
+
 ## [0.3.15] - 2026-11-19
 
 ### 修复
