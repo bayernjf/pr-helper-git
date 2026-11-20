@@ -344,7 +344,6 @@ export default function WorkPanel() {
             <button
               type="button"
               className="new-file-btn"
-              title={t("Create a new file in this repository")}
               onClick={() => setShowNewFile(true)}
             >
               <IconPlus width={13} height={13} /> {t("New file")}
@@ -398,7 +397,6 @@ export default function WorkPanel() {
           <button
             type="button"
             className={`ws-toggle${ignoreWs ? ' active' : ''}`}
-            title={t("Ignore whitespace changes (-w)")}
             onClick={() => setIgnoreWs((v) => !v)}
           >
             {t("Ignore whitespace")}
@@ -504,7 +502,6 @@ export default function WorkPanel() {
             <button
               type="button"
               className={`amend-toggle${allowEmpty ? ' on' : ''}`}
-              title={t("Create a commit even when nothing is staged (--allow-empty)")}
               onClick={() => setAllowEmpty((v) => !v)}
             >
               {t("Allow empty")}
