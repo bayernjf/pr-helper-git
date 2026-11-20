@@ -3,7 +3,7 @@ import { createTag } from '../api';
 import { useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 interface Props {
   repo: string;
@@ -47,7 +47,7 @@ export default function TagModal({ repo, fromRef, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            {fromRef && <div className="hint">Points to {fromRef.slice(0, 9)}</div>}
+            {fromRef && <div className="hint">{tp('Points to {hash}', { hash: fromRef.slice(0, 9) })}</div>}
           </div>
           <label className="checkbox-row">
             <input
