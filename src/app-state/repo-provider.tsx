@@ -21,6 +21,9 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
   const { refreshServerPat } = usePreferences();
 
   const [repos, setRepos] = useState<RepoData['repos']>([]);
+  // False until the first registry load resolves; consumers use it to tell
+  // 'still loading' apart from 'no repositories at all'.
+  const [reposLoaded, setReposLoaded] = useState(false);
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [status, setStatus] = useState<RepoData['status']>(null);
   const [commits, setCommits] = useState<RepoData['commits']>([]);
@@ -42,6 +45,7 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
   const refreshRepos = useCallback(async () => {
     const { repos: list } = await getRepos();
     setRepos(list);
+    setReposLoaded(true);
     return list;
   }, []);
 
@@ -222,6 +226,7 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
     const activeBrief = repos.find((r) => r.path === activeRepo) || null;
     return {
       repos,
+      reposLoaded,
       activeRepo,
       activeBrief,
       status,
@@ -244,7 +249,7 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
       loadMore,
     };
   }, [
-    repos, activeRepo, status, commits, refs, remote, selectedHash, repoLoading,
+    repos, reposLoaded, activeRepo, status, commits, refs, remote, selectedHash, repoLoading,
     logLimit, logScope, logPath, logFilters,
     setLogPath, setLogFilters, setLogScope, selectRepo, refreshRepos, refresh, loadMore,
   ]);

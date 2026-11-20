@@ -90,7 +90,9 @@ export interface RemoteEntry {
   push: string | null;
 }
 
-export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'NONE';
+/** UNKNOWN = the lazy review summary has not loaded (or failed to load) yet;
+ *  an open card must not claim "No review" while the truth is simply unknown. */
+export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'NONE' | 'UNKNOWN';
 
 export interface PullRequest {
   number: number;

@@ -101,9 +101,9 @@ export default function FailureCenter({ state, onOpenDrawer, onMutated, onResolv
         onMutated();
       })
       .catch((err) => {
-        const message = errorMessage(err);
-        setError(message);
-        toast.error(message);
+        // Inline banner only — the section already shows the failure; a
+        // second toast for the same event was double-reporting.
+        setError(errorMessage(err));
       })
       .finally(() => setBusy(''));
   }, [state.workflows, toast, onMutated, onResolved]);
