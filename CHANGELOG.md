@@ -2,6 +2,15 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.17] - 2026-11-20
+
+### 修复
+- **桌面端顶部双击缩放覆盖原生标题栏**：0.3.16 的 `NSClickGestureRecognizer` 只挂在 webView 上，点击原生标题栏那一条不触发。现在改为应用级 `NSEvent` 左键监听，同时覆盖原生标题栏和 web 内容顶部 28px；工具栏按钮的单击不受影响。
+
+### 验证
+- 1173 tests / 69 files；E2E 162/162；lint / typecheck:server / build 全绿；desktop:native-test / desktop:smoke 通过。
+- 真实桌面验证：在原生标题栏和内容区顶部双击，窗口均从 1280×852 缩放到 1411×923，再次双击恢复；版本 0.3.17。
+
 ## [0.3.16] - 2026-11-20
 
 ### 变更
