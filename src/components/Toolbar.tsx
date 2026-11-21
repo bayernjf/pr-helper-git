@@ -290,7 +290,7 @@ export default function Toolbar() {
         title="git fetch --all"
         onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
       >
-        {t("Fetch")}
+        <span className="btn-label">{t("Fetch")}</span>
       </button>
       <span className="btn-group">
         <button
@@ -301,7 +301,7 @@ export default function Toolbar() {
           onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
         >
           <IconDownload width={14} height={14} />
-          {t("Pull")}
+          <span className="btn-label">{t("Pull")}</span>
         </button>
         <button
           type="button"
@@ -324,7 +324,7 @@ export default function Toolbar() {
           onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
         >
           <IconUpload width={14} height={14} />
-          {t("Push")}
+          <span className="btn-label">{t("Push")}</span>
         </button>
         <button
           type="button"
@@ -346,7 +346,7 @@ export default function Toolbar() {
         onClick={() => setShowStash(true)}
       >
         <IconStash width={14} height={14} />
-        {t("Stash")}
+        <span className="btn-label">{t("Stash")}</span>
       </button>
 
       <span className="segmented">
@@ -476,7 +476,7 @@ export default function Toolbar() {
       </button>
       <button
         type="button"
-        className="btn"
+        className="btn btn-shortcuts"
         title={t("Keyboard shortcuts (press ?)")}
         aria-label={t("Keyboard shortcuts")}
         onClick={() => setShowShortcuts(true)}
