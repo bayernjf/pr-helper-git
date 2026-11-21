@@ -195,21 +195,32 @@ function readCloudTable(table, attempt = 1) {
   }
 }
 
-function readCloudTableSince(table, minId) {
+function readCloudTableSince(table, minId, attempt = 1) {
   const prhSql = `${process.env.HOME}/.local/bin/prh-sql.mjs`;
   const rows = [];
-  for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
-    const query = `SELECT * FROM ${table} WHERE id > ${Number(minId)} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
-    const out = execFileSync('node', [prhSql, query], {
-      encoding: 'utf8',
-      timeout: 180_000,
-      maxBuffer: 256 * 1024 * 1024,
-    });
-    const page = JSON.parse(out);
-    rows.push(...page);
-    if (page.length < CLOUD_PAGE_SIZE) break;
+  try {
+    for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
+      const query = `SELECT * FROM ${table} WHERE id > ${Number(minId)} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
+      const out = execFileSync('node', [prhSql, query], {
+        encoding: 'utf8',
+        timeout: 180_000,
+        maxBuffer: 256 * 1024 * 1024,
+      });
+      const page = JSON.parse(out);
+      rows.push(...page);
+      if (page.length < CLOUD_PAGE_SIZE) break;
+    }
+    return rows;
+  } catch (err) {
+    // Same pooler-stall retry as readCloudTable: the top-up must not kill an
+    // otherwise-complete sync; the local rebuild still starts only after
+    // every read has landed.
+    if (attempt < 2) {
+      execFileSync('sleep', ['3']);
+      return readCloudTableSince(table, minId, attempt + 1);
+    }
+    throw err;
   }
-  return rows;
 }
 
 const counts = [];
