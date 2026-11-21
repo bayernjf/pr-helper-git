@@ -279,12 +279,16 @@ button {
   white-space: nowrap;
 }
 .titlebar .repo-select {
-  min-width: 160px;
-  max-width: 220px;
+  /* Adapts to the repo name; floor = the width of "hello-world" + padding
+     + caret, cap = 240px (long names ellipsize in the value span). */
+  width: fit-content;
+  min-width: 104px;
+  max-width: 240px;
 }
 .titlebar .repo-select > .dropdown-trigger {
   padding: 2px 8px;
   font-size: var(--fs-meta);
+  width: auto;
 }
 
 .toolbar {
