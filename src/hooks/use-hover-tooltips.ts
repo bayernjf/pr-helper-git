@@ -54,7 +54,8 @@ function show(trigger: HTMLElement) {
     // stays above the trigger as long as it remains inside the tip box.
     const arrowX = Math.max(14, Math.min(center - left, tr.width - 14));
     el.style.setProperty('--tip-arrow-x', `${Math.round(arrowX)}px`);
-    el.style.top = `${Math.round(r.bottom + 5)}px`;
+    // Flush against the trigger's bottom edge; the arrow overlaps it.
+    el.style.top = `${Math.round(r.bottom)}px`;
     el.style.visibility = 'visible';
   });
 }
