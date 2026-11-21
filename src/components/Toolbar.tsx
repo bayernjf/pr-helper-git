@@ -31,6 +31,8 @@ import ShortcutsHelp from './ShortcutsHelp';
 import StashModal from './StashModal';
 import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
+
+type DropKind = 'pull' | 'push' | 'search' | 'repo' | 'app';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 import {
@@ -75,7 +77,7 @@ export default function Toolbar() {
   const [showAudit, setShowAudit] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: 'pull' | 'push' } | null>(null);
+  const [dropMenu, setDropMenu] = useState<{ x: number; y: number; kind: DropKind } | null>(null);
   const confirm = useConfirm();
 
   // The command palette opens these dialogs via lightweight custom events.
@@ -143,20 +145,57 @@ export default function Toolbar() {
       ? 'detached HEAD'
       : 'no repository';
 
-  const menuItems: MenuItem[] = dropMenu?.kind === 'pull'
-    ? [
-      { id: 'pull-merge', label: t('Pull (merge)') },
-      { id: 'pull-rebase', label: t('Pull with rebase') },
-    ]
-    : [
-      { id: 'push-normal', label: t('Push') },
-      { id: 'push-lease', label: t('Force push (--force-with-lease)') },
-      { id: 'push-force', label: t('Force push (--force)'), danger: true },
-    ];
+  function menuItemsFor(kind: DropKind): MenuItem[] {
+    switch (kind) {
+      case 'pull':
+        return [
+          { id: 'pull-merge', label: t('Pull (merge)') },
+          { id: 'pull-rebase', label: t('Pull with rebase') },
+        ];
+      case 'push':
+        return [
+          { id: 'push-normal', label: t('Push') },
+          { id: 'push-lease', label: t('Force push (--force-with-lease)') },
+          { id: 'push-force', label: t('Force push (--force)'), danger: true },
+        ];
+      case 'search':
+        return [
+          { id: 'grep', label: t('Search repository contents (git grep)'), icon: <IconSearch width={13} height={13} /> },
+          { id: 'commit-search', label: t('Search commits in all branches'), icon: <IconClock width={13} height={13} /> },
+          { id: 'global-grep', label: t('Search across all repositories'), icon: <IconGlobe width={13} height={13} /> },
+        ];
+      case 'repo':
+        return [
+          { id: 'remotes', label: t('Manage remotes'), icon: <IconServer width={13} height={13} /> },
+          { id: 'config', label: t('Repository settings (git config)'), icon: <IconSliders width={13} height={13} /> },
+          { id: 'reflog', label: t('View reference log (reflog)'), icon: <IconClock width={13} height={13} /> },
+          { id: 'audit', label: t('View audit log'), icon: <IconAudit width={13} height={13} /> },
+        ];
+      case 'app':
+        return [
+          { id: 'settings', label: t('GitHub settings'), icon: <IconGear width={13} height={13} /> },
+          { id: 'team', label: t('Team members and configuration'), icon: <IconUser width={13} height={13} /> },
+          { id: 'shortcuts', label: t('Keyboard shortcuts (press ?)'), icon: <IconKeyboard width={13} height={13} /> },
+        ];
+    }
+  }
+
+  const menuItems: MenuItem[] = dropMenu ? menuItemsFor(dropMenu.kind) : [];
 
   async function onMenuSelect(id: string) {
     setDropMenu(null);
+    // Repo-independent surfaces open regardless of the active repository.
+    if (id === 'settings') { setShowSettings(true); return; }
+    if (id === 'team') { setShowTeam(true); return; }
+    if (id === 'shortcuts') { setShowShortcuts(true); return; }
     if (!activeRepo) return;
+    if (id === 'grep') { setShowGrep(true); return; }
+    if (id === 'commit-search') { setShowCommitSearch(true); return; }
+    if (id === 'global-grep') { setShowGlobalGrep(true); return; }
+    if (id === 'remotes') { setShowRemotes(true); return; }
+    if (id === 'config') { setShowConfig(true); return; }
+    if (id === 'reflog') { setShowReflog(true); return; }
+    if (id === 'audit') { setShowAudit(true); return; }
     if (id === 'pull-merge') await runAction(pullRepo(activeRepo, false), 'Pulled');
     else if (id === 'pull-rebase') await runAction(pullRepo(activeRepo, true), 'Pulled with rebase');
     else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
@@ -174,7 +213,26 @@ export default function Toolbar() {
 
   const suppressCaretClick = useRef(false);
 
-  function openMenu(event: React.MouseEvent, kind: 'pull' | 'push') {
+  // One toggle contract for every menu caret: mousedown closes an open menu
+  // (WebKit fires the portaled menu's onBlur with a null relatedTarget and
+  // would close+reopen otherwise), the matching click is suppressed.
+  const caretDown = (kind: DropKind) => () => {
+    if (dropMenu?.kind === kind) {
+      setDropMenu(null);
+      suppressCaretClick.current = true;
+    } else {
+      suppressCaretClick.current = false;
+    }
+  };
+  const caretClick = (event: React.MouseEvent, kind: DropKind) => {
+    if (suppressCaretClick.current) {
+      suppressCaretClick.current = false;
+      return;
+    }
+    openMenu(event, kind);
+  };
+
+  function openMenu(event: React.MouseEvent, kind: DropKind) {
     // Toggle: the carets carry data-menu-trigger, so the open menu survived
     // this click's mousedown and a second click on the same caret closes it.
     if (dropMenu?.kind === kind) {
@@ -251,14 +309,8 @@ export default function Toolbar() {
           disabled={!activeRepo || busy}
           aria-label={t("Pull options")}
           data-menu-trigger="pull"
-          onMouseDown={() => {
-          if (dropMenu?.kind === 'pull') { setDropMenu(null); suppressCaretClick.current = true; }
-          else suppressCaretClick.current = false;
-        }}
-        onClick={(e) => {
-          if (suppressCaretClick.current) { suppressCaretClick.current = false; return; }
-          openMenu(e, 'pull');
-        }}
+          onMouseDown={caretDown('pull')}
+        onClick={(e) => caretClick(e, 'pull')}
         >
           <IconChevronDown width={12} height={12} />
         </button>
@@ -280,14 +332,8 @@ export default function Toolbar() {
           disabled={!activeRepo || busy}
           aria-label={t("Push options")}
           data-menu-trigger="push"
-          onMouseDown={() => {
-          if (dropMenu?.kind === 'push') { setDropMenu(null); suppressCaretClick.current = true; }
-          else suppressCaretClick.current = false;
-        }}
-        onClick={(e) => {
-          if (suppressCaretClick.current) { suppressCaretClick.current = false; return; }
-          openMenu(e, 'push');
-        }}
+          onMouseDown={caretDown('push')}
+        onClick={(e) => caretClick(e, 'push')}
         >
           <IconChevronDown width={12} height={12} />
         </button>
@@ -340,92 +386,85 @@ export default function Toolbar() {
           {t('Flows')}
         </button>
       </span>
+      <span className="btn-group">
+        <button
+          type="button"
+          className="icon-btn"
+          title={t("Search repository contents (git grep)")}
+          aria-label={t("Search repository contents (git grep)")}
+          disabled={!activeRepo}
+          onClick={() => setShowGrep(true)}
+        >
+          <IconSearch />
+        </button>
+        <button
+          type="button"
+          className="btn btn-caret"
+          disabled={!activeRepo}
+          data-menu-trigger="search"
+          aria-label={t("Search options")}
+          onMouseDown={caretDown('search')}
+          onClick={(e) => caretClick(e, 'search')}
+        >
+          <IconChevronDown width={12} height={12} />
+        </button>
+      </span>
       <button
         type="button"
         className="icon-btn"
-        title={t("Search repository contents (git grep)")}
-        aria-label={t("Search repository contents (git grep)")}
-        disabled={!activeRepo}
-        onClick={() => setShowGrep(true)}
-      >
-        <IconSearch />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("Search commits in all branches")}
-        title={t("Search commits in all branches")}
-        onClick={() => setShowCommitSearch(true)}
-      >
-        <IconClock />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("Search across all repositories")}
-        title={t("Search across all repositories")}
-        onClick={() => setShowGlobalGrep(true)}
-      >
-        <IconGlobe />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("Compare two references")}
         title={t("Compare two references")}
+        aria-label={t("Compare two references")}
         disabled={!activeRepo}
         onClick={() => setShowCompare(true)}
       >
         <IconSplit />
       </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("View reference log (reflog)")}
-        title={t("View reference log (reflog)")}
-        disabled={!activeRepo}
-        onClick={() => setShowReflog(true)}
-      >
-        <IconClock />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("Manage remotes")}
-        title={t("Manage remotes")}
-        disabled={!activeRepo}
-        onClick={() => setShowRemotes(true)}
-      >
-        <IconServer />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        title={t("Repository settings (git config)")}
-        aria-label={t("Repository settings")}
-        disabled={!activeRepo}
-        onClick={() => setShowConfig(true)}
-      >
-        <IconSliders />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("View audit log")}
-        title={t("View audit log")}
-        onClick={() => setShowAudit(true)}
-      >
-        <IconAudit />
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        title={t("Team members and configuration")}
-        aria-label={t("Team")}
-        onClick={() => setShowTeam(true)}
-      >
-        <IconUser />
-      </button>
+      <span className="toolbar-divider" />
+      <span className="btn-group">
+        <button
+          type="button"
+          className="icon-btn"
+          title={t("Manage remotes")}
+          aria-label={t("Manage remotes")}
+          disabled={!activeRepo}
+          onClick={() => setShowRemotes(true)}
+        >
+          <IconServer />
+        </button>
+        <button
+          type="button"
+          className="btn btn-caret"
+          disabled={!activeRepo}
+          data-menu-trigger="repo"
+          aria-label={t("Repository options")}
+          onMouseDown={caretDown('repo')}
+          onClick={(e) => caretClick(e, 'repo')}
+        >
+          <IconChevronDown width={12} height={12} />
+        </button>
+      </span>
+      <span className="toolbar-divider" />
+      <span className="btn-group">
+        <button
+          type="button"
+          className="icon-btn"
+          title={t("GitHub settings")}
+          aria-label={t("GitHub settings")}
+          onClick={() => setShowSettings(true)}
+        >
+          <IconGear />
+        </button>
+        <button
+          type="button"
+          className="btn btn-caret"
+          data-menu-trigger="app"
+          aria-label={t("App options")}
+          onMouseDown={caretDown('app')}
+          onClick={(e) => caretClick(e, 'app')}
+        >
+          <IconChevronDown width={12} height={12} />
+        </button>
+      </span>
       <button
         type="button"
         className="icon-btn"
@@ -434,15 +473,6 @@ export default function Toolbar() {
         onClick={toggleTheme}
       >
         {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        title={t("GitHub settings")}
-        aria-label={t("GitHub settings")}
-        onClick={() => setShowSettings(true)}
-      >
-        <IconGear />
       </button>
       <button
         type="button"
