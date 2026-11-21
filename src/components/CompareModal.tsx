@@ -108,7 +108,6 @@ export default function CompareModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             className="compare-swap"
-            title={t("Swap base and head")}
             aria-label={t("Swap base and head")}
             disabled={disabled}
             onClick={swap}

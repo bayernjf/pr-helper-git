@@ -57,7 +57,6 @@ function ItemRow({ item, flowRepository, busy, onRerun, onOpenDrawer, onTakeover
             type="button"
             className="drawer-btn small"
             disabled={busy !== '' || retry?.retryDisabled}
-            title={retry?.retryDisabled ? t('rerun blocked by recovery policy') : undefined}
             onClick={() => onRerun(item)}
           >
             {busy === item.key ? t('Refreshing…') : t('rerun Actions')}

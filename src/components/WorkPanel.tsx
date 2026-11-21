@@ -331,7 +331,7 @@ export default function WorkPanel() {
     <section className="work-panel" style={{ height: panelHeight }}>
       <div
         className="panel-resize-handle"
-        title={t("Drag to resize")}
+        aria-label={t("Drag to resize")}
         onPointerDown={startResize}
         role="separator"
         aria-orientation="horizontal"
@@ -374,14 +374,12 @@ export default function WorkPanel() {
               <>
                 <button
                   type="button"
-                  title={t('Discard all unstaged and untracked changes')}
                   onClick={handleDiscardAll}
                 >
                   <IconUndo width={13} height={13} /> {t('Discard all')}
                 </button>
                 <button
                   type="button"
-                  title={t('Clean untracked files')}
                   onClick={handleClean}
                 >
                   <IconBroom width={13} height={13} /> {t('Clean')}
@@ -405,8 +403,7 @@ export default function WorkPanel() {
             {t("Context")}
             <Dropdown
               value={context === undefined ? '' : String(context)}
-              title={t('Diff context lines (--unified)')}
-              onChange={(v) => setContext(v === '' ? undefined : Number(v))}
+                onChange={(v) => setContext(v === '' ? undefined : Number(v))}
               options={[
                 { value: '', label: t('Default (3)') },
                 { value: '0', label: t('0 lines') },
@@ -466,7 +463,6 @@ export default function WorkPanel() {
           <button
             type="button"
             className="amend-toggle"
-            title={t('Recent commit messages')}
             aria-label={t('Recent commit messages')}
             onClick={() => setHistoryOpen((v) => !v)}
           >
@@ -476,7 +472,7 @@ export default function WorkPanel() {
           <button
             type="button"
             className="amend-toggle"
-            title={t("Draft a commit message from the staged diff with AI")}
+            aria-label={t("Draft a commit message from the staged diff with AI")}
             disabled={generating || groups.staged.length === 0}
             onClick={handleGenerate}
           >

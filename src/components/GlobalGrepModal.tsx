@@ -105,8 +105,7 @@ export default function GlobalGrepModal({ onClose }: { onClose: () => void }) {
                           key={`${m.path}-${m.line}`}
                           role="button"
                           tabIndex={0}
-                          title={t("Open this file at the matching line")}
-                          onClick={() => openResult(repo.repo, m.path, m.line)}
+                              onClick={() => openResult(repo.repo, m.path, m.line)}
                           onKeyDown={(e) => {
                             if (e.key !== 'Enter' && e.key !== ' ') return;
                             e.preventDefault();

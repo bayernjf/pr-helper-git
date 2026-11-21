@@ -88,14 +88,12 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
             type="button"
             className={`btn btn-small commit-search-prefix${mode === 'author' ? ' is-on' : ''}`}
             onClick={() => applyPrefix('author:')}
-            title={t("Filter by author")}
           >
             {t("author:")}</button>
           <button
             type="button"
             className={`btn btn-small commit-search-prefix${mode === 'path' ? ' is-on' : ''}`}
             onClick={() => applyPrefix('path:')}
-            title={t("Restrict to commits touching a path")}
           >
             {t("path:")}</button>
           <button type="submit" className="btn btn-primary" disabled={!draft.trim() || loading || !activeRepo}>
@@ -120,7 +118,6 @@ export default function CommitSearchModal({ onClose }: { onClose: () => void }) 
                   key={commit.hash}
                   role="button"
                   tabIndex={0}
-                  title={t("Show this commit")}
                   onClick={() => openCommit(commit.hash)}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' && e.key !== ' ') return;

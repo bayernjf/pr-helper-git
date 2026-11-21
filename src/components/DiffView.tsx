@@ -36,7 +36,7 @@ function Toggle({
       <button
         type="button"
         className={mode === 'unified' ? 'active' : ''}
-        title={t("Unified view")}
+        aria-label={t("Unified view")}
         onClick={() => setMode('unified')}
       >
         <IconUnified width={14} height={14} />
@@ -44,7 +44,7 @@ function Toggle({
       <button
         type="button"
         className={mode === 'split' ? 'active' : ''}
-        title={t("Split view")}
+        aria-label={t("Split view")}
         onClick={() => setMode('split')}
       >
         <IconSplit width={14} height={14} />
@@ -71,7 +71,6 @@ function UnifiedRow({
     <div
       className={`diff-line ${row.kind}${selectable ? ' selectable' : ''}${selected ? ' is-selected' : ''}`}
       onClick={selectable ? onToggle : undefined}
-      title={selectable ? 'Select this line for line-level staging' : undefined}
     >
       <span className="diff-gutter">{row.oldNo ?? ''}</span>
       <span className="diff-gutter">{row.newNo ?? ''}</span>
@@ -280,7 +279,6 @@ export default function DiffView({
         <button
           type="button"
           className="diff-toolbar-btn"
-          title={t('Cycle diff font size')}
           aria-label={t('Cycle diff font size')}
           onClick={() => {
             const next = (fontIdx + 1) % FONT_SIZES.length;
@@ -308,7 +306,6 @@ export default function DiffView({
                         type="button"
                         className="hunk-btn"
                         disabled={pending !== null}
-                        title={staged ? 'Unstage this hunk' : 'Stage this hunk'}
                         onClick={() => applyHunk(hunkIndex)}
                       >
                         {pending?.index === hunkIndex && pending.kind !== 'discard'
@@ -321,7 +318,6 @@ export default function DiffView({
                             type="button"
                             className="hunk-btn hunk-btn-primary"
                             disabled={pending !== null}
-                            title={`${staged ? 'Unstage' : 'Stage'} only the selected lines`}
                             onClick={() => applyLines(hunkIndex)}
                           >
                             {pending?.index === hunkIndex && pending.kind === 'lines'
@@ -332,7 +328,6 @@ export default function DiffView({
                             type="button"
                             className="hunk-btn"
                             disabled={pending !== null}
-                            title={t("Clear the line selection")}
                             onClick={() => setSelection((prev) => {
                               const copy = { ...prev };
                               delete copy[hunkIndex];
@@ -347,7 +342,6 @@ export default function DiffView({
                           type="button"
                           className="hunk-btn hunk-btn-danger"
                           disabled={pending !== null}
-                          title={t("Discard this hunk (restore the working tree)")}
                           onClick={() => discardSelectedHunk(hunkIndex)}
                         >
                           {pending?.index === hunkIndex && pending.kind === 'discard'

@@ -457,7 +457,6 @@ export default function CommitGraph() {
               <input
                 type="checkbox"
                 className="graph-check"
-                title={t("Select for batch actions")}
                 checked={checked.has(commit.hash)}
                 aria-label={`Select commit ${shortHash(commit.hash)} for batch actions`}
                 onClick={(e) => e.stopPropagation()}
@@ -466,7 +465,6 @@ export default function CommitGraph() {
               {ciBySha[commit.hash] && ciBySha[commit.hash] !== 'none' && (
                 <span
                   className={`ci-dot ci-${ciBySha[commit.hash]}`}
-                  title={t(`CI ${ciBySha[commit.hash]}`)}
                   aria-label={t(`CI ${ciBySha[commit.hash]}`)}
                 />
               )}

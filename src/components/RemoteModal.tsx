@@ -147,7 +147,6 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title={t("Save name")}
                       aria-label={t("Save name")}
                       disabled={working}
                       onClick={saveRename}
@@ -158,7 +157,6 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title={t("Rename remote")}
                       aria-label={t("Rename remote")}
                       disabled={working}
                       onClick={() => setRenaming({ oldName: r.name, value: r.name })}
@@ -193,7 +191,6 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title={t("Save URL")}
                       aria-label={t("Save URL")}
                       disabled={working || !editing.value.trim()}
                       onClick={saveEdit}
@@ -204,7 +201,6 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       className="icon-btn"
-                      title={t("Edit URL")}
                       aria-label={t("Edit URL")}
                       disabled={working}
                       onClick={() => setEditing({ name: r.name, value: r.fetch || r.push || '' })}
@@ -215,7 +211,6 @@ export default function RemoteModal({ onClose }: { onClose: () => void }) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title={t("Remove remote")}
                     aria-label={t("Remove remote")}
                     disabled={working}
                     onClick={() => handleRemove(r)}

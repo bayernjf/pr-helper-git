@@ -90,7 +90,6 @@ export function GraphToolbar({
         <input
           value={pathDraft}
           placeholder={t("Filter by path…")}
-          title={t("Show only commits touching this path (git log -- path); Enter to apply")}
           onChange={(e) => onPathDraft(e.target.value)}
           onBlur={() => onPathApply(pathDraft.trim())}
           onKeyDown={(e) => {
@@ -103,7 +102,6 @@ export function GraphToolbar({
             className="icon-btn"
             style={{ width: 22, height: 22 }}
             aria-label={t("Clear path filter")}
-            title={t("Clear path filter")}
             onClick={() => {
               onPathDraft('');
               onPathApply('');
@@ -116,7 +114,6 @@ export function GraphToolbar({
       <button
         type="button"
         className={`graph-filter-btn${filterCount ? ' active' : ''}`}
-        title={t("Filter history by author, message or date")}
         onClick={onOpenFilter}
       >
         {t("Filters")}{filterCount ? ` (${filterCount})` : ''}
@@ -126,7 +123,6 @@ export function GraphToolbar({
           type="button"
           className={logScope === 'all' ? 'active' : ''}
           onClick={() => onScopeChange('all')}
-          title={t("Show history across every branch")}
         >
           {t("All branches")}
         </button>
@@ -134,7 +130,6 @@ export function GraphToolbar({
           type="button"
           className={logScope === 'current' ? 'active' : ''}
           onClick={() => onScopeChange('current')}
-          title={t("Follow only the current branch history")}
         >
           {t("Current branch")}
         </button>
@@ -161,7 +156,6 @@ export function BatchBar({
         type="button"
         className="btn btn-primary"
         disabled={count < 2}
-        title={count < 2 ? t('Select at least two commits') : t('Revert all selected commits')}
         onClick={onRevert}
       >
         <IconRevert width={14} height={14} /> {t("Revert")}
@@ -172,7 +166,7 @@ export function BatchBar({
       <button
         type="button"
         className="icon-btn"
-        title={t("Clear selection")}
+        aria-label={t("Clear selection")}
         onClick={onClear}
       >
         <IconX width={14} height={14} />

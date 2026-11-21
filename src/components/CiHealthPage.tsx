@@ -237,7 +237,7 @@ export default function CiHealthPage() {
           <span>{t('Generated {time}').replace('{time}', relativeAge(data.generatedAt))}</span>
           {data.cached && <span className="ci-cached">{t('Cached')}</span>}
           {data.warnings.length > 0 && (
-            <span className="ci-warning" title={data.warnings.join('\n')}>
+            <span className="ci-warning">
               <IconAlert width={13} height={13} />
               {t('{count} repositories skipped').replace('{count}', String(data.warnings.length))}
             </span>
@@ -385,7 +385,7 @@ export default function CiHealthPage() {
                   </div>
                   <div className="ci-failed-checks">
                     {pr.failedChecks.map((check) => (
-                      <span className="ci-check-chip" key={`${check.name}-${check.state}`} title={check.detail || check.url}>
+                      <span className="ci-check-chip" key={`${check.name}-${check.state}`}>
                         {check.name}
                         <em>{categoryLabel(check.category)}</em>
                       </span>

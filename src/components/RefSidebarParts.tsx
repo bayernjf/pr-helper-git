@@ -61,7 +61,6 @@ export function Row({
           onOpen();
         }
       }}
-      title={name}
     >
       <span className="ref-icon">{icon}</span>
       <span className="ref-name">{name}</span>
@@ -70,7 +69,6 @@ export function Row({
         type="button"
         className="row-more"
         aria-label={`Actions for ${name}`}
-        title={t("More actions")}
         onClick={(e) => {
           e.stopPropagation();
           onMenu(e);

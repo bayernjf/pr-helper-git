@@ -164,7 +164,6 @@ export default function TeamModal({ onClose }: { onClose: () => void }) {
                       <button
                         type="button"
                         className="icon-btn"
-                        title={`Remove ${u.name}`}
                         aria-label={`Remove ${u.name}`}
                         disabled={busy}
                         onClick={() => removeMember(u.name)}

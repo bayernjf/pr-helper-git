@@ -541,9 +541,6 @@ export default function PrDetailModal({
             className="btn"
             disabled={!activeRepo || prBranchBusy}
             onClick={fetchPrBranch}
-            title={activeRepo
-              ? `Create local branch pr-${pr.number} from the pull request head without switching`
-              : 'Open a repository to fetch the pull request head'}
           >
             {prBranchBusy ? 'Fetching…' : 'Fetch PR branch'}
           </button>
