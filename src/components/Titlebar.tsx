@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useRepoData } from '../app-state/hooks';
 import { syncChromeRects } from '../lib/desktop-bridge';
 import { Dropdown } from './Dropdown';
+import { IconList } from './icons';
 import { t } from '../i18n';
 
 export default function Titlebar() {
@@ -13,15 +14,23 @@ export default function Titlebar() {
   // keep clicks on it interactive. Plain browsers have no bridge and skip
   // the whole reporting loop.
   useEffect(() => {
-    const trigger = document.querySelector<HTMLElement>('.titlebar .dropdown-trigger');
-    if (!trigger) return;
+    // Both interactive controls in the strip (repositories button + repo
+    // dropdown) report their frames so the shell keeps their clicks
+    // interactive while the rest of the strip drags/zooms.
     const report = () => {
-      const rect = trigger.getBoundingClientRect();
-      syncChromeRects([[rect.left, rect.top, rect.width, rect.height]]);
+      const els = [
+        document.querySelector<HTMLElement>('.titlebar .titlebar-btn'),
+        document.querySelector<HTMLElement>('.titlebar .dropdown-trigger'),
+      ].filter((el): el is HTMLElement => !!el);
+      const rects = els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return [r.left, r.top, r.width, r.height];
+      });
+      syncChromeRects(rects);
     };
     report();
     const observer = new ResizeObserver(report);
-    observer.observe(trigger);
+    observer.observe(document.querySelector<HTMLElement>('.titlebar')!);
     window.addEventListener('resize', report);
     return () => {
       observer.disconnect();
@@ -32,7 +41,15 @@ export default function Titlebar() {
 
   return (
     <div className="titlebar">
-      <span className="titlebar-title">PR Helper Git</span>
+      <button
+        type="button"
+        className="icon-btn titlebar-btn"
+        aria-label={t('Open repositories panel')}
+        title={t('Open repositories panel')}
+        onClick={() => window.dispatchEvent(new CustomEvent('git2:repositories'))}
+      >
+        <IconList width={14} height={14} />
+      </button>
       <Dropdown
         className="repo-select"
         value={activeRepo || ''}

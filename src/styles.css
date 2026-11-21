@@ -268,6 +268,10 @@ button {
   flex: 0 0 auto;
   user-select: none;
 }
+.titlebar .titlebar-btn {
+  width: 22px;
+  height: 22px;
+}
 .titlebar-title {
   font-size: var(--fs-meta);
   font-weight: 600;

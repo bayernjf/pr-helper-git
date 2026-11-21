@@ -260,9 +260,13 @@ describe('AuditModal', () => {
 });
 
 describe('Titlebar', () => {
-  it('renders the brand and the repository selector', () => {
+  it('renders the repositories button and the selector, without a brand title', () => {
     const html = withApp(<Titlebar />);
-    expect(html).toContain('PR Helper Git');
+    // Owner directive: no "PR Helper Git" text in the strip - the app name
+    // lives in the macOS titlebar zone; the strip carries the repositories
+    // button (moved up from the toolbar) and the repo selector.
+    expect(html).not.toContain('PR Helper Git');
+    expect(html).toContain('Open repositories panel');
     // The menu only renders when open; the trigger shows the active value.
     expect(html).toContain('No repository');
   });
