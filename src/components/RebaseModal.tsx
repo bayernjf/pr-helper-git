@@ -129,7 +129,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
           <h2>{t("Interactive rebase")}</h2>
           <span className="chip chip-muted mono">{base === 'root' ? 'whole branch' : shortHash(base)}</span>
           <span style={{ flex: 1 }} />
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}>
             <IconX />
           </button>
         </div>

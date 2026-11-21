@@ -154,7 +154,7 @@ export default function CommitDetail() {
         <span className="detail-label">{t("Commit")}</span>
         <div className="detail-value hash-row">
           <span className="hash-text">{commit.hash}</span>
-          <button type="button" className="icon-btn" title={t("Copy full hash")} aria-label={t("Copy full hash")} onClick={copyHash}>
+          <button type="button" className="icon-btn" aria-label={t("Copy full hash")} onClick={copyHash}>
             <IconCopy width={14} height={14} />
           </button>
         </div>
@@ -253,7 +253,7 @@ export default function CommitDetail() {
               >
                 {t("Ignore whitespace")}
               </button>
-              <button type="button" className="icon-btn" aria-label={t("Close patch")} title={t("Close patch")} onClick={closePatch}>
+              <button type="button" className="icon-btn" aria-label={t("Close patch")} onClick={closePatch}>
                 <IconX />
               </button>
             </div>

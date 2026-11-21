@@ -342,13 +342,13 @@ export default function DashboardPage() {
             { value: 'changes', label: t('Change count') },
           ]}
         />
-        <button type="button" className="icon-btn" title={t('Refresh status')} aria-label={t('Refresh status')} disabled={refreshing} onClick={async () => { setRefreshing(true); try { await refresh(); } finally { setRefreshing(false); } }}>
+        <button type="button" className="icon-btn" aria-label={t('Refresh status')} disabled={refreshing} onClick={async () => { setRefreshing(true); try { await refresh(); } finally { setRefreshing(false); } }}>
           <IconRefresh width={14} height={14} />
         </button>
-        <button type="button" className="icon-btn" title={t('Fetch all repositories')} aria-label={t('Fetch all repositories')} disabled={fetchingAll || repos.length === 0} onClick={fetchAll}>
+        <button type="button" className="icon-btn" aria-label={t('Fetch all repositories')} disabled={fetchingAll || repos.length === 0} onClick={fetchAll}>
           <IconDownload width={14} height={14} />
         </button>
-        <button type="button" className="icon-btn" title={t('Add repository…')} aria-label={t('Add repository…')} onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>
+        <button type="button" className="icon-btn" aria-label={t('Add repository…')} onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>
           <IconPlus width={14} height={14} />
         </button>
       </div>

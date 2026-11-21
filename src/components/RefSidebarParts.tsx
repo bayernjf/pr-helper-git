@@ -236,7 +236,7 @@ export function StashViewModal({
       >
         <div className="modal-header">
           <h2>stash@{view.index} — {view.subject}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close stash")} title={t("Close")} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close stash")} onClick={onClose}>
             <IconX />
           </button>
         </div>
@@ -266,7 +266,7 @@ export function TagViewModal({ tag, onClose }: { tag: TagDetail; onClose: () => 
       <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{tag.tag}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close tag")} title={t("Close")} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close tag")} onClick={onClose}>
             <IconX />
           </button>
         </div>
@@ -315,7 +315,7 @@ export function UpstreamPickerModal({
       <div className="modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{tp('Set upstream for {name}', { name: branch })}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close upstream picker")} title={t("Close")} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close upstream picker")} onClick={onClose}>
             <IconX />
           </button>
         </div>

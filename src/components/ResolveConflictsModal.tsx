@@ -42,7 +42,7 @@ export default function ResolveConflictsModal({
         <div className="modal" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>{t("Resolve conflicts")}</h2>
-            <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
+            <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}>
               <IconX />
             </button>
           </div>

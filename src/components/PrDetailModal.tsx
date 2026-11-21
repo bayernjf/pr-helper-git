@@ -443,7 +443,7 @@ export default function PrDetailModal({
       >
         <div className="modal-header">
           <h2>#{pr.number} {pr.title}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}><IconX /></button>
         </div>
 
         <div className="modal-body">

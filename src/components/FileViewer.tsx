@@ -218,7 +218,7 @@ export default function FileViewer({
       >
         <div className="modal-header">
           <h2>{effectiveRev ? `${shortHash(effectiveRev)} — ` : ''}{filePath}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="diff-pane" style={{ flex: 1, minHeight: 0 }}>
           <div className="diff-toolbar">

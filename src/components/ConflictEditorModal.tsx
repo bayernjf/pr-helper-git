@@ -122,7 +122,7 @@ export default function ConflictEditorModal({
           <h2>{t('Merge editor')}</h2>
           <span className="conflict-editor-path">{path}</span>
           <span className="spacer" />
-          <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t('Close')} onClick={onClose}>
             <IconX />
           </button>
         </div>

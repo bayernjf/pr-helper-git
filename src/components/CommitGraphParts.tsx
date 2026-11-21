@@ -78,7 +78,7 @@ export function GraphToolbar({
           onChange={(e) => onSearch(e.target.value)}
         />
         {search && (
-          <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label={t("Clear commit filter")} title={t("Clear filter")} onClick={() => onSearch('')}>
+          <button type="button" className="icon-btn" style={{ width: 22, height: 22 }} aria-label={t("Clear commit filter")} onClick={() => onSearch('')}>
             <IconX width={12} height={12} />
           </button>
         )}
