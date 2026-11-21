@@ -264,8 +264,7 @@ button {
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
   flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   scrollbar-width: none;
 }
 .toolbar::-webkit-scrollbar { display: none; }
@@ -1566,6 +1565,28 @@ pre.diff {
 .settings-row .sub { color: var(--faint); font-size: var(--fs-meta); }
 
 /* ---------- Responsive ---------- */
+/* Progressive toolbar shrinking: primary buttons go icon-only first, then
+   spacing tightens, so the right-side controls stay on screen at any width
+   (no horizontal scrolling). Below 1120px the toolbar wraps to two rows. */
+@media (max-width: 1500px) {
+  .toolbar .btn-label { display: none; }
+  .toolbar .btn { padding-left: 9px; padding-right: 9px; }
+}
+
+@media (max-width: 1360px) {
+  .toolbar { gap: 6px; padding: 0 8px; }
+  .toolbar .btn { padding: 7px 8px; }
+  .toolbar .segmented button { padding: 5px 8px; font-size: var(--fs-meta); }
+  .toolbar .icon-btn { width: 28px; height: 28px; }
+  .toolbar-divider { margin: 0 4px; height: 18px; }
+}
+
+/* Below 1200px the standalone shortcuts button yields: the same entry
+   lives in the app menu, and the row fits without scrolling. */
+@media (max-width: 1200px) {
+  .toolbar .btn-shortcuts { display: none; }
+}
+
 @media (max-width: 1120px) {
   .sidebar { width: 204px; }
   .detail { width: 268px; }
