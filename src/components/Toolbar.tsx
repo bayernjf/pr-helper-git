@@ -340,6 +340,7 @@ export default function Toolbar() {
           {t('Flows')}
         </button>
       </span>
+      <span className="spacer" />
       <span className="toolbar-divider" />
       <button
         type="button"
