@@ -701,8 +701,11 @@ div.ref-group-head { gap: 8px; }
   align-items: stretch;
   justify-content: center;
 }
-.sidebar .col-resize { right: -4px; }
-.detail .col-resize { left: -4px; }
+/* The handle sits INSIDE its panel: panels use overflow-y: auto, which
+   clips anything past the box edge, so a negative inset made half of the
+   8px hit strip (and the painted line's center) unreachable. */
+.sidebar .col-resize { right: 0; }
+.detail .col-resize { left: 0; }
 .col-resize::after {
   content: '';
   width: 3px;
