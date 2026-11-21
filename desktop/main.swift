@@ -14,7 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var readyToken: String?
     private var isTerminating = false
     private var pendingOpenPath: String?
-    private var titlebarDoubleClickMonitor: Any?
+    private var titlebarEventMonitor: Any?
+    private var titlebarInteractiveRects: [CGRect] = []
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var outputBuffer = Data()
     private let bufferQueue = DispatchQueue(label: "local.pr-helper-git.stdout")
@@ -49,19 +50,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         setupMenu()
         setupWindow()
-        // Double-click the top strip = zoom. The transparent titlebar makes
-        // the native titlebar and the web toolbar share the same top edge, so
-        // a WKWebView gesture alone misses clicks that land on the native
-        // titlebar. A local monitor sees both zones before hit testing; clicks
-        // on toolbar controls below the strip still reach the web content.
-        titlebarDoubleClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+        // The web client paints its own titlebar strip under the hidden native
+        // title, so the top 28px of the web view is chrome: a single press
+        // drags the window and a double-click zooms. Interactive controls
+        // inside the strip (the repository selector) report their frames via
+        // the chromeSync bridge and keep their normal click sequence; clicks
+        // on controls below the strip still reach the web content untouched.
+        titlebarEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             guard let self,
-                  event.window === self.window,
-                  event.clickCount == 2 else { return event }
-            let inWebTop = self.webView.convert(event.locationInWindow, from: nil).y <= 28
-            let inNativeTitlebar = event.locationInWindow.y >= self.webView.frame.height
-            guard inWebTop || inNativeTitlebar else { return event }
-            self.window.performZoom(nil)
+                  event.window === self.window else { return event }
+            let point = self.webView.convert(event.locationInWindow, from: nil)
+            let stripHeight: CGFloat = 28
+            guard point.y >= self.webView.bounds.height - stripHeight else { return event }
+            if self.titlebarInteractiveRects.contains(where: { $0.contains(point) }) {
+                return event
+            }
+            if event.clickCount == 2 {
+                self.window.performZoom(nil)
+                return nil
+            }
+            self.window.performDrag(with: event)
             return nil
         }
         startServer(node: node, script: serverScript)
@@ -96,9 +104,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func applicationWillTerminate(_ notification: Notification) {
         isTerminating = true
-        if let monitor = titlebarDoubleClickMonitor {
+        if let monitor = titlebarEventMonitor {
             NSEvent.removeMonitor(monitor)
-            titlebarDoubleClickMonitor = nil
+            titlebarEventMonitor = nil
         }
         guard let process = server, process.isRunning else { return }
         process.terminate()
@@ -420,6 +428,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         configuration.userContentController.add(self, name: "themeSync")
         // Web-initiated native folder picker (AddRepoModal "Browse…").
         configuration.userContentController.add(self, name: "folderPicker")
+        // The web titlebar strip reports the frames of its interactive
+        // controls so the local mouse monitor can let them receive clicks.
+        configuration.userContentController.add(self, name: "chromeSync")
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -427,16 +438,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false,
         )
         window.center()
         window.title = "PR Helper Git"
+        // The web client paints its own titlebar strip (brand + repository
+        // selector) under the traffic lights, so the native title text is
+        // hidden. window.title still names the window for Mission Control.
+        window.titleVisibility = .hidden
         window.minSize = NSSize(width: 900, height: 600)
         // Transparent titlebar over the dark window background: the web
-        // toolbar fills the top edge, so no light strip can appear. The web
-        // client corrects the appearance via the themeSync bridge on load.
+        // content now extends under it, so no light strip can appear. The
+        // web client corrects the appearance via the themeSync bridge on load.
         window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
@@ -564,12 +579,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             chooseFolderForWeb()
             return
         }
+        if message.name == "chromeSync" {
+            applyChromeRects(message.body)
+            return
+        }
         guard message.name == "themeSync", let mode = message.body as? String else { return }
         let light = mode == "light"
         window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         window.backgroundColor = light
             ? NSColor(red: 0.93, green: 0.95, blue: 0.97, alpha: 1)
             : NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+    }
+
+    // MARK: Titlebar chrome bridge
+
+    /// The web reports its titlebar control frames in CSS pixels with a
+    /// top-left origin; store them in view coordinates (bottom-left origin)
+    /// for the titlebar mouse monitor.
+    private func applyChromeRects(_ body: Any) {
+        guard let payload = body as? [String: Any],
+              let rows = payload["rects"] as? [[Double]] else { return }
+        let height = webView.bounds.height
+        titlebarInteractiveRects = rows.compactMap { row in
+            guard row.count == 4 else { return nil }
+            return CGRect(x: row[0], y: height - row[1] - row[3], width: row[2], height: row[3])
+        }
     }
 
     // MARK: Web-initiated folder picker

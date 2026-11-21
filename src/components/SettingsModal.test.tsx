@@ -83,13 +83,16 @@ function context() {
   };
 }
 
-async function mount(role: 'admin' | 'member') {
+async function mount(role: 'admin' | 'member', options?: { activeRepo?: string | null; onClose?: () => void }) {
   vi.mocked(getMe).mockResolvedValue({ name: 'owner', role, instance: role === 'admin' } as never);
   act(() => root!.render(
     createElement(
       PreferencesContext.Provider,
       { value: context() as never },
-      createElement(ToastProvider, null, createElement(SettingsModal, { onClose: () => {} })),
+      createElement(ToastProvider, null, createElement(SettingsModal, {
+        onClose: options?.onClose ?? (() => {}),
+        activeRepo: options?.activeRepo,
+      })),
     ),
   ));
   await act(async () => {
@@ -121,9 +124,30 @@ describe('SettingsModal role gating', () => {
     expect(headings()).not.toContain('AI generation');
     expect(headings()).not.toContain('GitHub account');
     expect(headings()).not.toContain('A2A / Agent Card');
+    // Repository tools need an active repository; Application is always shown.
+    expect(headings()).not.toContain('Repository tools');
+    expect(headings()).toContain('Application');
     expect(vi.mocked(getAiConfig)).not.toHaveBeenCalled();
     expect(vi.mocked(getStorage)).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain('managed by the owner');
     expect(document.body.textContent).toContain('localStorage');
+  });
+
+  it('lists repository tools for the active repo and hands off via events', async () => {
+    const onClose = vi.fn();
+    const openRemotes = vi.fn();
+    window.addEventListener('git2:remotes', openRemotes);
+    try {
+      await mount('member', { activeRepo: '/tmp/repo', onClose });
+      expect(headings()).toContain('Repository tools');
+      const button = [...document.querySelectorAll('button')]
+        .find((el) => el.textContent === 'Manage remotes');
+      expect(button).toBeDefined();
+      await act(async () => { button!.click(); });
+      expect(openRemotes).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('git2:remotes', openRemotes);
+    }
   });
 });

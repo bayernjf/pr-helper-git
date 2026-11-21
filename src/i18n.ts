@@ -394,6 +394,8 @@ export const ZH: Record<string, string> = {
   'Repository': '仓库',
   'Repository path': '仓库路径',
   'Repository settings': '仓库设置',
+  'Repository tools': '仓库工具',
+  'Application': '应用',
   'Settings': '设置',
   'Appearance': '外观',
   'Theme mode': '主题模式',

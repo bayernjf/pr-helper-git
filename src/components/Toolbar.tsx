@@ -7,7 +7,6 @@ import {
 } from '../api';
 import { usePreferences, useRepoData, useRunAction, useBusy } from '../app-state/hooks';
 import AddRepoModal from './AddRepoModal';
-import { Dropdown } from './Dropdown';
 import AuditModal from './AuditModal';
 import CommitSearchModal from './CommitSearchModal';
 import CompareModal from './CompareModal';
@@ -32,32 +31,24 @@ import StashModal from './StashModal';
 import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 
-type DropKind = 'pull' | 'push' | 'search' | 'repo' | 'app';
+type DropKind = 'pull' | 'push';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 import {
-  IconAudit,
   IconChevronDown,
-  IconClock,
   IconDownload,
   IconGear,
-  IconGlobe,
-  IconKeyboard,
   IconList,
   IconMonitor,
   IconMoon,
   IconSearch,
-  IconServer,
-  IconSliders,
-  IconSplit,
   IconStash,
   IconSun,
   IconUpload,
-  IconUser,
 } from './icons';
 
 export default function Toolbar() {
-  const { repos, activeRepo, activeBrief, selectRepo } = useRepoData();
+  const { activeRepo, activeBrief } = useRepoData();
   const { view, theme, setView, toggleTheme } = usePreferences();
   const busy = useBusy();
   const { runAction } = useRunAction();
@@ -101,6 +92,9 @@ export default function Toolbar() {
     const openCommitSearch = () => setShowCommitSearch(true);
     const openAudit = () => setShowAudit(true);
     const openShortcuts = () => setShowShortcuts(true);
+    const openConfig = () => setShowConfig(true);
+    const openTeam = () => setShowTeam(true);
+    const openGlobalGrep = () => setShowGlobalGrep(true);
     window.addEventListener('git2:add-repo', openAdd);
     window.addEventListener('git2:repositories', openRepositories);
     window.addEventListener('git2:settings', openSettings);
@@ -113,6 +107,9 @@ export default function Toolbar() {
     window.addEventListener('git2:search-commits', openCommitSearch);
     window.addEventListener('git2:audit', openAudit);
     window.addEventListener('git2:shortcuts', openShortcuts);
+    window.addEventListener('git2:config', openConfig);
+    window.addEventListener('git2:team', openTeam);
+    window.addEventListener('git2:global-grep', openGlobalGrep);
 
     // A desktop folder pick can land before this effect runs. Consume it once
     // after listeners are attached; later picks use the custom event.
@@ -136,6 +133,9 @@ export default function Toolbar() {
       window.removeEventListener('git2:search-commits', openCommitSearch);
       window.removeEventListener('git2:audit', openAudit);
       window.removeEventListener('git2:shortcuts', openShortcuts);
+      window.removeEventListener('git2:config', openConfig);
+      window.removeEventListener('git2:team', openTeam);
+      window.removeEventListener('git2:global-grep', openGlobalGrep);
     };
   }, []);
 
@@ -158,25 +158,6 @@ export default function Toolbar() {
           { id: 'push-lease', label: t('Force push (--force-with-lease)') },
           { id: 'push-force', label: t('Force push (--force)'), danger: true },
         ];
-      case 'search':
-        return [
-          { id: 'grep', label: t('Search repository contents (git grep)'), icon: <IconSearch width={13} height={13} /> },
-          { id: 'commit-search', label: t('Search commits in all branches'), icon: <IconClock width={13} height={13} /> },
-          { id: 'global-grep', label: t('Search across all repositories'), icon: <IconGlobe width={13} height={13} /> },
-        ];
-      case 'repo':
-        return [
-          { id: 'remotes', label: t('Manage remotes'), icon: <IconServer width={13} height={13} /> },
-          { id: 'config', label: t('Repository settings (git config)'), icon: <IconSliders width={13} height={13} /> },
-          { id: 'reflog', label: t('View reference log (reflog)'), icon: <IconClock width={13} height={13} /> },
-          { id: 'audit', label: t('View audit log'), icon: <IconAudit width={13} height={13} /> },
-        ];
-      case 'app':
-        return [
-          { id: 'settings', label: t('GitHub settings'), icon: <IconGear width={13} height={13} /> },
-          { id: 'team', label: t('Team members and configuration'), icon: <IconUser width={13} height={13} /> },
-          { id: 'shortcuts', label: t('Keyboard shortcuts (press ?)'), icon: <IconKeyboard width={13} height={13} /> },
-        ];
     }
   }
 
@@ -184,18 +165,7 @@ export default function Toolbar() {
 
   async function onMenuSelect(id: string) {
     setDropMenu(null);
-    // Repo-independent surfaces open regardless of the active repository.
-    if (id === 'settings') { setShowSettings(true); return; }
-    if (id === 'team') { setShowTeam(true); return; }
-    if (id === 'shortcuts') { setShowShortcuts(true); return; }
     if (!activeRepo) return;
-    if (id === 'grep') { setShowGrep(true); return; }
-    if (id === 'commit-search') { setShowCommitSearch(true); return; }
-    if (id === 'global-grep') { setShowGlobalGrep(true); return; }
-    if (id === 'remotes') { setShowRemotes(true); return; }
-    if (id === 'config') { setShowConfig(true); return; }
-    if (id === 'reflog') { setShowReflog(true); return; }
-    if (id === 'audit') { setShowAudit(true); return; }
     if (id === 'pull-merge') await runAction(pullRepo(activeRepo, false), 'Pulled');
     else if (id === 'pull-rebase') await runAction(pullRepo(activeRepo, true), 'Pulled with rebase');
     else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
@@ -245,22 +215,6 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      <Dropdown
-        className="repo-select"
-        value={activeRepo || ''}
-        onChange={(v) => {
-          if (v === '__add__') {
-            setShowAdd(true);
-          } else {
-            selectRepo(v);
-          }
-        }}
-        options={[
-          ...(repos.length === 0 ? [{ value: '', label: t('No repository') }] : []),
-          ...repos.map((r) => ({ value: r.path, label: r.name })),
-          { value: '__add__', label: t('+ Add repository…') },
-        ]}
-      />
       <button
         type="button"
         className="icon-btn"
@@ -386,85 +340,26 @@ export default function Toolbar() {
           {t('Flows')}
         </button>
       </span>
-      <span className="btn-group">
-        <button
-          type="button"
-          className="btn"
-          title={t("Search repository contents (git grep)")}
-          aria-label={t("Search repository contents (git grep)")}
-          disabled={!activeRepo}
-          onClick={() => setShowGrep(true)}
-        >
-          <IconSearch />
-        </button>
-        <button
-          type="button"
-          className="btn btn-caret"
-          disabled={!activeRepo}
-          data-menu-trigger="search"
-          aria-label={t("Search options")}
-          onMouseDown={caretDown('search')}
-          onClick={(e) => caretClick(e, 'search')}
-        >
-          <IconChevronDown width={12} height={12} />
-        </button>
-      </span>
+      <span className="toolbar-divider" />
       <button
         type="button"
         className="btn"
-        title={t("Compare two references")}
-        aria-label={t("Compare two references")}
+        title={t("Search repository contents (git grep)")}
+        aria-label={t("Search repository contents (git grep)")}
         disabled={!activeRepo}
-        onClick={() => setShowCompare(true)}
+        onClick={() => setShowGrep(true)}
       >
-        <IconSplit />
+        <IconSearch />
       </button>
-      <span className="toolbar-divider" />
-      <span className="btn-group">
-        <button
-          type="button"
-          className="btn"
-          title={t("Manage remotes")}
-          aria-label={t("Manage remotes")}
-          disabled={!activeRepo}
-          onClick={() => setShowRemotes(true)}
-        >
-          <IconServer />
-        </button>
-        <button
-          type="button"
-          className="btn btn-caret"
-          disabled={!activeRepo}
-          data-menu-trigger="repo"
-          aria-label={t("Repository options")}
-          onMouseDown={caretDown('repo')}
-          onClick={(e) => caretClick(e, 'repo')}
-        >
-          <IconChevronDown width={12} height={12} />
-        </button>
-      </span>
-      <span className="toolbar-divider" />
-      <span className="btn-group">
-        <button
-          type="button"
-          className="btn"
-          title={t("GitHub settings")}
-          aria-label={t("GitHub settings")}
-          onClick={() => setShowSettings(true)}
-        >
-          <IconGear />
-        </button>
-        <button
-          type="button"
-          className="btn btn-caret"
-          data-menu-trigger="app"
-          aria-label={t("App options")}
-          onMouseDown={caretDown('app')}
-          onClick={(e) => caretClick(e, 'app')}
-        >
-          <IconChevronDown width={12} height={12} />
-        </button>
-      </span>
+      <button
+        type="button"
+        className="btn"
+        title={t("GitHub settings")}
+        aria-label={t("GitHub settings")}
+        onClick={() => setShowSettings(true)}
+      >
+        <IconGear />
+      </button>
       <button
         type="button"
         className="btn"
@@ -473,15 +368,6 @@ export default function Toolbar() {
         onClick={toggleTheme}
       >
         {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
-      </button>
-      <button
-        type="button"
-        className="btn btn-shortcuts"
-        title={t("Keyboard shortcuts (press ?)")}
-        aria-label={t("Keyboard shortcuts")}
-        onClick={() => setShowShortcuts(true)}
-      >
-        <IconKeyboard />
       </button>
 
       {showAdd && (
@@ -494,7 +380,7 @@ export default function Toolbar() {
         />
       )}
       {showRepositories && <RepositoriesModal onClose={() => setShowRepositories(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} activeRepo={activeRepo} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
       {showStash && <StashModal onClose={() => setShowStash(false)} />}

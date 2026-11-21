@@ -16,7 +16,7 @@ import { getLocale, setLocale, t, tp, type Locale } from '../i18n';
 import { ACCENTS, type Accent, type ThemeMode } from '../lib/appearance';
 import { ACCENT_SWATCH } from '../design/accents';
 
-export default function SettingsModal({ onClose }: { onClose: () => void }) {
+export default function SettingsModal({ onClose, activeRepo }: { onClose: () => void; activeRepo?: string | null }) {
   const { pat, setPat, hasServerPat, setServerPat, clearServerPat, theme, accent, setTheme, setAccent } = usePreferences();
   const toast = useAppToast();
   const [value, setValue] = useState(pat);
@@ -40,6 +40,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [a2aToken, setA2aToken] = useState('');
   const [a2aBusy, setA2aBusy] = useState(false);
   useEscape(onClose);
+
+  // Relocated tool entries dispatch the same lightweight events the command
+  // palette and other surfaces use; Toolbar owns the listeners and opens the
+  // matching dialog, so the settings form hands off and closes itself.
+  const openTool = (event: string) => {
+    window.dispatchEvent(new CustomEvent(event));
+    onClose();
+  };
 
   // The key itself is never returned, so the field starts empty and a blank
   // value means "keep the stored key".
@@ -478,6 +486,48 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {activeRepo && (
+            <>
+              <h3 className="settings-section">{t("Repository tools")}</h3>
+              <div className="form-row" style={{ alignItems: 'center', gap: 8 }}>
+                <button type="button" className="btn" onClick={() => openTool('git2:remotes')}>
+                  {t('Manage remotes')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:config')}>
+                  {t('Repository settings (git config)')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:reflog')}>
+                  {t('View reference log (reflog)')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:audit')}>
+                  {t('View audit log')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:compare')}>
+                  {t('Compare two references')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:grep')}>
+                  {t('Search repository contents (git grep)')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:search-commits')}>
+                  {t('Search commits in all branches')}
+                </button>
+                <button type="button" className="btn" onClick={() => openTool('git2:global-grep')}>
+                  {t('Search across all repositories')}
+                </button>
+              </div>
+            </>
+          )}
+
+          <h3 className="settings-section">{t("Application")}</h3>
+          <div className="form-row" style={{ alignItems: 'center', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => openTool('git2:team')}>
+              {t('Team members and configuration')}
+            </button>
+            <button type="button" className="btn" onClick={() => openTool('git2:shortcuts')}>
+              {t('Keyboard shortcuts (press ?)')}
+            </button>
           </div>
 
           {isAdmin && (

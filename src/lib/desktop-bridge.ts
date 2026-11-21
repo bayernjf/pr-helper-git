@@ -30,3 +30,12 @@ export function pickFolder(): Promise<string | null> {
     handler.postMessage({ kind: 'pickFolder' });
   });
 }
+
+// The web-drawn titlebar strip is a window-drag zone in the Swift shell; the
+// strip reports the frames of its interactive controls (CSS pixels, top-left
+// origin) so the shell's mouse monitor can let them receive their clicks.
+export function syncChromeRects(rects: number[][]): void {
+  const handler = host().webkit?.messageHandlers?.chromeSync;
+  if (!handler) return;
+  handler.postMessage({ kind: 'chromeRects', rects });
+}

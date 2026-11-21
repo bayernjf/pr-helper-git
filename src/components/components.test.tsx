@@ -1,7 +1,7 @@
 // Component smoke tests rendered with react-dom/server. renderToString never
 // runs effects, so no network, local-storage or timer side effects occur;
 // components that need the app context are wrapped with a mock provider.
-import { createElement } from 'react';
+import { createElement, Fragment } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PreferencesContext } from '../app-state/preferences-provider';
@@ -17,6 +17,7 @@ import ErrorBoundary from './ErrorBoundary';
 import PrFileReview from './PrFileReview';
 import RepositoriesModal from './RepositoriesModal';
 import ResolveConflictsModal from './ResolveConflictsModal';
+import Titlebar from './Titlebar';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -258,9 +259,20 @@ describe('AuditModal', () => {
   });
 });
 
+describe('Titlebar', () => {
+  it('renders the brand and the repository selector', () => {
+    const html = withApp(<Titlebar />);
+    expect(html).toContain('PR Helper Git');
+    // The menu only renders when open; the trigger shows the active value.
+    expect(html).toContain('No repository');
+  });
+});
+
 describe('Toolbar', () => {
   it('shows the no-repository state', () => {
-    const html = withApp(<Toolbar />);
+    // The repository selector lives in the Titlebar; the rest of the chrome
+    // is the Toolbar.
+    const html = withApp(createElement(Fragment, null, createElement(Titlebar), createElement(Toolbar)));
     expect(html).toContain('No repository');
     expect(html).toContain('no repository');
     expect(html).toContain('Fetch');
@@ -276,6 +288,16 @@ describe('Toolbar', () => {
     expect(html).toContain('main');
     // renderToString places comment nodes between the arrow and the number.
     expect(html).toMatch(/↑<!-- -->2/);
+  });
+
+  it('keeps search, settings and theme as the only right-side entries', () => {
+    const html = withApp(<Toolbar />, { activeRepo: '/tmp/example' });
+    expect(html).toContain('GitHub settings');
+    // Low-frequency surfaces moved into SettingsModal / the command palette.
+    expect(html).not.toContain('Compare two references');
+    expect(html).not.toContain('Repository options');
+    expect(html).not.toContain('App options');
+    expect(html).not.toContain('Keyboard shortcuts');
   });
 });
 
