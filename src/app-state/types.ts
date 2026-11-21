@@ -17,6 +17,8 @@ export type Theme = ThemeMode;
 // `hasServerPat` / `setServerPat` / `clearServerPat` instead.
 export interface Preferences {
   view: View;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   theme: Theme;
   accent: Accent;
   pat: string;

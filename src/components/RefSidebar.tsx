@@ -25,7 +25,7 @@ import {
   type SubmoduleEntry,
   type TagDetail,
 } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
@@ -82,6 +82,7 @@ interface RenameState {
 
 export default function RefSidebar() {
   const { activeRepo, refs, status, commits } = useRepoData();
+  const { sidebarCollapsed } = usePreferences();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const confirm = useConfirm();
@@ -347,7 +348,7 @@ export default function RefSidebar() {
   };
 
   return (
-    <aside className="sidebar" style={sidebarStyle}>
+    <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`} style={sidebarStyle}>
       <button type="button" className="col-resize" {...sidebarSeparator} />
       <MergeBanners
         rebaseInProgress={rebaseInProgress}

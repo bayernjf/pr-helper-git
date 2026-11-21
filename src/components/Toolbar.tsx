@@ -44,6 +44,7 @@ import {
   IconKeyboard,
   IconMonitor,
   IconMoon,
+  IconPanel,
   IconMore,
   IconSearch,
   IconServer,
@@ -57,7 +58,7 @@ import {
 
 export default function Toolbar() {
   const { activeRepo, activeBrief } = useRepoData();
-  const { view, theme, setView, toggleTheme } = usePreferences();
+  const { view, theme, setView, toggleTheme, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
   const busy = useBusy();
   const { runAction } = useRunAction();
   const [showAdd, setShowAdd] = useState(false);
@@ -247,6 +248,16 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
+      <button
+        type="button"
+        className="icon-btn"
+        title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+        aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+        aria-pressed={sidebarCollapsed}
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+      >
+        <IconPanel width={15} height={15} />
+      </button>
       <span className="branch-pill" title={activeRepo || ''}>
         <span className="dot" />
         {branchLabel}
@@ -369,8 +380,8 @@ export default function Toolbar() {
         type="button"
         className="btn"
         data-menu-trigger="more"
-        aria-label={t('More tools')}
-        title={t('More tools')}
+        aria-label={t('More')}
+        title={t('More')}
         onMouseDown={caretDown('more')}
         onClick={(e) => caretClick(e, 'more')}
       >

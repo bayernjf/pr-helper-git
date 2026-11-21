@@ -289,6 +289,8 @@ button {
   padding: 2px 8px;
   font-size: var(--fs-meta);
   width: 100%;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .toolbar {
@@ -384,7 +386,14 @@ button {
   background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 10px 0;
+  transition: margin-left var(--dur) var(--ease);
+  scrollbar-width: none;
 }
+.sidebar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Collapsed: the panel folds away completely; the toggle lives in the toolbar. */
+.sidebar.collapsed { margin-left: -240px; }
+@media (max-width: 1120px) { .sidebar.collapsed { margin-left: -204px; } }
+@media (max-width: 880px) { .sidebar.collapsed { margin-left: -176px; } }
 
 .ref-group { margin-bottom: 4px; }
 

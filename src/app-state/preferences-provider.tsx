@@ -14,6 +14,7 @@ export const PreferencesContext = createContext<Preferences | null>(null);
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => getPref<boolean>('sidebarCollapsed', false));
   const [theme, setTheme] = useState<Theme>(() => getThemeMode());
   const [accent, setAccentState] = useState<Accent>(() => getAccent());
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
@@ -45,6 +46,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist the active view so a reload restores it.
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    setPref('sidebarCollapsed', collapsed);
+  }, []);
+
   const setView = useCallback((next: View) => {
     setViewState(next);
     setPref('view', next);
@@ -71,6 +77,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Preferences>(() => ({
     view,
+    sidebarCollapsed,
+    setSidebarCollapsed,
     theme,
     accent,
     pat,
@@ -84,7 +92,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     clearServerPat,
     refreshServerPat,
   }), [
-    view, theme, accent, pat, hasServerPat,
+    view, sidebarCollapsed, setSidebarCollapsed, theme, accent, pat, hasServerPat,
     setView, setTheme, setAccent, toggleTheme,
     setPat, setServerPat, clearServerPat, refreshServerPat,
   ]);
