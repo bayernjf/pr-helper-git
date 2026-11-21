@@ -1357,7 +1357,6 @@ html[data-theme='light'] .modal.settings-modal {
 .settings-nav-icon svg { width: 14px; height: 14px; }
 .settings-nav-general .settings-nav-icon { background: linear-gradient(145deg, #9a9aa4, #70717c); }
 .settings-nav-github .settings-nav-icon { background: linear-gradient(145deg, #3f9bff, #0a6fd6); }
-.settings-nav-repos .settings-nav-icon { background: linear-gradient(145deg, #ffb340, #e57d00); }
 .settings-nav-app .settings-nav-icon { background: linear-gradient(145deg, #4cd96a, #1da53a); }
 .settings-nav-advanced .settings-nav-icon { background: linear-gradient(145deg, #63d3c4, #138f83); }
 .settings-nav-label {

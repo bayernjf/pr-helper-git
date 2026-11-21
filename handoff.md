@@ -136,15 +136,15 @@ desktop/ 或构建脚本改动，桌面端无需重建（沿用 0.3.17 壳）。
 ### macOS 系统设置风格设置页（2026-11-21，未发布）
 
 `SettingsModal` 从单列长表单改为两栏设置窗口：52px 标题栏、218px 左侧分类
-栏（General / GitHub / Repository tools / Application / Advanced）、右侧大标题
-与 inset grouped 卡片。Repository tools 仅在 activeRepo 存在时出现，Advanced
-仅 admin 可见；语言、浏览器 PAT、GitHub App、服务端 PAT、服务端数据、AI、
-A2A、仓库工具、快捷键与原有角色门禁全部保留。外观改为三张固定明暗预览的
+栏（General / GitHub / Application / Advanced）、右侧大标题
+与 inset grouped 卡片。Repository tools 已移至工具栏 More 菜单，不再作为
+设置分类；Advanced 仅 admin 可见。语言、浏览器 PAT、GitHub App、服务端 PAT、
+服务端数据、AI、A2A、快捷键与原有角色门禁全部保留。外观改为三张固定明暗预览的
 主题缩略图 + 带选中环的强调色色板；分类面板全部挂载，非当前页用 `hidden`
 隐藏，保持既有 `h3.settings-section` 测试契约。
 
 验证：1180 tests / 70 files；E2E 162/162；lint / typecheck:server / build
-全绿；Vite 预览走查管理员/成员、深/浅色、中/英、仓库工具与高级页，1280px
+全绿；Vite 预览走查管理员/成员、深/浅色、中/英、应用与高级页，1280px
 视口无溢出（900px 最小宽度为 CSS 计算，未做像素截图）。桌面门禁
 `desktop:native-test` / `BUNDLE_NODE=1 npm run desktop` / `desktop:smoke`
 全绿；新包 0.3.18 已安装到 `/Applications/PR Helper Git.app`，旧包备份为
@@ -191,6 +191,21 @@ token 源 `design/tokens.json` 已覆盖颜色、字号、圆角、阴影，但�
 输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy
 按钮内距一致。0.3.18 已安装，旧包备份
 `PR Helper Git-0.3.18-before-tokens.app`。
+
+### 仓库工具迁出设置页（2026-11-22，未发布）
+
+用户指出 Repository tools 不应作为设置分类，因为工具栏 More 菜单已经有
+Manage remotes、git config、reflog、audit、compare、git grep、提交搜索、
+跨仓库搜索 8 个入口。已删除设置侧栏的 Repository tools 分类、整页重复入口、
+`settings-nav-repos` 样式与两条 i18n 词条；`SettingsModal` 不再接收 `activeRepo`，
+设置分类收敛为 General / GitHub / Application / Advanced。More 菜单本身未改。
+
+验证：SettingsModal 测试改为断言设置页不出现 Repository tools / Manage remotes /
+Compare two references；Toolbar 测试断言右侧 More 入口存在。完整门禁
+1183 tests / 70 files、E2E 162/162、lint / typecheck:server / build 全绿；
+`BUNDLE_NODE=1 npm run desktop` + `desktop:smoke` 全绿。安装版实测设置侧栏
+只剩 General / GitHub / Application / Advanced，More 菜单仍列出 8 个仓库工具
+入口；旧包备份 `PR Helper Git-0.3.18-before-repotools.app`。
 
 ## Release 0.3.17 (2026-11-20)
 

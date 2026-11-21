@@ -5,7 +5,8 @@
 ## [Unreleased]
 
 ### 变更
-- **设置页改为 macOS 系统设置式两栏布局**：左侧按通用 / GitHub / 仓库工具 / 应用 / 高级分类，右侧以大标题 + 分组内嵌卡片承载表单；语言、主题、强调色改为设置项行，主题增加深色/浅色/跟随系统的缩略预览，强调色改为带选中态的色板，仓库工具与帮助入口改为可点击的设置行。成员仍只看到浏览器 PAT，owner 专属的 GitHub 账号、服务端 PAT、服务端数据、AI 与 A2A 保持原权限门禁。
+- **设置页改为 macOS 系统设置式两栏布局**：左侧按通用 / GitHub / 应用 / 高级分类，右侧以大标题 + 分组内嵌卡片承载表单；语言、主题、强调色改为设置项行，主题增加深色/浅色/跟随系统的缩略预览，强调色改为带选中态的色板，帮助入口改为可点击的设置行。成员仍只看到浏览器 PAT，owner 专属的 GitHub 账号、服务端 PAT、服务端数据、AI 与 A2A 保持原权限门禁。
+- **仓库工具从设置页移到工具栏 More**：删除设置侧栏的 Repository tools 分类及其整页重复入口（Manage remotes、git config、reflog、audit、compare、git grep、提交搜索、跨仓库搜索）；这 8 个入口继续由工具栏 More 菜单承载，设置页只保留应用级配置，不再出现与 More 重复的分类。
 - **设计 token 补齐间距与控件标尺**：`design/tokens.json` 新增 `spacing`（2–40px）与 `control`（30/28px 高度、12px 横向内边距、5/4px 纵向内边距），并由 `sync-tokens.mjs` 生成 `--space-*` / `--control-*`；设置页的输入框、下拉、紧凑按钮、卡片行与面板内距改为消费 token，控件横向文字内边距统一为 12px。
 
 ### 修复
@@ -15,7 +16,7 @@
 
 ### 验证
 - 1183 tests / 70 files；E2E 162/162；lint / typecheck:server / build 全绿；1011px 与 900px 视口实测收起态 center 从 x=12 开始、轨道 x=26，展开态 margin 0。
-- 设置页在 1280px 预览中走查深色/浅色、管理员/成员、英文/中文与仓库工具页；900px 最小桌面宽度下两栏宽度按 CSS 计算无横向溢出。安装版 Advanced/A2A 高倍裁剪实测 Agent card 输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy 按钮文字内距一致。
+- 设置页在 1280px 预览中走查深色/浅色、管理员/成员、英文/中文与应用、高级页；900px 最小桌面宽度下两栏宽度按 CSS 计算无横向溢出。安装版侧栏只保留 General / GitHub / Application / Advanced，Repository tools 分类不再出现；工具栏 More 菜单实测仍列出 8 个仓库工具入口。安装版 Advanced/A2A 高倍裁剪实测 Agent card 输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy 按钮文字内距一致。
 - `desktop:native-test` 增加服务端口记忆测试（空存储→0、空闲端口复用、占用端口回退）；真实桌面切换仓库后退出重启，检查活动仓库与设置页保持不变。
 
 ## [0.3.18] - 2026-11-21
