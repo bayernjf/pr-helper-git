@@ -60,8 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             guard let self,
                   event.window === self.window else { return event }
             let point = self.webView.convert(event.locationInWindow, from: nil)
+            // WKWebView is a flipped view (y grows downward), so the top strip
+            // sits at small y values — and the web-reported rects are stored
+            // in the same top-left space (css px == view points at 1x/2x).
             let stripHeight: CGFloat = 28
-            guard point.y >= self.webView.bounds.height - stripHeight else { return event }
+            guard point.y <= stripHeight else { return event }
             if self.titlebarInteractiveRects.contains(where: { $0.contains(point) }) {
                 return event
             }
@@ -599,10 +602,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private func applyChromeRects(_ body: Any) {
         guard let payload = body as? [String: Any],
               let rows = payload["rects"] as? [[Double]] else { return }
-        let height = webView.bounds.height
+        // Keep the web's top-left coordinate space as-is: css px == view
+        // points, and the mouse monitor converts its hit point to this space.
         titlebarInteractiveRects = rows.compactMap { row in
             guard row.count == 4 else { return nil }
-            return CGRect(x: row[0], y: height - row[1] - row[3], width: row[2], height: row[3])
+            return CGRect(x: row[0], y: row[1], width: row[2], height: row[3])
         }
     }
 
