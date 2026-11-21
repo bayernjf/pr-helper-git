@@ -390,8 +390,16 @@ button {
   scrollbar-width: none;
 }
 .sidebar::-webkit-scrollbar { width: 0; height: 0; display: none; }
-/* Collapsed: the panel folds away completely; the toggle lives in the toolbar. */
-.sidebar.collapsed { margin-left: -240px; }
+/* Collapsed: the panel folds away completely; the toggle lives in the toolbar.
+   Keep a content gutter so the commit lanes and work panel do not sit against
+   the window edge, and drop the panel's right border with it. */
+.sidebar.collapsed {
+  margin-left: -240px;
+  border-right: 0;
+}
+.sidebar.collapsed + .center {
+  margin-left: 12px;
+}
 @media (max-width: 1120px) { .sidebar.collapsed { margin-left: -204px; } }
 @media (max-width: 880px) { .sidebar.collapsed { margin-left: -176px; } }
 

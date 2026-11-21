@@ -2,6 +2,14 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [Unreleased]
+
+### 修复
+- **收起侧栏后内容贴左边**：侧栏折叠为负边距后，中间栏从窗口左缘开始，提交图轨道只剩组件内部 14px 内距。现在收起态给中间栏增加 12px 内容沟槽，并移除侧栏残留的右边线；展开态仍保持 0 边距。
+
+### 验证
+- 1180 tests / 70 files；E2E 162/162；lint / typecheck:server / build 全绿；1011px 与 900px 视口实测收起态 center 从 x=12 开始、轨道 x=26，展开态 margin 0。
+
 ## [0.3.18] - 2026-11-21
 
 ### 修复
