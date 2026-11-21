@@ -250,7 +250,6 @@ export default function Toolbar() {
           className={`btn btn-caret${dropMenu?.kind === 'pull' ? ' open' : ''}`}
           disabled={!activeRepo || busy}
           aria-label={t("Pull options")}
-          title={t("Pull options")}
           data-menu-trigger="pull"
           onMouseDown={() => {
           if (dropMenu?.kind === 'pull') { setDropMenu(null); suppressCaretClick.current = true; }
@@ -280,7 +279,6 @@ export default function Toolbar() {
           className={`btn btn-caret${dropMenu?.kind === 'push' ? ' open' : ''}`}
           disabled={!activeRepo || busy}
           aria-label={t("Push options")}
-          title={t("Push options")}
           data-menu-trigger="push"
           onMouseDown={() => {
           if (dropMenu?.kind === 'push') { setDropMenu(null); suppressCaretClick.current = true; }
