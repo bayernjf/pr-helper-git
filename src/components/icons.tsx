@@ -164,6 +164,12 @@ export const IconSliders = (p: SVGProps<SVGSVGElement>) => (
     <path d="M14 2v4M8 10v4M16 18v4" />
   </Svg>
 );
+export const IconPanel = (p: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="9.5" y1="4" x2="9.5" y2="20" />
+  </svg>
+);
 export const IconList = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}>
     <line x1="8" y1="6" x2="21" y2="6" />
