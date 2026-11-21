@@ -54,9 +54,11 @@ application never pushes it for you.
   threshold + auto-merge + auto-advance toggles with immediate-effect
   confirmation, recovery policy), plus the **AI automation credential** card
   (base URL / model / key, server-side encrypted)
-- **AI message drafting**: auto-created PR messages draft from the configured
-  AI credential and generation rules (migrated `pr_helper_generation_rules`
-  library, selectable when enabling auto-create)
+- **AI message drafting**: auto-created PR messages draft in English from the
+  configured AI credential and generation rules (migrated
+  `pr_helper_generation_rules` library, selectable when enabling auto-create);
+  the generated title and body are validated before creation and retried once
+  if they break the Conventional Commits or section contract
 - **Failure notifications**: actionable automation failures (paused / failed
   actions) push **macOS local notifications**; an optional Feishu webhook
   activates with `PR_HELPER_GIT_FEISHU_WEBHOOK`

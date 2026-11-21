@@ -276,11 +276,23 @@ function buildPrPrompt(source, target, commits, generationRule = "") {
   const rule = generationRule.trim();
   const ruleInstruction = rule ? `
 
-\u8BF7\u9075\u5FAA\u4EE5\u4E0B Markdown \u751F\u6210\u89C4\u5219\uFF1A
-${rule}` : "";
-  return `\u4E3A GitHub Pull Request \u751F\u6210\u7B80\u6D01\u7684\u4E2D\u6587\u6807\u9898\u548C\u63CF\u8FF0\u3002\u5206\u652F\uFF1A${source} \u2192 ${target}\u3002\u63D0\u4EA4\uFF1A
+Generation rules:
+${rule}
+
+Rule priority:
+- The generation rules define the required content, structure, and wording.
+- Ignore any output-format instruction in the generation rules that asks for a title block, a description block, bracketed section markers, or a title repeated inside the description. This engine consumes JSON only.
+- All generated text must be English, even if the generation rules mention another language.` : "";
+  return `Generate a concise GitHub Pull Request title and description in English.
+Source branch: ${source}
+Target branch: ${target}
+Commits:
 ${changes}${ruleInstruction}
-\u4EC5\u8FD4\u56DE JSON\uFF1A{"title":"...","body":"..."}\u3002`;
+Integration contract:
+- Return JSON only: {"title":"...","body":"..."}
+- title: one line, Conventional Commits, lowercase imperative subject, no trailing punctuation.
+- body: the PR description only. Do not include a title block, a description block, bracketed section markers, or a repeated title.
+- All output must be English.`;
 }
 
 // docs/archive/pr-helper-source/api/_lib/workflow-rows.ts
@@ -650,13 +662,78 @@ function parseAutomationMessage(content, finishReason) {
   }
   return { title: parsed.title.trim().slice(0, 256), body: parsed.body.slice(0, 5e4) };
 }
+var PR_TITLE_RE = /^(feat|fix|docs|style|refactor|perf|test|chore|revert)(?:\([^()\s]+\))?!?: (.+)$/;
+var PR_CJK_RE = /[\u3400-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/;
+var PR_SECTION_ORDER = ["Overview", "Changes", "Related Issues", "Test Info", "Risk Notes"];
+var PR_REQUIRED_SECTIONS = ["Overview", "Changes", "Test Info", "Risk Notes"];
+function validateAutomationMessage(message) {
+  if (!message || typeof message.title !== "string" || typeof message.body !== "string") {
+    throw new Error("AI PR message must contain string title and body fields");
+  }
+  const title = message.title.trim();
+  const body = message.body.trim();
+  if (!title || !body) throw new Error("AI PR message must contain a non-empty title and body");
+  if (PR_CJK_RE.test(title) || PR_CJK_RE.test(body)) {
+    throw new Error("AI PR message must be English: CJK text is not allowed");
+  }
+  if (title.length > 120) throw new Error("AI PR title must be concise (120 characters or fewer)");
+  const titleMatch = title.match(PR_TITLE_RE);
+  if (!titleMatch) {
+    throw new Error("AI PR title must use an allowed Conventional Commits type and the form type(scope): subject");
+  }
+  const subject = titleMatch[2];
+  if (!/^[a-z0-9]/.test(subject)) throw new Error("AI PR title subject must start with a lowercase imperative verb");
+  if (/[.!?]$/.test(subject)) throw new Error("AI PR title subject must not end with punctuation");
+  if (/(?:【[^】]*】|\[PR Title\]|\[PR Description\]|^(?:#{1,4}\s*)?PR (?:Title|Description)\s*:?\s*$)/im.test(body)) {
+    throw new Error("AI PR body must not contain title/description block markers");
+  }
+  const firstLine = body.split(/\r?\n/).find((line) => line.trim())?.trim().replace(/^#{1,4}\s*/, "").replace(/^[-*]\s+/, "");
+  if (firstLine === title) throw new Error("AI PR body must not repeat the PR title");
+  const headings = [...body.matchAll(/^(?:[-*]\s+)?(?:#{1,4}\s+)?(Overview|Changes|Related Issues|Test Info|Risk Notes)\s*(?::|$)/gm)].map((match) => match[1]);
+  if (new Set(headings).size !== headings.length) throw new Error("AI PR body must not repeat section headings");
+  for (const section of PR_REQUIRED_SECTIONS) {
+    if (!headings.includes(section)) throw new Error(`AI PR body is missing the required ${section} section`);
+  }
+  let previous = -1;
+  for (const heading of headings) {
+    const index = PR_SECTION_ORDER.indexOf(heading);
+    if (index <= previous) throw new Error("AI PR body sections are out of order");
+    previous = index;
+  }
+  if (headings.includes("Related Issues") && !/Related Issues\s*:?\s*Closes #\d+/.test(body)) {
+    throw new Error("AI PR body must omit Related Issues unless it contains Closes #<issue>");
+  }
+  return { title, body };
+}
+function retryReason(error) {
+  const message = error instanceof Error ? error.message : String(error || "unknown validation error");
+  return PR_CJK_RE.test(message) ? "The previous response did not satisfy the JSON and English PR-message contract." : message;
+}
 async function generateAutomationMessage(baseUrl, apiKey, model, source, target, commits, generationRule) {
-  const response = await fetch(aiChatCompletionsUrl(baseUrl), { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model, messages: [{ role: "user", content: buildPrPrompt(source, target, commits, generationRule) }], temperature: 0.2, max_tokens: 6e3 }), signal: AbortSignal.timeout(2e4) });
-  if (!response.ok) throw new Error(`AI \u751F\u6210\u5931\u8D25 (${response.status})`);
-  const payload = await response.json();
-  const choice = payload.choices?.[0];
-  const content = choice?.message?.content || "";
-  return parseAutomationMessage(content, choice?.finish_reason);
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const correction = attempt === 0 ? "" : `
+
+Correction required:
+- ${retryReason(lastError)}
+- Return corrected JSON only. All output must be English.
+- The body must not contain title or description block markers, and must not repeat the title.
+- Use the required sections in order.`;
+    const response = await fetch(aiChatCompletionsUrl(baseUrl), { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model, messages: [{ role: "user", content: `${buildPrPrompt(source, target, commits, generationRule)}${correction}` }], temperature: 0.2, max_tokens: 6e3 }), signal: AbortSignal.timeout(2e4) });
+    if (!response.ok) throw new Error(`AI \u751F\u6210\u5931\u8D25 (${response.status})`);
+    const payload = await response.json();
+    const choice = payload.choices?.[0];
+    const content = choice?.message?.content || "";
+    try {
+      if (choice?.finish_reason === "length") throw new Error("AI PR message was truncated; shorten the generation rule or reduce the commit count");
+      return validateAutomationMessage(parseAutomationMessage(content, choice?.finish_reason));
+    } catch (error) {
+      lastError = error;
+      if (attempt === 1) throw new Error(`AI PR message generation failed: ${retryReason(error)}`);
+      if (/truncated/i.test(retryReason(error))) throw lastError;
+    }
+  }
+  throw new Error(`AI PR message generation failed: ${retryReason(lastError)}`);
 }
 function automationCreateOutcome(openPulls, commitCount) {
   const existing = openPulls.find((pull) => Number.isInteger(pull.number) && pull.number > 0);
@@ -3214,6 +3291,7 @@ export {
   automationSkipLine,
   branchRuleMatches,
   branchSourcesForRule,
+  buildPrPrompt,
   canCheckDeploymentUrl,
   cleanupRetainedData,
   codexRepairContext,
@@ -3331,6 +3409,7 @@ export {
   testSavedAiAutomationCredential,
   trackedWorkflowFromSingleRow,
   upsertWorkflow,
+  validateAutomationMessage,
   webhookBranchesForEvent,
   webhookCanChangeStageState,
   withStageDeadline,
