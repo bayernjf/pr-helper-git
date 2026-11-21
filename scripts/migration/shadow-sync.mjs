@@ -175,7 +175,7 @@ function readCloudTable(table, attempt = 1) {
       const query = `SELECT * FROM ${table} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
       const out = execFileSync('node', [prhSql, query], {
         encoding: 'utf8',
-        timeout: 180_000,
+        timeout: 300_000,
         maxBuffer: 256 * 1024 * 1024,
       });
       const page = JSON.parse(out);
@@ -187,7 +187,7 @@ function readCloudTable(table, attempt = 1) {
     // Supabase's pooler occasionally stalls or closes a page connection. One
     // bounded retry is enough; the whole sync is still all-or-nothing because
     // the local rebuild starts only after every table has been fetched.
-    if (attempt < 2) {
+    if (attempt < 3) {
       execFileSync('sleep', ['3']);
       return readCloudTable(table, attempt + 1);
     }
@@ -203,7 +203,7 @@ function readCloudTableSince(table, minId, attempt = 1) {
       const query = `SELECT * FROM ${table} WHERE id > ${Number(minId)} ORDER BY 1 LIMIT ${CLOUD_PAGE_SIZE} OFFSET ${offset}`;
       const out = execFileSync('node', [prhSql, query], {
         encoding: 'utf8',
-        timeout: 180_000,
+        timeout: 300_000,
         maxBuffer: 256 * 1024 * 1024,
       });
       const page = JSON.parse(out);
@@ -215,7 +215,7 @@ function readCloudTableSince(table, minId, attempt = 1) {
     // Same pooler-stall retry as readCloudTable: the top-up must not kill an
     // otherwise-complete sync; the local rebuild still starts only after
     // every read has landed.
-    if (attempt < 2) {
+    if (attempt < 3) {
       execFileSync('sleep', ['3']);
       return readCloudTableSince(table, minId, attempt + 1);
     }
