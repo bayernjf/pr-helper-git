@@ -173,6 +173,12 @@ export default function Toolbar() {
   }
 
   function openMenu(event: React.MouseEvent, kind: 'pull' | 'push') {
+    // Toggle: the carets carry data-menu-trigger, so the open menu survived
+    // this click's mousedown and a second click on the same caret closes it.
+    if (dropMenu?.kind === kind) {
+      setDropMenu(null);
+      return;
+    }
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setDropMenu({ x: rect.left, y: rect.bottom + 4, kind });
   }
@@ -243,6 +249,7 @@ export default function Toolbar() {
           className="btn btn-caret"
           disabled={!activeRepo || busy}
           title={t("Pull options")}
+          data-menu-trigger="pull"
           onClick={(e) => openMenu(e, 'pull')}
         >
           <IconChevronDown width={12} height={12} />
@@ -264,6 +271,7 @@ export default function Toolbar() {
           className="btn btn-caret"
           disabled={!activeRepo || busy}
           title={t("Push options")}
+          data-menu-trigger="push"
           onClick={(e) => openMenu(e, 'push')}
         >
           <IconChevronDown width={12} height={12} />
