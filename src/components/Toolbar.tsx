@@ -38,7 +38,6 @@ import {
   IconChevronDown,
   IconDownload,
   IconGear,
-  IconList,
   IconMonitor,
   IconMoon,
   IconSearch,
@@ -215,15 +214,6 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={t("Open repositories panel")}
-        onClick={() => setShowRepositories(true)}
-      >
-        <IconList />
-      </button>
-
       <span className="branch-pill" title={activeRepo || ''}>
         <span className="dot" />
         {branchLabel}
