@@ -296,7 +296,7 @@ describe('Toolbar', () => {
 
   it('keeps search, settings and theme as the only right-side entries', () => {
     const html = withApp(<Toolbar />, { activeRepo: '/tmp/example' });
-    expect(html).toContain('GitHub settings');
+    expect(html).toContain('aria-label="Settings"');
     // Low-frequency surfaces moved into SettingsModal / the command palette.
     expect(html).not.toContain('Compare two references');
     expect(html).not.toContain('Repository options');

@@ -244,7 +244,7 @@ export const ZH: Record<string, string> = {
   'History: all branches': '历史：所有分支',
   'History: current branch': '历史：当前分支',
   'Add, clone or initialise a repository': '注册、克隆或初始化仓库',
-  'Open GitHub settings': '打开 GitHub 设置',
+  'Open settings': '打开设置',
   'Saving…': '保存中…',
   'Save AI settings': '保存 AI 设置',
   'Testing…': '测试中…',
@@ -582,7 +582,6 @@ export const ZH: Record<string, string> = {
   'Open settings and add a personal access token to manage pull requests.':
     '打开设置并添加 Personal Access Token 以管理 Pull Request。',
   'Personal access token': 'Personal Access Token',
-  'GitHub settings': 'GitHub 设置',
   'GitHub username': 'GitHub 用户名',
   'GitHub username…': 'GitHub 用户名…',
   'AI generation': 'AI 生成',

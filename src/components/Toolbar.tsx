@@ -390,8 +390,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="btn"
-        title={t("GitHub settings")}
-        aria-label={t("GitHub settings")}
+        title={t("Settings")}
+        aria-label={t("Settings")}
         onClick={() => setShowSettings(true)}
       >
         <IconGear />
