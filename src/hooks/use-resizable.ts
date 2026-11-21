@@ -36,22 +36,40 @@ export function useResizable({ prefKey, initial, min, max, edge, label }: Resiza
   const onPointerDown = useCallback((event: React.PointerEvent) => {
     event.preventDefault();
     const startX = event.clientX;
-    const startW = getPref(prefKey, initial);
     const element = event.currentTarget;
     element.classList.add('dragging');
+    // First-ever drag: the panel is still sized by the responsive media
+    // queries (custom=false, no inline width), so setWidth alone would only
+    // take effect at pointerup. Take over from the panel's CURRENT rendered
+    // width and apply the inline style immediately, so the very first drag
+    // tracks the pointer live like every later one.
+    // The separator renders INSIDE the panel it resizes (first child), so
+    // the panel is the parent element.
+    const panel = element.parentElement as HTMLElement | null;
+    const startW = panel?.getBoundingClientRect().width ?? widthRef.current;
+    setWidth(startW);
+    setCustom(true);
+    let moved = false;
     const move = (ev: PointerEvent) => {
+      moved = true;
       setWidth(clamp(startW + sign * (ev.clientX - startX)));
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       element.classList.remove('dragging');
-      setPref(prefKey, widthRef.current);
-      setCustom(true);
+      if (moved) {
+        // Persist only when the drag actually moved, not on a bare click.
+        setPref(prefKey, widthRef.current);
+      } else if (!hasPref(prefKey)) {
+        // A bare click on a never-customized panel must not freeze the
+        // media-query width; hand control back to the responsive rules.
+        setCustom(false);
+      }
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-  }, [clamp, prefKey, initial, sign]);
+  }, [clamp, prefKey, sign]);
 
   const onKeyDown = useCallback((event: React.KeyboardEvent) => {
     let delta = 0;
