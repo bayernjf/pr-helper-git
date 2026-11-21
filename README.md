@@ -487,8 +487,9 @@ role). Details and the switch-day checklist live in
 [docs/phase5-runbook.md](docs/phase5-runbook.md).
 
 Temporary repositories used for end-to-end testing are registered in
-[test-repos.md](test-repos.md) with their local path and GitHub URL, so they can
-be removed again on request.
+[bayjf/docs/TEST_REPOS.md](https://github.com/bayernjf/bayjf/blob/dev/docs/TEST_REPOS.md)
+with their local path and GitHub URL, so they can be removed again on request.
+The old `test-repos.md` path is kept as a pointer to that canonical table.
 
 ## Desktop app (macOS)
 

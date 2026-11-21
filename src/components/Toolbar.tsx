@@ -245,7 +245,7 @@ export default function Toolbar() {
         </button>
         <button
           type="button"
-          className="btn btn-caret"
+          className={`btn btn-caret${dropMenu?.kind === 'pull' ? ' open' : ''}`}
           disabled={!activeRepo || busy}
           aria-label={t("Pull options")}
           data-tip={t("Pull options")}
@@ -268,7 +268,7 @@ export default function Toolbar() {
         </button>
         <button
           type="button"
-          className="btn btn-caret"
+          className={`btn btn-caret${dropMenu?.kind === 'push' ? ' open' : ''}`}
           disabled={!activeRepo || busy}
           aria-label={t("Push options")}
           data-tip={t("Push options")}

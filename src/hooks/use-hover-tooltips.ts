@@ -30,7 +30,14 @@ function show(trigger: HTMLElement) {
   const text = trigger.getAttribute('data-tip') || '';
   if (!text) return;
   const el = tipEl();
-  el.textContent = text;
+  // Text lives in an inner span: the ellipsis clipping stays on the span so
+  // the ::before arrow can protrude above the box (overflow must stay
+  // visible on the tip itself).
+  el.textContent = '';
+  const textSpan = document.createElement('span');
+  textSpan.className = 'hover-tip-text';
+  textSpan.textContent = text;
+  el.appendChild(textSpan);
   el.style.visibility = 'hidden';
   el.classList.add('show');
   // Measure a frame after layout so the clamp uses real dimensions.
@@ -39,10 +46,15 @@ function show(trigger: HTMLElement) {
     const r = trigger.getBoundingClientRect();
     const tr = el.getBoundingClientRect();
     const MARGIN = 8;
-    let left = r.left + r.width / 2 - tr.width / 2;
+    const center = r.left + r.width / 2;
+    let left = center - tr.width / 2;
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - tr.width - MARGIN));
     el.style.left = `${Math.round(left)}px`;
-    el.style.top = `${Math.round(r.bottom + 6)}px`;
+    // Arrow points at the trigger; when the tip is edge-clamped the arrow
+    // stays above the trigger as long as it remains inside the tip box.
+    const arrowX = Math.max(14, Math.min(center - left, tr.width - 14));
+    el.style.setProperty('--tip-arrow-x', `${Math.round(arrowX)}px`);
+    el.style.top = `${Math.round(r.bottom + 5)}px`;
     el.style.visibility = 'visible';
   });
 }
@@ -67,12 +79,17 @@ export function useHoverTooltips() {
     };
     const onScroll = () => hide();
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') hide(); };
+    // Any click (opening a menu, pressing a button) retires the tip
+    // immediately — a tooltip must never sit on top of an opened menu.
+    const onClick = () => hide();
+    document.addEventListener('click', onClick, true);
     document.addEventListener('mouseover', over, true);
     document.addEventListener('mouseout', out, true);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('blur', onScroll);
     document.addEventListener('keydown', onKey);
     return () => {
+      document.removeEventListener('click', onClick, true);
       document.removeEventListener('mouseover', over, true);
       document.removeEventListener('mouseout', out, true);
       window.removeEventListener('scroll', onScroll, true);

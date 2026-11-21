@@ -1254,8 +1254,9 @@ and `npm run desktop` are active again; see “Desktop unfrozen” at the top.
   PATCH `draft:false` calls fail (404 / silently ignored); the server therefore
   performs both via GitHub GraphQL (`mergePullRequest`,
   `markPullRequestReadyForReview`).
-- Test repository registry lives in `test-repos.md`; nothing there is deleted
-  without an explicit request.
+- Test repository registry lives in `bayjf/docs/TEST_REPOS.md`; local
+  `test-repos.md` is a pointer. Nothing there is deleted without an explicit
+  request.
 - Ninth iteration scope: force push (`--force` / `--force-with-lease`), pull
   rebase, merge abort, remote tag deletion and forced tag creation. Two
   pseudo-gaps were ruled out by reading the code: stash pop already exists

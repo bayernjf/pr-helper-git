@@ -98,7 +98,7 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 
 **执行（owner）：**
 
-- 只使用 `test-repos.md` 中已登记的测试仓（优先 `bayernjf/git-e2e-test`），不新建测试仓。
+- 只使用 `bayjf/docs/TEST_REPOS.md`（原 `test-repos.md` 指针）中已登记的测试仓（优先 `bayernjf/git-e2e-test`），不新建测试仓。
 - 按台账 P2-3 的验收链路：push → 阈值 → 自动建 PR → 门禁 → 自动合并 → 推进 stage。
 - 记录本次运行的 action id、PR 编号、合并 commit、stage 审计事件。
 
