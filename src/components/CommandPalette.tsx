@@ -22,13 +22,18 @@ import {
   IconDownload,
   IconFolder,
   IconGear,
+  IconGlobe,
+  IconKeyboard,
   IconList,
   IconPullRequest,
   IconRefresh,
   IconSearch,
   IconServer,
+  IconSliders,
+  IconSplit,
   IconStash,
   IconUpload,
+  IconUser,
 } from './icons';
 
 interface Command {
@@ -185,6 +190,34 @@ export default function CommandPalette() {
           icon: <IconBranch width={15} height={15} />,
           run: () => setLogScope('current'),
         },
+        {
+          id: 'global-grep',
+          label: 'Search across all repositories',
+          search: 'global search grep cross repositories all text',
+          icon: <IconGlobe width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:global-grep')),
+        },
+        {
+          id: 'compare',
+          label: 'Compare two references',
+          search: 'compare diff references branches tags revisions',
+          icon: <IconSplit width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:compare')),
+        },
+        {
+          id: 'remotes',
+          label: 'Manage remotes',
+          search: 'remotes manage origin url fetch push',
+          icon: <IconServer width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:remotes')),
+        },
+        {
+          id: 'config',
+          label: 'Repository settings (git config)',
+          search: 'config git settings repository options',
+          icon: <IconSliders width={15} height={15} />,
+          run: () => window.dispatchEvent(new CustomEvent('git2:config')),
+        },
       );
     }
 
@@ -216,6 +249,20 @@ export default function CommandPalette() {
         search: 'settings github token preferences gear',
         icon: <IconGear width={15} height={15} />,
         run: () => window.dispatchEvent(new CustomEvent('git2:settings')),
+      },
+      {
+        id: 'team',
+        label: 'Team members and configuration',
+        search: 'team members configuration roles access',
+        icon: <IconUser width={15} height={15} />,
+        run: () => window.dispatchEvent(new CustomEvent('git2:team')),
+      },
+      {
+        id: 'shortcuts',
+        label: 'Keyboard shortcuts (press ?)',
+        search: 'shortcuts keyboard hotkeys help keys',
+        icon: <IconKeyboard width={15} height={15} />,
+        run: () => window.dispatchEvent(new CustomEvent('git2:shortcuts')),
       },
     );
     return list;

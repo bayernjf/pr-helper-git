@@ -254,6 +254,35 @@ button {
   height: 100%;
 }
 
+/* Web-drawn titlebar strip: under the traffic lights sits the brand and the
+   repository selector. In the desktop shell the Swift side drags the window
+   from this strip (double-click zooms); only the dropdown trigger is
+   interactive, and its frame is reported via the chromeSync bridge. */
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+  padding: 0 12px 0 80px;
+  background: var(--toolbar-gradient);
+  flex: 0 0 auto;
+  user-select: none;
+}
+.titlebar-title {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.titlebar .repo-select {
+  min-width: 160px;
+  max-width: 220px;
+}
+.titlebar .repo-select > .dropdown-trigger {
+  padding: 2px 8px;
+  font-size: var(--fs-meta);
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -1565,26 +1594,22 @@ pre.diff {
 .settings-row .sub { color: var(--faint); font-size: var(--fs-meta); }
 
 /* ---------- Responsive ---------- */
-/* Progressive toolbar shrinking: primary buttons go icon-only first, then
-   spacing tightens, so the right-side controls stay on screen at any width
-   (no horizontal scrolling). Below 1120px the toolbar wraps to two rows. */
+/* Progressive toolbar shrinking: spacing tightens with width so the whole
+   toolbar (labels included) stays on one row down to ~1150px; below that
+   the toolbar wraps to two rows. */
 @media (max-width: 1500px) {
-  .toolbar .btn-label { display: none; }
-  .toolbar .btn { padding-left: 9px; padding-right: 9px; }
-}
-
-@media (max-width: 1360px) {
   .toolbar { gap: 6px; padding: 0 8px; }
-  .toolbar .btn { padding: 7px 8px; }
+  .toolbar .btn { padding: 6px 10px; }
   .toolbar .segmented button { padding: 5px 8px; font-size: var(--fs-meta); }
   .toolbar .icon-btn { width: 28px; height: 28px; }
   .toolbar-divider { margin: 0 4px; height: 18px; }
 }
 
-/* Below 1200px the standalone shortcuts button yields: the same entry
-   lives in the app menu, and the row fits without scrolling. */
-@media (max-width: 1200px) {
-  .toolbar .btn-shortcuts { display: none; }
+@media (max-width: 1240px) {
+  .toolbar { gap: 5px; padding: 0 6px; }
+  .toolbar .btn { padding: 6px 8px; }
+  .toolbar .segmented button { padding: 5px 6px; }
+  .toolbar .icon-btn { width: 26px; height: 26px; }
 }
 
 @media (max-width: 1120px) {

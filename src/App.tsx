@@ -10,6 +10,7 @@ import CiHealthPage from './components/CiHealthPage';
 import FlowBoard from './components/FlowBoard';
 import PrBoard from './components/PrBoard';
 import RefSidebar from './components/RefSidebar';
+import Titlebar from './components/Titlebar';
 import Toolbar from './components/Toolbar';
 import WorkPanel from './components/WorkPanel';
 import { t, useLocale } from './i18n';
@@ -43,6 +44,7 @@ export default function App() {
   const firstLoad = repoLoading && !status && commits.length === 0;
   return (
     <div className="app">
+      <Titlebar />
       <Toolbar />
       {repoLoading && <div className="loading-bar" />}
       {view === 'dashboard' ? (

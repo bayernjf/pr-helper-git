@@ -254,22 +254,29 @@ try {
       const t0 = Date.now();
       cloudRows[table] = readCloudTable(table);
       console.error(`  read ${table}: ${cloudRows[table].length} rows (${Date.now() - t0}ms)`);
+      // Top up automation_runs immediately after its own read, while the
+      // pooler is still healthy: running this as the LAST connection after
+      // ~11 minutes of churn stalled 3/3 syncs today even at 300s x3.
+      if (table === 'workflow_automation_runs' && cloudRows[table].length) {
+        try {
+          const maxRunId = Math.max(...cloudRows[table].map((row) => Number(row.id) || 0));
+          const newerRuns = readCloudTableSince('workflow_automation_runs', maxRunId);
+          if (newerRuns.length) {
+            cloudRows[table].push(...newerRuns);
+            console.error(`  workflow_automation_runs: topped up ${newerRuns.length} new rows (id > ${maxRunId})`);
+          }
+        } catch (err) {
+          // Non-fatal: the mirror just trails the newest rows until the next
+          // sync; the rebuild itself stays consistent.
+          console.error(`  workflow_automation_runs: top-up failed (non-fatal): ${String(err.message || err).slice(0, 80)}`);
+        }
+      }
     }
   }
 
-  // automation_actions are read after automation_runs, so a run created while
-  // the sync is in flight can be referenced by an action but absent from the
-  // earlier runs page. Top up only the new run ids; this is a few rows, not a
-  // second full read of the 3.6k-row table.
-  const automationRuns = cloudRows.workflow_automation_runs || [];
-  if (!SNAPSHOT_SYNC && automationRuns.length) {
-    const maxRunId = Math.max(...automationRuns.map((row) => Number(row.id) || 0));
-    const newerRuns = readCloudTableSince('workflow_automation_runs', maxRunId);
-    if (newerRuns.length) {
-      cloudRows.workflow_automation_runs.push(...newerRuns);
-      console.error(`  workflow_automation_runs: topped up ${newerRuns.length} new rows (id > ${maxRunId})`);
-    }
-  }
+  // The automation_runs top-up runs in-loop, right after that table's own
+  // read (see the loop above): as the final connection after ~11 minutes of
+  // churn it stalled 3/3 syncs today even at 300s x3 retries.
 
   // If the cloud deleted a parent between paginated reads (or a snapshot
   // predates a run), keep the mirror referentially valid rather than aborting
