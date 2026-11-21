@@ -29,7 +29,11 @@ export function ContextMenu({ x, y, items, title, onSelect, onClose }: ContextMe
       if (e.key === 'Escape') onClose();
     };
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      // A [data-menu-trigger] element owns this menu: its own click toggles
+      // it, so the outside-mousedown must leave the menu mounted for the
+      // subsequent click event to see it open and close it.
+      const target = e.target as HTMLElement;
+      if (ref.current && !ref.current.contains(target) && !target.closest?.('[data-menu-trigger]')) onClose();
     };
     const onBlur = () => onClose();
     window.addEventListener('keydown', onKey);
