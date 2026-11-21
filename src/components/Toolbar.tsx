@@ -389,7 +389,7 @@ export default function Toolbar() {
       <span className="btn-group">
         <button
           type="button"
-          className="icon-btn"
+          className="btn"
           title={t("Search repository contents (git grep)")}
           aria-label={t("Search repository contents (git grep)")}
           disabled={!activeRepo}
@@ -411,7 +411,7 @@ export default function Toolbar() {
       </span>
       <button
         type="button"
-        className="icon-btn"
+        className="btn"
         title={t("Compare two references")}
         aria-label={t("Compare two references")}
         disabled={!activeRepo}
@@ -423,7 +423,7 @@ export default function Toolbar() {
       <span className="btn-group">
         <button
           type="button"
-          className="icon-btn"
+          className="btn"
           title={t("Manage remotes")}
           aria-label={t("Manage remotes")}
           disabled={!activeRepo}
@@ -447,7 +447,7 @@ export default function Toolbar() {
       <span className="btn-group">
         <button
           type="button"
-          className="icon-btn"
+          className="btn"
           title={t("GitHub settings")}
           aria-label={t("GitHub settings")}
           onClick={() => setShowSettings(true)}
@@ -467,7 +467,7 @@ export default function Toolbar() {
       </span>
       <button
         type="button"
-        className="icon-btn"
+        className="btn"
         title={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
         aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
         onClick={toggleTheme}
@@ -476,7 +476,7 @@ export default function Toolbar() {
       </button>
       <button
         type="button"
-        className="icon-btn"
+        className="btn"
         title={t("Keyboard shortcuts (press ?)")}
         aria-label={t("Keyboard shortcuts")}
         onClick={() => setShowShortcuts(true)}
