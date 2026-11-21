@@ -2033,6 +2033,14 @@ pre.diff {
 .dropdown-trigger.open .dropdown-caret { transform: rotate(180deg); }
 .btn-caret svg { transition: transform var(--dur-fast) var(--ease); }
 .btn-caret.open svg { transform: rotate(180deg); }
+/* Group separators in the toolbar icon area. */
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  flex: 0 0 auto;
+  background: var(--border);
+  margin: 0 6px;
+}
 
 /* ---------- keyboard shortcut help ---------- */
 .shortcuts-body { padding: 8px 20px 12px; }
