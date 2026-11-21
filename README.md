@@ -516,10 +516,13 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   locations (Homebrew under `/opt/homebrew/bin/node`, then
   `/usr/local/bin/node`) because a GUI-launched process inherits a minimal
   `PATH`;
-- spawns the bundled server on an ephemeral port with the desktop flag
-  (`PR_HELPER_GIT_DESKTOP=1`, plus legacy `GIT2_DESKTOP=1` for older bundled
-  servers) and reads the machine-readable readiness line; the shell accepts
-  both `PR_HELPER_GIT_READY` and legacy `GIT2_READY`;
+- spawns the bundled server on a loopback port remembered from the previous
+  launch (falling back to an ephemeral port only when the remembered port is
+  occupied), so the WKWebView origin and its localStorage survive restarts,
+  with the desktop flag (`PR_HELPER_GIT_DESKTOP=1`, plus legacy
+  `GIT2_DESKTOP=1` for older bundled servers); the shell reads the
+  machine-readable readiness line and accepts both `PR_HELPER_GIT_READY` and
+  legacy `GIT2_READY`;
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;

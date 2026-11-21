@@ -20,6 +20,14 @@ try {
   ], { stdio: 'inherit' });
   execFileSync(binary, [], { stdio: 'inherit' });
 
+  const serverPortBinary = path.join(work, 'server-port-test');
+  execFileSync('/usr/bin/swiftc', [
+    path.join(root, 'desktop/ServerPort.swift'),
+    path.join(root, 'desktop/ServerPortTest.swift'),
+    '-o', serverPortBinary,
+  ], { stdio: 'inherit' });
+  execFileSync(serverPortBinary, [], { stdio: 'inherit' });
+
   const updateBinary = path.join(work, 'update-fetch-test');
   execFileSync('/usr/bin/swiftc', [
     path.join(root, 'desktop/UpdateCheck.swift'),

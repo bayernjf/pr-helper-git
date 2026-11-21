@@ -75,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             self.window.performDrag(with: event)
             return nil
         }
-        startServer(node: node, script: serverScript)
+        startServer(node: node, script: serverScript, preferredPort: DesktopServerPort.preferredPort())
 
         // Wait for readiness off the main thread so the UI stays responsive.
         DispatchQueue.global().async {
@@ -126,10 +126,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     // MARK: Server process
 
-    private func startServer(node: String, script: String) {
+    private func startServer(node: String, script: String, preferredPort: Int) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: node)
-        process.arguments = [script, "--port=0"]
+        process.arguments = [script, preferredPort > 0 ? "--port=\(preferredPort)" : "--port=0"]
         var env = ProcessInfo.processInfo.environment
         env["PR_HELPER_GIT_DESKTOP"] = "1"
         // Legacy alias for older bundled servers; the current server accepts both.
@@ -192,6 +192,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                   let token = json["token"] as? String else { continue }
             readyPort = port
             readyToken = token
+            // Keep the WKWebView origin stable across launches. localStorage
+            // is scoped by port, so a fresh port each launch loses the active
+            // repository and other browser-stored preferences.
+            DesktopServerPort.remember(port)
             readySemaphore.signal()
         }
     }
