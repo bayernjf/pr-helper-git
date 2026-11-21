@@ -1,6 +1,5 @@
 import { usePreferences, useRepoData } from './app-state/hooks';
 import { useFocusTrap } from './hooks/use-focus-trap';
-import { useHoverTooltips } from './hooks/use-hover-tooltips';
 import { useShortcuts } from './hooks/use-shortcuts';
 import CommandPalette from './components/CommandPalette';
 import CommitDetail from './components/CommitDetail';
@@ -41,7 +40,6 @@ export default function App() {
   useLocale();
   useShortcuts();
   useFocusTrap();
-  useHoverTooltips();
   const firstLoad = repoLoading && !status && commits.length === 0;
   return (
     <div className="app">

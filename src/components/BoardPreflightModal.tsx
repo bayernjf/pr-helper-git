@@ -49,7 +49,7 @@ export default function BoardPreflightModal({ workflows, onClose }: {
             <h2>{t('Board preflight')}</h2>
             <p className="modal-subtitle">{t('Read-only check across every active flow')}</p>
           </div>
-          <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t('Close')} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body flow-preflight-body">
           {loading ? <p className="compact-notice">{t('Checking all flows…')}</p> : null}

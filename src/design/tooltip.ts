@@ -15,14 +15,14 @@
 const TOOLTIP_CSS = `
 .app-tooltip {
   position: fixed;
-  z-index: 400;
-  max-width: 340px;
-  padding: 6px 10px;
-  background: var(--bg4);
+  z-index: var(--z-tip-top);
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 8px 12px;
+  background: var(--tip-bg);
   color: var(--text);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-  font-size: var(--fs-body);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-ui);
   line-height: 1.45;
   white-space: pre-line;
   pointer-events: none;
@@ -63,11 +63,12 @@ export function installTooltips(): void {
     const r = target.getBoundingClientRect();
     const tw = tip.offsetWidth;
     const th = tip.offsetHeight;
-    // Prefer above; flip below when clipped; clamp horizontally.
+    // Prefer below (never covers the trigger); flip above only when the
+    // space below runs out; clamp horizontally.
     let x = r.left + r.width / 2 - tw / 2;
     x = Math.max(6, Math.min(x, window.innerWidth - tw - 6));
-    let y = r.top - th - 6;
-    if (y < 6) y = r.bottom + 6;
+    let y = r.bottom + 6;
+    if (y + th > window.innerHeight - 6) y = r.top - th - 6;
     tip.style.left = `${Math.round(x)}px`;
     tip.style.top = `${Math.round(y)}px`;
     tip.classList.add('app-tooltip-show');

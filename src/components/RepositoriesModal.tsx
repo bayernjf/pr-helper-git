@@ -187,7 +187,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
       <div className="modal modal-wide repo-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t("Open repositories")}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}>
             <IconX />
           </button>
         </div>

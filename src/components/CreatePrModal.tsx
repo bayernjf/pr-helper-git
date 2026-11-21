@@ -88,7 +88,7 @@ export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
         {inlineError ? <div className="drawer-error">{inlineError}</div> : null}
         <div className="modal-header">
           <h2>{t("New pull request")}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
           <div className="form-row">

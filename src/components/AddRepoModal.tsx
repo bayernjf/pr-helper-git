@@ -144,7 +144,7 @@ export default function AddRepoModal({
       <form className="modal" style={{ width: 540 }} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="modal-header">
           <h2>{t("Add a repository")}</h2>
-          <button type="button" className="icon-btn" aria-label={t("Close")} title={t("Close")} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t("Close")} onClick={onClose}><IconX /></button>
         </div>
 
         <div className="modal-body">

@@ -55,7 +55,7 @@ export default function FlowAuditModal({ onClose }: { onClose: () => void }) {
       <div className="modal modal-wide" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h2>{t('Flows audit log')}</h2>
-          <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t('Close')} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body no-pad flow-audit-body">
           <div className="flow-audit-toolbar">

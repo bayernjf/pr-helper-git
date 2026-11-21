@@ -130,7 +130,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {translateText(t.action.label)}
               </button>
             ) : null}
-            <button type="button" className="toast-close" aria-label={translateText("Dismiss notification")} title={translateText("Dismiss")} onClick={() => dismiss(t.id)}>
+            <button type="button" className="toast-close" aria-label={translateText("Dismiss notification")} onClick={() => dismiss(t.id)}>
               <IconX width={13} height={13} />
             </button>
           </div>

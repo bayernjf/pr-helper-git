@@ -387,7 +387,7 @@ export default function RefSidebar() {
                 { value: 'recent', label: t('Recent') },
               ]}
             />
-            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} title={t("New branch")} aria-label={t("New branch")} onClick={() => setShowNew(true)}>
+            <button type="button" className="icon-btn" style={{ width: 24, height: 24 }} aria-label={t("New branch")} onClick={() => setShowNew(true)}>
               <IconPlus width={15} height={15} />
             </button>
           </>

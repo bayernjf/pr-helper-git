@@ -161,7 +161,7 @@ export default function TeamsModal({ onClose }: { onClose: () => void }) {
       <div className="modal modal-wide" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h2>{t('Teams')}</h2>
-          <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}><IconX /></button>
+          <button type="button" className="icon-btn" aria-label={t('Close')} onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body teams-body">
           {loading ? <p className="compact-notice">{t('Loading…')}</p> : null}

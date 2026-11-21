@@ -63,7 +63,7 @@ export default function BisectModal({ onClose }: { onClose: () => void }) {
       <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t('Bisect')}</h2>
-          <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}>
+          <button type="button" className="icon-btn" aria-label={t('Close')} onClick={onClose}>
             <IconX />
           </button>
         </div>

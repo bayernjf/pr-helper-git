@@ -438,38 +438,6 @@ div.ref-group-head { gap: 8px; }
 .ref-row .row-more:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 1px; }
 .ref-row .row-more:hover { color: var(--text); background: var(--active); }
 
-/* ---------- Hover tooltip (toolbar only) ----------
-   One shared fixed-positioned tip per [data-tip] trigger, rendered BELOW
-   the button (native title tooltips cover the control) and clamped to the
-   viewport edges by the controller in use-hover-tooltips. */
-.hover-tip {
-  position: fixed;
-  top: 0;
-  left: 0;
-  max-width: min(420px, calc(100vw - 16px));
-  padding: 8px 12px;
-  border: 1px solid var(--tip-border);
-  border-radius: var(--radius-sm);
-  background: var(--tip-bg);
-  color: var(--text);
-  font-size: var(--fs-ui);
-  box-shadow: var(--shadow-md);
-  opacity: 0;
-  pointer-events: none;
-  z-index: var(--z-tip-top);
-  transition: opacity var(--dur-fast) var(--ease);
-}
-/* Ellipsis lives on the inner span; the tip itself stays overflow-visible
-   so the arrow can protrude above the box. */
-.hover-tip-text {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* No arrow (owner directive): a plain dark chip flush under the trigger. */
-.hover-tip.show { opacity: 1; }
-
 /* ---------- Center column ---------- */
 .center {
   flex: 1 1 auto;
