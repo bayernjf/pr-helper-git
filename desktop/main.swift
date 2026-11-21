@@ -418,6 +418,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         // chrome (titlebar) matches the content instead of following the
         // system appearance (P4-3 desktop).
         configuration.userContentController.add(self, name: "themeSync")
+        // Web-initiated native folder picker (AddRepoModal "Browse…").
+        configuration.userContentController.add(self, name: "folderPicker")
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -558,12 +560,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     // MARK: Theme bridge
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "folderPicker" {
+            chooseFolderForWeb()
+            return
+        }
         guard message.name == "themeSync", let mode = message.body as? String else { return }
         let light = mode == "light"
         window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         window.backgroundColor = light
             ? NSColor(red: 0.93, green: 0.95, blue: 0.97, alpha: 1)
             : NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+    }
+
+    // MARK: Web-initiated folder picker
+
+    /// Opens the native directory panel and resolves the web-side promise
+    /// (window.__resolveFolderPicker) with the absolute path, or null when
+    /// the user cancels.
+    private func chooseFolderForWeb() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Repository Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            let path: String? = response == .OK ? panel.url?.path : nil
+            let element: Any = path.map { $0 as Any } ?? NSNull()
+            guard let data = try? JSONSerialization.data(withJSONObject: [element]),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            webView.evaluateJavaScript(
+                "window.__resolveFolderPicker && window.__resolveFolderPicker(\(json)[0])",
+                completionHandler: nil
+            )
+        }
     }
 
     // MARK: Errors
