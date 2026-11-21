@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   fetchRepo,
   pullRepo,
@@ -172,6 +172,8 @@ export default function Toolbar() {
     }
   }
 
+  const suppressCaretClick = useRef(false);
+
   function openMenu(event: React.MouseEvent, kind: 'pull' | 'push') {
     // Toggle: the carets carry data-menu-trigger, so the open menu survived
     // this click's mousedown and a second click on the same caret closes it.
@@ -250,7 +252,14 @@ export default function Toolbar() {
           aria-label={t("Pull options")}
           data-tip={t("Pull options")}
           data-menu-trigger="pull"
-          onClick={(e) => openMenu(e, 'pull')}
+          onMouseDown={() => {
+          if (dropMenu?.kind === 'pull') { setDropMenu(null); suppressCaretClick.current = true; }
+          else suppressCaretClick.current = false;
+        }}
+        onClick={(e) => {
+          if (suppressCaretClick.current) { suppressCaretClick.current = false; return; }
+          openMenu(e, 'pull');
+        }}
         >
           <IconChevronDown width={12} height={12} />
         </button>
@@ -273,7 +282,14 @@ export default function Toolbar() {
           aria-label={t("Push options")}
           data-tip={t("Push options")}
           data-menu-trigger="push"
-          onClick={(e) => openMenu(e, 'push')}
+          onMouseDown={() => {
+          if (dropMenu?.kind === 'push') { setDropMenu(null); suppressCaretClick.current = true; }
+          else suppressCaretClick.current = false;
+        }}
+        onClick={(e) => {
+          if (suppressCaretClick.current) { suppressCaretClick.current = false; return; }
+          openMenu(e, 'push');
+        }}
         >
           <IconChevronDown width={12} height={12} />
         </button>

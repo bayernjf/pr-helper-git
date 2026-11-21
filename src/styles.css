@@ -69,6 +69,10 @@ h2 { font-size: var(--fs-md); font-weight: 600; }
   --ctx-bg: var(--bg2);
   --ctx-border: var(--border-strong);
   --btn-border-hover: var(--border-strong);
+  /* Hover tooltip surface (toolbar only): near-black, borderless in dark
+     mode — mirrors the reference (GitHub-style) tooltip. */
+  --tip-bg: #101218;
+  --tip-border: transparent;
 }
 
 :root {
@@ -125,6 +129,8 @@ h2 { font-size: var(--fs-md); font-weight: 600; }
   --pill-bad-bg: rgba(210, 15, 57, 0.12);
   --pill-warn-bg: rgba(223, 142, 29, 0.12);
   --sticky-bg: rgba(255, 255, 255, 0.92);
+  --tip-bg: #ffffff;
+  --tip-border: var(--border-strong);
 }
 
 * { box-sizing: border-box; }
@@ -436,12 +442,12 @@ div.ref-group-head { gap: 8px; }
   top: 0;
   left: 0;
   max-width: min(420px, calc(100vw - 16px));
-  padding: 5px 10px;
-  border: 1px solid var(--border-strong);
+  padding: 8px 12px;
+  border: 1px solid var(--tip-border);
   border-radius: var(--radius-sm);
-  background: var(--bg1);
+  background: var(--tip-bg);
   color: var(--text);
-  font-size: var(--fs-body);
+  font-size: var(--fs-ui);
   box-shadow: var(--shadow-md);
   opacity: 0;
   pointer-events: none;
@@ -466,7 +472,7 @@ div.ref-group-head { gap: 8px; }
   transform: translateX(-50%);
   border: 5px solid transparent;
   border-top: 0;
-  border-bottom-color: var(--bg1);
+  border-bottom-color: var(--tip-bg);
 }
 .hover-tip.show { opacity: 1; }
 

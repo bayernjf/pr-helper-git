@@ -50,6 +50,12 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<MenuPlacement | null>(null);
+  // WebKit quirk: clicking the trigger while the focused portaled menu is
+  // open fires the menu's onBlur with a null relatedTarget, which closes the
+  // menu at MOUSEDOWN — the subsequent click would then reopen it, so the
+  // trigger could never collapse its own menu. Close on mousedown instead
+  // and suppress the matching click, deterministically, in every engine.
+  const suppressClickRef = useRef(false);
   const [active, setActive] = useState(() => Math.max(0, options.findIndex((o) => o.value === value)));
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -148,7 +154,22 @@ export function Dropdown({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={toggle}
+        onMouseDown={() => {
+          if (disabled) return;
+          if (open) {
+            setOpen(false);
+            suppressClickRef.current = true;
+          } else {
+            suppressClickRef.current = false;
+          }
+        }}
+        onClick={() => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          toggle();
+        }}
         onKeyDown={onTriggerKey}
       >
         <span className="dropdown-value">{current?.label ?? value}</span>
