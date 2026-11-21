@@ -31,6 +31,13 @@ export default function Titlebar() {
     report();
     const observer = new ResizeObserver(report);
     observer.observe(document.querySelector<HTMLElement>('.titlebar')!);
+    // The dropdown's width follows the repo name (fit-content) - observe the
+    // control itself so the shell's interactive rect stays fresh on switch.
+    const controls = [
+      document.querySelector<HTMLElement>('.titlebar .titlebar-btn'),
+      document.querySelector<HTMLElement>('.titlebar .dropdown-trigger'),
+    ].filter((el): el is HTMLElement => !!el);
+    controls.forEach((el) => observer.observe(el));
     window.addEventListener('resize', report);
     return () => {
       observer.disconnect();
