@@ -1,6 +1,7 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { addRepo, cloneRepo, getMe, initRepo } from '../api';
+import { folderPickerAvailable, pickFolder } from '../lib/desktop-bridge';
 import { useRepoData } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
@@ -85,6 +86,18 @@ export default function AddRepoModal({
     if (trimmed) localStorage.setItem(PARENT_KEY, trimmed);
   }
 
+  // Native folder picker (desktop shell only). Plain browsers keep the
+  // manual absolute-path input.
+  const canBrowse = folderPickerAvailable();
+  const browseOpen = async () => {
+    const folder = await pickFolder();
+    if (folder) setLocalPath(folder);
+  };
+  const browseParent = async () => {
+    const folder = await pickFolder();
+    if (folder) setParentDir(folder);
+  };
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (isMember) {
@@ -157,12 +170,20 @@ export default function AddRepoModal({
           {mode === 'open' && (
             <div className="form-group">
               <label>{t("Repository path")}</label>
-              <input
-                autoFocus
-                placeholder="/Users/you/000mycodes/some-repo"
-                value={localPath}
-                onChange={(e) => setLocalPath(e.target.value)}
-              />
+              <div className="form-row" style={{ gap: 8 }}>
+                <input
+                  autoFocus
+                  placeholder="/Users/you/000mycodes/some-repo"
+                  value={localPath}
+                  onChange={(e) => setLocalPath(e.target.value)}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                {canBrowse && (
+                  <button type="button" className="btn" onClick={() => void browseOpen()}>
+                    {t('Browse…')}
+                  </button>
+                )}
+              </div>
               <div className="hint">{t("Absolute path of a folder that already contains a .git directory.")}</div>
             </div>
           )}
@@ -181,7 +202,14 @@ export default function AddRepoModal({
               </div>
               <div className="form-group">
                 <label>{t("Parent directory")}</label>
-                <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} />
+                <div className="form-row" style={{ gap: 8 }}>
+                  <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                  {canBrowse && (
+                    <button type="button" className="btn" onClick={() => void browseParent()}>
+                      {t('Browse…')}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label>{t("New folder name")}</label>
@@ -198,7 +226,14 @@ export default function AddRepoModal({
             <>
               <div className="form-group">
                 <label>{t("Parent directory")}</label>
-                <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} />
+                <div className="form-row" style={{ gap: 8 }}>
+                  <input value={parentDir} onChange={(e) => setParentDir(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                  {canBrowse && (
+                    <button type="button" className="btn" onClick={() => void browseParent()}>
+                      {t('Browse…')}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label>{t("New folder name")}</label>
