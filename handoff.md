@@ -151,6 +151,26 @@ A2A、仓库工具、快捷键与原有角色门禁全部保留。外观改为�
 `PR Helper Git-0.3.18-before-settings.app`，安装版实测 General/GitHub 两页
 布局与对比度正常。提交 `006d65a`（设置页）、`526e9ea`（侧栏收起 12px 沟槽）。
 
+### 桌面端稳定端口与 localStorage（2026-11-22，未发布）
+
+现象：在桌面端切到 `pr-helper-git` 后重启又回到 `Hello-World`。
+
+根因：桌面壳每次都传 `--port=0`，WKWebView 的 localStorage 按
+`scheme + host + port` 隔离；端口一变就是新的空存储。当前
+`~/Library/WebKit/local.pr-helper-git/WebsiteData/Default` 下已积累
+55 份独立 `localstorage.sqlite3`，多个库仍各自保存着不同的
+`pr-helper-git:active-repo`，直接证明每次启动换了 origin。
+
+修复：新增 `desktop/ServerPort.swift`，把服务端口写入 `UserDefaults`
+（`desktopServerPort`），下次启动先探测该端口，仍可用才复用；被占用时
+回退 `--port=0`，并在 ready 握手后记住新端口。原生测试覆盖空存储、
+空闲端口复用、占用端口回退；README 与 CHANGELOG 的“临时端口”表述同步更正。
+
+验证：`desktop:native-test` 全绿；`BUNDLE_NODE=1 npm run desktop` +
+`desktop:smoke` 全绿；安装后实际在 55018 端口切到 `pr-helper-git`，
+退出再启动，端口仍为 55018，活动仓库仍为 `pr-helper-git`。
+提交 `23d1652`。
+
 ## Release 0.3.17 (2026-11-20)
 
 范围：修复 0.3.16 桌面端顶部双击缩放的覆盖范围。0.3.16 把
