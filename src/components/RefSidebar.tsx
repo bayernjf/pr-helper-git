@@ -379,7 +379,6 @@ export default function RefSidebar() {
           <>
             <Dropdown
               className="branch-sort"
-              title={t('Sort local branches')}
               value={branchSort}
               onChange={(v) => changeSort(v as BranchSort)}
               options={[
@@ -403,11 +402,11 @@ export default function RefSidebar() {
           badge={
             <>
               {pinned.includes(r.shortName) && (
-                <span className="pin-badge" title={t("Pinned")}><IconPin width={12} height={12} /></span>
+                <span className="pin-badge" aria-label={t("Pinned")}><IconPin width={12} height={12} /></span>
               )}
               {(r.ahead > 0 || r.behind > 0 || r.gone) && (
                 <span className="track-badge">
-                  {r.gone && <span className="track-gone" title={t("Upstream branch no longer exists")}>gone</span>}
+                  {r.gone && <span className="track-gone">gone</span>}
                   {r.ahead > 0 && <span className="track-ahead">↑{r.ahead}</span>}
                   {r.behind > 0 && <span className="track-behind">↓{r.behind}</span>}
                 </span>
@@ -480,7 +479,7 @@ export default function RefSidebar() {
         />
       )}
       {submodules.length > 0 && openGroups.submodules !== false && submodules.map((sm) => (
-        <div key={sm.path} className="ref-row" title={`${sm.sha.slice(0, 8)} ${sm.describe}`.trim()}>
+        <div key={sm.path} className="ref-row">
           <span className="ref-icon"><IconFile width={15} height={15} /></span>
           <span className="ref-name">{sm.path}</span>
           <span className="track-badge">

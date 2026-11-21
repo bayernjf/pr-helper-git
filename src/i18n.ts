@@ -1219,6 +1219,8 @@ export const ZH: Record<string, string> = {
     '请尝试更长的时间窗口，或确认仓库已启用 Actions / check runs。',
   'Green': '绿',
   'No CI': '无 CI',
+  'Delete file': '删除文件',
+  'Stage the file after editing it by hand': '手动编辑后暂存该文件',
   'review ?': '审查 ?',
   'Review summary unavailable — refresh to retry': '审查摘要不可用 — 刷新可重试',
   'Type a command…': '输入命令…',

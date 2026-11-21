@@ -9,7 +9,6 @@ import {
   buildStageDetails,
   flowProgress,
   nextActionSummary,
-  stageProgressTooltip,
   type NextActionKind,
   type StageEventRow,
 } from '../lib/automation/flows-detail';
@@ -174,7 +173,6 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                 type="button"
                 className={`fp-node is-${status}${isCurrent ? ' is-current' : ''}`}
                 disabled={!onOpenDrawer}
-                title={stageProgressTooltip(state, flow, index)}
                 aria-label={`${tp('Step {step}', { step: index + 1 })} · ${t(NODE_LABEL[status])}`}
                 onClick={() => onOpenDrawer?.(index)}
               >

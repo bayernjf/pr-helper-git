@@ -643,7 +643,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                   max={20}
                   value={stage.automation?.triggerMinCommits || 1}
                   className="editor-threshold"
-                  title={t('auto-create threshold')}
                   disabled={!prerequisites.ok || stage.automation?.autoCreatePullRequest !== true}
                   onChange={(event) => {
                     const threshold = Math.min(20, Math.max(1, Number(event.target.value) || 1));
@@ -698,7 +697,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                   type="button"
                   className="drawer-btn small"
                   aria-label={t('move step up')}
-                  title={t('move step up')}
                   disabled={index === 0}
                   onClick={() => setDraft((current) => reorderStages(current, index, index - 1))}
                 >
@@ -708,7 +706,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                   type="button"
                   className="drawer-btn small"
                   aria-label={t('move step down')}
-                  title={t('move step down')}
                   disabled={index === draft.stages.length - 1}
                   onClick={() => setDraft((current) => reorderStages(current, index, index + 1))}
                 >
@@ -744,7 +741,6 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
             type="button"
             className="drawer-btn small"
             disabled={!options?.actionsAvailable}
-            title={options?.actionsAvailable ? t('Re-derive gates from the repository workflows') : t('Cannot sync while Actions workflows are unavailable')}
             onClick={syncDeployments}
           >
             {t('sync gates')}

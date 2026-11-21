@@ -40,7 +40,6 @@ export function Dropdown({
   id,
   className,
   disabled,
-  title,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -48,7 +47,6 @@ export function Dropdown({
   id?: string;
   className?: string;
   disabled?: boolean;
-  title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<MenuPlacement | null>(null);
@@ -147,7 +145,6 @@ export function Dropdown({
         type="button"
         id={id}
         className="dropdown-trigger"
-        title={title}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}

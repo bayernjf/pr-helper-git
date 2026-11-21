@@ -301,7 +301,6 @@ export function CommentsSection({
                       <button
                         type="button"
                         className="comment-tool-btn"
-                        title={t('Edit comment')}
                         onClick={() => onStartEdit(comment)}
                         disabled={editWorking}
                       >
@@ -309,7 +308,6 @@ export function CommentsSection({
                       <button
                         type="button"
                         className="comment-tool-btn danger"
-                        title={t('Delete comment')}
                         onClick={() => onDelete(comment)}
                         disabled={editWorking}
                       >

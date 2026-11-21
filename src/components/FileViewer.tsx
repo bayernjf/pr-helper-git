@@ -234,7 +234,6 @@ export default function FileViewer({
                 <button
                   type="button"
                   className={mode === 'edit' ? 'active' : ''}
-                  title={t("Edit working-tree file")}
                   onClick={startEdit}
                 >
                   {t("Edit")}</button>
@@ -266,7 +265,6 @@ export default function FileViewer({
                   className="btn btn-primary"
                   onClick={submitEdit}
                   disabled={saving}
-                  title={t("Save (Cmd/Ctrl+S)")}
                 >
                   {saving ? 'Saving…' : 'Save changes'}
                 </button>

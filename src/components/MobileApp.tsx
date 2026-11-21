@@ -207,7 +207,6 @@ export default function MobileApp() {
             type="button"
             className="m-icon-btn"
             aria-label={t('Refresh')}
-            title={t('Refresh')}
             onClick={() => loadRepo(repo)}
           >
             <IconRefresh width={18} height={18} />
@@ -216,7 +215,6 @@ export default function MobileApp() {
         <button
           type="button"
           className="m-icon-btn m-locale"
-          title={t('Settings')}
           onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
         >
           {locale === 'zh' ? '中' : 'En'}

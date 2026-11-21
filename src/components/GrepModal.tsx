@@ -120,7 +120,6 @@ export default function GrepModal({ onClose }: { onClose: () => void }) {
                       key={`${m.path}-${m.line}`}
                       role="button"
                       tabIndex={0}
-                      title={t("Open this file at the matching line")}
                       onClick={() => openResult(m.path, m.line)}
                       onKeyDown={(e) => {
                         if (e.key !== 'Enter' && e.key !== ' ') return;

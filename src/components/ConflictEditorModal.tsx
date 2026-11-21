@@ -120,7 +120,7 @@ export default function ConflictEditorModal({
       <div className="modal modal-wide conflict-editor" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t('Merge editor')}</h2>
-          <span className="conflict-editor-path" title={path}>{path}</span>
+          <span className="conflict-editor-path">{path}</span>
           <span className="spacer" />
           <button type="button" className="icon-btn" aria-label={t('Close')} title={t('Close')} onClick={onClose}>
             <IconX />

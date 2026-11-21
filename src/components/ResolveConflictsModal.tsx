@@ -54,7 +54,7 @@ export default function ResolveConflictsModal({
             ) : (
               conflicts.map((file) => (
                 <div className="conflict-row" key={file.path}>
-                  <span className="conflict-path" title={file.path}>{file.path}</span>
+                  <span className="conflict-path">{file.path}</span>
                   <button type="button" className="conflict-open" onClick={() => setViewing(file.path)}>
                     View
                   </button>
@@ -62,7 +62,6 @@ export default function ResolveConflictsModal({
                     <button
                       type="button"
                       className="btn"
-                      title={t('Open the three-way merge editor')}
                       onClick={() => setEditing(file.path)}
                     >
                       <IconEdit width={13} height={13} /> {t('Editor')}
@@ -71,7 +70,7 @@ export default function ResolveConflictsModal({
                       type="button"
                       className="btn"
                       disabled={pending === file.path}
-                      title="Take the current branch version (git checkout --ours)"
+                      aria-label="Take the current branch version"
                       onClick={() => take(file.path, 'ours')}
                     >
                       Use current
@@ -80,7 +79,7 @@ export default function ResolveConflictsModal({
                       type="button"
                       className="btn"
                       disabled={pending === file.path}
-                      title="Take the incoming version (git checkout --theirs)"
+                      aria-label="Take the incoming version"
                       onClick={() => take(file.path, 'theirs')}
                     >
                       Use incoming
@@ -89,7 +88,7 @@ export default function ResolveConflictsModal({
                       type="button"
                       className="btn btn-primary"
                       disabled={pending === file.path}
-                      title={t("Stage the file after editing it by hand (git add)")}
+                      aria-label={t("Stage the file after editing it by hand")}
                       onClick={() => take(file.path, 'mark')}
                     >
                       Mark resolved

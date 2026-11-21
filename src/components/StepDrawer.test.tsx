@@ -128,7 +128,7 @@ describe('StepDrawer merge method menu', () => {
     expect(options[0].textContent).toContain(t('Merge commit (merge)'));
     for (const option of options.slice(1)) {
       expect((option as HTMLButtonElement).disabled).toBe(true);
-      expect(option.getAttribute('title')).toBe(t('Requires the GitHub page'));
+      expect(option.getAttribute('aria-label')).toBe(t('Requires the GitHub page'));
     }
     expect(options[1].textContent).toContain(t('Squash merge (squash)'));
     expect(options[2].textContent).toContain(t('Rebase merge (rebase)'));

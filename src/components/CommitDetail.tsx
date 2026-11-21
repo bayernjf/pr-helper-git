@@ -212,14 +212,13 @@ export default function CommitDetail() {
               className="pr-detail-item"
               style={{ width: '100%', textAlign: 'left' }}
               onClick={() => openPatch(f)}
-              title={t("View patch")}
             >
               <span style={{ color: statusColor(f.status), width: 16 }}>{f.status.slice(0, 1)}</span>
               <IconFile width={13} height={13} style={{ color: 'var(--faint)' }} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.path}</span>
               <span
                 role="button"
-                title={t("View file at this commit")}
+                aria-label={t("View file at this commit")}
                 style={{ display: 'inline-flex', padding: '0 4px', cursor: 'pointer' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -249,7 +248,7 @@ export default function CommitDetail() {
               <button
                 type="button"
                 className={`btn${ignoreWs ? ' btn-primary' : ''}`}
-                title={t("Hide pure whitespace changes in this patch")}
+                aria-label={t("Hide pure whitespace changes in this patch")}
                 onClick={toggleIgnoreWs}
               >
                 {t("Ignore whitespace")}

@@ -96,7 +96,7 @@ export default function FlowAuditModal({ onClose }: { onClose: () => void }) {
                     <td><code>{entry.action}</code></td>
                     <td className={entry.outcome === 'success' ? 'ok' : 'warn'}>{entry.outcome}</td>
                     <td>{flowAuditSummary(entry)}</td>
-                    <td title={entry.failureReason ?? ''}>{entry.failureReason ?? '—'}</td>
+                    <td>{entry.failureReason ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

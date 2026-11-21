@@ -58,7 +58,6 @@ export function TreeRow({
           className="icon-btn"
           style={{ width: 18, height: 18 }}
           aria-label={isCollapsed ? tp('Expand {name}', { name: node.name }) : tp('Collapse {name}', { name: node.name })}
-          title={isCollapsed ? 'Expand folder' : 'Collapse folder'}
           aria-expanded={!isCollapsed}
           onClick={() => toggleFolder(node.path)}
         >
@@ -91,7 +90,6 @@ export function TreeRow({
         type="button"
         className="icon-btn"
         style={{ width: 20, height: 20, color: isStaged ? 'var(--accent)' : 'var(--green)' }}
-        title={isStaged ? 'Unstage' : 'Stage'}
         aria-label={isStaged ? 'Unstage' : 'Stage'}
         onClick={(e) => {
           e.stopPropagation();
@@ -106,7 +104,7 @@ export function TreeRow({
       <span className="file-actions">
         <button
           type="button"
-          title={t("View file content")}
+          aria-label={t("View file content")}
           onClick={(e) => {
             e.stopPropagation();
             onView();
@@ -117,7 +115,7 @@ export function TreeRow({
         {onEditContent && (
           <button
             type="button"
-            title={t("Edit file content")}
+            aria-label={t("Edit file content")}
             onClick={(e) => {
               e.stopPropagation();
               onEditContent();
@@ -129,7 +127,7 @@ export function TreeRow({
         {onRename && (
           <button
             type="button"
-            title="Rename or move (git mv)"
+            aria-label="Rename or move"
             onClick={(e) => {
               e.stopPropagation();
               onRename();
@@ -141,7 +139,7 @@ export function TreeRow({
         {onDelete && (
           <button
             type="button"
-            title={t("Delete file (git rm)")}
+            aria-label={t("Delete file")}
             className="action-danger"
             onClick={(e) => {
               e.stopPropagation();
@@ -154,7 +152,7 @@ export function TreeRow({
         {onIgnore && (
           <button
             type="button"
-            title={t("Add to .gitignore")}
+            aria-label={t("Add to .gitignore")}
             onClick={(e) => {
               e.stopPropagation();
               onIgnore();
@@ -166,7 +164,7 @@ export function TreeRow({
         {onDiscard && (
           <button
             type="button"
-            title={t("Discard changes")}
+            aria-label={t("Discard changes")}
             onClick={(e) => {
               e.stopPropagation();
               onDiscard();

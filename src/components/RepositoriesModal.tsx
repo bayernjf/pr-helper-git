@@ -207,7 +207,6 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
               type="button"
               className="icon-btn"
               aria-label={t("Clear filter")}
-              title={t("Clear filter")}
               onClick={() => setQuery('')}
             >
               <IconX width={13} height={13} />
@@ -225,7 +224,6 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
           <button
             type="button"
             className="icon-btn"
-            title={t("Refresh status")}
             aria-label={t("Refresh status")}
             disabled={refreshing}
             onClick={manualRefresh}
@@ -272,8 +270,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                 >
                   <span
                     className={`repo-panel-activity lv-${level}`}
-                    title={r.lastCommit?.at ? `Last commit ${relativeAge(r.lastCommit.at)}${r.lastCommit.subject ? ` — ${r.lastCommit.subject}` : ''}` : 'No commits yet'}
-                    aria-hidden="true"
+                      aria-hidden="true"
                   />
                   <input
                     type="checkbox"
@@ -286,7 +283,6 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                     <button
                       type="button"
                       className={`repo-pin${isPinned ? ' is-pinned' : ''}`}
-                      title={isPinned ? 'Unpin repository' : 'Pin repository'}
                       aria-label={isPinned ? `Unpin ${r.name}` : `Pin ${r.name}`}
                       aria-pressed={isPinned}
                       onClick={(e) => {
@@ -300,19 +296,19 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                     {isActive && <span className="repo-panel-active">{t("active")}</span>}
                     {r.lastCommit?.at && <span className="repo-panel-age">{relativeAge(r.lastCommit.at)}</span>}
                   </span>
-                  <span className="repo-panel-location" title={r.path}>
+                  <span className="repo-panel-location">
                     {parentDir(r.path)}
                   </span>
                   <span className="repo-panel-status">
                     {r.error ? (
-                      <span className="repo-panel-err" title={r.error}>unavailable</span>
+                      <span className="repo-panel-err">unavailable</span>
                     ) : (
                       <>
                         {dirty > 0 && (
                           <span className="repo-panel-dirty">
-                            {r.staged > 0 && <b className="c-staged" title="staged">{r.staged}</b>}
-                            {r.unstaged > 0 && <b className="c-unstaged" title="unstaged">{r.unstaged}</b>}
-                            {r.untracked > 0 && <b className="c-untracked" title="untracked">{r.untracked}</b>}
+                            {r.staged > 0 && <b className="c-staged">{r.staged}</b>}
+                            {r.unstaged > 0 && <b className="c-unstaged">{r.unstaged}</b>}
+                            {r.untracked > 0 && <b className="c-untracked">{r.untracked}</b>}
                           </span>
                         )}
                         {(r.ahead > 0 || r.behind > 0) && (
@@ -367,7 +363,7 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
             <input type="checkbox" checked={dirtyOnly} onChange={(e) => setDirtyOnly(e.target.checked)} />
             {t("With changes")}
           </label>
-          <label className="repo-panel-toggle" title={t("Re-read git status every 30s while this panel is open; never fetches or pulls")}>
+          <label className="repo-panel-toggle">
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
             {t("Auto refresh")}
           </label>
@@ -396,7 +392,6 @@ export default function RepositoriesModal({ onClose }: { onClose: () => void }) 
                 className="btn btn-primary"
                 onClick={batchPull}
                 disabled={batchBusy}
-                title="git pull --ff-only in each selected repository; diverged or dirty repositories fail without merging"
               >
                 {batchBusy ? 'Working…' : `Pull ${selected.size} (ff-only)`}
               </button>

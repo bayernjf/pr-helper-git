@@ -183,7 +183,6 @@ export default function PrFileReview({
               type="button"
               className={`btn${hideWs ? ' btn-primary' : ''}`}
               disabled={whitespaceHunks.size === 0}
-              title={t("Collapse hunks whose changes are only whitespace")}
               onClick={() => setHideWs((v) => !v)}
             >
               {hideWs ? 'Show whitespace changes' : 'Hide whitespace changes'}
@@ -235,7 +234,7 @@ export default function PrFileReview({
                       <button
                         type="button"
                         className="review-add-btn"
-                        title={t("Add a comment on this line")}
+                        aria-label={t("Add a comment on this line")}
                         onClick={() => {
                           setAnchor(rowAnchor);
                           setDraft('');

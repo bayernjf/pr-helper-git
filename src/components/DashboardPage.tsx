@@ -257,20 +257,17 @@ export default function DashboardPage() {
     return (
       <>
         {r.unmerged > 0 && (
-          <span className="dash-pill conflict" title={t('Conflicts')}>{tp('{count} conflicts', { count: r.unmerged })}</span>
+          <span className="dash-pill conflict">{tp('{count} conflicts', { count: r.unmerged })}</span>
         )}
         {wip > 0 && (
           <span
             className="dash-pill wip"
-            title={tp('{wip} uncommitted files ({staged} staged, {unstaged} modified, {untracked} untracked)', {
-              wip, staged: r.staged, unstaged: r.unstaged, untracked: r.untracked,
-            })}
           >
             <IconPencil width={11} height={11} /> {wip}
           </span>
         )}
-        {r.ahead > 0 && <span className="dash-pill ahead" title={t('Local commits not pushed')}>↑{r.ahead}</span>}
-        {r.behind > 0 && <span className="dash-pill behind" title={t('Remote commits not pulled')}>↓{r.behind}</span>}
+        {r.ahead > 0 && <span className="dash-pill ahead">↑{r.ahead}</span>}
+        {r.behind > 0 && <span className="dash-pill behind">↓{r.behind}</span>}
       </>
     );
   };
@@ -284,7 +281,7 @@ export default function DashboardPage() {
     const at = r.lastCommit?.at ? Date.parse(r.lastCommit.at) : 0;
     const days = at ? Math.floor((Date.now() - at) / 86_400_000) : null;
     return days !== null && days > 90 ? (
-      <span className="dash-pill stale" title={t('No commits in {n} days').replace('{n}', String(days))}>
+      <span className="dash-pill stale">
         {t('stale')} · {days}d
       </span>
     ) : null;
@@ -319,7 +316,6 @@ export default function DashboardPage() {
             type="button"
             className={view === 'cards' ? 'is-active' : ''}
             aria-pressed={view === 'cards'}
-            title={t('Card view')}
             onClick={() => changeView('cards')}
           >
             {t('Cards')}
@@ -328,7 +324,6 @@ export default function DashboardPage() {
             type="button"
             className={view === 'list' ? 'is-active' : ''}
             aria-pressed={view === 'list'}
-            title={t('List view')}
             onClick={() => changeView('list')}
           >
             {t('List')}
@@ -340,7 +335,6 @@ export default function DashboardPage() {
             setSortKey(v as SortKey);
             localStorage.setItem(SORT_KEY, v);
           }}
-          title={t('Sort order')}
           options={[
             { value: 'conflict', label: t('Conflicts first') },
             { value: 'name', label: t('Name') },
@@ -360,7 +354,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="dash-toolbar">
-        <label className="repo-panel-toggle" title={t('Silently fetch every repository every 10 minutes while this page is open')}>
+        <label className="repo-panel-toggle">
           <input
             type="checkbox"
             checked={autoFetch}
@@ -414,7 +408,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     className={`repo-pin${isPinned ? ' is-pinned' : ''}`}
-                    title={isPinned ? t('Unpin') : t('Pin to top')}
+                    aria-label={isPinned ? t('Unpin') : t('Pin to top')}
                     aria-pressed={isPinned}
                     onClick={(e) => { e.stopPropagation(); togglePin(r.path); }}
                   >
@@ -423,24 +417,23 @@ export default function DashboardPage() {
                   <span className="dash-card-name">{r.name}</span>
                   {isActive && <span className="repo-panel-active">{t('active')}</span>}
                   {prs !== null && prs !== undefined && prs > 0 && (
-                    <span className="dash-pill pr" title={t('Open pull requests')}>PR {prs}</span>
+                    <span className="dash-pill pr">PR {prs}</span>
                   )}
                   {staleBadge(r)}
                   <span className="spacer" />
                   <button
                     type="button"
                     className="icon-btn dash-remove"
-                    title={t('Remove from list')}
                     aria-label={`${t('Remove from list')}: ${r.name}`}
                     onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
                   >
                     <IconTrash width={13} height={13} />
                   </button>
                 </div>
-                <div className="dash-card-path" title={r.path}>{parentDir(r.path)}</div>
+                <div className="dash-card-path">{parentDir(r.path)}</div>
                 <div className="dash-card-meta">
                   {r.error ? (
-                    <span className="repo-panel-err" title={r.error}>{t('unavailable')}</span>
+                    <span className="repo-panel-err">{t('unavailable')}</span>
                   ) : (
                     <>
                       {r.branch ? (
@@ -453,7 +446,7 @@ export default function DashboardPage() {
                     </>
                   )}
                 </div>
-                <div className="dash-card-commit" title={r.lastCommit?.subject || ''}>
+                <div className="dash-card-commit">
                   {r.lastCommit ? `${relativeAge(r.lastCommit.at)} · ${r.lastCommit.subject}` : t('No commits yet.')}
                 </div>
               </div>
@@ -492,19 +485,19 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     className={`repo-pin${isPinned ? ' is-pinned' : ''}`}
-                    title={isPinned ? t('Unpin') : t('Pin to top')}
+                    aria-label={isPinned ? t('Unpin') : t('Pin to top')}
                     aria-pressed={isPinned}
                     onClick={(e) => { e.stopPropagation(); togglePin(r.path); }}
                   >
                     <IconPin width={12} height={12} />
                   </button>
-                  <span className="dash-row-name" title={r.path}>{r.name}</span>
+                  <span className="dash-row-name">{r.name}</span>
                   {isActive && <span className="repo-panel-active">{t('active')}</span>}
                 </span>
-                <span className="dash-row-path" title={r.path}>{ownerLabel(r)}</span>
+                <span className="dash-row-path">{ownerLabel(r)}</span>
                 <span className="dash-row-branch">
                   {r.error ? (
-                    <span className="repo-panel-err" title={r.error}>{t('unavailable')}</span>
+                    <span className="repo-panel-err">{t('unavailable')}</span>
                   ) : r.branch ? (
                     <span className="ref-badge branch"><IconBranch width={11} height={11} /> {r.branch}</span>
                   ) : (
@@ -515,17 +508,16 @@ export default function DashboardPage() {
                   {!r.error && statusPills(r)}
                   {!r.error && isClean(r) && <span className="repo-panel-clean">{t('clean')}</span>}
                   {prs !== null && prs !== undefined && prs > 0 && (
-                    <span className="dash-pill pr" title={t('Open pull requests')}>PR {prs}</span>
+                    <span className="dash-pill pr">PR {prs}</span>
                   )}
                   {staleBadge(r)}
                 </span>
-                <span className="dash-row-commit" title={r.lastCommit?.subject || ''}>
+                <span className="dash-row-commit">
                   {r.lastCommit ? `${relativeAge(r.lastCommit.at)} · ${r.lastCommit.subject}` : t('No commits yet.')}
                 </span>
                 <button
                   type="button"
                   className="icon-btn dash-remove"
-                  title={t('Remove from list')}
                   aria-label={`${t('Remove from list')}: ${r.name}`}
                   onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
                 >

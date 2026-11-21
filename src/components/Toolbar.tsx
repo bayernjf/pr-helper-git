@@ -204,14 +204,13 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Open repositories panel")}
         aria-label={t("Open repositories panel")}
         onClick={() => setShowRepositories(true)}
       >
         <IconList />
       </button>
 
-      <span className="branch-pill" title={activeRepo || ''}>
+      <span className="branch-pill" data-tip={activeRepo || ''}>
         <span className="dot" />
         {branchLabel}
         {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
@@ -228,7 +227,7 @@ export default function Toolbar() {
         type="button"
         className="btn"
         disabled={!activeRepo || busy}
-        title="git fetch --all"
+        data-tip="git fetch --all"
         onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
       >
         {t("Fetch")}
@@ -248,7 +247,8 @@ export default function Toolbar() {
           type="button"
           className="btn btn-caret"
           disabled={!activeRepo || busy}
-          title={t("Pull options")}
+          aria-label={t("Pull options")}
+          data-tip={t("Pull options")}
           data-menu-trigger="pull"
           onClick={(e) => openMenu(e, 'pull')}
         >
@@ -270,7 +270,8 @@ export default function Toolbar() {
           type="button"
           className="btn btn-caret"
           disabled={!activeRepo || busy}
-          title={t("Push options")}
+          aria-label={t("Push options")}
+          data-tip={t("Push options")}
           data-menu-trigger="push"
           onClick={(e) => openMenu(e, 'push')}
         >
@@ -281,7 +282,7 @@ export default function Toolbar() {
         type="button"
         className="btn"
         disabled={!activeRepo || busy}
-        title={t("Stash working changes")}
+        data-tip={t("Stash working changes")}
         onClick={() => setShowStash(true)}
       >
         <IconStash width={14} height={14} />
@@ -328,7 +329,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Search repository contents (git grep)")}
+        data-tip={t("Search repository contents (git grep)")}
         aria-label={t("Search repository contents (git grep)")}
         disabled={!activeRepo}
         onClick={() => setShowGrep(true)}
@@ -338,7 +339,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Search commits in all branches")}
+        aria-label={t("Search commits in all branches")}
+        data-tip={t("Search commits in all branches")}
         onClick={() => setShowCommitSearch(true)}
       >
         <IconClock />
@@ -346,7 +348,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Search across all repositories")}
+        aria-label={t("Search across all repositories")}
+        data-tip={t("Search across all repositories")}
         onClick={() => setShowGlobalGrep(true)}
       >
         <IconGlobe />
@@ -354,7 +357,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Compare two references")}
+        aria-label={t("Compare two references")}
+        data-tip={t("Compare two references")}
         disabled={!activeRepo}
         onClick={() => setShowCompare(true)}
       >
@@ -363,7 +367,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("View reference log (reflog)")}
+        aria-label={t("View reference log (reflog)")}
+        data-tip={t("View reference log (reflog)")}
         disabled={!activeRepo}
         onClick={() => setShowReflog(true)}
       >
@@ -372,7 +377,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Manage remotes")}
+        aria-label={t("Manage remotes")}
+        data-tip={t("Manage remotes")}
         disabled={!activeRepo}
         onClick={() => setShowRemotes(true)}
       >
@@ -381,7 +387,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Repository settings (git config)")}
+        data-tip={t("Repository settings (git config)")}
         aria-label={t("Repository settings")}
         disabled={!activeRepo}
         onClick={() => setShowConfig(true)}
@@ -391,7 +397,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("View audit log")}
+        aria-label={t("View audit log")}
+        data-tip={t("View audit log")}
         onClick={() => setShowAudit(true)}
       >
         <IconAudit />
@@ -399,7 +406,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Team members and configuration")}
+        data-tip={t("Team members and configuration")}
         aria-label={t("Team")}
         onClick={() => setShowTeam(true)}
       >
@@ -408,7 +415,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
+        data-tip={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
         aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
         onClick={toggleTheme}
       >
@@ -417,7 +424,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("GitHub settings")}
+        data-tip={t("GitHub settings")}
         aria-label={t("GitHub settings")}
         onClick={() => setShowSettings(true)}
       >
@@ -426,7 +433,7 @@ export default function Toolbar() {
       <button
         type="button"
         className="icon-btn"
-        title={t("Keyboard shortcuts (press ?)")}
+        data-tip={t("Keyboard shortcuts (press ?)")}
         aria-label={t("Keyboard shortcuts")}
         onClick={() => setShowShortcuts(true)}
       >

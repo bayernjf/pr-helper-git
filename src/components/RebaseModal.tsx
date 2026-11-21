@@ -178,7 +178,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
                   />
                   <span className="rebase-hash">{shortHash(row.hash)}</span>
                   <span className="rebase-subject">
-                    <span className="truncate" title={row.subject}>{row.subject}</span>
+                    <span className="truncate">{row.subject}</span>
                     <span className="rebase-author">{row.authorName}</span>
                     {(row.action === 'reword' || row.action === 'squash' || row.action === 'fixup') && (
                       <input
@@ -194,7 +194,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Move earlier"
+                      aria-label="Move earlier"
                       disabled={index === 0}
                       onClick={() => move(index, -1)}
                     >
@@ -203,7 +203,7 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
                     <button
                       type="button"
                       className="icon-btn"
-                      title="Move later"
+                      aria-label="Move later"
                       disabled={index === rows.length - 1}
                       onClick={() => move(index, 1)}
                     >
@@ -227,7 +227,6 @@ export default function RebaseModal({ base, onClose }: { base: string; onClose: 
             className="btn btn-primary"
             disabled={loading || saving || blocked || badFirst || rewordMissing || rows.length === 0}
             onClick={() => void start()}
-            title={rewordMissing ? 'Every reword needs a message' : undefined}
           >
             {saving ? 'Rebasing…' : 'Start rebase'}
           </button>

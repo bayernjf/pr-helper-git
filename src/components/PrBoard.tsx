@@ -39,7 +39,7 @@ export function ReviewPill({ state }: { state: ReviewState }) {
   if (state === 'COMMENTED') return <span className="review-pill commented">{t("Review comments")}</span>;
   // UNKNOWN covers both "still loading" and "the summary call failed" — the
   // card must not claim "No review" while the truth is unknown; refresh retries.
-  if (state === 'UNKNOWN') return <span className="review-pill unknown" title={t('Review summary unavailable — refresh to retry')}>{t('review ?')}</span>;
+  if (state === 'UNKNOWN') return <span className="review-pill unknown">{t('review ?')}</span>;
   return <span className="review-pill none">{t("No review")}</span>;
 }
 
@@ -286,7 +286,6 @@ export default function PrBoard() {
               type="button"
               className="icon-btn"
               aria-label={t("Clear filter")}
-              title={t("Clear filter")}
               onClick={() => setQuery('')}
             >
               <IconX width={12} height={12} />

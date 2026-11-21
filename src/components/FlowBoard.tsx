@@ -72,13 +72,12 @@ function StepCard({ lane, repository, onOpen, automationBlocked, stale }: {
       type="button"
       className={`lane-step ${lane.tone}`}
       onClick={onOpen}
-      title={tp('open {name} — step {index}', { name: repository, index: lane.stageIndex + 1 })}
     >
       <div className="step-route">
         <span className="step-index">{lane.stageIndex + 1}</span>
         <b>{lane.source} → {lane.target}</b>
-        {automationBlocked ? <span className="lane-automation-badge" title={t('automation blocked on this step')}>{t('automation blocked')}</span> : null}
-        {stale ? <span className="lane-stale-badge" title={t('projection stale — waiting for reconciliation')}>{t('stale')}</span> : null}
+        {automationBlocked ? <span className="lane-automation-badge">{t('automation blocked')}</span> : null}
+        {stale ? <span className="lane-stale-badge">{t('stale')}</span> : null}
       </div>
       <small>
         {lane.label}
@@ -493,14 +492,13 @@ export default function FlowBoard() {
                   className="lane-move-btn"
                   aria-expanded={!collapsedLanes.includes(lane.workflow.id)}
                   aria-label={collapsedLanes.includes(lane.workflow.id) ? t('Expand') : t('Collapse')}
-                  title={collapsedLanes.includes(lane.workflow.id) ? t('Expand') : t('Collapse')}
                   onClick={() => setCollapsedLanes((current) => (current.includes(lane.workflow.id) ? current.filter((id) => id !== lane.workflow.id) : [...current, lane.workflow.id]))}
                 >
                   {collapsedLanes.includes(lane.workflow.id) ? '+' : '–'}
                 </button>
                 {sortMode === 'custom' && filter === 'all' && !search ? (
                   <span className="lane-move">
-                    <span className="lane-position-badge" title={t('custom order')}>#{index + 1}</span>
+                    <span className="lane-position-badge">#{index + 1}</span>
                     <button
                       type="button"
                       className="lane-move-btn"
@@ -524,7 +522,6 @@ export default function FlowBoard() {
                       value={index + 1}
                       className="lane-position-input"
                       aria-label={tp('position of {name}', { name: lane.workflow.name })}
-                      title={t('type a position to move the lane there')}
                       onChange={(event) => {
                         const pos = Number(event.target.value);
                         if (pos >= 1 && pos <= lanes.length) setLanePosition(lane.workflow.id, pos);
@@ -539,7 +536,7 @@ export default function FlowBoard() {
             {configurationWarningsFor(state, lane.workflow.id).length ? (
               <div className="lane-config-warning">
                 {configurationWarningsFor(state, lane.workflow.id).map((warning, wIndex) => (
-                  <span key={wIndex} className="lane-config-warning-item" title={warning.code}>{warning.code}</span>
+                  <span key={wIndex} className="lane-config-warning-item">{warning.code}</span>
                 ))}
               </div>
             ) : null}

@@ -377,11 +377,11 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
                     <small>{t('Keeps every commit on this branch and adds a merge commit.')}</small>
                   </button>
                   {/* The engine merge path only creates merge commits; squash/rebase stay on GitHub's own page (old data-native-only boundary). */}
-                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled aria-label={t('Requires the GitHub page')}>
                     <b>{t('Squash merge (squash)')}</b>
                     <small>{t('Requires the GitHub page')}</small>
                   </button>
-                  <button type="button" role="menuitem" className="merge-menu-option" disabled title={t('Requires the GitHub page')}>
+                  <button type="button" role="menuitem" className="merge-menu-option" disabled aria-label={t('Requires the GitHub page')}>
                     <b>{t('Rebase merge (rebase)')}</b>
                     <small>{t('Requires the GitHub page')}</small>
                   </button>
