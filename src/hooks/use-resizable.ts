@@ -91,7 +91,6 @@ export function useResizable({ prefKey, initial, min, max, edge, label }: Resiza
     'aria-valuenow': width,
     'aria-valuemin': min,
     'aria-valuemax': max,
-    title: 'Drag to resize',
     tabIndex: 0,
     onPointerDown,
     onKeyDown,

@@ -145,6 +145,11 @@ html, body, #root {
   height: 100%;
   margin: 0;
 }
+/* Native surfaces (form controls, any OS-rendered tooltip) must follow the
+   app theme, not the system appearance — WKWebView renders its native
+   tooltips light otherwise. */
+html { color-scheme: dark; }
+html[data-theme='light'] { color-scheme: light; }
 
 body {
   background: var(--bg);
@@ -462,18 +467,7 @@ div.ref-group-head { gap: 8px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Upward arrow pointing at the trigger; x follows the trigger and is
-   re-clamped by the controller when the tip is edge-pinned. */
-.hover-tip::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: var(--tip-arrow-x, 50%);
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top: 0;
-  border-bottom-color: var(--tip-bg);
-}
+/* No arrow (owner directive): a plain dark chip flush under the trigger. */
 .hover-tip.show { opacity: 1; }
 
 /* ---------- Center column ---------- */
