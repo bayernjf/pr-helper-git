@@ -436,20 +436,37 @@ div.ref-group-head { gap: 8px; }
   top: 0;
   left: 0;
   max-width: min(420px, calc(100vw - 16px));
-  padding: 4px 10px;
+  padding: 5px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--bg1);
   color: var(--text);
-  font-size: var(--fs-meta);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: var(--fs-body);
   box-shadow: var(--shadow-md);
   opacity: 0;
   pointer-events: none;
   z-index: var(--z-tip-top);
   transition: opacity var(--dur-fast) var(--ease);
+}
+/* Ellipsis lives on the inner span; the tip itself stays overflow-visible
+   so the arrow can protrude above the box. */
+.hover-tip-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Upward arrow pointing at the trigger; x follows the trigger and is
+   re-clamped by the controller when the tip is edge-pinned. */
+.hover-tip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: var(--tip-arrow-x, 50%);
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top: 0;
+  border-bottom-color: var(--bg1);
 }
 .hover-tip.show { opacity: 1; }
 
@@ -2043,6 +2060,11 @@ pre.diff {
 .branch-sort .dropdown-trigger:hover { background: var(--hover); border-color: var(--border-strong); color: var(--text); }
 .branch-sort .dropdown-value { max-width: 88px; }
 .branch-sort .dropdown-caret { font-size: 9px; }
+/* Open dropdowns flip their caret. */
+.dropdown-trigger .dropdown-caret { display: inline-flex; transition: transform var(--dur-fast) var(--ease); }
+.dropdown-trigger.open .dropdown-caret { transform: rotate(180deg); }
+.btn-caret svg { transition: transform var(--dur-fast) var(--ease); }
+.btn-caret.open svg { transform: rotate(180deg); }
 
 /* ---------- keyboard shortcut help ---------- */
 .shortcuts-body { padding: 8px 20px 12px; }

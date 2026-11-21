@@ -144,7 +144,7 @@ export function Dropdown({
       <button
         type="button"
         id={id}
-        className="dropdown-trigger"
+        className={`dropdown-trigger${open ? ' open' : ''}`}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}

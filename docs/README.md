@@ -16,7 +16,7 @@ Start with the document that matches your question. Do not read all of
 | Looking for parity history with the archived product | [`parity-archive.md`](parity-archive.md) |
 | Running the pr-helper → pr-helper-git migration or checking its completeness | [`pr-helper-migration.md`](pr-helper-migration.md) — plan, traceability matrix, acceptance, decisions |
 | Preparing a signed macOS release | [`desktop-distribution.md`](desktop-distribution.md) |
-| Looking for E2E fixture repositories | [`test-repos.md`](../test-repos.md) |
+| Looking for E2E fixture repositories | [`bayjf/docs/TEST_REPOS.md`](https://github.com/bayernjf/bayjf/blob/dev/docs/TEST_REPOS.md) — canonical registry; local `test-repos.md` is a pointer |
 
 ## Documents
 
@@ -34,7 +34,7 @@ Start with the document that matches your question. Do not read all of
 | `docs/app-state-split-plan.md` | Phased plan for splitting the single app-state context into repo/preferences/actions/busy domains | App-state architecture or migration phases change |
 | `docs/desktop-distribution.md` | macOS signing, notarization, zip/dmg artifacts and verification | Desktop distribution workflow changes |
 | `docs/archive/` | Frozen historical material; do not append new decisions here | Only when archiving |
-| `test-repos.md` | Local fixture repositories used by E2E | Fixture path or URL changes |
+| `test-repos.md` | Pointer to the canonical test repository registry in `bayjf/docs/TEST_REPOS.md` | Only when the canonical path changes |
 | `design/tokens.css` | Design token source for themes and accents | Visual token changes |
 
 ## Source-of-truth rules
