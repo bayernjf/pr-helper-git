@@ -171,6 +171,27 @@ A2A、仓库工具、快捷键与原有角色门禁全部保留。外观改为�
 退出再启动，端口仍为 55018，活动仓库仍为 `pr-helper-git`。
 提交 `23d1652`。
 
+### 设计 token 间距/控件标尺（2026-11-22，未发布）
+
+用户反馈设置页 Advanced 里输入框文字贴边框，追问是否有设计 token。核对：
+token 源 `design/tokens.json` 已覆盖颜色、字号、圆角、阴影，但没有间距和
+控件尺寸标尺；设置页输入框为 `padding: 5px 9px`，紧凑按钮 10–12px，卡片行
+14px，三套节奏并存。
+
+修复：`tokens.json` 新增 `spacing`（2/4/6/…/40px）与 `control`
+（30px 输入框、28px 紧凑按钮、12px 横向内边距、5px 输入框纵向、4px 按钮
+纵向）；`sync-tokens.mjs` 生成 `--space-*` 与 `--control-*`。设置页的
+`.settings-input`、`.settings-modal .dropdown-trigger`、`.settings-secondary`、
+`.settings-save-btn`、卡片行、设置面板内距改走 token，控件横向文字内边距
+统一 12px；`settings-nav-item` 等 3/5/7/9px 的零散值归一到偶数标尺。
+
+验证：1183 tests / 70 files（新增 spacing/control token 断言）；E2E
+162/162；lint / typecheck:server / build 全绿；`BUNDLE_NODE=1 npm run desktop`
++ `desktop:smoke` 全绿；安装版 Advanced 页 / A2A 高倍裁剪实测 Agent card
+输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy
+按钮内距一致。0.3.18 已安装，旧包备份
+`PR Helper Git-0.3.18-before-tokens.app`。
+
 ## Release 0.3.17 (2026-11-20)
 
 范围：修复 0.3.16 桌面端顶部双击缩放的覆盖范围。0.3.16 把

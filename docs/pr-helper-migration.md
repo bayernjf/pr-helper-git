@@ -1783,7 +1783,9 @@ CHANGELOG / docs 对这些主题为 0 命中，无重复记录。
   `bash pr-helper-backup.sh`（先 commit，bundle 不含未提交内容）。Docker 仅换机 /
   NAS 场景需要，日常不用。
 - **设计 token**：编辑 `design/tokens.json` 后跑 **`node scripts/sync-tokens.mjs`**
-  （`TARGETS` 只写 git2）。⚠️ 旧记忆写的 `npm run tokens` 在本仓库**不存在**，
+  （`TARGETS` 只写 git2）。现含 color、font-size、radius、spacing、control、
+  shadow 与 accent 预设；生成 `tokens.css` / `accents.css` / `accents.ts`。
+  ⚠️ 旧记忆写的 `npm run tokens` 在本仓库**不存在**，
   package.json 无该 script，已按脚本头部注释校正。
 - **用户决策偏好（跨项目）**：不要追求最简实现，以核心 / 基本功能做对为准，UI 要
   设计得好看（2026-11-05 原话：「后续遇到要决策的点，不要追求最简单的实现方式，
