@@ -1221,6 +1221,7 @@ export const ZH: Record<string, string> = {
     '请尝试更长的时间窗口，或确认仓库已启用 Actions / check runs。',
   'Green': '绿',
   'No CI': '无 CI',
+  'More tools': '更多功能',
   'Search options': '搜索选项',
   'Repository options': '仓库选项',
   'App options': '应用选项',

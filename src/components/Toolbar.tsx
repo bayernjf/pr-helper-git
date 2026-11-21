@@ -31,19 +31,28 @@ import StashModal from './StashModal';
 import TeamModal from './TeamModal';
 import { ContextMenu, type MenuItem } from './context-menu';
 
-type DropKind = 'pull' | 'push';
+type DropKind = 'pull' | 'push' | 'more';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 import {
+  IconAudit,
   IconChevronDown,
+  IconClock,
   IconDownload,
   IconGear,
+  IconGlobe,
+  IconKeyboard,
   IconMonitor,
   IconMoon,
+  IconMore,
   IconSearch,
+  IconServer,
+  IconSliders,
+  IconSplit,
   IconStash,
   IconSun,
   IconUpload,
+  IconUser,
 } from './icons';
 
 export default function Toolbar() {
@@ -157,6 +166,19 @@ export default function Toolbar() {
           { id: 'push-lease', label: t('Force push (--force-with-lease)') },
           { id: 'push-force', label: t('Force push (--force)'), danger: true },
         ];
+      case 'more':
+        return [
+          { id: 'grep', label: t('Search repository contents (git grep)'), icon: <IconSearch width={13} height={13} /> },
+          { id: 'commit-search', label: t('Search commits in all branches'), icon: <IconClock width={13} height={13} /> },
+          { id: 'global-grep', label: t('Search across all repositories'), icon: <IconGlobe width={13} height={13} /> },
+          { id: 'compare', label: t('Compare two references'), icon: <IconSplit width={13} height={13} /> },
+          { id: 'reflog', label: t('View reference log (reflog)'), icon: <IconClock width={13} height={13} /> },
+          { id: 'remotes', label: t('Manage remotes'), icon: <IconServer width={13} height={13} /> },
+          { id: 'config', label: t('Repository settings (git config)'), icon: <IconSliders width={13} height={13} /> },
+          { id: 'audit', label: t('View audit log'), icon: <IconAudit width={13} height={13} /> },
+          { id: 'team', label: t('Team members and configuration'), icon: <IconUser width={13} height={13} /> },
+          { id: 'shortcuts', label: t('Keyboard shortcuts (press ?)'), icon: <IconKeyboard width={13} height={13} /> },
+        ];
     }
   }
 
@@ -164,7 +186,18 @@ export default function Toolbar() {
 
   async function onMenuSelect(id: string) {
     setDropMenu(null);
+    // Repo-independent surfaces open regardless of the active repository.
+    if (id === 'team') { setShowTeam(true); return; }
+    if (id === 'shortcuts') { setShowShortcuts(true); return; }
     if (!activeRepo) return;
+    if (id === 'grep') { setShowGrep(true); return; }
+    if (id === 'commit-search') { setShowCommitSearch(true); return; }
+    if (id === 'global-grep') { setShowGlobalGrep(true); return; }
+    if (id === 'compare') { setShowCompare(true); return; }
+    if (id === 'reflog') { setShowReflog(true); return; }
+    if (id === 'remotes') { setShowRemotes(true); return; }
+    if (id === 'config') { setShowConfig(true); return; }
+    if (id === 'audit') { setShowAudit(true); return; }
     if (id === 'pull-merge') await runAction(pullRepo(activeRepo, false), 'Pulled');
     else if (id === 'pull-rebase') await runAction(pullRepo(activeRepo, true), 'Pulled with rebase');
     else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
@@ -335,12 +368,13 @@ export default function Toolbar() {
       <button
         type="button"
         className="btn"
-        title={t("Search repository contents (git grep)")}
-        aria-label={t("Search repository contents (git grep)")}
-        disabled={!activeRepo}
-        onClick={() => setShowGrep(true)}
+        data-menu-trigger="more"
+        aria-label={t('More tools')}
+        title={t('More tools')}
+        onMouseDown={caretDown('more')}
+        onClick={(e) => caretClick(e, 'more')}
       >
-        <IconSearch />
+        <IconMore width={14} height={14} />
       </button>
       <button
         type="button"

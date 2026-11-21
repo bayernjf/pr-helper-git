@@ -288,7 +288,7 @@ button {
 .titlebar .repo-select > .dropdown-trigger {
   padding: 2px 8px;
   font-size: var(--fs-meta);
-  width: auto;
+  width: 100%;
 }
 
 .toolbar {
