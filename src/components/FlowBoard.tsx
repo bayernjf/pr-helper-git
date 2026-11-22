@@ -15,6 +15,7 @@ import {
   flowPullUrl,
   stageStaleness,
   stageStateFor,
+  timelineEntryIcon,
   type BoardFilter,
   type BoardState,
   type RunRow,
@@ -134,6 +135,30 @@ function LaneDetails({ flow, runs, timeline }: {
   if (!laneRuns.length && !laneTimeline.length) return null;
   return (
     <div className="lane-details">
+      {laneTimeline.length ? (
+        <details className="lane-timeline">
+          <summary>{t('Timeline')}</summary>
+          <ol>
+            {laneTimeline.map((row, rowIndex) => (
+              <li key={row.runId ?? rowIndex} className={row.kind ?? ''}>
+                <span className="timeline-icon" aria-hidden="true">{timelineEntryIcon(row.kind)}</span>
+                <span className="lane-detail-main">
+                  <b>{row.message ?? row.kind ?? '—'}</b>
+                  {(row.source || row.target || row.pullNumber) ? (
+                    <small>
+                      {row.source ?? '—'} → {row.target ?? '—'}
+                      {row.pullNumber ? (
+                        <> · <PullReference url={flowPullUrl(flow.repository, row.pullNumber)} label={`#${row.pullNumber}`} /></>
+                      ) : null}
+                    </small>
+                  ) : null}
+                </span>
+                <time>{formatStamp(row.occurredAt)}</time>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
       {laneRuns.length ? (
         <details className="lane-history">
           <summary>{t('Run history')}</summary>
@@ -155,32 +180,10 @@ function LaneDetails({ flow, runs, timeline }: {
           </ol>
         </details>
       ) : null}
-      {laneTimeline.length ? (
-        <details className="lane-timeline">
-          <summary>{t('Timeline')}</summary>
-          <ol>
-            {laneTimeline.map((row, rowIndex) => (
-              <li key={row.runId ?? rowIndex} className={row.kind ?? ''}>
-                <span className="lane-detail-main">
-                  <b>{row.message ?? row.kind ?? '—'}</b>
-                  {(row.source || row.target || row.pullNumber) ? (
-                    <small>
-                      {row.source ?? '—'} → {row.target ?? '—'}
-                      {row.pullNumber ? (
-                        <> · <PullReference url={flowPullUrl(flow.repository, row.pullNumber)} label={`#${row.pullNumber}`} /></>
-                      ) : null}
-                    </small>
-                  ) : null}
-                </span>
-                <time>{formatStamp(row.occurredAt)}</time>
-              </li>
-            ))}
-          </ol>
-        </details>
-      ) : null}
     </div>
   );
 }
+
 
 /**
  * Flow board page: board filters, archive/restore + mute/unmute (P3-12),
@@ -203,7 +206,7 @@ export default function FlowBoard() {
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [expandedLanes, setExpandedLanes] = useState<string[]>([]);
   const [returnHighlight, setReturnHighlight] = useState<string | null>(null);
-  const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
+  const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number; source?: string } | null>(null);
   const [repairTarget, setRepairTarget] = useState<{ flowId: string; stageIndex: number; source: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
@@ -219,6 +222,8 @@ export default function FlowBoard() {
   const [resolvedMarks, setResolvedMarks] = useState<ResolvedMarks>(new Map());
   /** Timestamp of the last successful projection read; focus/visibility reload is TTL-gated. */
   const lastLoadedAt = useRef(0);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [scrollEdges, setScrollEdges] = useState({ max: 0, atTop: true, atBottom: true });
 
   useEffect(() => {
     if (!returnHighlight) return undefined;
@@ -269,6 +274,41 @@ export default function FlowBoard() {
       document.removeEventListener('visibilitychange', maybeReload);
     };
   }, [load]);
+
+  // Old overview.ts keeps a fixed top/bottom control pair for long boards; the
+  // React page scrolls itself, so measure that element instead of the window.
+  const updateScrollEdges = useCallback(() => {
+    const element = pageRef.current;
+    if (!element) return;
+    const max = Math.max(0, element.scrollHeight - element.clientHeight);
+    setScrollEdges({
+      max,
+      atTop: element.scrollTop <= 4,
+      atBottom: element.scrollTop >= max - 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    updateScrollEdges();
+    const element = pageRef.current;
+    if (!element) return undefined;
+    element.addEventListener('scroll', updateScrollEdges, { passive: true });
+    window.addEventListener('resize', updateScrollEdges);
+    return () => {
+      element.removeEventListener('scroll', updateScrollEdges);
+      window.removeEventListener('resize', updateScrollEdges);
+    };
+  }, [updateScrollEdges, expandedLanes, inbox, selectedFlowId, loading, filter, search, sortMode, sortDirection]);
+
+  const scrollBoardTo = useCallback((edge: 'top' | 'bottom') => {
+    const element = pageRef.current;
+    if (!element) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    element.scrollTo({
+      top: edge === 'top' ? 0 : element.scrollHeight,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
+  }, []);
 
   const state: BoardState = useMemo(() => ({
     workflows,
@@ -396,7 +436,7 @@ export default function FlowBoard() {
           events={inbox?.events ?? []}
           inbox={inbox ?? undefined}
           onClose={closeDetail}
-          onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
+          onOpenDrawer={(stageIndex, source) => setDrawerStage({ flowId: selectedFlowId, stageIndex, source })}
           onRefresh={() => void load(true, true)}
           refreshing={refreshing}
           onMutated={() => void load(true)}
@@ -418,10 +458,12 @@ export default function FlowBoard() {
           <StepDrawer
             flow={state.workflows.find((w) => w.id === drawerStage.flowId)!}
             stageIndex={drawerStage.stageIndex}
+            source={drawerStage.source}
             inbox={inbox}
             onClose={() => setDrawerStage(null)}
             onMutated={() => void load(true)}
             onResolved={(stageIndex, source) => markStepResolved(drawerStage.flowId, stageIndex, source)}
+            onOpenFlow={() => setDrawerStage(null)}
           />
         ) : null}
       </>
@@ -429,22 +471,12 @@ export default function FlowBoard() {
   }
 
   return (
-    <div className="flow-board-page">
+    <div className="flow-board-page" ref={pageRef}>
       <section className="board-head">
         <div className="board-title">
           <h1>{t('Flow board')}</h1>
           <p>{t('Release lanes across your repositories')}</p>
         </div>
-        <label className="board-search">
-          <IconSearch width={14} height={14} />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('Search flows')}
-            aria-label={t('Search flows')}
-          />
-        </label>
         <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
           {t('Audit log')}
         </button>
@@ -456,15 +488,6 @@ export default function FlowBoard() {
         </button>
         <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
           {t('New flow')}
-        </button>
-        <button
-          type="button"
-          className="board-refresh"
-          onClick={() => void load(true, true)}
-          disabled={refreshing}
-          aria-busy={refreshing}
-        >
-          <IconRefresh width={14} height={14} /> {refreshing ? t('Refreshing…') : t('Refresh')}
         </button>
       </section>
 
@@ -512,8 +535,36 @@ export default function FlowBoard() {
       {loading && !inbox ? <div className="compact-notice"><p>{t('Refreshing…')}</p></div> : null}
 
       <section className="board-summary" aria-label={t('Flow board')}>
+        <div className="board-summary-top board-search-row">
+          <label className="board-search">
+            <span>{t('Search')}</span>
+            <IconSearch width={14} height={14} />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('Search by workflow or repository')}
+              aria-label={t('Search flows')}
+            />
+          </label>
+          {search ? (
+            <span className="lane-search-count" role="status">
+              <b>{lanes.length}</b> {t('Search results')}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className="board-refresh"
+            onClick={() => void load(true, true)}
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            <IconRefresh width={14} height={14} /> {refreshing ? t('Refreshing…') : t('Refresh')}
+          </button>
+        </div>
         <div className="board-summary-top">
           <span className="board-sort">
+            <span className="board-sort-label">{t('Sort')}</span>
             {(['custom', 'name', 'createdAt'] as const).map((mode) => (
               <button
                 key={mode}
@@ -560,6 +611,10 @@ export default function FlowBoard() {
         </div>
       </section>
 
+      {boardPreflightOpen ? (
+        <BoardPreflightModal inline workflows={state.workflows} onClose={() => setBoardPreflightOpen(false)} />
+      ) : null}
+
       <section className="project-board">
         {lanes.length ? lanes.map((lane, index) => (
           <article
@@ -587,50 +642,108 @@ export default function FlowBoard() {
             } : undefined}
           >
             <header className="lane-header">
+              <div className="lane-heading">
+                <div className="lane-order-controls">
+                  <button
+                    type="button"
+                    className="lane-drag-handle"
+                    draggable={canReorder}
+                    disabled={!canReorder}
+                    aria-label={canReorder ? tp('reorder {name}', { name: lane.workflow.name }) : undefined}
+                    title={canReorder ? t('Drag to reorder') : undefined}
+                    onDragStart={(event) => {
+                      if (!canReorder) return;
+                      setDragFlowId(lane.workflow.id);
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', lane.workflow.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragFlowId(null);
+                      setDragOverFlowId(null);
+                    }}
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                      <circle cx="5" cy="4" r="1.35" />
+                      <circle cx="11" cy="4" r="1.35" />
+                      <circle cx="5" cy="8" r="1.35" />
+                      <circle cx="11" cy="8" r="1.35" />
+                      <circle cx="5" cy="12" r="1.35" />
+                      <circle cx="11" cy="12" r="1.35" />
+                    </svg>
+                  </button>
+                  {canReorder ? (
+                    <div className="lane-move-buttons">
+                      <button
+                        type="button"
+                        className="lane-move-btn"
+                        aria-label={tp('move {name} up', { name: lane.workflow.name })}
+                        onClick={() => moveLane(lane.workflow.id, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="lane-move-btn"
+                        aria-label={tp('move {name} down', { name: lane.workflow.name })}
+                        onClick={() => moveLane(lane.workflow.id, +1)}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  ) : null}
+                  <label className="lane-order-input">
+                    <input
+                      type="number"
+                      min={1}
+                      max={lanes.length}
+                      value={index + 1}
+                      className="lane-position-input"
+                      disabled={!canReorder}
+                      aria-label={tp('position of {name}', { name: lane.workflow.name })}
+                      onChange={(event) => {
+                        const pos = Number(event.target.value);
+                        if (pos >= 1 && pos <= lanes.length) setLanePosition(lane.workflow.id, pos);
+                      }}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="lane-title-block"
+                  onClick={() => setSelectedFlowId(lane.workflow.id)}
+                >
+                  {/* The original board shows repository as eyebrow and name as
+                      the title; flows named after their repository would render
+                      the identity twice, so the eyebrow only survives a rename. */}
+                  {lane.workflow.name.toLocaleLowerCase() !== lane.workflow.repository.toLocaleLowerCase() ? (
+                    <p className="lane-eyebrow">{lane.workflow.repository}</p>
+                  ) : null}
+                  <h2>
+                    {lane.workflow.name}
+                    {lane.workflow.archived ? <span className="lane-badge">{t('Archived')}</span> : null}
+                    {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
+                    {lane.workflow.team?.name ? <span className="lane-badge">{lane.workflow.team.name}</span> : null}
+                  </h2>
+                  <span className={`lane-run-summary ${lane.summary.tone}`}>
+                    <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
+                    <span className="run-text">{lane.summary.text}</span>
+                  </span>
+                </button>
+              </div>
               <button
                 type="button"
-                className="lane-drag-handle"
-                draggable={canReorder}
-                disabled={!canReorder}
-                aria-label={canReorder ? tp('reorder {name}', { name: lane.workflow.name }) : undefined}
-                title={canReorder ? t('Drag to reorder') : undefined}
-                onDragStart={(event) => {
-                  if (!canReorder) return;
-                  setDragFlowId(lane.workflow.id);
-                  event.dataTransfer.effectAllowed = 'move';
-                  event.dataTransfer.setData('text/plain', lane.workflow.id);
-                }}
-                onDragEnd={() => {
-                  setDragFlowId(null);
-                  setDragOverFlowId(null);
-                }}
+                className="lane-collapse-toggle"
+                aria-expanded={expandedLanes.includes(lane.workflow.id)}
+                aria-label={expandedLanes.includes(lane.workflow.id) ? t('Collapse') : t('Expand')}
+                title={expandedLanes.includes(lane.workflow.id) ? t('Collapse') : t('Expand')}
+                onClick={() => setExpandedLanes((current) => (current.includes(lane.workflow.id)
+                  ? current.filter((id) => id !== lane.workflow.id)
+                  : [...current, lane.workflow.id]))}
               >
-                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                  <circle cx="5" cy="4" r="1.35" />
-                  <circle cx="11" cy="4" r="1.35" />
-                  <circle cx="5" cy="8" r="1.35" />
-                  <circle cx="11" cy="8" r="1.35" />
-                  <circle cx="5" cy="12" r="1.35" />
-                  <circle cx="11" cy="12" r="1.35" />
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  <rect x="2.75" y="2.75" width="10.5" height="10.5" rx="1.5" />
+                  <path d="m5.25 8 2.75-2.75L10.75 8" />
                 </svg>
-              </button>
-              <button
-                type="button"
-                className="lane-title-block"
-                onClick={() => setSelectedFlowId(lane.workflow.id)}
-              >
-                {/* The original board shows repository as eyebrow and name as
-                    the title; flows named after their repository would render
-                    the identity twice, so the eyebrow only survives a rename. */}
-                {lane.workflow.name.toLocaleLowerCase() !== lane.workflow.repository.toLocaleLowerCase() ? (
-                  <p className="lane-eyebrow">{lane.workflow.repository}</p>
-                ) : null}
-                <h2>
-                  {lane.workflow.name}
-                  {lane.workflow.archived ? <span className="lane-badge">{t('Archived')}</span> : null}
-                  {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
-                  {lane.workflow.team?.name ? <span className="lane-badge">{lane.workflow.team.name}</span> : null}
-                </h2>
               </button>
               <div className="lane-actions">
                 <button
@@ -639,13 +752,6 @@ export default function FlowBoard() {
                   onClick={() => setEditingFlowId(lane.workflow.id)}
                 >
                   {t('Edit')}
-                </button>
-                <button
-                  type="button"
-                  className="drawer-btn small"
-                  onClick={() => setSelectedFlowId(lane.workflow.id)}
-                >
-                  {t('View')}
                 </button>
                 <button
                   type="button"
@@ -690,54 +796,12 @@ export default function FlowBoard() {
                 >
                   {lane.muted ? t('unmute') : t('mute')}
                 </button>
-              </div>
-              <div className="lane-run">
-                <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
-                <span className="run-text">{lane.summary.text}</span>
-              </div>
-              <div className="lane-controls">
-                {canReorder ? (
-                  <span className="lane-move">
-                    <button
-                      type="button"
-                      className="lane-move-btn"
-                      aria-label={tp('move {name} up', { name: lane.workflow.name })}
-                      onClick={() => moveLane(lane.workflow.id, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="lane-move-btn"
-                      aria-label={tp('move {name} down', { name: lane.workflow.name })}
-                      onClick={() => moveLane(lane.workflow.id, +1)}
-                    >
-                      ↓
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={lanes.length}
-                      value={index + 1}
-                      className="lane-position-input"
-                      aria-label={tp('position of {name}', { name: lane.workflow.name })}
-                      onChange={(event) => {
-                        const pos = Number(event.target.value);
-                        if (pos >= 1 && pos <= lanes.length) setLanePosition(lane.workflow.id, pos);
-                      }}
-                    />
-                  </span>
-                ) : null}
                 <button
                   type="button"
-                  className="lane-move-btn lane-collapse-btn"
-                  aria-expanded={expandedLanes.includes(lane.workflow.id)}
-                  aria-label={expandedLanes.includes(lane.workflow.id) ? t('Collapse') : t('Expand')}
-                  onClick={() => setExpandedLanes((current) => (current.includes(lane.workflow.id)
-                    ? current.filter((id) => id !== lane.workflow.id)
-                    : [...current, lane.workflow.id]))}
+                  className="drawer-btn small"
+                  onClick={() => setSelectedFlowId(lane.workflow.id)}
                 >
-                  {expandedLanes.includes(lane.workflow.id) ? '–' : '+'}
+                  {t('View')}
                 </button>
               </div>
             </header>
@@ -773,7 +837,7 @@ export default function FlowBoard() {
                         automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                         stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                         updatedAt={stageStateFor(state, lane.workflow.id, step.stageIndex, step.source)?.updatedAt}
-                        onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
+                        onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex, source: step.source })}
                       />
                     ))}
                   </div>
@@ -787,7 +851,7 @@ export default function FlowBoard() {
                     automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                     stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
                     updatedAt={stageStateFor(state, lane.workflow.id, step.stageIndex, step.source)?.updatedAt}
-                    onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
+                    onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex, source: step.source })}
                   />
                 </Fragment>
               ))}
@@ -810,14 +874,42 @@ export default function FlowBoard() {
           </article>
         )}
       </section>
+
+      <div
+        className="board-scroll-controls"
+        style={scrollEdges.max < 24 ? { display: 'none' } : undefined}
+        aria-label={t('Board scroll controls')}
+      >
+        <button
+          type="button"
+          aria-label={t('Scroll to top')}
+          title={t('Scroll to top')}
+          disabled={scrollEdges.atTop}
+          onClick={() => scrollBoardTo('top')}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 10 5-5 5 5M3 14l5-5 5 5" /></svg>
+        </button>
+        <button
+          type="button"
+          aria-label={t('Scroll to bottom')}
+          title={t('Scroll to bottom')}
+          disabled={scrollEdges.atBottom}
+          onClick={() => scrollBoardTo('bottom')}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5M3 2l5 5 5-5" /></svg>
+        </button>
+      </div>
+
       {drawerStage && inbox ? (
         <StepDrawer
           flow={state.workflows.find((workflow) => workflow.id === drawerStage.flowId)!}
           stageIndex={drawerStage.stageIndex}
+          source={drawerStage.source}
           inbox={inbox}
           onClose={() => setDrawerStage(null)}
           onMutated={() => void load(true)}
           onResolved={(stageIndex, source) => markStepResolved(drawerStage.flowId, stageIndex, source)}
+          onOpenFlow={() => { setDrawerStage(null); setSelectedFlowId(drawerStage.flowId); }}
         />
       ) : null}
       {repairTarget ? (
@@ -836,9 +928,6 @@ export default function FlowBoard() {
           flowName={state.workflows.find((workflow) => workflow.id === preflightFlowId)?.name ?? ''}
           onClose={() => setPreflightFlowId(null)}
         />
-      ) : null}
-      {boardPreflightOpen ? (
-        <BoardPreflightModal workflows={state.workflows} onClose={() => setBoardPreflightOpen(false)} />
       ) : null}
     </div>
   );

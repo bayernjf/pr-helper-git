@@ -2,6 +2,8 @@
 // actually needs are reachable through the PAT proxy. Kept in its own module
 // so the rules can be unit-tested without loading the HTTP route module.
 const SEG = '[\\w.-]+';
+// Branch names may contain slashes; callers percent-encode them into one segment.
+const BRANCH = '[\\w.%+-]+';
 
 export const ALLOWLIST = [
   {
@@ -15,11 +17,16 @@ export const ALLOWLIST = [
   // Classic commit statuses are a separate API from check runs; a repo using
   // only statuses (Jenkins, older CI) would otherwise look like "no CI".
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/commits/${SEG}/status$`) },
-  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches(/${SEG})?$`) },
+  // Workflow runs are distinct from check runs: the upstream step drawer
+  // renders an Actions gate next to the checks gate. The head_sha filter is a
+  // query, so the allowlist matches the path only.
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/actions/runs$`) },
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches(/${BRANCH})?$`) },
   // Branch protection (404 when unprotected) drives the "no protection rules"
   // warning and the required-check summary before merging.
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches/${SEG}/protection$`) },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+$`) },
   // Line-level review comments live under pulls (not issues); POST anchors a
   // comment to a commit/path/line inside a PR diff.
   {

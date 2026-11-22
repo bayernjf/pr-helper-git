@@ -19,9 +19,10 @@ import {
   flowProgress,
   nextActionSummary,
   type NextActionKind,
+  type StageDetailModel,
   type StageEventRow,
 } from '../lib/automation/flows-detail';
-import type { StageProgressStatus } from '../lib/automation/workflow-run';
+import { automationActionPresentation, type StageProgressStatus } from '../lib/automation/workflow-run';
 import {
   immediateAutomationEffect,
   setStageAutoAdvance,
@@ -36,11 +37,14 @@ import { formatRelative } from '../lib/format';
 import type { BoardState } from '../lib/automation/flows-board';
 import { getLocale, runStateLabel, t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
+import FlowCreatePrModal from './FlowCreatePrModal';
 import PullReference from './PullReference';
 import GateDisclosure from './GateDisclosure';
+import StageActionsGate from './StageActionsGate';
 import CodexRepairModal from './CodexRepairModal';
 import { usePreferences } from '../app-state/preferences-provider';
 import { useCheckDetails } from '../hooks/use-check-details';
+import { useSourceBranchMissing } from '../hooks/use-source-branch-missing';
 import { IconRefresh } from './icons';
 
 const NODE_LABEL: Record<StageProgressStatus, string> = {
@@ -60,6 +64,36 @@ const NEXT_ACTION_TEXT: Record<NextActionKind, string> = {
   canCheck: 'Ready to check the next PR',
   synced: 'Flow status synced',
 };
+
+const ACTION_KIND_TEXT: Record<string, string> = {
+  'create-pr': 'auto-create PR',
+  'merge-pr': 'auto-merge PR',
+  'advance-stage': 'auto-advance stage',
+};
+
+function latestStageAction(
+  inbox: import('../api/flows').InboxPayload | undefined,
+  flowId: string,
+  stageIndex: number,
+  stageId: string | undefined,
+) {
+  if (!inbox) return undefined;
+  return inbox.automation
+    .filter((action) => action.workflowId === flowId
+      && (stageId ? action.stageId === stageId : action.stageIndex === stageIndex))
+    .sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')))[0];
+}
+
+/** Compare the pinned rule with the same-named library rule; the server API has no default flag. */
+function pinnedRuleUpdate(
+  stored: { name: string; content?: string; contentHash?: string } | undefined,
+  rules: GenerationRuleRow[],
+): { name: string; content: string } | undefined {
+  if (!stored?.content?.trim()) return undefined;
+  const current = rules.find((rule) => rule.name === stored.name);
+  if (!current || current.content === stored.content) return undefined;
+  return { name: current.name, content: current.content };
+}
 
 /** "M/D HH:mm" in local time, matching the board's updated stamp. */
 function formatEventTime(occurredAt: string): string {
@@ -92,6 +126,13 @@ function AutomationToggle({ label, enabled, disabled, busy, title, onClick }: {
 }
 
 /** Check gate chip that expands into live check details, like the old detail page. */
+function StageSourceBranchHint({ repository, source }: { repository: string; source: string }) {
+  const { pat, hasServerPat } = usePreferences();
+  const missing = useSourceBranchMissing(pat, hasServerPat, repository, source);
+  if (!missing) return null;
+  return <p className="detail-branch-missing">{t('status.sourceBranchDeletedHint')}</p>;
+}
+
 function StageChecksGate({ summary, repository, headSha, target }: {
   summary: string;
   repository: string;
@@ -116,8 +157,8 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
   events: readonly StageEventRow[];
   inbox?: import('../api/flows').InboxPayload;
   onClose: () => void;
-  /** Opens the step drawer for one stage (P3-3 operations). */
-  onOpenDrawer?: (stageIndex: number) => void;
+  /** Opens the step drawer for one stage (P3-3 operations); a concrete route wins on dynamic stages. */
+  onOpenDrawer?: (stageIndex: number, source?: string) => void;
   /** Reconciles the persisted projection with GitHub from the detail page. */
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -136,6 +177,7 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
   );
   const [editing, setEditing] = useState(false);
   const [busyAction, setBusyAction] = useState('');
+  const [createPrStage, setCreatePrStage] = useState<StageDetailModel | null>(null);
   const [actionError, setActionError] = useState('');
   const [repairTarget, setRepairTarget] = useState<{ stageIndex: number; source: string; pullNumber: number | null } | null>(null);
   const editable = Boolean(onSaved);
@@ -306,6 +348,69 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
     }
   }
 
+  /** Threshold is an editable number on the old detail page, not just a read-only label. */
+  async function saveStageThreshold(stage: (typeof stages)[number], raw: string, input: HTMLInputElement) {
+    if (!onSaved || !automationReady || busyAction) return;
+    const currentStage = flowForActions.stages[stage.index];
+    const pinned = currentStage?.automation?.generationRule;
+    const rule = pinned?.content
+      ? { name: pinned.name, content: pinned.content }
+      : rules[0] ? { name: rules[0].label || rules[0].name, content: rules[0].content } : undefined;
+    const fallback = String(currentStage?.automation?.triggerMinCommits || 1);
+    if (!currentStage?.automation?.autoCreatePullRequest || !rule) {
+      input.value = fallback;
+      return;
+    }
+    const threshold = Number(raw);
+    if (!Number.isInteger(threshold) || threshold < 1) {
+      input.value = fallback;
+      toast.error(t('The commit threshold must be a positive integer.'));
+      return;
+    }
+    const bounded = Math.min(20, threshold);
+    input.value = String(bounded);
+    if (bounded === (currentStage.automation.triggerMinCommits || 1)) return;
+    setBusyAction(`${stage.index}:threshold`);
+    setActionError('');
+    try {
+      const saved = await saveWorkflowToServer(
+        setStageAutoCreate(flowForActions, stage.index, true, rule, bounded),
+      );
+      toast.notify(tp('Auto-create trigger threshold updated to {count} commits.', { count: bounded }));
+      onSaved(saved);
+      onMutated?.();
+    } catch (err) {
+      const message = errorMessage(err);
+      setActionError(message);
+      toast.error(message);
+      input.value = fallback;
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  /** Re-pin the latest content of the same-named library rule (the server API has no default flag). */
+  async function syncStageRule(stage: (typeof stages)[number], update: { name: string; content: string }) {
+    if (!onSaved || busyAction) return;
+    const currentStage = flowForActions.stages[stage.index];
+    if (!currentStage) return;
+    setBusyAction(`${stage.index}:rule`);
+    setActionError('');
+    try {
+      const saved = await saveWorkflowToServer(
+        setStageAutoCreate(flowForActions, stage.index, true, update, currentStage.automation?.triggerMinCommits || 1),
+      );
+      toast.notify(tp('This step now uses the generation rule “{name}”.', { name: update.name }));
+      onSaved(saved);
+      onMutated?.();
+    } catch (err) {
+      const message = errorMessage(err);
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setBusyAction('');
+    }
+  }
   const summary = workflowSummary(flow);
   const headline = !progress?.synced
     ? t('Waiting for status sync')
@@ -430,6 +535,9 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                 mergeable: stage.mergeable,
                 mergeableState: stage.mergeableState ?? undefined,
               });
+              const stageAction = latestStageAction(inbox, flow.id, stage.index, flow.stages[stage.index]?.stageId);
+              const actionPresentation = stageAction ? automationActionPresentation(stageAction) : null;
+              const ruleUpdate = pinnedRuleUpdate(flow.stages[stage.index]?.automation?.generationRule, rules);
               const busy = busyAction !== '';
               return (
                 <article key={stage.index} className={`detail-stage ${stage.tone}`}>
@@ -437,6 +545,7 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                     <span className="step-index">{stage.index + 1}</span>
                     <div className="detail-stage-route">
                       <b>{stage.source} → {stage.target}</b>
+                      <StageSourceBranchHint repository={flow.repository} source={stage.source} />
                       {stage.pullNumber ? (
                         <PullReference
                           url={stage.pullUrl ?? githubPullUrl(flow.repository, stage.pullNumber)}
@@ -450,11 +559,19 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                     </span>
                   </div>
 
-                  {checkGate || otherGates.length ? (
+                  {(checkGate || otherGates.length || stage.headSha) ? (
                     <div className="detail-gates">
                       {checkGate ? (
                         <StageChecksGate
                           summary={checkGate}
+                          repository={flow.repository}
+                          headSha={stage.headSha}
+                          target={stage.target}
+                        />
+                      ) : null}
+                      {stage.headSha ? (
+                        <StageActionsGate
+                          className="detail-gate detail-actions-gate"
                           repository={flow.repository}
                           headSha={stage.headSha}
                           target={stage.target}
@@ -476,7 +593,7 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                           type="button"
                           className="drawer-btn small primary"
                           disabled={busy}
-                          onClick={() => void queueStageAction(stage, 'create-pr')}
+                          onClick={() => setCreatePrStage(stage)}
                         >
                           {busyAction === `${stage.index}:create-pr` ? t('Queuing…') : t('create PR')}
                         </button>
@@ -533,11 +650,16 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                   {stage.dynamic ? (
                     <div className="detail-routes">
                       {stage.routes.map((route) => (
-                        <div key={route.source} className="detail-route-row">
+                        <button
+                          key={route.source}
+                          type="button"
+                          className="detail-route-row"
+                          onClick={() => onOpenDrawer?.(stage.index, route.source)}
+                        >
                           <i className={`tone-dot ${route.tone}`} aria-hidden="true" />
                           <b>{route.source}</b>
                           <span>{route.label}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   ) : null}
@@ -545,13 +667,30 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                   <div className="detail-automation">
                     <span className="detail-automation-label">{t('Automation')}</span>
                     <AutomationToggle
-                      label={tp('auto-create (≥{threshold} commits)', { threshold: stage.automation.threshold })}
+                      label={t('auto-create PR')}
                       enabled={stage.automation.autoCreate}
                       disabled={!editable || !automationReady}
                       busy={busyAction === `${stage.index}:automation`}
                       title={!editable || !automationReady ? t('Automation prerequisites unmet — automation toggles are disabled') : undefined}
                       onClick={() => void toggleStageAutomation(stage, 'create')}
                     />
+                    <label
+                      className="detail-threshold"
+                      title={t('Number of new commits required to trigger automatic PR creation')}
+                    >
+                      <span>{t('Trigger after')}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        step={1}
+                        defaultValue={stage.automation.threshold}
+                        disabled={!stage.automation.autoCreate || !editable || !automationReady || busyAction !== ''}
+                        aria-label={t('Trigger after')}
+                        onBlur={(event) => void saveStageThreshold(stage, event.currentTarget.value, event.currentTarget)}
+                      />
+                      <span>{t('new commits')}</span>
+                    </label>
                     <AutomationToggle
                       label={t('auto-merge')}
                       enabled={stage.automation.autoMerge}
@@ -570,7 +709,30 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                         : (!stage.automation.autoCreate && !stage.automation.autoMerge) ? t('Auto-advance needs auto-create or auto-merge on the same step') : undefined}
                       onClick={() => void toggleStageAutomation(stage, 'advance')}
                     />
+                    {stageAction && actionPresentation ? (
+                      <div className={`detail-automation-status is-${actionPresentation.tone}`}>
+                        <b>{t(stageAction.kind ? ACTION_KIND_TEXT[stageAction.kind] || stageAction.kind : 'Automation')}</b>
+                        <span>{t(stageAction.state)}</span>
+                        {stageAction.attempts ? <span>· {tp('{count} attempts', { count: stageAction.attempts })}</span> : null}
+                        {stageAction.failureReason ? <small>{stageAction.failureReason}</small> : null}
+                        {stageAction.updatedAt ? <time>{formatRelative(stageAction.updatedAt)}</time> : null}
+                      </div>
+                    ) : null}
                   </div>
+
+                  {ruleUpdate && stage.automation.autoCreate ? (
+                    <div className="detail-rule-outdated">
+                      <span>{tp('The default generation rule “{name}” was updated; this step still generates from the older version.', { name: ruleUpdate.name })}</span>
+                      <button
+                        type="button"
+                        className="drawer-btn small"
+                        disabled={!editable || busyAction !== ''}
+                        onClick={() => void syncStageRule(stage, ruleUpdate)}
+                      >
+                        {t('Sync')}
+                      </button>
+                    </div>
+                  ) : null}
 
                   {stage.events.length ? (
                     <details className="detail-events" open={stage.tone === 'failed'}>
@@ -649,6 +811,16 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
           </section>
         </aside>
       </div>
+
+      {createPrStage ? (
+        <FlowCreatePrModal
+          repository={flow.repository}
+          source={createPrStage.source}
+          target={createPrStage.target}
+          onClose={() => setCreatePrStage(null)}
+          onCreated={() => { setCreatePrStage(null); onMutated?.(); }}
+        />
+      ) : null}
 
       {repairTarget ? (
         <CodexRepairModal

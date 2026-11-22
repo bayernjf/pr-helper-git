@@ -55,7 +55,7 @@ const openState: WorkflowStageStateRow = {
   updatedAt: '2026-11-19T00:00:00Z',
 };
 
-function inboxWith(state: WorkflowStageStateRow): InboxPayload {
+function inboxWith(state: WorkflowStageStateRow, extra: Partial<InboxPayload> = {}): InboxPayload {
   return {
     items: [],
     states: [state],
@@ -68,6 +68,7 @@ function inboxWith(state: WorkflowStageStateRow): InboxPayload {
     timeline: [],
     recoveryStatuses: [],
     automation: [],
+    ...extra,
   };
 }
 
@@ -75,7 +76,11 @@ let root: Root | null = null;
 let host: HTMLElement;
 let pat = '';
 
-function renderDrawer(state: WorkflowStageStateRow = openState) {
+function renderDrawer(
+  state: WorkflowStageStateRow = openState,
+  extra: Partial<InboxPayload> = {},
+  props: { source?: string; flow?: Workflow } = {},
+) {
   const onClose = vi.fn();
   const onMutated = vi.fn();
   const onResolved = vi.fn();
@@ -84,7 +89,7 @@ function renderDrawer(state: WorkflowStageStateRow = openState) {
       PreferencesContext.Provider,
       { value: { pat, hasServerPat: false } as PreferencesData },
       createElement(ToastProvider, null, createElement(ConfirmProvider, null, createElement(StepDrawer, {
-        flow, stageIndex: 0, inbox: inboxWith(state), onClose, onMutated, onResolved,
+        flow: props.flow ?? flow, stageIndex: 0, source: props.source, inbox: inboxWith(state, extra), onClose, onMutated, onResolved,
       }))),
     ));
   });
@@ -233,5 +238,54 @@ describe('StepDrawer resolve wiring', () => {
     expect(onResolved).not.toHaveBeenCalled();
     expect(onMutated).not.toHaveBeenCalled();
     expect(document.querySelector('.drawer-error')?.textContent).toContain('engine unavailable');
+  });
+});
+
+describe('StepDrawer step timeline and sync', () => {
+  it('renders the upstream step timeline filtered to this route', () => {
+    renderDrawer(openState, {
+      timeline: [
+        { workflowId: 'wf-1', stageIndex: 0, stageId: 's-1', source: 'dev', kind: 'pull-merged', message: 'Pull request merged', occurredAt: '2026-11-19T01:00:00Z' },
+        { workflowId: 'wf-1', stageIndex: 0, stageId: 's-1', source: 'other', kind: 'checks-failure', message: 'Wrong route', occurredAt: '2026-11-19T02:00:00Z' },
+        { workflowId: 'wf-2', stageIndex: 0, stageId: 's-1', source: 'dev', kind: 'run-started', message: 'Wrong workflow', occurredAt: '2026-11-19T03:00:00Z' },
+      ],
+    });
+    const section = document.querySelector('.drawer-timeline');
+    expect(section).not.toBeNull();
+    expect(section?.textContent).toContain(t('Step timeline'));
+    expect(section?.textContent).toContain('Pull request merged');
+    expect(section?.textContent).not.toContain('Wrong route');
+    expect(section?.textContent).not.toContain('Wrong workflow');
+    expect(section?.querySelector('.timeline-icon')?.textContent).toBe('✅');
+  });
+
+  it('Sync again waits for the projection reload and reports completion', async () => {
+    const { onMutated } = renderDrawer();
+    onMutated.mockResolvedValue(undefined);
+    await act(async () => {
+      ([...document.querySelectorAll('.drawer-btn')].find((b) => b.textContent === t('Sync again')) as HTMLButtonElement).click();
+    });
+    expect(onMutated).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain(t('Step synced'));
+    expect([...document.querySelectorAll('.drawer-btn')].find((b) => b.textContent === t('Sync again'))).toBeTruthy();
+  });
+
+  it('a concrete dynamic route selects its own state and action source', async () => {
+    const dynamicFlow: Workflow = {
+      ...flow,
+      stages: [{ source: 'feature/*', target: 'main', stageId: 's-1' }],
+    };
+    const routeState: WorkflowStageStateRow = { ...openState, source: 'feature/b', pullNumber: 9 };
+    renderDrawer(routeState, {
+      states: [
+        { ...openState, source: 'feature/a', pullNumber: 8 },
+        routeState,
+      ],
+    }, { source: 'feature/b', flow: dynamicFlow });
+    expect(document.querySelector('.step-drawer-head h2')?.textContent).toContain('feature/b');
+    await act(async () => {
+      ([...document.querySelectorAll('.drawer-btn')].find((b) => b.textContent === t('merge PR')) as HTMLButtonElement).click();
+    });
+    expect(enqueueAutomation).toHaveBeenCalledWith(expect.objectContaining({ source: 'feature/b', kind: 'merge-pr' }));
   });
 });

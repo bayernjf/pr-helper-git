@@ -7,11 +7,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscape } from '../hooks/use-escape';
 import { useCheckDetails } from '../hooks/use-check-details';
+import { usePullHeadSha } from '../hooks/use-pull-head-sha';
 import { usePreferences } from '../app-state/preferences-provider';
 import CodexRepairModal from './CodexRepairModal';
+import FlowCreatePrModal from './FlowCreatePrModal';
 import GateDisclosure from './GateDisclosure';
+import StageActionsGate from './StageActionsGate';
 import { useToast, useConfirm } from './ui';
 import { errorMessage } from '../lib/errors';
+import { formatRelative } from '../lib/format';
 import { mergeabilityGateText, stageStateText } from '../lib/automation/flows-detail';
 import { deploymentConfigs, matchingStageProjections, type DeploymentConfig, type Workflow } from '../lib/automation/workflow';
 import { automationActionPresentation, type AutomationActionState } from '../lib/automation/workflow-run';
@@ -31,6 +35,7 @@ import {
   type InboxPayload,
 } from '../api/flows';
 import type { ActionQueueItem, AutomationActionRow, WorkflowStageStateRow } from '../lib/automation/flows-board';
+import { timelineEntryIcon } from '../lib/automation/flows-board';
 import { t, tp } from '../i18n';
 import { IconX } from './icons';
 
@@ -84,15 +89,19 @@ function deploymentWarningText(warning: DeploymentConfigurationWarningRow): stri
   }
 }
 
-export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated, onResolved }: {
+export default function StepDrawer({ flow, stageIndex, source, inbox, onClose, onMutated, onResolved, onOpenFlow }: {
   flow: Workflow;
   stageIndex: number;
+  /** Concrete route clicked on a dynamic stage; falls back to the first matched route. */
+  source?: string;
   inbox: InboxPayload;
   onClose: () => void;
   /** Called after a successful operation so the board can re-read the projection. */
-  onMutated: () => void;
+  onMutated: () => void | Promise<void>;
   /** Marks the step handled locally so the board hides it until the projection catches up. */
   onResolved?: (stageIndex: number, source: string) => void;
+  /** Close the drawer and show the full flow detail (upstream "View full flow"). */
+  onOpenFlow?: () => void;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -105,6 +114,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     return () => previousFocus.current?.focus();
   }, []);
   const [busy, setBusy] = useState<string>('');
+  const [createPrOpen, setCreatePrOpen] = useState(false);
   const [error, setError] = useState('');
   const [takeoverFor, setTakeoverFor] = useState<number | null>(null);
   const [repairOpen, setRepairOpen] = useState(false);
@@ -131,9 +141,12 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     () => matchingStageProjections(flow, stageIndex, inbox.states),
     [flow, stageIndex, inbox.states],
   );
-  const primary: WorkflowStageStateRow | undefined = routes[0];
+  const primary: WorkflowStageStateRow | undefined = source
+    ? routes.find((route) => route.source === source) ?? routes[0]
+    : routes[0];
   const { pat, hasServerPat } = usePreferences();
-  const checkDetails = useCheckDetails(pat, hasServerPat, flow.repository, primary?.headSha);
+  const headSha = usePullHeadSha(pat, hasServerPat, flow.repository, primary?.pullNumber, primary?.headSha);
+  const checkDetails = useCheckDetails(pat, hasServerPat, flow.repository, headSha);
   const queueItem: ActionQueueItem | undefined = useMemo(
     () => inbox.items.find(
       (item) => item.workflowId === flow.id
@@ -157,6 +170,11 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
     () => [...actions].sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')))[0],
     [actions],
   );
+  const stepTimeline = useMemo(() => inbox.timeline
+    .filter((entry) => entry.workflowId === flow.id
+      && (stage.stageId ? entry.stageId === stage.stageId : entry.stageIndex === stageIndex)
+      && (entry.source === primary?.source || !entry.source))
+    .slice(0, 12), [flow.id, inbox.timeline, primary?.source, stage.stageId, stageIndex]);
   const olderActions = useMemo(
     () => actions.filter((action) => action !== latestAction),
     [actions, latestAction],
@@ -196,6 +214,11 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
   const kind = primary?.pullState === 'merged' ? 'merged' : primary?.pullState === 'open' ? 'open' : 'not-created';
   const stateText = stageStateText(kind, primary?.checksState, Boolean(primary?.checksTotal));
   const pullNumber = queueItem?.pullNumber ?? primary?.pullNumber ?? null;
+  const drawerTone = queueItem ? 'attention'
+    : primary?.checksState === 'failure' || latestAction?.state === 'failed' ? 'failed'
+      : primary?.checksState === 'pending' || latestAction?.state === 'running' ? 'running'
+        : primary?.pullState === 'merged' ? 'succeeded'
+          : primary?.pullState === 'open' ? 'running' : 'idle';
 
   async function runOp(key: string, op: () => Promise<unknown>, successMessage: string, resolveSource?: string) {
     setBusy(key);
@@ -230,6 +253,21 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       stageIndex,
       source: primary?.source || stage.source,
     }), t('Actions rerun requested'), primary?.source || stage.source);
+  }
+
+  async function syncAgain() {
+    setBusy('sync');
+    setError('');
+    try {
+      await onMutated();
+      toast.notify(t('Step synced'));
+    } catch (err) {
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy('');
+    }
   }
 
   function deploymentConfigFor(provider: DeploymentConfig['provider']) {
@@ -295,43 +333,23 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
       >
         <header className="step-drawer-head">
           <div>
-            <p className="drawer-eyebrow">{flow.repository}</p>
-            <h2>{tp('Step {index}', { index: stageIndex + 1 })} · {stage.source} → {stage.target}</h2>
-            <p className="drawer-state">{stateText}</p>
+            <p className="drawer-eyebrow">{t('Step detail')}</p>
+            <h2>{primary?.source ?? stage.source} → {stage.target}</h2>
+            <p className="drawer-repository">{flow.repository} · {tp('Step {index}', { index: stageIndex + 1 })}</p>
           </div>
-          <button type="button" className="m-icon-btn" aria-label={t('Close')} onClick={onClose}>
-            <IconX width={18} height={18} />
-          </button>
+          <div className="step-drawer-head-actions">
+            {onOpenFlow ? (
+              <button type="button" className="drawer-btn small" onClick={onOpenFlow}>
+                {t('View full flow')}
+              </button>
+            ) : null}
+            <button type="button" className="m-icon-btn" aria-label={t('Close')} onClick={onClose}>
+              <IconX width={18} height={18} />
+            </button>
+          </div>
         </header>
 
         {error ? <div className="drawer-error">{error}</div> : null}
-
-        {pullNumber ? (
-          <div className="drawer-section">
-            <span className="drawer-label">PR</span>
-            <PullReference url={githubPullUrl(flow.repository, pullNumber)} label={`#${pullNumber}`} />
-            {primary?.checksTotal ? (
-              <GateDisclosure
-                className="drawer-gate"
-                target={stage.target}
-                details={checkDetails}
-                summary={tp('checks {passed}/{total} {state}', {
-                  passed: primary.checksPassed ?? 0,
-                  total: primary.checksTotal,
-                  state: primary.checksState === 'success'
-                    ? t('checks passed')
-                    : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
-                })}
-              />
-            ) : null}
-            {primary?.pullState === 'open' && primary.requiredApprovals ? (
-              <span className="drawer-gate">{tp('approvals {approvals}/{required}', { approvals: primary.approvals ?? 0, required: primary.requiredApprovals })}</span>
-            ) : null}
-            {primary?.pullState === 'open' && mergeabilityGateText(primary.mergeable, primary.mergeableState) ? (
-              <span className="drawer-gate">{mergeabilityGateText(primary.mergeable, primary.mergeableState)}</span>
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="drawer-section drawer-actions">
           {primary?.pullState !== 'merged' && primary?.pullState !== 'open' ? (
@@ -339,7 +357,7 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
               type="button"
               className="drawer-btn primary"
               disabled={busy !== ''}
-              onClick={() => enqueue('create-pr')}
+              onClick={() => setCreatePrOpen(true)}
             >
               {busy === 'create-pr' ? t('Queuing…') : t('create PR')}
             </button>
@@ -400,11 +418,74 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
           <button
             type="button"
             className="drawer-btn"
+            disabled={busy !== ''}
+            onClick={() => void syncAgain()}
+          >
+            {busy === 'sync' ? t('Syncing…') : t('Sync again')}
+          </button>
+          <button
+            type="button"
+            className="drawer-btn"
             onClick={() => setRepairOpen(true)}
           >
             {t('Codex repair context')}
           </button>
         </div>
+
+        <div className={`drawer-status ${drawerTone}`}>
+          <b>{stateText}</b>
+          {pullNumber ? (
+            <PullReference url={githubPullUrl(flow.repository, pullNumber)} label={`PR #${pullNumber}`} />
+          ) : (
+            <p>{t('No pull request yet')}</p>
+          )}
+          {primary?.checksTotal ? (
+            <GateDisclosure
+              className="drawer-gate"
+              target={stage.target}
+              details={checkDetails}
+              summary={tp('checks {passed}/{total} {state}', {
+                passed: primary.checksPassed ?? 0,
+                total: primary.checksTotal,
+                state: primary.checksState === 'success'
+                  ? t('checks passed')
+                  : primary.checksState === 'failure' ? t('checks failed') : t('checks running'),
+              })}
+            />
+          ) : null}
+          {headSha ? (
+            <StageActionsGate
+              className="drawer-gate"
+              repository={flow.repository}
+              headSha={headSha}
+              target={stage.target}
+            />
+          ) : null}
+          {primary?.pullState === 'open' && primary.requiredApprovals ? (
+            <span className="drawer-gate">{tp('approvals {approvals}/{required}', { approvals: primary.approvals ?? 0, required: primary.requiredApprovals })}</span>
+          ) : null}
+          {primary?.pullState === 'open' && mergeabilityGateText(primary.mergeable, primary.mergeableState) ? (
+            <span className="drawer-gate">{mergeabilityGateText(primary.mergeable, primary.mergeableState)}</span>
+          ) : null}
+          {primary?.updatedAt ? <p className="drawer-status-updated">{formatRelative(primary.updatedAt)}</p> : null}
+        </div>
+
+        {stepTimeline.length ? (
+          <details className="drawer-section drawer-timeline">
+            <summary className="drawer-label">{t('Step timeline')}</summary>
+            <ol>
+              {stepTimeline.map((entry, index) => (
+                <li key={entry.runId ?? index} className={entry.kind ?? ''}>
+                  <span className="timeline-icon" aria-hidden="true">{timelineEntryIcon(entry.kind)}</span>
+                  <div>
+                    <b>{entry.message ?? entry.kind ?? '—'}</b>
+                    {entry.occurredAt ? <time>{formatRelative(entry.occurredAt)}</time> : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </details>
+        ) : null}
 
         {deploymentWarnings.length ? (
           <div className="drawer-section drawer-deployment-warnings">
@@ -631,6 +712,15 @@ export default function StepDrawer({ flow, stageIndex, inbox, onClose, onMutated
             <p className="drawer-empty">{t('No events yet')}</p>
           )}
         </div>
+        {createPrOpen ? (
+          <FlowCreatePrModal
+            repository={flow.repository}
+            source={primary?.source || stage.source}
+            target={primary?.target || stage.target}
+            onClose={() => setCreatePrOpen(false)}
+            onCreated={() => { setCreatePrOpen(false); void onMutated?.(); }}
+          />
+        ) : null}
         {repairOpen ? (
         <CodexRepairModal
           workflowId={flow.id}

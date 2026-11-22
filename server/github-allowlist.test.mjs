@@ -5,7 +5,9 @@ describe('github allowlist', () => {
   it('allows the CI endpoints the PR panel reads', () => {
     expect(isAllowed('GET', '/repos/o/r/commits/abc123/check-runs')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/commits/abc123/status')).toBe(true);
+    expect(isAllowed('GET', '/repos/o/r/pulls/7')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/branches/main/protection')).toBe(true);
+    expect(isAllowed('GET', '/repos/o/r/branches/feature%2Fx')).toBe(true);
   });
 
   it('allows label reads and label mutations on a pull request', () => {
@@ -19,7 +21,7 @@ describe('github allowlist', () => {
   it('rejects sibling and mutating endpoints', () => {
     expect(isAllowed('DELETE', '/repos/o/r/branches/main/protection')).toBe(false);
     expect(isAllowed('PUT', '/repos/o/r/branches/main/protection')).toBe(false);
-    expect(isAllowed('GET', '/repos/o/r/actions/runs')).toBe(false);
+    expect(isAllowed('GET', '/repos/o/r/actions/runs')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/branches/main/protection/required_status_checks')).toBe(false);
   });
 

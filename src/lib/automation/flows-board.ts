@@ -139,6 +139,22 @@ export type TimelineRow = {
   runId?: number | string | null;
 };
 
+/** Icons from the upstream timeline renderer, kept identical for scanability. */
+export function timelineEntryIcon(kind?: string | null): string {
+  if (!kind) return '•';
+  if (kind.startsWith('run-')) return '🚀';
+  if (kind === 'pull-merged') return '✅';
+  if (kind === 'pull-detected') return '📝';
+  if (kind === 'checks-success') return '✓';
+  if (kind === 'checks-failure') return '✗';
+  if (kind === 'deployment-success') return '🟢';
+  if (kind === 'deployment-failure') return '🔴';
+  if (kind === 'deployment-rollback') return '↩️';
+  if (kind === 'actions-rerun') return '🔄';
+  if (kind === 'pull-cleared') return '🔁';
+  return '•';
+}
+
 export type BoardState = {
   workflows: readonly Workflow[];
   states: readonly WorkflowStageStateRow[];

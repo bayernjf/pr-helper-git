@@ -4481,6 +4481,13 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 
 .flow-board-page .board-summary { display: flex; flex-direction: column; gap: 6px; }
 .flow-board-page .board-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.flow-board-page .board-search-row { justify-content: flex-start; }
+.flow-board-page .board-search-row .board-search { margin-left: 0; flex: 1; max-width: 420px; }
+.flow-board-page .board-search > span { color: var(--muted); font-size: var(--fs-meta); white-space: nowrap; }
+.flow-board-page .board-search-row .board-refresh { margin-left: auto; }
+.flow-board-page .lane-search-count { color: var(--faint); font-size: var(--fs-meta); white-space: nowrap; }
+.flow-board-page .lane-search-count b { color: var(--text); font-variant-numeric: tabular-nums; }
+.flow-board-page .board-sort-label { color: var(--faint); font-size: var(--fs-meta); text-transform: uppercase; letter-spacing: 0.04em; }
 .flow-board-page .board-filters { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .flow-board-page .board-summary button {
   display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px;
@@ -4506,6 +4513,22 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .flow-board-page .board-summary .board-expand-all:disabled { opacity: 0.45; cursor: default; }
 
 .flow-board-page .project-board { display: flex; flex-direction: column; gap: 10px; }
+.flow-board-page .board-scroll-controls {
+  position: fixed; right: 22px; bottom: 24px; z-index: 30;
+  display: flex; flex-direction: column; gap: 6px; padding: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(6px);
+}
+.flow-board-page .board-scroll-controls button {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.flow-board-page .board-scroll-controls button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.flow-board-page .board-scroll-controls button:disabled { opacity: 0.35; cursor: default; }
+.flow-board-page .board-scroll-controls svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .flow-board-page .project-lane {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   overflow: hidden; transition: border-color var(--dur), background var(--dur);
@@ -4516,19 +4539,23 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 
 .flow-board-page .lane-header {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  grid-template-areas:
-    "handle title actions"
-    "handle run controls";
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "heading collapse actions";
+  align-items: start;
   column-gap: 10px;
   row-gap: 8px;
   padding: 12px 16px 11px;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border-bottom: 1px solid var(--border-soft);
 }
+.flow-board-page .lane-heading {
+  grid-area: heading; display: flex; align-items: flex-start; gap: 10px; min-width: 0;
+}
+.flow-board-page .lane-order-controls {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.flow-board-page .lane-order-input { display: inline-flex; }
 .flow-board-page .lane-drag-handle {
-  grid-area: handle;
   align-self: stretch;
   width: 18px; min-height: 32px; padding: 0; border: 0; border-radius: var(--radius-sm);
   background: transparent; color: var(--faint); font-family: var(--mono); font-size: 13px;
@@ -4543,8 +4570,8 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .flow-board-page .project-lane.is-collapsed .lane-header { border-bottom-color: transparent; }
 .flow-board-page .project-lane.is-collapsed .lane-details { display: none; }
 .flow-board-page .lane-title-block {
-  grid-area: title; min-width: 0; width: 100%; background: none; border: 0; padding: 0;
-  text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  min-width: 0; width: 100%; background: none; border: 0; padding: 0;
+  text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
 }
 .flow-board-page .lane-title-block:hover h2 { color: var(--accent); }
 .flow-board-page .lane-eyebrow {
@@ -4561,7 +4588,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   vertical-align: 1px; font-weight: 500;
 }
 .flow-board-page .lane-actions {
-  grid-area: actions; display: inline-flex; align-items: center; gap: 2px; justify-self: end; align-self: start;
+  grid-area: actions; display: inline-flex; align-items: center; gap: 2px; justify-self: end; align-self: center;
   flex-wrap: wrap; justify-content: flex-end; max-width: 100%;
 }
 .flow-board-page .lane-actions .drawer-btn {
@@ -4571,17 +4598,22 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .flow-board-page .lane-actions .drawer-btn:hover:not(:disabled) {
   border-color: var(--border); background: var(--panel); color: var(--text);
 }
-.flow-board-page .lane-run { grid-area: run; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.flow-board-page .lane-run .run-text {
+.flow-board-page .lane-run-summary { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.flow-board-page .lane-run-summary .run-text {
   color: var(--muted); font-size: var(--fs-body); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
 }
-.flow-board-page .lane-controls {
-  grid-area: controls; justify-self: end; display: flex; align-items: center; gap: 2px;
-  padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-pill);
-  background: var(--panel-2);
+.flow-board-page .lane-run-summary.running .run-text { color: var(--blue); }
+.flow-board-page .lane-run-summary.failed .run-text { color: var(--red); }
+.flow-board-page .lane-move-buttons { display: inline-flex; align-items: center; gap: 1px; }
+.flow-board-page .lane-collapse-toggle {
+  grid-area: collapse; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--panel-2); color: var(--muted); cursor: pointer;
 }
-.flow-board-page .lane-move { display: inline-flex; align-items: center; gap: 1px; padding-right: 3px; margin-right: 1px; border-right: 1px solid var(--border-soft); }
+.flow-board-page .lane-collapse-toggle:hover { border-color: var(--border-strong); color: var(--text); }
+.flow-board-page .lane-collapse-toggle svg { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.flow-board-page .lane-collapse-toggle[aria-expanded="false"] svg path { transform: rotate(180deg); transform-origin: 8px 8px; }
 .flow-board-page .lane-move-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 22px; border: 0; border-radius: var(--radius-pill);
@@ -4711,6 +4743,10 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   color: var(--text); font-weight: 550; font-family: var(--mono); font-size: var(--fs-meta);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.flow-board-page .lane-history li > .timeline-icon,
+.flow-board-page .lane-timeline li > .timeline-icon { flex: 0 0 16px; width: 16px; overflow: visible; text-align: center; font-size: var(--fs-meta); }
+.flow-board-page .lane-history li > .timeline-icon + .lane-detail-main,
+.flow-board-page .lane-timeline li > .timeline-icon + .lane-detail-main { flex: 1; }
 .flow-board-page .lane-history li .lane-detail-main small,
 .flow-board-page .lane-timeline li .lane-detail-main small {
   display: flex; align-items: center; gap: 4px; color: var(--faint); font-size: 10px;
@@ -4750,13 +4786,13 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   .flow-board-page .board-search { margin-left: 0; flex: 1 1 100%; order: 3; }
   .flow-board-page .board-search input { width: 100%; }
   .flow-board-page .lane-header {
-    grid-template-columns: 18px 1fr;
-    grid-template-areas: "handle title" "handle run" "actions actions" "controls controls";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "heading collapse" "actions actions";
     row-gap: 7px;
   }
+  .flow-board-page .lane-heading { flex-wrap: wrap; }
   .flow-board-page .lane-actions { justify-self: start; justify-content: flex-start; }
-  .flow-board-page .lane-controls { justify-self: start; }
-  .flow-board-page .lane-run .run-text { white-space: normal; overflow: visible; }
+  .flow-board-page .lane-run-summary .run-text { white-space: normal; overflow: visible; }
   .flow-board-page .lane-track { flex-direction: column; overflow: visible; }
   .flow-board-page .lane-step { min-width: 0; flex: none; }
   .flow-board-page .lane-connector { flex: 0 0 auto; transform: rotate(90deg); align-self: flex-start; margin: -3px 0 -3px 12px; }
@@ -4880,7 +4916,14 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700;
   display: grid; place-items: center; flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
-.flow-detail-page .detail-stage-route { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; flex-wrap: wrap; }
+.flow-detail-page .detail-branch-missing {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--warning);
+  line-height: 1.4;
+}
+
+.detail-stage-route { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; flex-wrap: wrap; }
 .flow-detail-page .detail-stage-route b { font-size: var(--fs-ui); font-family: var(--mono); }
 .flow-detail-page .detail-stage-route a { color: var(--accent); text-decoration: none; font-size: var(--fs-ui); }
 .flow-detail-page .detail-stage-route a:hover { text-decoration: underline; }
@@ -4911,10 +4954,24 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 2px 9px;
 }
 .flow-detail-page .detail-routes { display: flex; flex-direction: column; gap: 5px; }
-.flow-detail-page .detail-route-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-meta); color: var(--muted); }
+.flow-detail-page .detail-route-row { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 2px 0; text-align: left; font-size: var(--fs-meta); color: var(--muted); cursor: pointer; }
+.flow-detail-page .detail-route-row:hover b { color: var(--accent); }
 .flow-detail-page .detail-route-row b { color: var(--text); font-family: var(--mono); font-size: var(--fs-meta); }
 .flow-detail-page .detail-automation { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .flow-detail-page .detail-automation-label { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+.flow-detail-page .detail-threshold { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
+.flow-detail-page .detail-threshold input { width: 52px; padding: 2px 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--text); font-family: var(--mono); font-size: var(--fs-meta); }
+.flow-detail-page .detail-threshold input:focus { outline: none; border-color: var(--accent-line); }
+.flow-detail-page .detail-threshold input:disabled { opacity: 0.6; cursor: not-allowed; }
+.flow-detail-page .detail-automation-status { display: flex; flex-basis: 100%; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-2); font-size: var(--fs-meta); color: var(--muted); }
+.flow-detail-page .detail-automation-status.is-failed { border-color: rgba(210, 15, 57, 0.35); background: var(--red-soft); }
+.flow-detail-page .detail-automation-status.is-attention { border-color: rgba(245, 180, 0, 0.35); background: rgba(245, 180, 0, 0.08); }
+.flow-detail-page .detail-automation-status.is-running { border-color: var(--accent-line); }
+.flow-detail-page .detail-automation-status b { color: var(--text); }
+.flow-detail-page .detail-automation-status small { flex-basis: 100%; color: var(--muted); font-size: 10px; }
+.flow-detail-page .detail-automation-status time { margin-left: auto; color: var(--faint); font-size: 10px; }
+.flow-detail-page .detail-rule-outdated { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border: 1px solid rgba(245, 180, 0, 0.35); border-radius: var(--radius-sm); background: rgba(245, 180, 0, 0.08); color: var(--muted); font-size: var(--fs-meta); }
+.flow-detail-page .detail-rule-outdated span { flex: 1; }
 .flow-detail-page .detail-auto-toggle {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: var(--fs-meta); border: 1px solid var(--border); border-radius: var(--radius-pill);
@@ -5003,9 +5060,23 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 }
 .step-drawer-head { display: flex; align-items: flex-start; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 .step-drawer-head > div { min-width: 0; flex: 1; }
+.step-drawer-head-actions { display: flex; flex: 0 0 auto !important; align-items: center; gap: 6px; }
 .step-drawer .drawer-eyebrow { margin: 0; font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
 .step-drawer-head h2 { margin: 3px 0 3px; font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; font-weight: 650; }
 .step-drawer .drawer-state { margin: 0; color: var(--muted); font-size: var(--fs-body); }
+.step-drawer .drawer-repository { margin: 0; color: var(--faint); font-size: var(--fs-meta); font-family: var(--mono); }
+.step-drawer .drawer-status {
+  display: flex; flex-direction: column; gap: 6px; padding: 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel-2);
+}
+.step-drawer .drawer-status > b { font-size: var(--fs-body); line-height: 1.4; }
+.step-drawer .drawer-status p { margin: 0; color: var(--muted); font-size: var(--fs-meta); }
+.step-drawer .drawer-status-updated { color: var(--faint) !important; }
+.step-drawer .drawer-status.attention { border-color: var(--amber); background: var(--amber-soft); }
+.step-drawer .drawer-status.failed { border-color: var(--red); background: var(--red-soft); }
+.step-drawer .drawer-status.running { border-color: var(--blue); background: var(--blue-soft); }
+.step-drawer .drawer-status.succeeded { background: var(--green-soft); }
+
 .step-drawer .m-icon-btn { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; flex-shrink: 0; }
 .drawer-error { border: 1px solid var(--red); color: var(--red); background: var(--red-soft); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--fs-ui); }
 /* Page-level inline error banner (PrBoard etc.) — same visual contract as
@@ -5037,6 +5108,15 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .check-detail.success .check-detail-icon { color: var(--green); }
 .check-detail.failure .check-detail-icon { color: var(--red); }
 .drawer-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.step-drawer .drawer-timeline > summary { cursor: pointer; list-style: none; }
+.step-drawer .drawer-timeline > summary::-webkit-details-marker { display: none; }
+.step-drawer .drawer-timeline > summary::after { content: '▾'; float: right; color: var(--faint); }
+.step-drawer .drawer-timeline[open] > summary::after { content: '▴'; }
+.step-drawer .drawer-timeline ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.step-drawer .drawer-timeline li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: var(--fs-meta); color: var(--muted); }
+.step-drawer .drawer-timeline li > div { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.step-drawer .drawer-timeline li b { color: var(--text); font-weight: 550; overflow-wrap: anywhere; }
+.step-drawer .drawer-timeline li time { color: var(--faint); font-size: 10px; }
 .drawer-btn { padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: var(--fs-ui); cursor: pointer; }
 .drawer-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--hover); }
 .drawer-btn.primary { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
@@ -5192,6 +5272,16 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 
 /* Flow preflight (P3-13) */
 .modal-subtitle { margin: 3px 0 0; color: var(--faint); font-size: var(--fs-meta); }
+.flow-preflight-panel {
+  margin: 0 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  overflow: hidden;
+}
+.flow-preflight-panel .modal-footer { border-top: 1px solid var(--border-soft); }
+.flow-preflight-panel .flow-preflight-body { max-height: 420px; overflow: auto; }
+
 .flow-preflight-body { display: flex; flex-direction: column; gap: 14px; }
 .preflight-summary {
   display: flex;
@@ -5261,6 +5351,19 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .pr-ref-tip code { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .pr-ref-tip a { color: var(--accent); text-decoration: none; }
 .editor-stage-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: var(--text); padding: 2px 0; text-align: left; cursor: pointer; }
+.editor-route-badge { padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--radius-pill); color: var(--muted); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.editor-route-mode { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-2); }
+.editor-route-mode > label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-meta); }
+.editor-route-mode select { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); color: var(--text); font-size: var(--fs-ui); }
+.editor-route-dependencies { margin: 0; padding: 8px 0 0; border: 0; border-top: 1px solid var(--border-soft); }
+.editor-route-dependencies legend { padding: 0 4px 4px; color: var(--muted); font-size: var(--fs-meta); }
+.editor-route-dependencies > small { display: block; margin: 0 0 6px; color: var(--faint); font-size: 10px; line-height: 1.45; }
+.editor-route-dependencies > div { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.editor-route-dependencies label { display: inline-flex; align-items: center; gap: 5px; color: var(--text); font-family: var(--mono); font-size: var(--fs-meta); }
+.editor-add-stage { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-2); }
+.editor-add-stage > label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-meta); }
+.editor-add-stage select { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); color: var(--text); font-size: var(--fs-ui); }
+.editor-add-stage > .drawer-btn { align-self: flex-start; }
 .editor-stage-head:hover .editor-stage-toggle { color: var(--accent); }
 .editor-stage-toggle { margin-left: auto; color: var(--faint); font-size: var(--fs-meta); }
 .editor-stage-body { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
