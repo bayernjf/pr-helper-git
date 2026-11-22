@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AUDIT_KEEP_ENTRIES, AUDIT_ROTATE_BYTES } from './store.mjs';
 import { parseWorktreeList } from './routes-git-read.mjs';
+import { githubRepositoryFromRemote } from './routes-git-write-network.mjs';
 
 const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const serverPath = path.join(projectRoot, 'server', 'main.mjs');
@@ -1160,6 +1161,20 @@ describe('pull request checkout', () => {
     expect(again.status).toBe(409);
     const bad = await post('/api/pr/checkout', { repo: clone, number: 0 });
     expect(bad.status).toBe(400);
+  });
+});
+
+describe('github remote parsing', () => {
+  it('recognises the HTTPS, SSH and ssh:// forms used by the desktop app', () => {
+    expect(githubRepositoryFromRemote('https://github.com/bayernjf/pr-helper-git.git')).toBe('bayernjf/pr-helper-git');
+    expect(githubRepositoryFromRemote('git@github.com:bayernjf/pr-helper-git.git')).toBe('bayernjf/pr-helper-git');
+    expect(githubRepositoryFromRemote('ssh://git@github.com/bayernjf/pr-helper-git')).toBe('bayernjf/pr-helper-git');
+  });
+
+  it('returns null for non-GitHub or malformed remotes', () => {
+    expect(githubRepositoryFromRemote('https://gitlab.com/bayernjf/pr-helper-git.git')).toBeNull();
+    expect(githubRepositoryFromRemote('')).toBeNull();
+    expect(githubRepositoryFromRemote(undefined)).toBeNull();
   });
 });
 

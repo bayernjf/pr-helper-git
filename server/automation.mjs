@@ -37,6 +37,18 @@ function environment() {
 export function isShadowMode() { return shadowMode; }
 export function setShadowMode(on) { shadowMode = !!on; }
 
+/** Reconcile one repository immediately after a local push, so the 5-minute cron is a fallback
+ * rather than the primary trigger. Only active when the automation engine is enabled. */
+export async function reconcileRepositoryNow(repository) {
+  if (shadowMode || process.env.PR_HELPER_GIT_AUTOMATION !== '1' || !repository) return null;
+  try {
+    return await store.reconcileRealtime(environment(), { repository, eventName: 'local-push' }, 'manual');
+  } catch (err) {
+    console.error(`[automation] local-push reconcile failed for ${repository}: ${err.message}`);
+    return null;
+  }
+}
+
 /** Start the drain/reconcile/cleanup schedulers. Idempotent. */
 export function startAutomation() {
   if (timers.length > 0) return;

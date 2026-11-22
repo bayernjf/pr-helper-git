@@ -62,6 +62,12 @@ application never pushes it for you.
 - **Failure notifications**: actionable automation failures (paused / failed
   actions) push **macOS local notifications**; an optional Feishu webhook
   activates with `PR_HELPER_GIT_FEISHU_WEBHOOK`
+- **Auto-merge gate**: merge actions are bound to the scheduled `headSha`.
+  Before merging, the server re-reads check-runs, commit statuses, reviews and
+  branch protection/rules for that exact head; a newer push cancels the stale
+  action and is never merged on the previous green checks. A local
+  `POST /api/push` also triggers an immediate targeted reconcile instead of
+  waiting for the 5-minute cron (CLI pushes still fall back to cron).
 - **Auto-advance persists**: the legacy pr-helper schema never stored the
   auto-advance flag (local migration 048 fixes it — a capability the cloud
   never had)
