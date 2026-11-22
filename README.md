@@ -111,7 +111,8 @@ application never pushes it for you.
   pattern and since/until calendar dates, so commits outside the loaded page
   are still searchable; invalid dates are rejected with a 400.
 - Reset the current branch to any commit with soft, mixed or hard semantics
-  (hard reset requires an explicit confirmation).
+  (hard reset requires an explicit confirmation that names the target SHA,
+  the discarded index/working-tree changes, and the reflog recovery boundary).
 - Safely revert a commit without rewriting history: a normal commit becomes a
   new "Revert" commit, while reverting a merge commit asks for the mainline
   parent (`-m 1..N`) in a dialog. When a revert stops on conflicts the working
@@ -155,7 +156,8 @@ application never pushes it for you.
   Escape.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
-  touched.
+  touched. The confirmation separates the deletion impact from the recovery
+  path and states that untracked files are not in Git history.
 - Bisect wizard from the command palette: start from a good and a bad commit
   (prefilled with the ends of the loaded history), mark the current commit
   good/bad, and reset back to the starting branch. State is read from git's
@@ -190,6 +192,9 @@ application never pushes it for you.
 - Pull and push through split button groups with a caret: pull using the
   default merge or `--rebase`, and force-push with either `--force` or the
   safer `--force-with-lease`, each protected by an explicit confirmation.
+  The confirmation shows the affected remote ref and the recovery boundary:
+  `--force` has no remote undo, while a rejected force-with-lease changes
+  nothing.
 - Abort a conflicted merge (`git merge --abort`) from an automatic banner that
   appears while a merge is in progress, and force-create a tag (`-f`) to
   overwrite an existing name from the create-tag dialog.

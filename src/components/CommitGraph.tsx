@@ -243,10 +243,13 @@ export default function CommitGraph() {
     if (!menu || !currentRepo) return;
     const sha = menu.hash;
     if (mode === 'hard') {
-      const yes = await confirm(
-        'Hard reset to this commit?',
-        'git reset --hard moves the branch and discards index and working-tree changes permanently.',
-      );
+      const yes = await confirm({
+        title: t('Hard reset to this commit?'),
+        impact: tp('The branch moves to {sha}; staged and working-tree changes are discarded.', { sha: shortHash(sha) }),
+        recovery: t('Uncommitted changes cannot be recovered by Git. Commits remain recoverable through the reflog until it is pruned.'),
+        confirmLabel: t('Hard reset'),
+        danger: true,
+      });
       if (!yes) return;
     }
     await runAction(

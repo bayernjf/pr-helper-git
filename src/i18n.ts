@@ -1301,6 +1301,30 @@ export const ZH: Record<string, string> = {
   'Show working tree': '展开工作区',
   'Hide commit detail': '收起提交详情',
   'Show commit detail': '展开提交详情',
+  'Impact': '影响范围',
+  'Recovery path': '恢复路径',
+  'Force push': '强制推送',
+  'The remote branch will be moved to your local HEAD. Commits that existed only on the remote can become unreachable.':
+    '远端分支将移动到本地 HEAD；只存在于远端的提交可能变为不可达。',
+  'The remote branch will move to your local HEAD only if its current value still matches the last fetch.':
+    '只有当远端分支当前值仍与上次 fetch 一致时，才会移动到本地 HEAD。',
+  'Force push has no remote undo. Recover discarded commits from another clone, the local reflog, or a backup.':
+    '强制推送没有远端撤销；可从另一个克隆、本地 reflog 或备份恢复被丢弃的提交。',
+  'If the lease check fails, nothing is pushed. Fetch, inspect the remote, and retry.':
+    '如果 lease 校验失败，不会推送任何内容；请先 fetch、检查远端，再重试。',
+  'Delete {count} untracked item(s) from disk.': '从磁盘删除 {count} 个未跟踪项。',
+  'Untracked files are not in Git history. Git cannot restore them; use a filesystem backup if needed.':
+    '未跟踪文件不在 Git 历史中，Git 无法恢复；必要时请使用文件系统备份。',
+  'Hard reset to this commit?': '硬重置到此提交？',
+  'The branch moves to {sha}; staged and working-tree changes are discarded.':
+    '分支将移动到 {sha}；暂存区和工作区改动会被丢弃。',
+  'Uncommitted changes cannot be recovered by Git. Commits remain recoverable through the reflog until it is pruned.':
+    '未提交改动无法由 Git 恢复；提交在 reflog 被清理前仍可通过 reflog 找回。',
+  'Hard reset': '硬重置',
+  'The flow and its local automation configuration are removed; pending automation stops.':
+    '流程及其本地自动化配置会被移除，待执行的自动化会停止。',
+  'There is no in-app undo. Restore from a database backup or recreate the flow.':
+    '应用内没有撤销；请从数据库备份恢复，或重新创建流程。',
   'More': '更多',
   'Search options': '搜索选项',
   'Repository options': '仓库选项',

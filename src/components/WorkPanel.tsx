@@ -253,10 +253,14 @@ export default function WorkPanel() {
         toast(t("Nothing to clean"), 'info');
         return;
       }
-      const proceed = await confirm(
-        `Remove ${preview.paths.length} untracked item${preview.paths.length === 1 ? '' : 's'}?`,
-        preview.paths.slice(0, 12).join('\n') + (preview.paths.length > 12 ? '\n…' : ''),
-      );
+      const proceed = await confirm({
+        title: `Remove ${preview.paths.length} untracked item${preview.paths.length === 1 ? '' : 's'}?`,
+        detail: preview.paths.slice(0, 12).join('\n') + (preview.paths.length > 12 ? '\n…' : ''),
+        impact: tp('Delete {count} untracked item(s) from disk.', { count: preview.paths.length }),
+        recovery: t('Untracked files are not in Git history. Git cannot restore them; use a filesystem backup if needed.'),
+        confirmLabel: t('Clean untracked files'),
+        danger: true,
+      });
       if (!proceed) return;
       const result = await cleanForce(activeRepo!);
       toast(`Removed ${result.removed.length} item${result.removed.length === 1 ? '' : 's'}`, 'success');

@@ -5820,6 +5820,17 @@ textarea { height: auto; min-height: 64px; padding: 8px 10px; line-height: 1.48;
 .modal-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--hairline); }
 .modal-header h2 { font-size: var(--fs-title); font-weight: 600; }
 .modal-body { padding: 20px; }
+.confirm-fact { padding: 0 20px 14px; }
+.modal-header + .confirm-fact { padding-top: 18px; }
+.confirm-fact h3 {
+  margin: 0 0 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.confirm-fact p { margin: 0; color: var(--text); line-height: 1.45; }
 .modal-footer { padding: 14px 20px 18px; border-top: 1px solid var(--hairline); background: var(--bg1); }
 .toast {
   background: color-mix(in srgb, var(--bg1) 82%, transparent);

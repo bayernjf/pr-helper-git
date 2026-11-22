@@ -32,6 +32,10 @@ const TOAST_ACTION_DURATION_MS = 7000;
 export interface ConfirmOptions {
   title: string;
   detail?: string;
+  /** What the action changes, shown before the destructive confirmation. */
+  impact?: string;
+  /** How to recover if the action turns out to be wrong. */
+  recovery?: string;
   confirmLabel?: string;
   /** Destructive actions get the red button; neutral ones stay primary. */
   danger?: boolean;
@@ -194,6 +198,18 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             {state.detail && (
               <div className="modal-body" id={detailId}>
                 <p style={{ margin: 0, color: 'var(--muted)' }}>{state.detail}</p>
+              </div>
+            )}
+            {state.impact && (
+              <div className="modal-body confirm-fact" data-testid="confirm-impact">
+                <h3>{translateText("Impact")}</h3>
+                <p>{state.impact}</p>
+              </div>
+            )}
+            {state.recovery && (
+              <div className="modal-body confirm-fact" data-testid="confirm-recovery">
+                <h3>{translateText("Recovery path")}</h3>
+                <p>{state.recovery}</p>
               </div>
             )}
             <div className="modal-footer">
