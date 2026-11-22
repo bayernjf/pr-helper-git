@@ -15,6 +15,16 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
 
+### 2026-11-22 本地 push reconcile 预算修正（0.3.20）
+
+- **根因**：0.3.19 产品界面 Push 后，`manual` reconcile run 253 复用普通手动刷新的 8 秒预算；GitHub compare/fetch 未在 8 秒内完成，run 被记 `degraded`，`SYNC HEALTH` 短暂显示 `last reconcile: degraded · 0 stages`。实际 action 4737 已入队，PR #77 正常创建并合并，功能未失败。
+- **修复**：新增 `LOCAL_PUSH_RECONCILE_BUDGET_MS = 40s`，仅当 `filter.eventName === 'local-push'` 时使用；普通手动刷新仍走 8s。`reconcileRealtime` 把 `eventName` 传给 `realtimeReconcileBudgetMs`；30s reconcile 租约每 10s 续租，40s 预算落在 45s 外层上限内。新增 2 个测试覆盖 local-push 预算、手动短预算不变、租约续租与 45s 外层上限、eventName 传递。
+- **实测校准**：0.3.20 首次产品 UI push（run 272）在 20s 预算下仍被 `pullForStage` 拖到 20.053s，phase 为 `pending.pull=1`，未排到 create-pr；据此把预算从 20s 提到 40s，而不是把 20s 当作已修复。0.3.19 的 run 253 则是 `pending.queue=1`，8s 时 action 已入队。
+- **真实 push 验证**：第二次产品 UI push（`83a95b5`）触发 run 273，10.685s `success`，phase 为 `compare=1.86s / pull=2.67s / queue=5.16s`；action 4739 `create-pr` 成功创建 PR #78，action 4740 `merge-pr` 已入队，阶段状态 `pull-created`、`head_sha=83a95b5`、`checks=pending`。
+- **PR 页面 Loading 核实**：产品 UI 的 Pull Requests 页面点击后约 20 秒恢复为 `Refresh`，正常列出 77 条已合并 PR；确认是 GitHub 列表请求慢，不是前端死锁或接口错误，本轮未改页面代码。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- **桌面产物**：`BUNDLE_NODE=1 npm run desktop:dist` 产出 0.3.20 zip 40,049,309 B、dmg 46,687,180 B、`SHA256SUMS` 194 B；`desktop:native-test`、`BUNDLE_NODE=1 desktop:smoke`、zip 完整性、dmg 校验和 `shasum -a 256 -c` 均通过，bundle 版本 0.3.20。
+
 ### 2026-11-22 自动合并门禁与时效修复（0.3.19）
 
 - **head guard**：merge action 必须匹配调度时的 `payload.headSha`；缺失即拒绝。PR head 推进后取消旧 action/run，stage 写 `head-changed` 并清空 `gate_sha`，不会用旧 green checks 合并新提交。
@@ -23,6 +33,7 @@ every committed file as world-readable.
 - **本地 push 即时触发**：`POST /api/push` 成功后解析 GitHub remote，立即对该仓库 `reconcileRealtime(..., 'manual')`；手工 CLI push 仍由 cron 兜底。首次接线时 `trigger='push'` 被 `reconciliation_leases` CHECK 拒绝，已改为合法 `manual`。
 - **真实测试仓验证**：`bayernjf/git-e2e-test` PR #17（action 4731 create / 4733 merge）自动建 PR，两个同名 check 去重后 1/1 通过并自动合并；PR #18 验证 head guard：action 4735 计划 `c00812a`，PR 推进 `4fc21de` 后取消并写 `head-changed`，新 action 4736 在 checks 1/1 后自动合并。测试仓新增最小 CI workflow（`.github/workflows/ci.yml`）。
 - **门禁与产物**：`npm run lint`、`typecheck:server`、`npm test`（1221 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 与 `/Applications/PR Helper Git.app` 均为 0.3.19（0.3.18 安装包移至 `000mycodes-backups`）。
+- **产品界面发布闭环**：远端 `dev` 到 `0df0b47` 后，action 4737 在 4.2 秒内自动创建 PR #77；checks 2/2 通过后 action 4738 于 `11:38:12Z` 自动合并，远端 `main` 到 `51d799f`。`v0.3.19` tag 由产品 UI 的 `Push tag to origin` 推送（tag object `000674d6b05abaf73f317a4df526211be331de4b`，deref `0df0b47`）；GitHub Release `v0.3.19` 已发布为 Latest，资产为 zip 40,048,807 B、dmg 46,693,184 B、`SHA256SUMS` 194 B。`BUNDLE_NODE=1 npm run desktop:dist`、`desktop:native-test`、`BUNDLE_NODE=1 desktop:smoke`、zip/dmg 完整性与 `shasum -a 256 -c` 均通过；`/Applications/PR Helper Git.app` 0.3.19 启动验收后退出。
 
 ### 2026-11-22 Flows UI parity（第二批）
 - 按旧版 `src/app/render/lane.ts`、`detail.ts`、`editor.ts`、`dialogs/steps.ts`、`create-pr.ts` 逐项对齐可见 UI：lane 顺序控件/运行摘要/折叠图标、内联 board preflight、详情与抽屉 Actions gate、抽屉 `drawer-status` 卡片、Flows 内 Create PR 对话框、source 分支删除提示。
