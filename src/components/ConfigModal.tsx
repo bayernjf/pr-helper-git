@@ -1,6 +1,6 @@
 import { errorMessage } from '../lib/errors';
 import { useEffect, useMemo, useState } from 'react';
-import { useRepoData } from '../app-state/hooks';
+import { useActiveRepo } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { getConfig, saveConfig, type ConfigEntry } from '../api';
 import { IconX } from './icons';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function ConfigModal({ onClose }: Props) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const [entries, setEntries] = useState<ConfigEntry[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [initial, setInitial] = useState<Record<string, string>>({});

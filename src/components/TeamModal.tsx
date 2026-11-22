@@ -12,7 +12,7 @@ import {
   type Me,
   type TeamMember,
 } from '../api';
-import { useRepoData } from '../app-state/hooks';
+import { useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { IconCopy, IconTrash, IconUser, IconX } from './icons';
@@ -20,7 +20,7 @@ import { Dropdown } from './Dropdown';
 import { t } from '../i18n';
 
 export default function TeamModal({ onClose }: { onClose: () => void }) {
-  const { refresh } = useRepoData();
+  const { refresh } = useRepoRegistry();
   const toast = useAppToast();
   const [me, setMe] = useState<Me | null>(null);
   const [users, setUsers] = useState<TeamMember[]>([]);

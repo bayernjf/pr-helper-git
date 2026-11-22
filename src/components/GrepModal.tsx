@@ -1,7 +1,7 @@
 import { errorMessage } from '../lib/errors';
 import { useMemo, useRef, useState } from 'react';
 import { searchGrep, type GrepMatch } from '../api';
-import { useRepoData } from '../app-state/hooks';
+import { useActiveRepo } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import FileViewer from './FileViewer';
@@ -9,7 +9,7 @@ import { IconSearch, IconX } from './icons';
 import { t } from '../i18n';
 
 export default function GrepModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const toast = useAppToast();
   const [pattern, setPattern] = useState('');
   const [path, setPath] = useState('');

@@ -5,7 +5,7 @@ import {
   pushRepo,
   type ForcePushMode,
 } from '../api';
-import { usePreferences, useRepoData, useRunAction, useBusy } from '../app-state/hooks';
+import { useActiveBrief, useActiveRepo, usePreferences, useRunAction, useBusy } from '../app-state/hooks';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
 import CommitSearchModal from './CommitSearchModal';
@@ -60,7 +60,8 @@ import {
 } from './icons';
 
 export default function Toolbar() {
-  const { activeRepo, activeBrief } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const activeBrief = useActiveBrief();
   const {
     view, theme, setView, toggleTheme,
     sidebarCollapsed, setSidebarCollapsed,

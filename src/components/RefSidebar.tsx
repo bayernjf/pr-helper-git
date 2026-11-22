@@ -27,7 +27,7 @@ import {
   type TagDetail,
   type WorktreeEntry,
 } from '../api';
-import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory, useRepoRefs, useRepoStatus, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
@@ -86,7 +86,10 @@ interface RenameState {
 }
 
 export default function RefSidebar() {
-  const { activeRepo, refs, status, commits } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const { refs } = useRepoRefs();
+  const { status } = useRepoStatus();
+  const { commits } = useRepoHistory();
   const { sidebarCollapsed } = usePreferences();
   const { runAction } = useRunAction();
   const toast = useAppToast();

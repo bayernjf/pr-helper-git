@@ -5,7 +5,7 @@ import { errorMessage } from '../lib/errors';
 // commit detail pane to that commit.
 import { useMemo, useState } from 'react';
 import { searchCommits } from '../api';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { formatRelative, shortHash } from '../lib/format';
@@ -22,7 +22,8 @@ const PLACEHOLDERS: Record<Mode, string> = {
 };
 
 export default function CommitSearchModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo, selectCommit } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const { selectCommit } = useRepoHistory();
   const { setView } = usePreferences();
   const toast = useAppToast();
   const [draft, setDraft] = useState('');

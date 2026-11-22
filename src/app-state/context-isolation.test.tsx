@@ -7,7 +7,18 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppDataProvider } from '../app-state';
 import { ToastProvider } from '../components/ui';
-import { usePreferences, useRepoData, useRunAction, useBusy } from './hooks';
+import {
+  useActiveBrief,
+  useActiveRepo,
+  useBusy,
+  usePreferences,
+  useRepoData,
+  useRepoHistory,
+  useRepoRefs,
+  useRepoRegistry,
+  useRepoStatus,
+  useRunAction,
+} from './hooks';
 
 vi.mock('../api', () => ({
   getRepos: vi.fn(() => Promise.resolve({ repos: [] })),
@@ -34,6 +45,12 @@ let repoRenders = 0;
 let prefsRenders = 0;
 let actionRenders = 0;
 let busyRenders = 0;
+let activeRenders = 0;
+let registryRenders = 0;
+let statusRenders = 0;
+let refsRenders = 0;
+let historyRenders = 0;
+let briefRenders = 0;
 
 function RepoProbe() {
   useRepoData();
@@ -55,6 +72,36 @@ function BusyProbe() {
   busyRenders += 1;
   return null;
 }
+function ActiveProbe() {
+  useActiveRepo();
+  activeRenders += 1;
+  return null;
+}
+function RegistryProbe() {
+  useRepoRegistry();
+  registryRenders += 1;
+  return null;
+}
+function StatusProbe() {
+  useRepoStatus();
+  statusRenders += 1;
+  return null;
+}
+function RefsProbe() {
+  useRepoRefs();
+  refsRenders += 1;
+  return null;
+}
+function HistoryProbe() {
+  useRepoHistory();
+  historyRenders += 1;
+  return null;
+}
+function BriefProbe() {
+  useActiveBrief();
+  briefRenders += 1;
+  return null;
+}
 
 type Prefs = ReturnType<typeof usePreferences>;
 type Repo = ReturnType<typeof useRepoData>;
@@ -64,6 +111,7 @@ const setters: {
   setTheme?: Prefs['setTheme'];
   setPat?: Prefs['setPat'];
   setLogFilters?: Repo['setLogFilters'];
+  selectCommit?: Repo['selectCommit'];
   runAction?: Acts['runAction'];
 } = {};
 
@@ -74,6 +122,7 @@ function Harness() {
   setters.setTheme = prefs.setTheme;
   setters.setPat = prefs.setPat;
   setters.setLogFilters = repo.setLogFilters;
+  setters.selectCommit = repo.selectCommit;
   setters.runAction = runAction;
   return null;
 }
@@ -94,6 +143,12 @@ beforeEach(async () => {
           <PrefsProbe />
           <RunActionProbe />
           <BusyProbe />
+          <ActiveProbe />
+          <RegistryProbe />
+          <StatusProbe />
+          <RefsProbe />
+          <HistoryProbe />
+          <BriefProbe />
           <Harness />
         </AppDataProvider>
       </ToastProvider>,
@@ -106,6 +161,12 @@ beforeEach(async () => {
   prefsRenders = 0;
   actionRenders = 0;
   busyRenders = 0;
+  activeRenders = 0;
+  registryRenders = 0;
+  statusRenders = 0;
+  refsRenders = 0;
+  historyRenders = 0;
+  briefRenders = 0;
 });
 
 afterEach(() => {
@@ -145,5 +206,26 @@ describe('app-state context isolation', () => {
     act(() => setters.setPat!('tok'));
     expect(repoRenders).toBe(0);
     expect(prefsRenders).toBeGreaterThan(0);
+  });
+
+  it('selecting a commit only re-renders history consumers', () => {
+    act(() => setters.selectCommit!('abc1234'));
+    expect(historyRenders).toBeGreaterThan(0);
+    expect(activeRenders).toBe(0);
+    expect(registryRenders).toBe(0);
+    expect(statusRenders).toBe(0);
+    expect(refsRenders).toBe(0);
+    expect(briefRenders).toBe(0);
+    expect(prefsRenders).toBe(0);
+    expect(busyRenders).toBe(0);
+  });
+
+  it('applying log filters does not re-render path or registry consumers', () => {
+    act(() => setters.setLogFilters!({ author: 'alice' }));
+    expect(historyRenders).toBeGreaterThan(0);
+    expect(activeRenders).toBe(0);
+    expect(registryRenders).toBe(0);
+    expect(refsRenders).toBe(0);
+    expect(prefsRenders).toBe(0);
   });
 });

@@ -4,14 +4,14 @@ import { errorMessage, errorDetail } from '../lib/errors';
 import { useToast } from '../components/ui';
 import { t as translateText } from '../i18n';
 import type { Actions } from './types';
-import { useRepoData } from './repo-provider';
+import { useRepoRegistry } from './repo-provider';
 
 export const ActionsContext = createContext<Actions | null>(null);
 export const BusyContext = createContext<boolean>(false);
 
 export function ActionsProvider({ children }: { children: ReactNode }) {
   const toastApi = useToast();
-  const { refresh } = useRepoData();
+  const { refresh } = useRepoRegistry();
   const [busy, setBusy] = useState(false);
 
   // Keep the latest refresh in a ref so runAction has a stable identity: it no

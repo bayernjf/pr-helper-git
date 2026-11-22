@@ -2,7 +2,7 @@ import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { addRepo, cloneRepo, getMe, initRepo } from '../api';
 import { folderPickerAvailable, pickFolder } from '../lib/desktop-bridge';
-import { useRepoData } from '../app-state/hooks';
+import { useActiveRepo, useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { t } from '../i18n';
@@ -52,7 +52,8 @@ export default function AddRepoModal({
   onClose: () => void;
   initialPath?: string;
 }) {
-  const { selectRepo, refreshRepos, activeRepo } = useRepoData();
+  const { selectRepo, activeRepo } = useActiveRepo();
+  const { refreshRepos } = useRepoRegistry();
   const toast = useAppToast();
   useEscape(onClose);
   const [mode, setMode] = useState<Mode>('open');

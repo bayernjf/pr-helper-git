@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { generatePrDescription, githubProxy } from '../api';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoRefs } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { errorDetail, errorMessage } from '../lib/errors';
@@ -22,7 +22,8 @@ interface Props {
  */
 export default function FlowCreatePrModal({ repository, source, target, onClose, onCreated }: Props) {
   const { pat } = usePreferences();
-  const { remote, activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const { remote } = useRepoRefs();
   const toast = useAppToast();
   useEscape(onClose);
   const draftKey = `pr-helper-git:flow-pr-draft:${repository}:${source}:${target}`;

@@ -66,6 +66,45 @@ export interface RepoData {
   loadMore: () => Promise<void>;
 }
 
+// Finer repo slices. Components subscribe to the smallest domain they read;
+// an SSE refresh that only changes commits must not re-render a modal that
+// only needs the active path.
+export interface RepoRegistry {
+  repos: RepoData['repos'];
+  reposLoaded: boolean;
+  refreshRepos: () => Promise<RepoBrief[]>;
+  refresh: () => Promise<void>;
+}
+
+export interface ActiveRepoState {
+  activeRepo: string | null;
+  selectRepo: (path: string) => void;
+}
+
+export interface RepoStatusState {
+  status: RepoData['status'];
+  repoLoading: boolean;
+}
+
+export interface RepoRefsState {
+  refs: RepoData['refs'];
+  remote: RepoData['remote'];
+}
+
+export interface RepoHistoryState {
+  commits: RepoData['commits'];
+  selectedHash: string | null;
+  logLimit: number;
+  logScope: RepoData['logScope'];
+  logPath: string;
+  logFilters: LogFilters;
+  setLogPath: (path: string) => void;
+  setLogFilters: (filters: LogFilters) => void;
+  setLogScope: (scope: RepoData['logScope']) => void;
+  selectCommit: (hash: string | null) => void;
+  loadMore: () => Promise<void>;
+}
+
 // Write-action domain: `runAction` runs a write then refreshes all data.
 // `busy` is exposed through a separate context so runAction-only consumers do
 // not re-render when it flips.

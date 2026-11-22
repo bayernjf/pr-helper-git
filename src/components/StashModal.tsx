@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { stashCreate } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 import { t } from '../i18n';
 
 export default function StashModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const { runAction } = useRunAction();
   const [message, setMessage] = useState('');
   const [includeUntracked, setIncludeUntracked] = useState(false);

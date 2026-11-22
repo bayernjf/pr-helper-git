@@ -715,7 +715,9 @@ server/
   github-http.mjs    proxy-aware HTTPS client for the github.com OAuth endpoints
   a2a.mjs            Agent Card + JSON-RPC task surface (opt-in, fail-closed)
 src/
-  app-state.tsx      central data/state provider
+  app-state.tsx      compatibility barrel + AppDataProvider
+  app-state/         preferences/actions/busy providers and six repo slices
+                     (registry, active, brief, status, refs, history)
   api/               typed API client, split by domain (core, git-read,
                      git-write, repos, github, team, ai, github-auth, a2a)
   components/        UI components, inline SVG icons, context menu, modals
@@ -732,7 +734,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (1089 tests, 59 files)
+npm test           # Vitest unit + route-level HTTP tests (1228 tests, 72 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

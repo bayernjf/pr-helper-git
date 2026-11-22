@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cherryPick, resetCommit, revertCommit, revertCommitsBatch, undoLastCommit } from '../api';
 import { LOG_MAX } from '../app-state';
-import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory, useRepoRefs, useRepoStatus, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { isGraphNavKey, nextCommitIndex, pageSizeForViewport } from '../lib/graph-nav';
 import { layoutGraph } from '../lib/graph-layout';
@@ -46,14 +46,13 @@ interface MenuState {
 
 export default function CommitGraph() {
   const { pat, hasServerPat } = usePreferences();
+  const { remote, refs } = useRepoRefs();
+  const { status, repoLoading } = useRepoStatus();
+  const { activeRepo: currentRepo } = useActiveRepo();
   const {
-    remote,
     commits,
-    refs,
-    status,
     selectedHash,
     selectCommit,
-    activeRepo: currentRepo,
     loadMore,
     logLimit,
     logScope,
@@ -61,8 +60,7 @@ export default function CommitGraph() {
     logPath,
     setLogPath,
     logFilters,
-    repoLoading,
-  } = useRepoData();
+  } = useRepoHistory();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const confirm = useConfirm();

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoRegistry } from '../app-state/hooks';
 
 function isEditable(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -20,7 +20,8 @@ function isModalOpen(): boolean {
 // field is focused so they never interfere with typing.
 export function useShortcuts() {
   const { view, setView, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
-  const { refresh, activeRepo } = useRepoData();
+  const { refresh } = useRepoRegistry();
+  const { activeRepo } = useActiveRepo();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

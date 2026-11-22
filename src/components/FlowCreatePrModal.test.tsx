@@ -15,7 +15,8 @@ vi.mock('../api', async (importOriginal) => ({
 }));
 vi.mock('../app-state/hooks', () => ({
   usePreferences: () => ({ pat: 'pat', hasServerPat: false }),
-  useRepoData: () => ({ remote: null, activeRepo: null }),
+  useActiveRepo: () => ({ activeRepo: null, selectRepo: () => {} }),
+  useRepoRefs: () => ({ remote: null, refs: [] }),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

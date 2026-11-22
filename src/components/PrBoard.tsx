@@ -2,7 +2,7 @@ import { errorMessage, errorDetail } from '../lib/errors';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { githubProxy, pullMergeability } from '../api';
 import { applyPullMergeability } from '../lib/pull-mergeability';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoRefs, useRepoRegistry } from '../app-state/hooks';
 import type { PullRequest, ReviewState } from '../types';
 import { summarizeReviews, type GithubReview } from '../lib/review';
 import {
@@ -115,7 +115,9 @@ const COLUMNS: Array<{ key: Column; label: string }> = [
 
 export default function PrBoard() {
   const { pat, hasServerPat } = usePreferences();
-  const { remote, refs, activeRepo, refresh } = useRepoData();
+  const { refresh } = useRepoRegistry();
+  const { activeRepo } = useActiveRepo();
+  const { remote, refs } = useRepoRefs();
   const [pulls, setPulls] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

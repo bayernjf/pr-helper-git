@@ -1,11 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type { Context, ReactNode } from 'react';
 import { errorMessage } from '../lib/errors';
 import { getRefs, getRemote, getRepos, getStatus, getLog } from '../api';
 import type { LogFilters } from '../types';
 import { useToast } from '../components/ui';
 import { STORAGE_KEYS } from '../lib/storage-keys';
-import type { RepoData } from './types';
+import type {
+  ActiveRepoState,
+  RepoData,
+  RepoHistoryState,
+  RepoRefsState,
+  RepoRegistry,
+  RepoStatusState,
+} from './types';
 import { usePreferences } from './preferences-provider';
 
 const ACTIVE_KEY = STORAGE_KEYS.activeRepo;
@@ -15,6 +22,18 @@ export const LOG_MAX = 1000;
 // Exported so render tests can inject a mock context without booting the full
 // provider (which performs network and local-storage side effects).
 export const RepoDataContext = createContext<RepoData | null>(null);
+// Finer contexts keep the hot SSE payload away from UI that only needs the
+// active path or a registry refresh.
+export const RepoRegistryContext = createContext<RepoRegistry | null>(null);
+export const ActiveRepoContext = createContext<ActiveRepoState | null>(null);
+export const ActiveBriefContext = createContext<RepoData['activeBrief'] | undefined>(undefined);
+export const RepoStatusContext = createContext<RepoStatusState | null>(null);
+export const RepoRefsContext = createContext<RepoRefsState | null>(null);
+export const RepoHistoryContext = createContext<RepoHistoryState | null>(null);
+
+const StableChildren = memo(function StableChildren({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+});
 
 export function RepoDataProvider({ children }: { children: ReactNode }) {
   const toastApi = useToast();
@@ -103,7 +122,7 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
       .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [loadRepoData, toastApi]);
 
-  const refresh = useCallback(async () => {
+  const refreshImpl = useCallback(async () => {
     const list = await refreshRepos();
     if (activeRepo) {
       if (!list.some((r) => r.path === activeRepo)) {
@@ -119,6 +138,11 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
       await loadRepoData(activeRepo, logLimit, logScope, logPath, logFilters);
     }
   }, [activeRepo, loadRepoData, logLimit, logScope, logPath, logFilters, refreshRepos]);
+  const refreshImplRef = useRef(refreshImpl);
+  refreshImplRef.current = refreshImpl;
+  // Stable identity: registry consumers (modals with a Refresh button) must
+  // not re-render when the user changes a log filter or switches repositories.
+  const refresh = useCallback(() => refreshImplRef.current(), []);
 
   // Grow the loaded history window one page at a time up to LOG_MAX.
   const loadMore = useCallback(async () => {
@@ -222,43 +246,152 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
       .finally(() => { if (seq === loadSeqRef.current) setRepoLoading(false); });
   }, [activeRepo, loadRepoData, logLimit, logScope, logPath, toastApi]);
 
-  const value = useMemo<RepoData>(() => {
-    const activeBrief = repos.find((r) => r.path === activeRepo) || null;
-    return {
-      repos,
-      reposLoaded,
-      activeRepo,
-      activeBrief,
-      status,
-      commits,
-      refs,
-      remote,
-      selectedHash,
-      repoLoading,
-      logLimit,
-      logScope,
-      logPath,
-      logFilters,
-      setLogPath,
-      setLogFilters,
-      setLogScope,
-      selectRepo,
-      selectCommit: setSelectedHash,
-      refreshRepos,
-      refresh,
-      loadMore,
-    };
-  }, [
-    repos, reposLoaded, activeRepo, status, commits, refs, remote, selectedHash, repoLoading,
-    logLimit, logScope, logPath, logFilters,
-    setLogPath, setLogFilters, setLogScope, selectRepo, refreshRepos, refresh, loadMore,
+  const registry = useMemo<RepoRegistry>(() => ({
+    repos,
+    reposLoaded,
+    refreshRepos,
+    refresh,
+  }), [repos, reposLoaded, refreshRepos, refresh]);
+
+  const active = useMemo<ActiveRepoState>(() => ({ activeRepo, selectRepo }), [activeRepo, selectRepo]);
+
+  const activeBrief = useMemo(
+    () => repos.find((r) => r.path === activeRepo) || null,
+    [repos, activeRepo],
+  );
+
+  const statusSlice = useMemo<RepoStatusState>(() => ({ status, repoLoading }), [status, repoLoading]);
+
+  const refsSlice = useMemo<RepoRefsState>(() => ({ refs, remote }), [refs, remote]);
+
+  const history = useMemo<RepoHistoryState>(() => ({
+    commits,
+    selectedHash,
+    logLimit,
+    logScope,
+    logPath,
+    logFilters,
+    setLogPath,
+    setLogFilters,
+    setLogScope,
+    selectCommit: setSelectedHash,
+    loadMore,
+  }), [
+    commits, selectedHash, logLimit, logScope, logPath, logFilters,
+    setLogPath, setLogFilters, setLogScope, loadMore,
   ]);
 
-  return <RepoDataContext.Provider value={value}>{children}</RepoDataContext.Provider>;
+  // Compatibility aggregate for tests and any consumer that has not migrated
+  // yet. Production components subscribe to the slice contexts above so an
+  // SSE commit refresh does not re-render path-only modals.
+  const value = useMemo<RepoData>(() => ({
+    ...registry,
+    ...active,
+    activeBrief,
+    ...statusSlice,
+    ...refsSlice,
+    ...history,
+  }), [registry, active, activeBrief, statusSlice, refsSlice, history]);
+
+  return (
+    <RepoDataContext.Provider value={value}>
+      <RepoRegistryContext.Provider value={registry}>
+        <ActiveRepoContext.Provider value={active}>
+          <ActiveBriefContext.Provider value={activeBrief}>
+            <RepoStatusContext.Provider value={statusSlice}>
+              <RepoRefsContext.Provider value={refsSlice}>
+                <RepoHistoryContext.Provider value={history}>
+                  <StableChildren>{children}</StableChildren>
+                </RepoHistoryContext.Provider>
+              </RepoRefsContext.Provider>
+            </RepoStatusContext.Provider>
+          </ActiveBriefContext.Provider>
+        </ActiveRepoContext.Provider>
+      </RepoRegistryContext.Provider>
+    </RepoDataContext.Provider>
+  );
 }
 
 export function useRepoData(): RepoData {
   const ctx = useContext(RepoDataContext);
   if (!ctx) throw new Error('useRepoData must be used inside RepoDataProvider');
   return ctx;
+}
+
+// Slice hooks fall back to the aggregate context so render tests that inject
+// one flat RepoDataContext keep working. Production trees always provide the
+// slice contexts and therefore avoid the aggregate re-render.
+const selectRegistry = (d: RepoData): RepoRegistry => ({
+  repos: d.repos,
+  reposLoaded: d.reposLoaded,
+  refreshRepos: d.refreshRepos,
+  refresh: d.refresh,
+});
+const selectActive = (d: RepoData): ActiveRepoState => ({
+  activeRepo: d.activeRepo,
+  selectRepo: d.selectRepo,
+});
+const selectStatus = (d: RepoData): RepoStatusState => ({
+  status: d.status,
+  repoLoading: d.repoLoading,
+});
+const selectRefs = (d: RepoData): RepoRefsState => ({ refs: d.refs, remote: d.remote });
+const selectHistory = (d: RepoData): RepoHistoryState => ({
+  commits: d.commits,
+  selectedHash: d.selectedHash,
+  logLimit: d.logLimit,
+  logScope: d.logScope,
+  logPath: d.logPath,
+  logFilters: d.logFilters,
+  setLogPath: d.setLogPath,
+  setLogFilters: d.setLogFilters,
+  setLogScope: d.setLogScope,
+  selectCommit: d.selectCommit,
+  loadMore: d.loadMore,
+});
+
+function useRepoSlice<T>(
+  ctx: Context<T | null>,
+  select: (data: RepoData) => T,
+  name: string,
+): T {
+  const slice = useContext(ctx);
+  // A provided slice is the normal path: return before reading the aggregate
+  // context, otherwise every slice consumer would subscribe to all repo data
+  // again and the split would not reduce re-renders. Provider presence is
+  // static for the lifetime of a tree, so the fallback branch is only taken by
+  // tests that inject one flat RepoDataContext.
+  if (slice !== null) return slice;
+  const full = useContext(RepoDataContext);
+  const fallback = useMemo(() => (full ? select(full) : null), [full, select]);
+  if (fallback === null) throw new Error(`${name} must be used inside RepoDataProvider`);
+  return fallback;
+}
+
+export function useRepoRegistry(): RepoRegistry {
+  return useRepoSlice(RepoRegistryContext, selectRegistry, 'useRepoRegistry');
+}
+
+export function useActiveRepo(): ActiveRepoState {
+  return useRepoSlice(ActiveRepoContext, selectActive, 'useActiveRepo');
+}
+
+export function useActiveBrief(): RepoData['activeBrief'] {
+  const slice = useContext(ActiveBriefContext);
+  if (slice !== undefined) return slice;
+  const full = useContext(RepoDataContext);
+  if (!full) throw new Error('useActiveBrief must be used inside RepoDataProvider');
+  return full.activeBrief;
+}
+
+export function useRepoStatus(): RepoStatusState {
+  return useRepoSlice(RepoStatusContext, selectStatus, 'useRepoStatus');
+}
+
+export function useRepoRefs(): RepoRefsState {
+  return useRepoSlice(RepoRefsContext, selectRefs, 'useRepoRefs');
+}
+
+export function useRepoHistory(): RepoHistoryState {
+  return useRepoSlice(RepoHistoryContext, selectHistory, 'useRepoHistory');
 }

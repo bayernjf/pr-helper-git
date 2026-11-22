@@ -1,7 +1,7 @@
 import { errorMessage, errorDetail, errorStatus } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { checkoutPrHead, githubProxy, markReadyForReview, mergePull } from '../api';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoRefs, useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { formatFullDate, shortHash } from '../lib/format';
@@ -52,7 +52,9 @@ export default function PrDetailModal({
   onChanged: () => void;
 }) {
   const { pat } = usePreferences();
-  const { remote, activeRepo, refresh } = useRepoData();
+  const { refresh } = useRepoRegistry();
+  const { activeRepo } = useActiveRepo();
+  const { remote } = useRepoRefs();
   const toast = useAppToast();
   const confirm = useConfirm();
   useEscape(onClose);

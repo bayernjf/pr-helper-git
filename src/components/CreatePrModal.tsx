@@ -1,7 +1,7 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useMemo, useState } from 'react';
 import { githubProxy, generatePrDescription } from '../api';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory, useRepoRefs, useRepoStatus } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
@@ -18,7 +18,10 @@ interface Props {
 
 export default function CreatePrModal({ headRefs, onClose, onCreated }: Props) {
   const { pat } = usePreferences();
-  const { remote, status, commits, activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const { remote } = useRepoRefs();
+  const { status } = useRepoStatus();
+  const { commits } = useRepoHistory();
   const toast = useAppToast();
   useEscape(onClose);
 

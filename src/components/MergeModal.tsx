@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { mergeRef, type MergeStrategy } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { IconMerge, IconX } from './icons';
 import { t } from '../i18n';
@@ -41,7 +41,7 @@ const OPTIONS: StrategyOption[] = [
 ];
 
 export default function MergeModal({ sourceRef, currentBranch, onClose }: Props) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const { runAction } = useRunAction();
   const [strategy, setStrategy] = useState<MergeStrategy>('default');
   const [busy, setBusy] = useState(false);

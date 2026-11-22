@@ -3,7 +3,7 @@
 // component only ever arranges rows and labels them.
 import { useEffect, useState } from 'react';
 import { rebaseInteractive, rebasePlan, type RebasePlan } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
@@ -24,7 +24,7 @@ type Row = {
 };
 
 export default function RebaseModal({ base, onClose }: { base: string; onClose: () => void }) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const [plan, setPlan] = useState<RebasePlan | null>(null);

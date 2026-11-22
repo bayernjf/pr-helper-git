@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createBranch } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useRepoRefs, useRunAction } from '../app-state/hooks';
 import { useEscape } from '../hooks/use-escape';
 import { IconX } from './icons';
 import { Dropdown } from './Dropdown';
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function NewBranchModal({ repo, fromRef, onClose }: Props) {
-  const { refs } = useRepoData();
+  const { refs } = useRepoRefs();
   const { runAction } = useRunAction();
   const [name, setName] = useState('');
   const [noCheckout, setNoCheckout] = useState(false);

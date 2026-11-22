@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getReflog, type ReflogEntry } from '../api';
-import { useRepoData } from '../app-state/hooks';
+import { useActiveRepo } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { shortHash } from '../lib/format';
@@ -8,7 +8,7 @@ import { IconX } from './icons';
 import { t } from '../i18n';
 
 export default function ReflogModal({ onClose }: { onClose: () => void }) {
-  const { activeRepo } = useRepoData();
+  const { activeRepo } = useActiveRepo();
   const toast = useAppToast();
   const [entries, setEntries] = useState<ReflogEntry[]>([]);
   const [loading, setLoading] = useState(true);

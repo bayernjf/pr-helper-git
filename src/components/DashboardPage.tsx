@@ -7,7 +7,7 @@ import { errorMessage } from '../lib/errors';
 //   30s auto-refresh, silent background fetch-all every 10 minutes.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy } from '../api';
-import { usePreferences, useRepoData } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { activityLevel, relativeAge, wipCount } from '../lib/repo-sort';
 import type { RepoBrief } from '../types';
@@ -44,7 +44,8 @@ function parentDir(p: string) {
 }
 
 export default function DashboardPage() {
-  const { repos, reposLoaded, activeRepo, selectRepo, refresh } = useRepoData();
+  const { repos, reposLoaded, refresh } = useRepoRegistry();
+  const { activeRepo, selectRepo } = useActiveRepo();
   const { pat, hasServerPat } = usePreferences();
   const toast = useAppToast();
   const confirm = useConfirm();
