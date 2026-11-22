@@ -13,8 +13,11 @@
 - **Git 与 PR 布局修正**：未选中提交时详情栏不再常驻占宽，提交图独占整行；PR 页顶部独立为 `.pr-toolbar`，避免与全局工具栏样式串扰；仓库卡、PR 卡、CI 指标卡、Flow lane 与步骤卡改用统一表面层级。
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
+### 修复
+- **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
+
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1228 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - 桌面：`desktop:native-test`、`BUNDLE_NODE=1 npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `6c865a5`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。
 
