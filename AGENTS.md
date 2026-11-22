@@ -222,9 +222,9 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of 0.3.19 (2026-11-22):
+As of 0.3.20 (2026-11-22):
 
-- unit/route tests: **1221 tests / 72 files** (includes the migrated pr-helper
+- unit/route tests: **1223 tests / 72 files** (includes the migrated pr-helper
   engine test nets: 434 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
@@ -241,6 +241,9 @@ As of 0.3.19 (2026-11-22):
   4 toast-undo jsdom tests, 8 open-PR StepDrawer/GateDisclosure jsdom tests
   and 4 app-state context-isolation tests in
   `src/app-state/context-isolation.test.tsx`)
+- 0.3.20 adds 2 local-push reconcile budget tests in
+  `server/workflows-store.test.ts` (local-push 20s, manual stays 8s, lease
+  ceiling, eventName propagation).
 - 0.3.19 adds 9 live merge-gate/head-guard/check-dedup tests in
   `server/workflows-store.test.ts` and 2 remote-parser tests in
   `server/routes.test.mjs`.

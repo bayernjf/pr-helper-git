@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [0.3.20] - 2026-11-22
+
+### 修复
+- **本地 push 触发的 reconcile 预算**：新增 `LOCAL_PUSH_RECONCILE_BUDGET_MS = 20s`，仅对 `eventName=local-push` 生效；交互式手动刷新仍保持 8s。`reconcileRealtime` 把 eventName 传入预算选择器；30s reconcile 租约仍大于该预算。0.3.19 产品界面 Push 的 manual run 曾因 8s 预算被记为 `degraded`，修复后单仓库 GitHub 延迟不再误报。
+- **PR 页面 Loading 核实**：Pull Requests 页面约 20 秒后正常加载 77 条已合并 PR；确认是 GitHub 列表请求慢，不是前端死锁或接口错误，未改代码。
+
+### 文档
+- **补全 0.3.19 发布记录**：handoff 增加产品界面 Push、PR #77、merge commit `51d799f`、远端 tag 和 GitHub Release 证据。
+
+### 验证
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- 桌面：`desktop:native-test`、bundled Node 22.23.5、`desktop:smoke`、zip 完整性、dmg 校验与 `SHA256SUMS` 全部通过。
+
 ## [0.3.19] - 2026-11-22
 
 ### 变更
