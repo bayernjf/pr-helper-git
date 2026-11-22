@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### 变更
+- **Flows 看板与流程详情页重排**：看板默认收起泳道，标题、运行状态和操作拆成两层，新增“全部展开/全部收起”；阶段卡改为可横向填充的管道卡，带状态色、PR 引用和更新时间；Run history 与 Timeline 并成一行并补齐样式；步骤抽屉同步放大并改为分区卡片。流程详情页改为两栏：左栏进度条 + 阶段时间线，右栏下一步动作、最近运行和流程信息；阶段事件改为独立卡片。
+- **Flows 看板与详情页补齐旧版能力**：看板 lane 新增 Edit/View、拖拽手柄与自定义顺序排序、共享流程/团队徽标、`N warnings` + 首条可读文案；Run history 展示 source→target、状态、版本、PR 引用与完成时间，Timeline 展示消息、路由、PR 与时间。详情页新增 Refresh status、阶段内联 Open PR/Create PR/Merge PR/Rerun Actions/Codex repair/step details、checks 门禁逐条展开、可折叠 Stage events，以及可直接落库的逐阶段 Automation 开关（auto-create/auto-merge/auto-advance，前置不满足时禁用并提示）。
 - **仓库删除入口补充作用范围说明**：卡片、列表垃圾桶和右键 `Remove from list` 的 tooltip 明确说明只从列表移除此仓库，不删除本地克隆或 GitHub 远端；确认弹窗同步该文案。
 - **自动创建 PR 文案改为全英文并加硬校验**：AI prompt 改为全英文，生成的标题和正文强制 English；创建前校验 Conventional Commits、必需段落、段落顺序、Related Issues 的 `Closes #` 形式，并禁止 `【PR Title】` 块和标题在正文中重复；首次不合规自动纠错重试一次，仍失败则暂停转人工，不创建 PR。
 - **设置页改为 macOS 系统设置式两栏布局**：左侧按通用 / GitHub / 应用 / 高级分类，右侧以大标题 + 分组内嵌卡片承载表单；语言、主题、强调色改为设置项行，主题增加深色/浅色/跟随系统的缩略预览，强调色改为带选中态的色板，帮助入口改为可点击的设置行。成员仍只看到浏览器 PAT，owner 专属的 GitHub 账号、服务端 PAT、服务端数据、AI 与 A2A 保持原权限门禁。
@@ -12,11 +14,16 @@
 - **设计 token 补齐间距与控件标尺**：`design/tokens.json` 新增 `spacing`（2–40px）与 `control`（30/28px 高度、12px 横向内边距、5/4px 纵向内边距），并由 `sync-tokens.mjs` 生成 `--space-*` / `--control-*`；设置页的输入框、下拉、紧凑按钮、卡片行与面板内距改为消费 token，控件横向文字内边距统一为 12px。
 
 ### 修复
+- **看板阶段卡打不开步骤抽屉**：`StepDrawer` 原来只在流程详情分支渲染，看板上点击阶段卡只设置状态、不挂载抽屉；现在看板也渲染抽屉，阶段卡改为可键盘操作的卡片容器，PR 引用点击不再触发卡片打开。
+- **Flows 看板配置警告、同步健康与运行历史不显示**：`BoardState` 构建时漏传 `syncHealth`、`configurationWarnings`、`runs`、`timeline`，导致 stale 标记和配置警告恒为空、看板拿不到运行记录；补齐后 warning 只在泳道展开时渲染，避免所有收起泳道同时挂黄条。
+- **Flows 运行状态直接显示数据值**：看板与详情页的 Recent runs 之前显示 `completed`/`active` 等内部值；现在统一映射为 `Completed`/`Running`/`Failed`，并保留版本号与完成时间。
 - **桌面端重启回到 Hello-World**：桌面壳每次以 `--port=0` 启动，WKWebView 的 localStorage 按端口隔离，端口一变活动仓库、主题等浏览器侧偏好全部读不到。现在把服务端口记入 `UserDefaults`，下次启动优先复用；端口被占用时才回退随机端口，并在就绪后记住新端口。
 - **收起侧栏后内容贴左边**：侧栏折叠为负边距后，中间栏从窗口左缘开始，提交图轨道只剩组件内部 14px 内距。现在收起态给中间栏增加 12px 内容沟槽，并移除侧栏残留的右边线；展开态仍保持 0 边距。
 - **设置页输入框文字贴边**：输入框横向内边距为 9px，按钮为 10–12px，卡片行 14px，三套节奏并存，长 URL 在 Agent card 等控件里视觉上贴住边框。现在统一走 `--control-padding-x: 12px` 与 `--radius-control`，同排 Copy 按钮和输入框文字内距一致。
 
 ### 验证
+- Flows 看板在 1011px 视口实测：默认 0 条展开，“Expand all” 展开 15 条，“Collapse all” 收回 0 条；详情页两栏布局正常，阶段卡与侧栏无横向溢出；看板与详情页的步骤抽屉均可打开并用 Esc 关闭。
+- Flows 旧版能力实测：展开首条 lane 时只有该条显示 `1 warning`，Run history 展开为 `dev → main`、`Completed · v16`、`#192`；详情页 `checks 8/8` 可展开、Stage events 可折叠，三个 Automation 开关中 auto-create/auto-merge 为开启、auto-advance 为关闭且均可操作。
 - 1199 tests / 70 files；E2E 162/162；lint / typecheck:server / build 全绿；1011px 与 900px 视口实测收起态 center 从 x=12 开始、轨道 x=26，展开态 margin 0。
 - 真实 `agnes-3.0-flash` 以当前 9 个提交连续生成 3 次，标题/正文均通过新校验，无 `【PR Title】` 块、无 CJK。
 - 设置页在 1280px 预览中走查深色/浅色、管理员/成员、英文/中文与应用、高级页；900px 最小桌面宽度下两栏宽度按 CSS 计算无横向溢出。安装版侧栏只保留 General / GitHub / Application / Advanced，Repository tools 分类不再出现；工具栏 More 菜单实测仍列出 8 个仓库工具入口。安装版 Advanced/A2A 高倍裁剪实测 Agent card 输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy 按钮文字内距一致。

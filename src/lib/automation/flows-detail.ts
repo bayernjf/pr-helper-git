@@ -43,11 +43,19 @@ export type StageDetailModel = {
   /** Dynamic (pattern) routes render the matched-branch list instead of one PR. */
   dynamic: boolean;
   tone: StageRunTone;
+  /** Pull lifecycle kind; drives the inline stage operations on the detail page. */
+  kind: 'not-created' | 'open' | 'merged' | 'closed';
   stateText: string;
   gates: string[];
   pullNumber: number | null;
   pullUrl: string | null;
   headSha: string | null;
+  checksState: string | null;
+  checksTotal: number;
+  approvals: number;
+  requiredApprovals: number;
+  mergeable: boolean | null;
+  mergeableState: string | null;
   aheadBy: number;
   /** Matched branch rows for dynamic stages. */
   routes: Array<{ source: string; pullNumber: number | null; tone: StageRunTone; label: string }>;
@@ -98,11 +106,18 @@ export function buildStageDetails(state: BoardState, flow: Workflow, events: rea
         target: stage.target,
         dynamic: true,
         tone: 'running',
+        kind: 'not-created',
         stateText: t('dynamic route — matches branches by pattern'),
         gates: [],
         pullNumber: null,
         pullUrl: null,
         headSha: null,
+        checksState: null,
+        checksTotal: 0,
+        approvals: 0,
+        requiredApprovals: 0,
+        mergeable: null,
+        mergeableState: null,
         aheadBy: 0,
         routes: routes.map((route) => {
           const run = stageRunPresentation(
@@ -161,11 +176,18 @@ export function buildStageDetails(state: BoardState, flow: Workflow, events: rea
       target: stage.target,
       dynamic: false,
       tone: run.tone,
+      kind,
       stateText: stageStateText(kind, checksState, Boolean(primary?.checksTotal)),
       gates,
       pullNumber: primary?.pullNumber ?? null,
       pullUrl: primary?.pullNumber ? githubPullUrl(flow.repository, primary.pullNumber) : null,
       headSha: primary?.pullNumber ? (primary as WorkflowStageStateRow & { headSha?: string | null }).headSha ?? null : null,
+      checksState: checksState ?? null,
+      checksTotal: primary?.checksTotal ?? 0,
+      approvals: primary?.approvals ?? 0,
+      requiredApprovals: primary?.requiredApprovals ?? 0,
+      mergeable: primary?.mergeable ?? null,
+      mergeableState: primary?.mergeableState ?? null,
       aheadBy: status?.aheadBy ?? 0,
       routes: [],
       events: eventsFor(events, flow.id, index),

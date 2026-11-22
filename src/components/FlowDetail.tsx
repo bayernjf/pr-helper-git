@@ -2,9 +2,18 @@
 // progress bar, per-stage timeline with projected statuses and events, and
 // the stage's automation flags. Operations (create/merge/repair) arrive with
 // the step drawer (P3-3); live revalidation arrives with P2-1 credentials.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useToast, useConfirm } from './ui';
-import { deleteFlowFromServer } from '../api/flows';
+import {
+  deleteFlowFromServer,
+  enqueueAutomation,
+  fetchAiCredential,
+  fetchGenerationRules,
+  rerunFailedActions,
+  saveWorkflowToServer,
+  type AiAutomationCredential,
+  type GenerationRuleRow,
+} from '../api/flows';
 import {
   buildStageDetails,
   flowProgress,
@@ -13,14 +22,26 @@ import {
   type StageEventRow,
 } from '../lib/automation/flows-detail';
 import type { StageProgressStatus } from '../lib/automation/workflow-run';
-import { workflowSummary } from '../lib/automation/workflow';
-import { githubPullUrl } from '../lib/domain';
+import {
+  immediateAutomationEffect,
+  setStageAutoAdvance,
+  setStageAutoCreate,
+  setStageAutoMerge,
+  workflowSummary,
+} from '../lib/automation/workflow';
+import { automationPrerequisiteCodes } from '../lib/automation/editor-prerequisites';
+import { canMergeOpenPull, githubPullUrl } from '../lib/domain';
 import { errorMessage } from '../lib/errors';
 import { formatRelative } from '../lib/format';
 import type { BoardState } from '../lib/automation/flows-board';
-import { getLocale, t, tp } from '../i18n';
+import { getLocale, runStateLabel, t, tp } from '../i18n';
 import FlowEditor from './FlowEditor';
 import PullReference from './PullReference';
+import GateDisclosure from './GateDisclosure';
+import CodexRepairModal from './CodexRepairModal';
+import { usePreferences } from '../app-state/preferences-provider';
+import { useCheckDetails } from '../hooks/use-check-details';
+import { IconRefresh } from './icons';
 
 const NODE_LABEL: Record<StageProgressStatus, string> = {
   succeeded: 'done',
@@ -47,15 +68,49 @@ function formatEventTime(occurredAt: string): string {
   return new Intl.DateTimeFormat(getLocale() === 'zh' ? 'zh-CN' : 'en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
-function AutomationChip({ label, enabled }: { label: string; enabled: boolean }) {
+function AutomationToggle({ label, enabled, disabled, busy, title, onClick }: {
+  label: string;
+  enabled: boolean;
+  disabled: boolean;
+  busy: boolean;
+  title?: string;
+  onClick: () => void;
+}) {
   return (
-    <span className={`detail-auto-chip${enabled ? ' enabled' : ''}`}>
-      {label} · {t(enabled ? 'on' : 'off')}
-    </span>
+    <button
+      type="button"
+      className={`detail-auto-toggle${enabled ? ' is-on' : ''}`}
+      aria-pressed={enabled}
+      disabled={disabled || busy}
+      data-tip={title}
+      onClick={onClick}
+    >
+      <span className="detail-auto-box" aria-hidden="true">{enabled ? '✓' : ''}</span>
+      <span>{busy ? t('Saving…') : label}</span>
+    </button>
   );
 }
 
-export default function FlowDetail({ flowId, state, events, inbox, onClose, onOpenDrawer, onSaved, onDeleted }: {
+/** Check gate chip that expands into live check details, like the old detail page. */
+function StageChecksGate({ summary, repository, headSha, target }: {
+  summary: string;
+  repository: string;
+  headSha: string | null;
+  target: string;
+}) {
+  const { pat, hasServerPat } = usePreferences();
+  const details = useCheckDetails(pat, hasServerPat, repository, headSha);
+  return (
+    <GateDisclosure
+      summary={summary}
+      details={details}
+      target={target}
+      className="detail-gate detail-check-gate"
+    />
+  );
+}
+
+export default function FlowDetail({ flowId, state, events, inbox, onClose, onOpenDrawer, onRefresh, refreshing = false, onMutated, onSaved, onDeleted }: {
   flowId: string;
   state: BoardState;
   events: readonly StageEventRow[];
@@ -63,6 +118,11 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
   onClose: () => void;
   /** Opens the step drawer for one stage (P3-3 operations). */
   onOpenDrawer?: (stageIndex: number) => void;
+  /** Reconciles the persisted projection with GitHub from the detail page. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  /** Refresh the board snapshot after an inline stage operation. */
+  onMutated?: () => void;
   /** When present, the flow can be edited; called with the saved version. */
   onSaved?: (saved: import('../lib/automation/workflow').Workflow) => void;
   /** Called after a confirmed local delete; the board removes the lane. */
@@ -75,11 +135,36 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
     [state.workflows, flowId],
   );
   const [editing, setEditing] = useState(false);
+  const [busyAction, setBusyAction] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [repairTarget, setRepairTarget] = useState<{ stageIndex: number; source: string; pullNumber: number | null } | null>(null);
+  const editable = Boolean(onSaved);
+  const [ai, setAi] = useState<AiAutomationCredential>(null);
+  const [rules, setRules] = useState<GenerationRuleRow[]>([]);
+  const automationReady = useMemo(() => automationPrerequisiteCodes({
+    projectionAvailable: Boolean(inbox),
+    credentialConfigured: Boolean(ai?.configured),
+    autoGeneratePrMessage: Boolean(ai?.autoGeneratePrMessage),
+    autoConfirmPrCreation: Boolean(ai?.autoConfirmPrCreation),
+    generationRuleCount: rules.length,
+  }).length === 0, [inbox, ai, rules]);
+  useEffect(() => {
+    if (!editable) return undefined;
+    let cancelled = false;
+    fetchAiCredential()
+      .then((res) => { if (!cancelled) setAi(res.credential); })
+      .catch(() => { if (!cancelled) setAi(null); });
+    fetchGenerationRules()
+      .then((res) => { if (!cancelled) setRules(res.rules); })
+      .catch(() => { if (!cancelled) setRules([]); });
+    return () => { cancelled = true; };
+  }, [editable]);
   const stages = useMemo(
     () => (flow ? buildStageDetails(state, flow, events) : []),
     [state, flow, events],
   );
   const progress = useMemo(() => (flow ? flowProgress(state, flow) : null), [state, flow]);
+  const progressPercent = progress?.total ? Math.round((progress.completed / progress.total) * 100) : 0;
   const nextAction = useMemo(() => (flow ? nextActionSummary(state, flow) : 'notStarted'), [state, flow]);
   const recentRuns = useMemo(
     () => (inbox?.runs ?? []).filter((run) => run.workflowId === flowId).slice(0, 10),
@@ -105,11 +190,129 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
       />
     );
   }
+
+  const flowForActions = flow;
+
+  async function queueStageAction(stage: (typeof stages)[number], kind: 'create-pr' | 'merge-pr') {
+    const key = `${stage.index}:${kind}`;
+    setBusyAction(key);
+    setActionError('');
+    try {
+      await enqueueAutomation({
+        workflowId: flowForActions.id,
+        stageIndex: stage.index,
+        source: stage.source,
+        kind,
+        idempotencyKey: `detail-${flowForActions.id}-${stage.index}-${kind}-${Date.now()}`,
+      });
+      toast.notify(t(kind === 'create-pr' ? 'create PR queued' : 'merge queued'));
+      onMutated?.();
+    } catch (err) {
+      const message = errorMessage(err);
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function rerunStageActions(stage: (typeof stages)[number]) {
+    const key = `${stage.index}:rerun`;
+    setBusyAction(key);
+    setActionError('');
+    try {
+      await rerunFailedActions({ workflowId: flowForActions.id, stageIndex: stage.index, source: stage.source });
+      toast.notify(t('Actions rerun requested'));
+      onMutated?.();
+    } catch (err) {
+      const message = errorMessage(err);
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  /**
+   * Inline automation toggles from the old detail page: flip the switch and
+   * persist the whole workflow. Enabling auto-create pins the first library
+   * rule (or the rule already pinned on the stage), matching the editor's
+   * create path; all mutations go through the ported pure helpers.
+   */
+  async function toggleStageAutomation(stage: (typeof stages)[number], toggle: 'create' | 'merge' | 'advance') {
+    if (!onSaved || !automationReady || busyAction) return;
+    const key = `${stage.index}:automation`;
+    const enabling = toggle === 'create'
+      ? !stage.automation.autoCreate
+      : toggle === 'merge' ? !stage.automation.autoMerge : !stage.automation.autoAdvance;
+    const currentStage = flowForActions.stages[stage.index];
+    const effect = immediateAutomationEffect({
+      toggle: toggle === 'advance' ? 'merge' : toggle,
+      enabling,
+      stage: { source: stage.source, target: stage.target },
+      status: {
+        kind: stage.kind,
+        aheadBy: stage.aheadBy,
+        pr: stage.pullNumber ? { number: stage.pullNumber } : null,
+      },
+      unlocked: true,
+      triggerMinCommits: currentStage?.automation?.triggerMinCommits,
+    });
+    const effectCopy = effect.kind === 'merge-pr'
+      ? tp('Enabling auto-merge will merge PR #{number} immediately once gates pass.', { number: effect.pullNumber })
+      : effect.kind === 'create-pr'
+        ? tp('Enabling auto-create will create the PR immediately ({count} new commits).', { count: effect.aheadBy })
+        : null;
+    if (effectCopy) {
+      const confirmed = await confirm({
+        title: t('Automation immediate effect'),
+        detail: `${effectCopy}\n\n${t('Continue?')}`,
+      });
+      if (!confirmed) return;
+    }
+
+    let rule: { name: string; content: string } | undefined;
+    if (toggle === 'create' && enabling) {
+      const pinned = currentStage?.automation?.generationRule;
+      if (pinned?.content) {
+        rule = { name: pinned.name, content: pinned.content };
+      } else if (rules[0]) {
+        rule = { name: rules[0].label || rules[0].name, content: rules[0].content };
+      }
+      if (!rule) {
+        toast.error(t('no generation rules in the library — add one to pr_helper_generation_rules first'));
+        return;
+      }
+    }
+
+    const next = toggle === 'create'
+      ? setStageAutoCreate(flowForActions, stage.index, enabling, rule, currentStage?.automation?.triggerMinCommits || 1)
+      : toggle === 'merge'
+        ? setStageAutoMerge(flowForActions, stage.index, enabling)
+        : setStageAutoAdvance(flowForActions, stage.index, enabling);
+    setBusyAction(key);
+    setActionError('');
+    try {
+      const saved = await saveWorkflowToServer(next);
+      toast.notify(t('Workflow saved'));
+      onSaved(saved);
+      onMutated?.();
+    } catch (err) {
+      const message = errorMessage(err);
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   const summary = workflowSummary(flow);
   const headline = !progress?.synced
     ? t('Waiting for status sync')
     : progress.currentIndex === null
-      ? tp('All done · {total} steps, waiting for new commits', { total: progress.total })
+      ? progress.total === 1
+        ? t('All done · 1 step, waiting for new commits')
+        : tp('All done · {total} steps, waiting for new commits', { total: progress.total })
       : tp('Step {step} of {total} · {completed} completed', {
         step: progress.currentIndex + 1,
         total: progress.total,
@@ -118,9 +321,21 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
 
   return (
     <div className="flow-detail-page">
-      <section className="page-head detail-page-head">
-        <button type="button" className="ghost" onClick={onClose}>← {t('Back')}</button>
-        <div className="detail-head-main">
+      <div className="detail-topbar">
+        <button type="button" className="ghost detail-back" onClick={onClose}>← {t('Back')}</button>
+        <div className="detail-topbar-actions">
+          {onRefresh ? (
+            <button
+              type="button"
+              className="drawer-btn detail-refresh"
+              onClick={onRefresh}
+              disabled={refreshing}
+              aria-busy={refreshing}
+            >
+              <IconRefresh width={14} height={14} />
+              {refreshing ? t('Refreshing…') : t('Refresh status')}
+            </button>
+          ) : null}
           {onSaved ? <button type="button" className="drawer-btn" onClick={() => setEditing(true)}>{t('Edit flow')}</button> : null}
           {onDeleted ? (
             <button
@@ -146,139 +361,304 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
               {t('Delete flow')}
             </button>
           ) : null}
+        </div>
+      </div>
+
+      <section className="detail-hero">
+        <div className="detail-head-main">
           {flow.name.toLocaleLowerCase() !== flow.repository.toLocaleLowerCase() ? (
             <p className="detail-eyebrow">{flow.repository}</p>
           ) : null}
           <h1>{flow.name}</h1>
           <p className="detail-route">{summary.route}</p>
         </div>
-        <aside className={`detail-next-action is-${nextAction}`}>
-          <p className="detail-eyebrow">{t('Next action')}</p>
-          <h2>{t(NEXT_ACTION_TEXT[nextAction])}</h2>
-        </aside>
+        <span className={`detail-sync-chip${progress?.synced ? ' is-synced' : ''}`}>
+          <i className={`tone-dot ${progress?.synced ? 'succeeded' : 'idle'}`} aria-hidden="true" />
+          {t(progress?.synced ? 'Flow status synced' : 'Waiting for status sync')}
+        </span>
       </section>
 
-      <section className="detail-progress flow-progress">
-        <div className="flow-progress-head">
-          <span className="detail-progress-label">{t('Flow progress')}</span>
-          <span className="flow-progress-headline">{headline}</span>
-        </div>
-        <div className="flow-progress-nodes">
-          {flow.stages.map((stage, index) => {
-            const status = progress?.nodes[index] ?? 'idle';
-            const isCurrent = progress?.synced && progress.currentIndex === index;
-            return (
-              <button
-                key={stage.stageId ?? index}
-                type="button"
-                className={`fp-node is-${status}${isCurrent ? ' is-current' : ''}`}
-                disabled={!onOpenDrawer}
-                aria-label={`${tp('Step {step}', { step: index + 1 })} · ${t(NODE_LABEL[status])}`}
-                onClick={() => onOpenDrawer?.(index)}
-              >
-                <span className="fp-node-index">{index + 1}</span>
-                <span className="fp-node-status">{t(NODE_LABEL[status])}</span>
-              </button>
-            );
-          })}
-        </div>
-        {progress?.next && progress.synced ? (
-          <p className="flow-progress-next">
-            <span>{tp('Next · step {step}', { step: progress.next.index + 1 })}</span>
-            {progress.next.reason ? <span className="flow-progress-next-reason">{progress.next.reason}</span> : null}
-          </p>
-        ) : null}
-        {progress?.syncedAt ? (
-          <p className="flow-progress-sync">{tp('Server reconciliation · {time}', { time: formatRelative(progress.syncedAt) })}</p>
-        ) : null}
-      </section>
+      {actionError ? <div className="compact-notice is-error detail-action-error"><p>{actionError}</p></div> : null}
 
-      {recentRuns.length ? (
-        <section className="detail-runs">
-          <span className="detail-events-label">{t('Recent runs')}</span>
-          <ol>
-            {recentRuns.map((run) => (
-              <li key={run.id}>
-                <b>{run.source} → {run.target}</b>
-                {run.pullNumber ? (
-                  <PullReference url={githubPullUrl(flow.repository, run.pullNumber)} label={`#${run.pullNumber}`} />
-                ) : null}
-                <span>{run.state}</span>
-                <time>{formatEventTime(run.startedAt ?? '')}</time>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      <section className="detail-stages">
-        {stages.map((stage) => (
-          <article key={stage.index} className={`detail-stage ${stage.tone}`}>
-            <div className="detail-stage-head">
-              <span className="step-index">{stage.index + 1}</span>
-              <b>{stage.source} → {stage.target}</b>
-              {stage.pullNumber ? (
-                <PullReference
-                  url={stage.pullUrl ?? githubPullUrl(flow.repository, stage.pullNumber)}
-                  label={`#${stage.pullNumber}`}
-                />
-              ) : null}
-              <i className={`tone-dot ${stage.tone}`} aria-hidden="true" />
-              <span className="detail-state">{stage.stateText}</span>
-              {onOpenDrawer ? (
-                <button
-                  type="button"
-                  className="drawer-btn small"
-                  onClick={() => onOpenDrawer(stage.index)}
-                >
-                  {t('step details')}
-                </button>
-              ) : null}
+      <div className="detail-layout">
+        <main className="detail-main">
+          <section className="detail-progress flow-progress">
+            <div className="flow-progress-head">
+              <span className="detail-progress-label">{t('Flow progress')}</span>
+              <span className="flow-progress-headline">{headline}</span>
             </div>
-
-            {stage.gates.length ? (
-              <div className="detail-gates">
-                {stage.gates.map((gate, gateIndex) => <span key={gateIndex} className="detail-gate">{gate}</span>)}
-              </div>
+            <div className="flow-progress-bar" aria-hidden="true">
+              <span style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="flow-progress-nodes">
+              {flow.stages.map((stage, index) => {
+                const status = progress?.nodes[index] ?? 'idle';
+                const isCurrent = progress?.synced && progress.currentIndex === index;
+                return (
+                  <button
+                    key={stage.stageId ?? index}
+                    type="button"
+                    className={`fp-node is-${status}${isCurrent ? ' is-current' : ''}`}
+                    disabled={!onOpenDrawer}
+                    aria-label={`${tp('Step {step}', { step: index + 1 })} · ${t(NODE_LABEL[status])}`}
+                    onClick={() => onOpenDrawer?.(index)}
+                  >
+                    <span className="fp-node-index">{index + 1}</span>
+                    <span className="fp-node-status">{t(NODE_LABEL[status])}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {progress?.next && progress.synced ? (
+              <p className="flow-progress-next">
+                <span>{tp('Next · step {step}', { step: progress.next.index + 1 })}</span>
+                {progress.next.reason ? <span className="flow-progress-next-reason">{progress.next.reason}</span> : null}
+              </p>
             ) : null}
+            {progress?.syncedAt ? (
+              <p className="flow-progress-sync">{tp('Server reconciliation · {time}', { time: formatRelative(progress.syncedAt) })}</p>
+            ) : null}
+          </section>
 
-            {stage.dynamic ? (
-              <div className="detail-routes">
-                {stage.routes.map((route) => (
-                  <div key={route.source} className="detail-route-row">
-                    <i className={`tone-dot ${route.tone}`} aria-hidden="true" />
-                    <b>{route.source}</b>
-                    <span>{route.label}</span>
+          <section className="detail-stages">
+            {stages.map((stage) => {
+              const checkGate = stage.checksTotal && stage.gates.length ? stage.gates[0] : null;
+              const otherGates = checkGate ? stage.gates.slice(1) : stage.gates;
+              const canMerge = stage.kind === 'open' && canMergeOpenPull({
+                checks: stage.checksState ?? undefined,
+                approvalsMet: stage.requiredApprovals === 0 || stage.approvals >= stage.requiredApprovals,
+                mergeable: stage.mergeable,
+                mergeableState: stage.mergeableState ?? undefined,
+              });
+              const busy = busyAction !== '';
+              return (
+                <article key={stage.index} className={`detail-stage ${stage.tone}`}>
+                  <div className="detail-stage-head">
+                    <span className="step-index">{stage.index + 1}</span>
+                    <div className="detail-stage-route">
+                      <b>{stage.source} → {stage.target}</b>
+                      {stage.pullNumber ? (
+                        <PullReference
+                          url={stage.pullUrl ?? githubPullUrl(flow.repository, stage.pullNumber)}
+                          label={`#${stage.pullNumber}`}
+                        />
+                      ) : null}
+                    </div>
+                    <span className={`detail-state-chip ${stage.tone}`}>
+                      <i className={`tone-dot ${stage.tone}`} aria-hidden="true" />
+                      {stage.stateText}
+                    </span>
                   </div>
+
+                  {checkGate || otherGates.length ? (
+                    <div className="detail-gates">
+                      {checkGate ? (
+                        <StageChecksGate
+                          summary={checkGate}
+                          repository={flow.repository}
+                          headSha={stage.headSha}
+                          target={stage.target}
+                        />
+                      ) : null}
+                      {otherGates.map((gate, gateIndex) => <span key={gateIndex} className="detail-gate">{gate}</span>)}
+                    </div>
+                  ) : null}
+
+                  {!stage.dynamic ? (
+                    <div className="detail-stage-actions">
+                      {stage.pullUrl ? (
+                        <a className="drawer-btn small" href={stage.pullUrl} target="_blank" rel="noreferrer">
+                          {t('Open PR')}
+                        </a>
+                      ) : null}
+                      {(stage.kind === 'not-created' || stage.kind === 'merged') && stage.aheadBy > 0 ? (
+                        <button
+                          type="button"
+                          className="drawer-btn small primary"
+                          disabled={busy}
+                          onClick={() => void queueStageAction(stage, 'create-pr')}
+                        >
+                          {busyAction === `${stage.index}:create-pr` ? t('Queuing…') : t('create PR')}
+                        </button>
+                      ) : null}
+                      {stage.kind === 'open' ? (
+                        <button
+                          type="button"
+                          className="drawer-btn small"
+                          disabled={busy || !canMerge}
+                          title={!canMerge ? t('GitHub gates not met') : undefined}
+                          onClick={() => void queueStageAction(stage, 'merge-pr')}
+                        >
+                          {busyAction === `${stage.index}:merge-pr` ? t('Queuing…') : t('merge PR')}
+                        </button>
+                      ) : null}
+                      {stage.checksState === 'failure' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="drawer-btn small"
+                            disabled={busy}
+                            onClick={() => void rerunStageActions(stage)}
+                          >
+                            {busyAction === `${stage.index}:rerun` ? t('Rerunning…') : t('rerun Actions')}
+                          </button>
+                          <button
+                            type="button"
+                            className="drawer-btn small"
+                            disabled={busy}
+                            onClick={() => setRepairTarget({
+                              stageIndex: stage.index,
+                              source: stage.source,
+                              pullNumber: stage.pullNumber,
+                            })}
+                          >
+                            {t('Codex repair context')}
+                          </button>
+                        </>
+                      ) : null}
+                      {onOpenDrawer ? (
+                        <button type="button" className="drawer-btn small" onClick={() => onOpenDrawer(stage.index)}>
+                          {t('step details')}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : onOpenDrawer ? (
+                    <div className="detail-stage-actions">
+                      <button type="button" className="drawer-btn small" onClick={() => onOpenDrawer(stage.index)}>
+                        {t('step details')}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {stage.dynamic ? (
+                    <div className="detail-routes">
+                      {stage.routes.map((route) => (
+                        <div key={route.source} className="detail-route-row">
+                          <i className={`tone-dot ${route.tone}`} aria-hidden="true" />
+                          <b>{route.source}</b>
+                          <span>{route.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="detail-automation">
+                    <span className="detail-automation-label">{t('Automation')}</span>
+                    <AutomationToggle
+                      label={tp('auto-create (≥{threshold} commits)', { threshold: stage.automation.threshold })}
+                      enabled={stage.automation.autoCreate}
+                      disabled={!editable || !automationReady}
+                      busy={busyAction === `${stage.index}:automation`}
+                      title={!editable || !automationReady ? t('Automation prerequisites unmet — automation toggles are disabled') : undefined}
+                      onClick={() => void toggleStageAutomation(stage, 'create')}
+                    />
+                    <AutomationToggle
+                      label={t('auto-merge')}
+                      enabled={stage.automation.autoMerge}
+                      disabled={!editable || !automationReady}
+                      busy={busyAction === `${stage.index}:automation`}
+                      title={!editable || !automationReady ? t('Automation prerequisites unmet — automation toggles are disabled') : undefined}
+                      onClick={() => void toggleStageAutomation(stage, 'merge')}
+                    />
+                    <AutomationToggle
+                      label={t('auto-advance')}
+                      enabled={stage.automation.autoAdvance}
+                      disabled={!editable || !automationReady || (!stage.automation.autoCreate && !stage.automation.autoMerge)}
+                      busy={busyAction === `${stage.index}:automation`}
+                      title={!editable || !automationReady
+                        ? t('Automation prerequisites unmet — automation toggles are disabled')
+                        : (!stage.automation.autoCreate && !stage.automation.autoMerge) ? t('Auto-advance needs auto-create or auto-merge on the same step') : undefined}
+                      onClick={() => void toggleStageAutomation(stage, 'advance')}
+                    />
+                  </div>
+
+                  {stage.events.length ? (
+                    <details className="detail-events" open={stage.tone === 'failed'}>
+                      <summary className="detail-events-summary">
+                        <span className="detail-events-label">{t('Stage events')}</span>
+                        <span className="detail-events-count">{tp('{count} items', { count: stage.events.length })}</span>
+                      </summary>
+                      <ol>
+                        {stage.events.map((event, eventIndex) => (
+                          <li key={eventIndex}>
+                            <span>{event.message}</span>
+                            <time>{formatEventTime(event.occurredAt)}</time>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : (
+                    <div className="detail-events detail-events-empty">
+                      <span className="detail-events-label">{t('Stage events')}</span>
+                      <p className="detail-no-events">{t('No events yet')}</p>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+        </main>
+
+        <aside className="detail-side">
+          <section className={`detail-next-action is-${nextAction}`}>
+            <p className="detail-eyebrow">{t('Next action')}</p>
+            <h2>{t(NEXT_ACTION_TEXT[nextAction])}</h2>
+            {progress?.next?.reason ? <p className="detail-next-reason">{progress.next.reason}</p> : null}
+          </section>
+
+          {recentRuns.length ? (
+            <section className="detail-runs">
+              <span className="detail-events-label">{t('Recent runs')}</span>
+              <ol>
+                {recentRuns.map((run) => (
+                  <li key={run.id}>
+                    <b>{run.source} → {run.target}</b>
+                    {run.pullNumber ? (
+                      <PullReference url={githubPullUrl(flow.repository, run.pullNumber)} label={`#${run.pullNumber}`} />
+                    ) : null}
+                    <span>{runStateLabel(run.state)}{run.version ? ` · v${run.version}` : ''}</span>
+                    <time>{formatEventTime(run.completedAt ?? run.startedAt ?? '')}</time>
+                  </li>
                 ))}
+              </ol>
+            </section>
+          ) : null}
+
+          <section className="detail-facts">
+            <span className="detail-events-label">{t('Flow facts')}</span>
+            <dl>
+              <div>
+                <dt>{t('Repository')}</dt>
+                <dd>{flow.repository}</dd>
               </div>
-            ) : null}
+              <div>
+                <dt>{t('Steps')}</dt>
+                <dd>{flow.stages.length}</dd>
+              </div>
+              {flow.team?.name ? (
+                <div>
+                  <dt>{t('Team')}</dt>
+                  <dd>{flow.team.name}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt>{t('Updated')}</dt>
+                <dd>{progress?.syncedAt ? formatRelative(progress.syncedAt) : '—'}</dd>
+              </div>
+            </dl>
+          </section>
+        </aside>
+      </div>
 
-            <div className="detail-automation">
-              <span className="detail-automation-label">{t('Automation')}</span>
-              <AutomationChip label={tp('auto-create (≥{threshold} commits)', { threshold: stage.automation.threshold })} enabled={stage.automation.autoCreate} />
-              <AutomationChip label={t('auto-merge')} enabled={stage.automation.autoMerge} />
-              <AutomationChip label={t('auto-advance')} enabled={stage.automation.autoAdvance} />
-            </div>
-
-            <div className="detail-events">
-              <span className="detail-events-label">{t('Stage events')}</span>
-              {stage.events.length ? (
-                <ol>
-                  {stage.events.map((event, eventIndex) => (
-                    <li key={eventIndex}>
-                      <span>{event.message}</span>
-                      <time>{formatEventTime(event.occurredAt)}</time>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="detail-no-events">{t('No events yet')}</p>
-              )}
-            </div>
-          </article>
-        ))}
-      </section>
+      {repairTarget ? (
+        <CodexRepairModal
+          workflowId={flow.id}
+          stageIndex={repairTarget.stageIndex}
+          source={repairTarget.source}
+          pullNumber={repairTarget.pullNumber}
+          onClose={() => setRepairTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

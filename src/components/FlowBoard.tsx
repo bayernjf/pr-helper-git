@@ -11,13 +11,18 @@ import {
   blockedAutomationForStep,
   buildLaneModels,
   configurationWarningsFor,
+  configurationWarningText,
   flowPullUrl,
   stageStaleness,
+  stageStateFor,
   type BoardFilter,
   type BoardState,
+  type RunRow,
+  type TimelineRow,
 } from '../lib/automation/flows-board';
 import { useToast, useConfirm } from './ui';
-import { t, tp } from '../i18n';
+import { formatRelative } from '../lib/format';
+import { runStateLabel, t, tp } from '../i18n';
 import { saveWorkflowToServer } from '../api/flows';
 import CodexRepairModal from './CodexRepairModal';
 import FailureCenter from './FailureCenter';
@@ -60,35 +65,120 @@ const FILTER_COUNT: Record<BoardFilter, keyof ReturnType<typeof boardCounts>> = 
   archived: 'archived',
 };
 
-function StepCard({ lane, repository, onOpen, automationBlocked, stale }: {
+/** Compact timestamp in the board's local-time stamp style. */
+function formatStamp(value?: string | null): string {
+  return value ? value.slice(0, 16).replace('T', ' ') : '';
+}
+
+function StepCard({ lane, repository, onOpen, automationBlocked, stale, updatedAt }: {
   lane: ReturnType<typeof buildLaneModels>[number]['steps'][number];
   repository: string;
   onOpen: () => void;
   automationBlocked?: boolean;
   stale?: boolean;
+  updatedAt?: string | null;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={`lane-step ${lane.tone}`}
       onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
     >
-      <div className="step-route">
-        <span className="step-index">{lane.stageIndex + 1}</span>
-        <b>{lane.source} → {lane.target}</b>
-        {automationBlocked ? <span className="lane-automation-badge">{t('automation blocked')}</span> : null}
-        {stale ? <span className="lane-stale-badge">{t('stale')}</span> : null}
-      </div>
-      <small>
-        {lane.label}
-        {lane.pullNumber ? (
-          <PullReference
-            url={flowPullUrl(repository, lane.pullNumber)}
-            label={`#${lane.pullNumber}`}
-          />
-        ) : null}
-      </small>
-    </button>
+      <span className="step-index">{lane.stageIndex + 1}</span>
+      <span className="step-main">
+        <span className="step-route">
+          <b>{lane.source}</b>
+          <span className="step-arrow" aria-hidden="true">→</span>
+          <b>{lane.target}</b>
+          {automationBlocked ? <span className="lane-automation-badge">{t('automation blocked')}</span> : null}
+          {stale ? <span className="lane-stale-badge">{t('stale')}</span> : null}
+        </span>
+        <span className="step-status">
+          {lane.label}
+          {lane.pullNumber ? (
+            <PullReference
+              url={flowPullUrl(repository, lane.pullNumber)}
+              label={`#${lane.pullNumber}`}
+            />
+          ) : null}
+        </span>
+      </span>
+      <span className="step-side">
+        {updatedAt ? <time dateTime={updatedAt}>{formatRelative(updatedAt)}</time> : null}
+        <span className="step-chevron" aria-hidden="true">›</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Run history + compact timeline for one lane. Old lane.ts renders both only
+ * when the lane has matching rows, so a workflow with no history must not leave
+ * two empty disclosure bars under an expanded lane.
+ */
+function LaneDetails({ flow, runs, timeline }: {
+  flow: Workflow;
+  runs: readonly RunRow[];
+  timeline: readonly TimelineRow[];
+}) {
+  const laneRuns = runs.filter((run) => run.workflowId === flow.id).slice(0, 5);
+  const laneTimeline = timeline.filter((row) => row.workflowId === flow.id).slice(0, 8);
+  if (!laneRuns.length && !laneTimeline.length) return null;
+  return (
+    <div className="lane-details">
+      {laneRuns.length ? (
+        <details className="lane-history">
+          <summary>{t('Run history')}</summary>
+          <ol>
+            {laneRuns.map((run, runIndex) => (
+              <li key={run.id ?? runIndex} className={run.state ?? 'active'}>
+                <span className="lane-detail-main">
+                  <b>{run.source ?? '—'} → {run.target ?? '—'}</b>
+                  <small>
+                    {runStateLabel(run.state)}{run.version ? ` · v${run.version}` : ''}
+                    {run.pullNumber ? (
+                      <> · <PullReference url={flowPullUrl(flow.repository, run.pullNumber)} label={`#${run.pullNumber}`} /></>
+                    ) : null}
+                  </small>
+                </span>
+                <time>{formatStamp(run.completedAt ?? run.startedAt)}</time>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+      {laneTimeline.length ? (
+        <details className="lane-timeline">
+          <summary>{t('Timeline')}</summary>
+          <ol>
+            {laneTimeline.map((row, rowIndex) => (
+              <li key={row.runId ?? rowIndex} className={row.kind ?? ''}>
+                <span className="lane-detail-main">
+                  <b>{row.message ?? row.kind ?? '—'}</b>
+                  {(row.source || row.target || row.pullNumber) ? (
+                    <small>
+                      {row.source ?? '—'} → {row.target ?? '—'}
+                      {row.pullNumber ? (
+                        <> · <PullReference url={flowPullUrl(flow.repository, row.pullNumber)} label={`#${row.pullNumber}`} /></>
+                      ) : null}
+                    </small>
+                  ) : null}
+                </span>
+                <time>{formatStamp(row.occurredAt)}</time>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -111,11 +201,14 @@ export default function FlowBoard() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
-  const [collapsedLanes, setCollapsedLanes] = useState<string[]>([]);
+  const [expandedLanes, setExpandedLanes] = useState<string[]>([]);
   const [returnHighlight, setReturnHighlight] = useState<string | null>(null);
   const [drawerStage, setDrawerStage] = useState<{ flowId: string; stageIndex: number } | null>(null);
   const [repairTarget, setRepairTarget] = useState<{ flowId: string; stageIndex: number; source: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
+  const [dragFlowId, setDragFlowId] = useState<string | null>(null);
+  const [dragOverFlowId, setDragOverFlowId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [preflightFlowId, setPreflightFlowId] = useState<string | null>(null);
@@ -183,6 +276,10 @@ export default function FlowBoard() {
     actionQueue: inbox?.items ?? [],
     automationActions: inbox?.automation ?? [],
     recoveryStatuses: inbox?.recoveryStatuses ?? [],
+    syncHealth: inbox?.syncHealth ?? null,
+    configurationWarnings: inbox?.configurationWarnings ?? [],
+    runs: inbox?.runs ?? [],
+    timeline: inbox?.timeline ?? [],
   }), [inbox, workflows]);
 
   // Resolve marks hide handled work from the board view only; the drawer and
@@ -201,6 +298,9 @@ export default function FlowBoard() {
     () => buildLaneModels(boardState, filter, search, sortMode, sortDirection),
     [boardState, filter, search, sortMode, sortDirection],
   );
+  const allVisibleExpanded = lanes.length > 0 && lanes.every((lane) => expandedLanes.includes(lane.workflow.id));
+  const canReorder = sortMode === 'custom' && filter === 'all' && !search;
+  const editingFlow = editingFlowId ? workflows.find((workflow) => workflow.id === editingFlowId) : null;
   const moveLaneTo = useCallback((flowId: string, to: number) => {
     const order = state.workflows.map((w) => w.id);
     const from = order.indexOf(flowId);
@@ -253,6 +353,25 @@ export default function FlowBoard() {
     }
   }, [toast]);
 
+  if (editingFlow) {
+    return (
+      <FlowEditor
+        workflow={editingFlow}
+        state={state}
+        inbox={inbox ?? undefined}
+        onClose={() => setEditingFlowId(null)}
+        onSaved={(saved) => {
+          setWorkflows((current) => (current.some((workflow) => workflow.id === saved.id)
+            ? current.map((workflow) => (workflow.id === saved.id ? saved : workflow))
+            : [...current, saved]));
+          setEditingFlowId(null);
+          setReturnHighlight(saved.id);
+          void load(false);
+        }}
+      />
+    );
+  }
+
   if (creating) {
     return (
       <FlowEditor
@@ -278,6 +397,9 @@ export default function FlowBoard() {
           inbox={inbox ?? undefined}
           onClose={closeDetail}
           onOpenDrawer={(stageIndex) => setDrawerStage({ flowId: selectedFlowId, stageIndex })}
+          onRefresh={() => void load(true, true)}
+          refreshing={refreshing}
+          onMutated={() => void load(true)}
           onSaved={(saved) => {
             // P3-11: a repository change saves a *new* flow, so append it
             // instead of mapping over ids that only covers the original.
@@ -372,6 +494,7 @@ export default function FlowBoard() {
           onMutated={() => void load(true)}
           onResolved={markStepResolved}
           onRepair={(item) => setRepairTarget({ flowId: item.workflowId, stageIndex: item.stageIndex, source: item.source })}
+          onTakeover={(item) => setDrawerStage({ flowId: item.workflowId, stageIndex: item.stageIndex })}
         />
       ) : null}
 
@@ -389,41 +512,108 @@ export default function FlowBoard() {
       {loading && !inbox ? <div className="compact-notice"><p>{t('Refreshing…')}</p></div> : null}
 
       <section className="board-summary" aria-label={t('Flow board')}>
-        <span className="board-sort">
-          {(['custom', 'name', 'createdAt'] as const).map((mode) => (
+        <div className="board-summary-top">
+          <span className="board-sort">
+            {(['custom', 'name', 'createdAt'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={sortMode === mode ? 'active' : ''}
+                onClick={() => {
+                  if (sortMode === mode && mode !== 'custom') {
+                    setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+                  } else {
+                    setSortMode(mode);
+                  }
+                }}
+              >
+                {t(SORT_LABEL[mode])}{sortMode === mode && mode !== 'custom' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
+              </button>
+            ))}
+          </span>
+          <button
+            type="button"
+            className="board-expand-all"
+            disabled={!lanes.length}
+            onClick={() => {
+              const visibleIds = lanes.map((lane) => lane.workflow.id);
+              setExpandedLanes((current) => (allVisibleExpanded
+                ? current.filter((id) => !visibleIds.includes(id))
+                : [...new Set([...current, ...visibleIds])]));
+            }}
+          >
+            {allVisibleExpanded ? t('Collapse all') : t('Expand all')}
+          </button>
+        </div>
+        <div className="board-filters">
+          {FILTERS.map((key) => (
             <button
-              key={mode}
+              key={key}
               type="button"
-              className={sortMode === mode ? 'active' : ''}
-              onClick={() => {
-                if (sortMode === mode && mode !== 'custom') {
-                  setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
-                } else {
-                  setSortMode(mode);
-                }
-              }}
+              className={filter === key ? 'active' : ''}
+              onClick={() => setFilter(key)}
             >
-              {t(SORT_LABEL[mode])}{sortMode === mode && mode !== 'custom' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
+              <span>{counts[FILTER_COUNT[key]]}</span>
+              {t(FILTER_LABEL[key])}
             </button>
           ))}
-        </span>
-        {FILTERS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            className={filter === key ? 'active' : ''}
-            onClick={() => setFilter(key)}
-          >
-            <span>{counts[FILTER_COUNT[key]]}</span>
-            {t(FILTER_LABEL[key])}
-          </button>
-        ))}
+        </div>
       </section>
 
       <section className="project-board">
         {lanes.length ? lanes.map((lane, index) => (
-          <article key={lane.workflow.id} className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}${returnHighlight === lane.workflow.id ? ' is-return-highlight' : ''}`}>
+          <article
+            key={lane.workflow.id}
+            className={`project-lane${lane.workflow.archived ? ' is-archived' : ''}${returnHighlight === lane.workflow.id ? ' is-return-highlight' : ''}${expandedLanes.includes(lane.workflow.id) ? ' is-expanded' : ' is-collapsed'}${dragFlowId === lane.workflow.id ? ' is-dragging' : ''}${dragOverFlowId === lane.workflow.id && dragFlowId !== lane.workflow.id ? ' is-drop-target' : ''}`}
+            onDragOver={canReorder ? (event) => {
+              if (!dragFlowId || dragFlowId === lane.workflow.id) return;
+              event.preventDefault();
+              setDragOverFlowId(lane.workflow.id);
+            } : undefined}
+            onDragLeave={canReorder ? (event) => {
+              if (event.currentTarget === event.target) setDragOverFlowId(null);
+            } : undefined}
+            onDrop={canReorder ? (event) => {
+              event.preventDefault();
+              if (!dragFlowId || dragFlowId === lane.workflow.id) {
+                setDragFlowId(null);
+                setDragOverFlowId(null);
+                return;
+              }
+              const to = state.workflows.findIndex((workflow) => workflow.id === lane.workflow.id);
+              if (to >= 0) moveLaneTo(dragFlowId, to);
+              setDragFlowId(null);
+              setDragOverFlowId(null);
+            } : undefined}
+          >
             <header className="lane-header">
+              <button
+                type="button"
+                className="lane-drag-handle"
+                draggable={canReorder}
+                disabled={!canReorder}
+                aria-label={canReorder ? tp('reorder {name}', { name: lane.workflow.name }) : undefined}
+                title={canReorder ? t('Drag to reorder') : undefined}
+                onDragStart={(event) => {
+                  if (!canReorder) return;
+                  setDragFlowId(lane.workflow.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', lane.workflow.id);
+                }}
+                onDragEnd={() => {
+                  setDragFlowId(null);
+                  setDragOverFlowId(null);
+                }}
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <circle cx="5" cy="4" r="1.35" />
+                  <circle cx="11" cy="4" r="1.35" />
+                  <circle cx="5" cy="8" r="1.35" />
+                  <circle cx="11" cy="8" r="1.35" />
+                  <circle cx="5" cy="12" r="1.35" />
+                  <circle cx="11" cy="12" r="1.35" />
+                </svg>
+              </button>
               <button
                 type="button"
                 className="lane-title-block"
@@ -439,9 +629,24 @@ export default function FlowBoard() {
                   {lane.workflow.name}
                   {lane.workflow.archived ? <span className="lane-badge">{t('Archived')}</span> : null}
                   {lane.muted ? <span className="lane-badge">{t('Muted')}</span> : null}
+                  {lane.workflow.team?.name ? <span className="lane-badge">{lane.workflow.team.name}</span> : null}
                 </h2>
               </button>
               <div className="lane-actions">
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  onClick={() => setEditingFlowId(lane.workflow.id)}
+                >
+                  {t('Edit')}
+                </button>
+                <button
+                  type="button"
+                  className="drawer-btn small"
+                  onClick={() => setSelectedFlowId(lane.workflow.id)}
+                >
+                  {t('View')}
+                </button>
                 <button
                   type="button"
                   className="drawer-btn small"
@@ -486,19 +691,13 @@ export default function FlowBoard() {
                   {lane.muted ? t('unmute') : t('mute')}
                 </button>
               </div>
-              <span className="lane-run">
-                <button
-                  type="button"
-                  className="lane-move-btn"
-                  aria-expanded={!collapsedLanes.includes(lane.workflow.id)}
-                  aria-label={collapsedLanes.includes(lane.workflow.id) ? t('Expand') : t('Collapse')}
-                  onClick={() => setCollapsedLanes((current) => (current.includes(lane.workflow.id) ? current.filter((id) => id !== lane.workflow.id) : [...current, lane.workflow.id]))}
-                >
-                  {collapsedLanes.includes(lane.workflow.id) ? '+' : '–'}
-                </button>
-                {sortMode === 'custom' && filter === 'all' && !search ? (
+              <div className="lane-run">
+                <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
+                <span className="run-text">{lane.summary.text}</span>
+              </div>
+              <div className="lane-controls">
+                {canReorder ? (
                   <span className="lane-move">
-                    <span className="lane-position-badge">#{index + 1}</span>
                     <button
                       type="button"
                       className="lane-move-btn"
@@ -529,18 +728,38 @@ export default function FlowBoard() {
                     />
                   </span>
                 ) : null}
-                <i className={`tone-dot ${lane.summary.tone}`} aria-hidden="true" />
-                <span className="run-text">{lane.summary.text}</span>
-              </span>
+                <button
+                  type="button"
+                  className="lane-move-btn lane-collapse-btn"
+                  aria-expanded={expandedLanes.includes(lane.workflow.id)}
+                  aria-label={expandedLanes.includes(lane.workflow.id) ? t('Collapse') : t('Expand')}
+                  onClick={() => setExpandedLanes((current) => (current.includes(lane.workflow.id)
+                    ? current.filter((id) => id !== lane.workflow.id)
+                    : [...current, lane.workflow.id]))}
+                >
+                  {expandedLanes.includes(lane.workflow.id) ? '–' : '+'}
+                </button>
+              </div>
             </header>
-            {configurationWarningsFor(state, lane.workflow.id).length ? (
+            {expandedLanes.includes(lane.workflow.id) && configurationWarningsFor(state, lane.workflow.id).length ? (
               <div className="lane-config-warning">
-                {configurationWarningsFor(state, lane.workflow.id).map((warning, wIndex) => (
-                  <span key={wIndex} className="lane-config-warning-item">{warning.code}</span>
-                ))}
+                <span className="lane-config-warning-count">
+                  {configurationWarningsFor(state, lane.workflow.id).length === 1
+                    ? t('1 warning')
+                    : tp('{count} warnings', { count: configurationWarningsFor(state, lane.workflow.id).length })}
+                </span>
+                <span
+                  className="lane-config-warning-item"
+                  title={configurationWarningsFor(state, lane.workflow.id).map(configurationWarningText).join('\n')}
+                >
+                  {configurationWarningText(configurationWarningsFor(state, lane.workflow.id)[0])}
+                  {configurationWarningsFor(state, lane.workflow.id).length > 1
+                    ? ` +${configurationWarningsFor(state, lane.workflow.id).length - 1}`
+                    : ''}
+                </span>
               </div>
             ) : null}
-            {collapsedLanes.includes(lane.workflow.id) ? null : (
+            {!expandedLanes.includes(lane.workflow.id) ? null : (
             <div className={`lane-track${lane.mergeGroups ? ' has-fan-in' : ''}`}>
               {lane.mergeGroups ? lane.mergeGroups.map((group) => (
                 <section key={group.target} className="lane-merge-group">
@@ -553,6 +772,7 @@ export default function FlowBoard() {
                         repository={lane.workflow.repository}
                         automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                         stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
+                        updatedAt={stageStateFor(state, lane.workflow.id, step.stageIndex, step.source)?.updatedAt}
                         onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                       />
                     ))}
@@ -566,48 +786,40 @@ export default function FlowBoard() {
                     repository={lane.workflow.repository}
                     automationBlocked={Boolean(blockedAutomationForStep(boardState.automationActions, lane.workflow.id, step.stageIndex))}
                     stale={stageStaleness(state, lane.workflow.id, step.stageIndex).stale}
+                    updatedAt={stageStateFor(state, lane.workflow.id, step.stageIndex, step.source)?.updatedAt}
                     onOpen={() => setDrawerStage({ flowId: lane.workflow.id, stageIndex: step.stageIndex })}
                   />
                 </Fragment>
               ))}
             </div>
             )}
-            {(inbox?.runs ?? []).some((run) => run.workflowId === lane.workflow.id) ? (
-              <details className="lane-history">
-                <summary>{t('Run history')}</summary>
-                <ol>
-                  {(inbox?.runs ?? []).filter((run) => run.workflowId === lane.workflow.id).slice(0, 5).map((run, runIndex) => (
-                    <li key={runIndex}>
-                      <span>{run.state ?? '—'}{run.pullNumber ? ` · #${run.pullNumber}` : ''}</span>
-                      <time>{run.startedAt?.slice(0, 16).replace('T', ' ')}</time>
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            ) : null}
-            {(inbox?.timeline ?? []).some((row) => row.workflowId === lane.workflow.id) ? (
-              <details className="lane-timeline">
-                <summary>{t('Timeline')}</summary>
-                <ol>
-                  {(inbox?.timeline ?? []).filter((row) => row.workflowId === lane.workflow.id).slice(0, 8).map((row, rowIndex) => (
-                    <li key={rowIndex}>
-                      <span>{row.message ?? row.kind ?? '—'}</span>
-                      <time>{row.occurredAt?.slice(0, 16).replace('T', ' ')}</time>
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            ) : null}
+            <LaneDetails
+              flow={lane.workflow}
+              runs={inbox?.runs ?? []}
+              timeline={inbox?.timeline ?? []}
+            />
           </article>
         )) : error ? null : (
           <article className="board-empty">
             <h3>{workflows.length ? t('No flows match this filter') : t('No flows yet — create one from a repository')}</h3>
             {workflows.length ? (
-              <button type="button" className="ghost" onClick={() => setFilter('all')}>{t('Show all flows')}</button>
+              <button type="button" className="ghost" onClick={() => { setFilter('all'); setSearch(''); }}>
+                {search ? t('Clear search') : t('Show all flows')}
+              </button>
             ) : null}
           </article>
         )}
       </section>
+      {drawerStage && inbox ? (
+        <StepDrawer
+          flow={state.workflows.find((workflow) => workflow.id === drawerStage.flowId)!}
+          stageIndex={drawerStage.stageIndex}
+          inbox={inbox}
+          onClose={() => setDrawerStage(null)}
+          onMutated={() => void load(true)}
+          onResolved={(stageIndex, source) => markStepResolved(drawerStage.flowId, stageIndex, source)}
+        />
+      ) : null}
       {repairTarget ? (
         <CodexRepairModal
           workflowId={repairTarget.flowId}

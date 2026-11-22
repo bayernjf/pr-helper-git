@@ -360,11 +360,14 @@ export const ZH: Record<string, string> = {
   'rule needs a name and non-empty content': '规则需要名称和非空内容',
   'Expand': '展开',
   'Collapse': '收起',
+  'Expand all': '全部展开',
+  'Collapse all': '全部收起',
   'automation blocked': '自动化受阻',
   'automation blocked on this step': '该步骤自动化受阻',
   'projection stale — waiting for reconciliation': '投影已过期 — 等待对账',
   'Run history': '运行历史',
   'Timeline': '时间线',
+  '1 warning': '1 项警告',
   'Force push ({mode})?': '强制推送（{mode}）？',
   'This overwrites the remote ref and can discard other commits. Prefer force-with-lease.': '这将覆盖远端引用，可能丢弃他人的提交。建议使用 force-with-lease。',
   'Fetched {count} repositories': '已拉取 {count} 个仓库',
@@ -833,6 +836,7 @@ export const ZH: Record<string, string> = {
   'Needs attention': '需关注',
   'Running': '进行中',
   'Active': '活跃',
+  'Completed': '已完成',
   'Failed': '失败',
   'Automation blocked': '自动化受阻',
   'Archived': '已归档',
@@ -840,6 +844,10 @@ export const ZH: Record<string, string> = {
   'Search flows': '搜索流程',
   'No flows match this filter': '没有流程匹配当前筛选',
   'Show all flows': '显示全部流程',
+  'Clear search': '清空搜索',
+  'View': '查看',
+  'reorder {name}': '调整「{name}」的顺序',
+  'Drag to reorder': '拖动调整顺序',
   'No flows yet — create one from a repository': '还没有流程 — 从仓库创建一个',
   'Live reads degraded — GitHub App credentials not configured; showing persisted projection': '实时读取降级 — GitHub App 凭据未配置；当前展示持久化投影',
   'Stage': '步骤',
@@ -883,13 +891,17 @@ export const ZH: Record<string, string> = {
   'auto-create threshold': '自动创建阈值',
   'auto-merge': '自动合并',
   'auto-advance': '自动推进',
+  'Auto-advance needs auto-create or auto-merge on the same step': '自动推进需要同一步开启自动创建或自动合并',
   'off': '关',
   'on': '开',
   'Step {index}': '步骤 {index}',
   // Flow progress + next action (batch 2, old detail.progress / detail.nextAction)
   'Flow progress': '流程进度',
+  'Flow facts': '流程信息',
+  'Updated': '更新',
   'Waiting for status sync': '等待状态同步',
   'All done · {total} steps, waiting for new commits': '全部完成 · 共 {total} 步，等待新提交',
+  'All done · 1 step, waiting for new commits': '全部完成 · 共 1 步，等待新提交',
   'Step {step} of {total} · {completed} completed': '第 {step} 步 / 共 {total} 步 · 已完成 {completed}',
   'Step {step}': '第 {step} 步',
   'Next · step {step}': '下一步 · 第 {step} 步',
@@ -1351,6 +1363,13 @@ export function t(source: string): string {
     if (pattern.test(source)) return source.replace(pattern, replacement);
   }
   return source;
+}
+
+/** Run history states arrive as data values; map them to human labels. */
+export function runStateLabel(state: string | null | undefined): string {
+  if (!state) return '—';
+  const labels: Record<string, string> = { active: 'Running', completed: 'Completed', failed: 'Failed' };
+  return labels[state] ? t(labels[state]) : state;
 }
 
 /** Same as t(), with `{name}` placeholders filled in. */
