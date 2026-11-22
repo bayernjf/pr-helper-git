@@ -22,6 +22,7 @@ every committed file as world-readable.
 - **app-state 仓库切片**（`181dafd`）：仓库数据拆为 registry / active repo / active brief / status / refs / history 六个 context，38 个生产消费者迁到精确 hooks；`selectedHash`、日志过滤和加载更多归入 history。切片 hook 不再订阅聚合 context，聚合 `useRepoData` 仅作测试注入与兼容回退。隔离测试扩到 6 例，验证 `selectCommit` / `setLogFilters` 只触发 history 探针。
 - **Phase 5 状态收口**（`f255d35`）：如实记录 P5-2 动作 1 已在无事前审批下发生于 2026-11-22 01:33 CST；owner 2026-11-23 选择承认现状并继续，但明确动作 2–4 仍需逐项批准。P5-1 判定证据仍未补齐，不把事后确认写成事前审批。
 - **动作 4 本地实跑**（`c454be5`）：单 stage PR #20 自动创建/合并，merge `3ed0c50`；双 stage PR #23/#24 自动创建/合并，`stage-advanced` action `4754` 成功，merge `bb59b9b` / `ac2ac7e`。双 stage 首轮暴露“自动合并后 advance 不调度”，修复为 merge action 直接入队 advance，并加回归测试。
+- **桌面**：`npm run desktop`、`desktop:smoke`、`desktop:native-test` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `714120c`，旧包 `f255d35` 备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；无头 Chrome 复核 Git 列表、提交选择和 worktree 管理模态。
 - **桌面**：`npm run desktop`、`desktop:smoke` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `f255d35`，旧包备份为 `PR Helper Git 0.3.20-local-2569c12.app`。
 

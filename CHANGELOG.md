@@ -18,7 +18,7 @@
 
 ### 验证
 - `npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
-- 桌面：`desktop:native-test`、`BUNDLE_NODE=1 npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `6c865a5`。
+- 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。
 
 ## [0.3.20] - 2026-11-22
