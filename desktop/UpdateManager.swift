@@ -15,12 +15,20 @@ final class UpdateManager: NSObject, NSWindowDelegate {
     let repo = "bayernjf/pr-helper-git"
     let appName = "PR Helper Git"
     let currentVersion: String
+    let buildCommit: String
 
     override init() {
         currentVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "0.0.0"
+        buildCommit = Bundle.main.object(
+            forInfoDictionaryKey: "PRHelperGitCommit"
+        ) as? String ?? ""
         super.init()
+    }
+
+    private var versionDescription: String {
+        buildCommit.isEmpty ? currentVersion : "\(currentVersion) (\(buildCommit))"
     }
 
     // A released update, parsed from the /releases/latest JSON.
@@ -98,11 +106,17 @@ final class UpdateManager: NSObject, NSWindowDelegate {
                     if isVersionNewer(release.version, than: self.currentVersion) {
                         self.notifyMenu(.idle)
                         self.promptUpdate(release, from: window)
+                    } else if isVersionNewer(self.currentVersion, than: release.version) {
+                        self.notifyMenu(.idle)
+                        self.alert(
+                            title: "You're ahead of the latest release",
+                            message: "You are running \(self.versionDescription), which is newer than the latest published release \(release.tag)."
+                        )
                     } else {
                         self.notifyMenu(.idle)
                         self.alert(
-                            title: "You're up to date",
-                            message: "You are running \(self.currentVersion), the latest published release."
+                            title: "No newer published release",
+                            message: "You are running \(self.versionDescription). The latest published release is \(release.tag). Update checks compare version numbers; a local build can contain commits that are not in the published release."
                         )
                     }
                 }
@@ -208,7 +222,7 @@ final class UpdateManager: NSObject, NSWindowDelegate {
     private func promptUpdate(_ release: Release, from window: NSWindow) {
         let alert = NSAlert()
         alert.messageText = "A new version is available"
-        alert.informativeText = "\(release.tag) is available. You are running \(currentVersion).\n\nDownload it now? You can review progress and confirm installation after the download finishes."
+        alert.informativeText = "\(release.tag) is available. You are running \(versionDescription).\n\nDownload it now? You can review progress and confirm installation after the download finishes."
         alert.addButton(withTitle: "Download")
         alert.addButton(withTitle: "Later")
         if alert.runModal() == .alertFirstButtonReturn {
