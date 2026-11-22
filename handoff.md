@@ -20,6 +20,7 @@ every committed file as world-readable.
 - **根因**：0.3.19 产品界面 Push 后，`manual` reconcile run 253 复用普通手动刷新的 8 秒预算；GitHub compare/fetch 未在 8 秒内完成，run 被记 `degraded`，`SYNC HEALTH` 短暂显示 `last reconcile: degraded · 0 stages`。实际 action 4737 已入队，PR #77 正常创建并合并，功能未失败。
 - **修复**：新增 `LOCAL_PUSH_RECONCILE_BUDGET_MS = 40s`，仅当 `filter.eventName === 'local-push'` 时使用；普通手动刷新仍走 8s。`reconcileRealtime` 把 `eventName` 传给 `realtimeReconcileBudgetMs`；30s reconcile 租约每 10s 续租，40s 预算落在 45s 外层上限内。新增 2 个测试覆盖 local-push 预算、手动短预算不变、租约续租与 45s 外层上限、eventName 传递。
 - **实测校准**：0.3.20 首次产品 UI push（run 272）在 20s 预算下仍被 `pullForStage` 拖到 20.053s，phase 为 `pending.pull=1`，未排到 create-pr；据此把预算从 20s 提到 40s，而不是把 20s 当作已修复。0.3.19 的 run 253 则是 `pending.queue=1`，8s 时 action 已入队。
+- **真实 push 验证**：第二次产品 UI push（`83a95b5`）触发 run 273，10.685s `success`，phase 为 `compare=1.86s / pull=2.67s / queue=5.16s`；action 4739 `create-pr` 成功创建 PR #78，action 4740 `merge-pr` 已入队，阶段状态 `pull-created`、`head_sha=83a95b5`、`checks=pending`。
 - **PR 页面 Loading 核实**：产品 UI 的 Pull Requests 页面点击后约 20 秒恢复为 `Refresh`，正常列出 77 条已合并 PR；确认是 GitHub 列表请求慢，不是前端死锁或接口错误，本轮未改页面代码。
 - **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - **桌面产物**：`BUNDLE_NODE=1 npm run desktop:dist` 产出 0.3.20 zip 40,049,309 B、dmg 46,687,180 B、`SHA256SUMS` 194 B；`desktop:native-test`、`BUNDLE_NODE=1 desktop:smoke`、zip 完整性、dmg 校验和 `shasum -a 256 -c` 均通过，bundle 版本 0.3.20。
