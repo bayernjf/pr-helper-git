@@ -241,6 +241,7 @@ execFileSync(
     path.join(root, 'desktop/UpdateChecksum.swift'),
     path.join(root, 'desktop/UpdateManager.swift'),
     path.join(root, 'desktop/ServerPort.swift'),
+    path.join(root, 'desktop/WindowGeometry.swift'),
     path.join(root, 'desktop/main.swift'),
     '-target', `${swiftArch}-apple-macos11.3`,
     '-o', path.join(macosDir, appName),
