@@ -60,6 +60,7 @@ export const ZH: Record<string, string> = {
   'Pin to top': '置顶',
   'Recent commit': '最近提交',
   'Remove from list': '从列表移除',
+  'Only removes it from this list. The local clone and GitHub remote stay untouched.': '仅从当前列表移除。本地克隆和 GitHub 远端仓库保持不变。',
   'Remove {name} from the list? Disk files stay untouched.': '从列表移除「{name}」？磁盘文件不受影响。',
   'Remove {name} from the list?': '从列表移除「{name}」？',
   'Disk files stay untouched.': '磁盘文件不受影响。',
