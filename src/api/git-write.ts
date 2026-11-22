@@ -1,4 +1,5 @@
 import { post, request } from './core';
+import type { WorktreeEntry } from './git-read';
 
 // ---------- history rewriting / state mutation ----------
 
@@ -35,6 +36,48 @@ export const checkoutPrHead = (repo: string, number: number, branch?: string) =>
     ok: boolean;
     branch: string;
     sha: string;
+  }>;
+
+// ---------- linked worktrees ----------
+
+export const addWorktree = (
+  repo: string,
+  worktreePath: string,
+  branch: string,
+  createBranch: boolean,
+) => post('/api/worktrees/add', {
+  repo,
+  path: worktreePath,
+  branch,
+  createBranch,
+}) as Promise<{ ok: boolean; path: string; branch: string; worktrees: WorktreeEntry[] }>;
+
+export const removeWorktree = (repo: string, worktreePath: string, force = false) =>
+  post('/api/worktrees/remove', {
+    repo,
+    path: worktreePath,
+    force,
+    ...(force ? { confirm: true } : {}),
+  }) as Promise<{ ok: boolean; path: string; worktrees: WorktreeEntry[] }>;
+
+export const lockWorktree = (repo: string, worktreePath: string, reason = '') =>
+  post('/api/worktrees/lock', {
+    repo,
+    path: worktreePath,
+    ...(reason ? { reason } : {}),
+  }) as Promise<{ ok: boolean; worktrees: WorktreeEntry[] }>;
+
+export const unlockWorktree = (repo: string, worktreePath: string) =>
+  post('/api/worktrees/unlock', { repo, path: worktreePath }) as Promise<{
+    ok: boolean;
+    worktrees: WorktreeEntry[];
+  }>;
+
+export const pruneWorktrees = (repo: string) =>
+  post('/api/worktrees/prune', { repo, confirm: true }) as Promise<{
+    ok: boolean;
+    removed: number;
+    worktrees: WorktreeEntry[];
   }>;
 
 // ---------- git writes ----------

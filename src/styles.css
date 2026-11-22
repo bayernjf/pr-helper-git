@@ -1885,6 +1885,23 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 }
 .checkbox-row input { width: 15px; height: 15px; accent-color: var(--accent); }
 
+/* ---------- Linked worktrees ---------- */
+.ref-group-action { flex: 0 0 auto; margin: 0 4px; padding: 2px 4px; font-size: var(--fs-meta); }
+.ref-empty { padding: 4px 12px 8px 26px; color: var(--faint); font-size: var(--fs-meta); }
+.worktree-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.worktree-empty { padding: 14px 12px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--muted); text-align: center; }
+.worktree-row { display: flex; gap: 12px; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-2); }
+.worktree-info { min-width: 0; flex: 1 1 auto; }
+.worktree-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 600; }
+.worktree-path { margin-top: 2px; color: var(--muted); font-family: var(--mono); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.worktree-note { margin-top: 2px; color: var(--faint); font-size: var(--fs-meta); }
+.worktree-actions { display: flex; flex: 0 0 auto; align-items: flex-start; gap: 6px; }
+.wt-badge { padding: 1px 6px; border: 1px solid var(--border-soft); border-radius: var(--radius-xs); color: var(--muted); font-size: var(--fs-meta); font-weight: 500; }
+.wt-badge-warn { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 35%, transparent); }
+.worktree-error { margin-bottom: 12px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); border-radius: var(--radius-sm); color: var(--red); background: var(--diff-del-bg); font-size: var(--fs-body); }
+.worktree-section { border-top: 1px solid var(--border); padding-top: 14px; }
+.worktree-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+
 /* ---------- Toasts ---------- */
 .toast-stack {
   position: fixed;

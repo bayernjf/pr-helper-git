@@ -1767,6 +1767,70 @@ describe('GitHub Device Flow and A2A surfaces', () => {
   });
 });
 
+describe('worktree write routes', () => {
+  it('creates, locks, unlocks, removes and prunes linked worktrees', async () => {
+    const wtRepo = path.join(tmpRoot, 'worktree-repo');
+    await fsp.mkdir(wtRepo);
+    git(['init', '-b', 'main'], wtRepo);
+    git(['config', 'user.email', 'worktree@example.com'], wtRepo);
+    git(['config', 'user.name', 'Worktree Tester'], wtRepo);
+    await fsp.writeFile(path.join(wtRepo, 'seed.txt'), 'seed\n', 'utf8');
+    git(['add', '.'], wtRepo);
+    git(['commit', '-m', 'seed'], wtRepo);
+    expect((await post('/api/repos/add', { repo: wtRepo })).status).toBe(200);
+
+    const linked = path.join(tmpRoot, 'linked-worktree');
+    const added = await post('/api/worktrees/add', {
+      repo: wtRepo,
+      path: linked,
+      branch: 'wt-test',
+      createBranch: true,
+    });
+    expect(added.status).toBe(200);
+    expect(added.json.path).toBe(linked);
+    expect(added.json.worktrees.some((w) => w.path === linked && w.branch === 'wt-test')).toBe(true);
+
+    expect((await get(`/api/worktrees?repo=${q(wtRepo)}`)).json.worktrees.some((w) => w.path === linked)).toBe(true);
+    expect((await post('/api/worktrees/add', {
+      repo: wtRepo, path: linked, branch: 'wt-test-2', createBranch: true,
+    })).status).toBe(409);
+    expect((await post('/api/worktrees/add', {
+      repo: wtRepo, path: 'relative/path', branch: 'wt-relative', createBranch: true,
+    })).status).toBe(400);
+    expect((await post('/api/worktrees/add', {
+      repo: wtRepo, path: path.join(wtRepo, 'nested'), branch: 'wt-nested', createBranch: true,
+    })).status).toBe(400);
+    expect((await post('/api/worktrees/remove', { repo: wtRepo, path: wtRepo })).status).toBe(400);
+
+    expect((await post('/api/worktrees/lock', {
+      repo: wtRepo, path: linked, reason: 'integration test',
+    })).status).toBe(200);
+    expect((await get(`/api/worktrees?repo=${q(wtRepo)}`)).json.worktrees
+      .find((w) => w.path === linked).locked).toBe(true);
+    expect((await post('/api/worktrees/remove', { repo: wtRepo, path: linked })).status).toBe(409);
+
+    expect((await post('/api/worktrees/unlock', { repo: wtRepo, path: linked })).status).toBe(200);
+    expect((await post('/api/worktrees/unlock', { repo: wtRepo, path: linked })).status).toBe(409);
+    await fsp.writeFile(path.join(linked, 'dirty.txt'), 'dirty\n', 'utf8');
+    expect((await post('/api/worktrees/remove', { repo: wtRepo, path: linked })).status).toBe(409);
+    expect((await post('/api/worktrees/remove', {
+      repo: wtRepo, path: linked, force: true, confirm: true,
+    })).status).toBe(200);
+    await expect(fsp.stat(linked)).rejects.toMatchObject({ code: 'ENOENT' });
+
+    const stale = path.join(tmpRoot, 'stale-worktree');
+    expect((await post('/api/worktrees/add', {
+      repo: wtRepo, path: stale, branch: 'wt-stale', createBranch: true,
+    })).status).toBe(200);
+    await fsp.rm(stale, { recursive: true, force: true });
+    const pruned = await post('/api/worktrees/prune', { repo: wtRepo, confirm: true });
+    expect(pruned.status).toBe(200);
+    expect(pruned.json.removed).toBeGreaterThanOrEqual(1);
+    expect(pruned.json.worktrees.some((w) => w.path === stale)).toBe(false);
+    expect((await post('/api/worktrees/prune', { repo: wtRepo })).status).toBe(400);
+  });
+});
+
 describe('worktree list parsing', () => {
   it('separates the main, detached, locked and prunable worktrees', () => {
     const raw = [

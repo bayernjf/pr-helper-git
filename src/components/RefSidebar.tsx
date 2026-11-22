@@ -62,6 +62,7 @@ import {
   IconUpload,
 } from './icons';
 import MergeModal from './MergeModal';
+import WorktreeModal from './WorktreeModal';
 import NewBranchModal from './NewBranchModal';
 import ResolveConflictsModal from './ResolveConflictsModal';
 import { useConfirm } from './ui';
@@ -110,6 +111,7 @@ export default function RefSidebar() {
   const [filter, setFilter] = useState('');
   const [submodules, setSubmodules] = useState<SubmoduleEntry[]>([]);
   const [worktrees, setWorktrees] = useState<WorktreeEntry[]>([]);
+  const [showWorktrees, setShowWorktrees] = useState(false);
   const defaultGroups = { local: true, remote: true, tag: true, stash: true, submodules: true, worktrees: true };
   const readGroups = (repo: string) => ({
     ...defaultGroups,
@@ -502,13 +504,25 @@ export default function RefSidebar() {
         />
       ))}
 
-      {visibleWorktrees.length > 0 && (
+      {activeRepo && (
         <GroupHead
           label={t("Worktrees")}
           count={visibleWorktrees.length}
           open={openGroups.worktrees !== false}
           onToggle={() => toggle('worktrees')}
+          action={(
+            <button
+              type="button"
+              className="text-link ref-group-action"
+              onClick={(e) => { e.stopPropagation(); setShowWorktrees(true); }}
+            >
+              {t('Manage')}
+            </button>
+          )}
         />
+      )}
+      {activeRepo && visibleWorktrees.length === 0 && openGroups.worktrees !== false && (
+        <div className="ref-empty">{t('No linked worktrees')}</div>
       )}
       {visibleWorktrees.length > 0 && openGroups.worktrees !== false && visibleWorktrees.map((w) => (
         <Row
@@ -580,6 +594,14 @@ export default function RefSidebar() {
 
       {showNew && activeRepo && (
         <NewBranchModal repo={activeRepo} onClose={() => setShowNew(false)} />
+      )}
+      {showWorktrees && activeRepo && (
+        <WorktreeModal
+          repo={activeRepo}
+          worktrees={worktrees}
+          onClose={() => setShowWorktrees(false)}
+          onChanged={setWorktrees}
+        />
       )}
       {mergeTarget && activeRepo && currentBranch && (
         <MergeModal

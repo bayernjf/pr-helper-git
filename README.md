@@ -123,9 +123,12 @@ application never pushes it for you.
   current branch only, straight from the graph toolbar.
 - Ref sidebar with collapsible local branches, remote branches, worktrees, tags
   and stash groups; a right-click context menu exposes the full action set. The
-  read-only `WORKTREES` group lists linked worktrees (path, branch or detached
-  HEAD, current marker and locked/prunable state), so parallel coding-task
-  worktrees are visible from the repository they belong to. A read-only
+  `WORKTREES` group lists linked worktrees (path, branch or detached HEAD,
+  current marker and locked/prunable state), so parallel coding-task worktrees
+  are visible from the repository they belong to. The group's **Manage** action
+  opens a worktree manager: create a linked worktree from a new or existing
+  branch, lock/unlock it, remove it (with impact and recovery shown first), or
+  prune entries whose directories are gone. A read-only
   Submodules group appears when the repository has submodules, showing git's
   four states (up to date, not initialized, checked-out commit differs,
   conflicted) with the pinned SHA and describe string.
@@ -448,9 +451,9 @@ it publicly. The one-time token in the URL is still the only credential.
 
 ### Deliberately out of scope
 
-Creating, removing, locking or pruning worktrees (the Git sidebar lists existing
-linked worktrees read-only), adding or updating submodules (status is read-only),
-creating GPG signatures (verification is supported), and web push. The GitHub App
+Adding or updating submodules (status is read-only), creating GPG signatures
+(verification is supported), and web push. Linked-worktree create/remove/lock/
+unlock/prune is supported from the Git sidebar manager. The GitHub App
 Device Flow connection is optional and identity-only: local token auth stays the
 boundary and GitHub writes keep using the PAT/automation credentials.
 Conflicts are handled per file from the in-app panel (Use current / Use
@@ -699,7 +702,8 @@ server/
   routes-git-helpers.mjs  Shared validation, repo brief, sensitive-path and rebase helpers
   routes-git-meta.mjs     Health, audit, storage, repo registry, PAT, users, team endpoints
   routes-git-read.mjs     Read-only history/status/diff/grep/config endpoints
-  routes-git-write.mjs    Write dispatcher: worktree, refs, history, files, network, stash
+  routes-git-write.mjs    Write dispatcher: worktrees, staging, refs, history, files, network, stash
+  routes-git-worktrees.mjs  Linked-worktree add/remove/lock/unlock/prune
   routes-git-write-worktree.mjs  Stage/commit/checkout/PR checkout/amend
   routes-git-write-refs.mjs      Branch, tag and remote writes
   routes-git-write-history.mjs   Merge, rebase, bisect, reset, cherry-pick, revert

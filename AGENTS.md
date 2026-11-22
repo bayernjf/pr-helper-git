@@ -52,11 +52,13 @@ wins; otherwise this file is the default contract.
     actions; production rollback always escalates to the operator (D-021);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
-  - **Worktrees**: read-only visibility is supported in the Git sidebar
-    (`WORKTREES` group fed by `git worktree list --porcelain`), so linked
-    task worktrees are visible. Creating, removing, locking or pruning
-    worktrees is not implemented yet. Submodule writes and GPG signing remain
-    prohibited.
+  - **Worktrees**: the Git sidebar lists linked worktrees and manages them
+    through `server/routes-git-worktrees.mjs` (`git worktree add/remove/
+    lock/unlock/prune`). Creation requires an absolute path outside every
+    registered worktree; removal refuses dirty trees unless an explicit force
+    confirmation is sent; main/current/locked worktrees are protected. A
+    missing directory is pruned, never deleted. Submodule writes and GPG
+    signing remain prohibited.
   - **Deployment gates for managed repositories are in scope** (D-002-v2):
     pr-helper-git itself is not deployed to Cloudflare/Vercel and must not
     require their APIs; but it still tracks the managed repository's GitHub

@@ -5,6 +5,7 @@
 ## [Unreleased] - 2026-11-22
 
 ### 变更
+- **Linked worktree 管理**：Git 侧栏 Worktrees 分组新增「管理」入口，可创建关联工作树（新分支或已有分支）、锁定/解锁、移除与清理失效元数据。创建要求绝对路径且位于所有已登记工作树之外；移除前展示影响范围与恢复路径，脏工作树需二次确认强制移除；主工作树、当前工作树和已锁定工作树受保护；目录已丢失的条目只能走 prune，不删除任何文件。
 - **Git 三面板独立收起**：工具栏新增左侧边栏、底部工作区、右侧提交详情三个布局开关；底部与右侧状态分别持久化为 `workPanelCollapsed` / `detailCollapsed`，刷新和重启后保持。收起后提交图自动回收空间，选中提交、暂存、diff 与提交表单逻辑不变；左侧继续沿用 `⌘B` 与 `sidebarCollapsed`。
 - **危险操作影响范围与恢复路径**：确认弹窗新增 `Impact` / `Recovery path` 两段，先说明动作会改变什么，再给出可行的恢复方式。覆盖强制推送、清理未跟踪文件、硬重置和删除流程；明确远端 ref 移动、未跟踪文件/工作区改动不可由 Git 恢复，以及 reflog、其他克隆、文件系统备份、数据库备份等恢复边界。
 - **五模块 Apple 风格视觉体系**：Dashboard、Git、Pull Requests、CI Health、Flows 统一改用 Apple 系统灰阶、SF 字体栈、hairline 分隔、系统蓝强调色与更克制的阴影。工具栏重排为左侧仓库/分支、中部五页 segmented 导航、右侧同步动作；默认强调色从 violet 切换为系统蓝，色板收敛为 blue / rose / forest / amber / teal / crimson / indigo。

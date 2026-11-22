@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { PreferencesContext } from '../app-state/preferences-provider';
 import { RepoDataContext } from '../app-state/repo-provider';
 import { ActionsContext, BusyContext } from '../app-state/actions-provider';
-import { ToastProvider } from './ui';
+import { ConfirmProvider, ToastProvider } from './ui';
 import type { RepoBrief } from '../types';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
@@ -18,6 +18,7 @@ import PrFileReview from './PrFileReview';
 import RepositoriesModal from './RepositoriesModal';
 import ResolveConflictsModal from './ResolveConflictsModal';
 import Titlebar from './Titlebar';
+import WorktreeModal from './WorktreeModal';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -464,5 +465,47 @@ describe('CommitGraph accessibility', () => {
     const html = graphHtml('bbbb2222');
     expect(html).toContain('aria-activedescendant="commit-row-bbbb2222"');
     expect(html).toContain('aria-selected="true"');
+  });
+});
+
+describe('worktree manager', () => {
+  it('lists linked worktrees with lock, remove and prune actions', () => {
+    const html = render(createElement(
+      ToastProvider,
+      null,
+      createElement(
+        ConfirmProvider,
+        null,
+        createElement(WorktreeModal, {
+          repo: '/tmp/repo',
+          worktrees: [
+            {
+              path: '/tmp/repo', head: 'aaaa', branch: 'main', bare: false, detached: false,
+              locked: false, lockReason: null, prunable: false, pruneReason: null,
+              isMain: true, current: true,
+            },
+            {
+              path: '/tmp/wt-feature', head: 'bbbb', branch: 'feature', bare: false, detached: false,
+              locked: true, lockReason: 'agent task', prunable: false, pruneReason: null,
+              isMain: false, current: false,
+            },
+            {
+              path: '/tmp/wt-stale', head: 'cccc', branch: null, bare: false, detached: true,
+              locked: false, lockReason: null, prunable: true, pruneReason: 'missing directory',
+              isMain: false, current: false,
+            },
+          ],
+          onClose: () => {},
+          onChanged: () => {},
+        }),
+      ),
+    ));
+    expect(html).toContain('feature');
+    expect(html).toContain('/tmp/wt-feature');
+    expect(html).toContain('Unlock');
+    expect(html).toContain('agent task');
+    expect(html).toContain('Prune stale (1)');
+    expect(html).toContain('Add worktree');
+    expect(html).not.toContain('/tmp/repo</div>');
   });
 });
