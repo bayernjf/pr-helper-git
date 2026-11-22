@@ -1,6 +1,6 @@
 # P5-2 切换审批清单（草案）
 
-> **状态：动作 1 已在无事前审批的情况下实际发生，动作 2–4 未批准。** 2026-11-23 owner 选择“承认现状并继续”，这是对运行时事实的确认，不是对 D-016 事前审批要求的追认。后续每个动作仍需单独批准。
+> **状态：动作 1 已在无事前审批的情况下实际发生；动作 2–3 未批准；动作 4 已由 owner 口头批准并完成本地实跑。** 2026-11-23 owner 选择“承认现状并继续”，这是对运行时事实的确认，不是对 D-016 事前审批要求的追认。动作 4 仅覆盖单 stage 测试流程：自动建 PR、自动合并已通过，stage-advance 不适用。
 >
 > **D-016 铁律**：P5-2 的每一个动作都必须先由 owner 明确批准；批准一项、执行一项、报告一项。影子期判定一致本身不构成执行授权。审批后由 owner 执行，AI 不代为执行。
 >
@@ -29,7 +29,7 @@
 - 本地运行时已经进入动作 1 的执行态，时间早于任何审批记录；
 - 云端 webhook 仍在接收 GitHub 事件，但云端 `workflow_stages` 的 `auto_create` / `auto_merge` / `execution_mode` 全部为空，且 2026-11-21T18:00Z 之后没有新的云端动作；因此保留云端接收端当前不会自动创建/合并 PR，动作 2/3 不是避免当前双执行的必需条件；
 - 但云端接收端仍是潜在执行面：若任何流程重新打开自动开关，webhook/cron 仍可能触发；要彻底隔离，仍应执行动作 2/3；
-- owner 于 2026-11-23 明确选择 **A：承认现状并继续**，并同意动作 2–4 逐项再定；
+- owner 于 2026-11-23 明确选择 **A：承认现状并继续**，并同意动作 2–3 逐项再定；动作 4 于同日由 owner“那你搞”批准并完成本地实跑；
 - 不补写“事前批准”记录，不把本次确认伪装成 D-016 合规审批。
 
 ## 1. 进入本清单的前置条件
@@ -48,7 +48,7 @@
 | 1 | 本地引擎从 shadow 转为执行 | [ ] 未事前批准 | [x] 2026-11-22 01:33 CST 已发生 | [x] 运行时已核对 | [ ] 回滚未执行 |
 | 2 | 摘除 GitHub App 的 Vercel webhook 订阅 | [ ] | [ ] | [ ] | [ ] |
 | 3 | 停 Vercel cron | [ ] | [ ] | [ ] | [ ] |
-| 4 | 跑一次真实端到端流程 | [ ] | [ ] | [ ] | [ ] |
+| 4 | 跑一次真实端到端流程 | [x] owner 2026-11-23 01:51 CST（“那你搞”） | [x] 本地真实链路已跑 | [x] PR #20 / merge `3ed0c50`；单 stage 无 stage-advance | [ ] 不适用/未执行 |
 
 ### 动作 1：本地引擎转执行
 
@@ -151,14 +151,32 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 
 判定命令与比对口径以 [`phase5-runbook.md`](phase5-runbook.md) 为准；差异必须写入 [`pr-helper-migration.md`](pr-helper-migration.md) §12，修复后重跑影子计数，不能带着差异进入 P5-2。
 
+### 3.1 动作 4 实跑证据（2026-11-23）
+
+| 项目 | 值 |
+|---|---|
+| 测试仓 | `bayernjf/git-e2e-test`（本地 `/Users/jiangfeng/000mycodes/git-e2e-test`） |
+| 流程 | `bayernjf/git-e2e-test-1795282351820-canary`，dev → main，单 stage，`auto_create=true` / `auto_merge=true` / `auto_advance=null` |
+| 触发 | 本地产品 `POST /api/push`，`reconciliationScheduled=true`；源提交 `af9718e`（`test(automation): verify local push chain`） |
+| create-pr | action `4746` / run `4748`，`2026-11-23T01:52:35+08:00` 入队，`01:52:43` 成功 |
+| merge-pr | action `4747` / run `4749`，`01:52:43` 入队；首次 `01:53:09` 读到 `unstable` 暂停，`01:55:11` 重新排队，`01:57:11` 成功（attempts=2） |
+| PR / 合并 | PR #20，`2026-11-23T01:57:10+08:00` 合并，merge commit `3ed0c50` |
+| 门禁 | checks 1/1 success；本地 stage state `pull_state=merged`、`last_event=merged` |
+| 重复检查 | 仅 1 个 create-pr、1 个 merge-pr；未重复建 PR 或合并 |
+| 边界 | 单 stage 流程没有下一步，`auto_advance=null`；`stage-advanced` 事件不适用，未声称已验证多 stage 推进 |
+
+**观察**：首次 merge gate 读到 GitHub `mergeable_state=unstable`，本地动作暂停；GitHub 随后变为 `clean`，动作在 120s stale 窗口后重新排队并成功。没有改代码；该行为是本地无 webhook 时由 drain 间隔导致的延迟，不是错误合并。
+
+
+
 ## 4. 审批记录
 
 | 动作 | 批准人 | 批准时间 | 执行结果 | 备注 |
 |---|---|---|---|---|
-| 1. 本地转执行 | owner（2026-11-23 事后承认现状；无事前审批） | 2026-11-23 01:20 CST | 已于 2026-11-22 01:33 CST 实际发生 | 违反 D-016 顺序；动作 2–4 未批准 |
+| 1. 本地转执行 | owner（2026-11-23 事后承认现状；无事前审批） | 2026-11-23 01:20 CST | 已于 2026-11-22 01:33 CST 实际发生 | 违反 D-016 顺序；动作 2–3 未批准 |
 | 2. 摘 webhook |  |  |  |  |
 | 3. 停 Vercel cron |  |  |  |  |
-| 4. 真实端到端 |  |  |  |  |
+| 4. 真实端到端 | owner（口头“那你搞”） | 2026-11-23 01:51 CST | PR #20 自动创建/合并，merge `3ed0c50`；单 stage 无 stage-advance | action 4746/4747，run 4748/4749；首次 merge 读 `unstable`，2 分钟后重试成功 |
 
 ## 5. 回滚顺序与停止条件
 
