@@ -24,6 +24,7 @@ every committed file as world-readable.
 - **动作 4 本地实跑**（`c454be5`）：单 stage PR #20 自动创建/合并，merge `3ed0c50`；双 stage PR #23/#24 自动创建/合并，`stage-advanced` action `4754` 成功，merge `bb59b9b` / `ac2ac7e`。双 stage 首轮暴露“自动合并后 advance 不调度”，修复为 merge action 直接入队 advance，并加回归测试。
 - **桌面**：`npm run desktop`、`desktop:smoke`、`desktop:native-test` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `714120c`，旧包 `f255d35` 备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；无头 Chrome 复核 Git 列表、提交选择和 worktree 管理模态。
+- **产品 UI Push 复验**：测试仓提交 `db20323`；在产品 Git 页点击 Push 后远端 `dev` 更新，PR #25 自动创建并自动合并，merge `20bd916`；Flows 页面显示 stage 1 `#25 checks passed`、stage 2 `#24 checks passed`。本轮没有新的 advance-stage，原因是 advance 幂等键按 stage/source/target 复用，PR #23 已成功推进过该 stage。
 - **桌面**：`npm run desktop`、`desktop:smoke` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `f255d35`，旧包备份为 `PR Helper Git 0.3.20-local-2569c12.app`。
 
 ### 2026-11-22 五模块 Apple 风格视觉体系（未发布）

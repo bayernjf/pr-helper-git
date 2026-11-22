@@ -189,6 +189,24 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 | 重复检查 | 每个 stage 仅 1 个 create-pr、1 个 merge-pr；整个流程仅 1 个 advance-stage，无重复动作 |
 
 **边界**：stage 1 是最后一步，`auto_advance=false`，因此没有第二个 `stage-advanced`，这是预期行为。两次 merge 的 `unstable` 暂停仍靠后续 reconcile 重置动作，未在本轮改动重试策略。
+### 3.3 产品 UI Push 复验（2026-11-23）
+
+不改 API，直接在本地产品 `http://127.0.0.1:4789` 的 Git 页操作：
+
+| 项目 | 值 |
+|---|---|
+| 测试提交 | `db20323`（`test(automation): verify ui push path`） |
+| UI 操作 | 仓库选择器切到 `git-e2e-test`，点击 Git 工具栏 **Push**；按钮进入 disabled，完成后恢复 |
+| 远端结果 | `refs/heads/dev` 更新为 `db20323`；`git status` 显示 `dev...origin/dev` 同步 |
+| 自动建 PR | action `4757`，`18:27:09` 入队，`18:27:18` 成功，PR #25（dev → main） |
+| 自动合并 | action `4758`，`18:27:18` 入队，`18:29:28` 成功（attempts=2），无人工执行 |
+| 合并结果 | PR #25 于 `18:29:27` 合并，merge commit `20bd916` |
+| Flows 页面 | `Step 2/2`；stage 1 `dev → main` 显示 `#25 checks passed`，stage 2 `main → release` 仍为上一轮 `#24 checks passed` |
+| 重复检查 | 仅 1 个 create-pr、1 个 merge-pr；本轮没有新的 `advance-stage` 动作 |
+
+**说明**：这轮验证的是“产品 UI Push → stage 0 自动建 PR → 自动合并”这一段；`stage 1 main → release` 没有生成新的 release PR，仍是上一轮已合并的 PR #24。`advance-stage` 的幂等键按 stage/source/target 生成，本 stage 已在 PR #23 后成功推进过，因此不会为 PR #25 重复生成 advance 动作。若产品语义要求每次 stage 0 合并都重新推进 stage 1，需要另行设计 cycle/run 级状态，不在本轮改动范围。
+
+
 
 
 
@@ -200,7 +218,7 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 | 1. 本地转执行 | owner（2026-11-23 事后承认现状；无事前审批） | 2026-11-23 01:20 CST | 已于 2026-11-22 01:33 CST 实际发生 | 违反 D-016 顺序；动作 2–3 未批准 |
 | 2. 摘 webhook |  |  |  |  |
 | 3. 停 Vercel cron |  |  |  |  |
-| 4. 真实端到端 | owner（口头“那你搞”） | 2026-11-23 01:51 CST | PR #20 单 stage；PR #23/#24 多 stage；`stage-advanced` action 4754 | 动作 4746/4747、4752/4753/4754、4755/4756；首次 merge 读 `unstable`，随后重试成功 |
+| 4. 真实端到端 | owner（口头“那你搞”） | 2026-11-23 01:51 CST | PR #20 单 stage；PR #23/#24 多 stage；PR #25 产品 UI Push；`stage-advanced` action 4754 | 动作 4746/4747、4752/4753/4754、4755/4756、4757/4758；首次 merge 读 `unstable`，随后重试成功 |
 
 ## 5. 回滚顺序与停止条件
 
