@@ -294,10 +294,11 @@ describe('Toolbar', () => {
     expect(html).toMatch(/↑<!-- -->2/);
   });
 
-  it('keeps search, settings and theme as the only right-side entries', () => {
+  it('keeps low-frequency entries out of the toolbar strip', () => {
     const html = withApp(<Toolbar />, { activeRepo: '/tmp/example' });
-    expect(html).toContain('GitHub settings');
-    // Low-frequency surfaces moved into SettingsModal / the command palette.
+    expect(html).toContain('aria-label="Settings"');
+    expect(html).toContain('aria-label="More"');
+    // Repository tools and help surfaces live in the More menu / command palette.
     expect(html).not.toContain('Compare two references');
     expect(html).not.toContain('Repository options');
     expect(html).not.toContain('App options');

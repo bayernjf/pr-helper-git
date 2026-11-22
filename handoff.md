@@ -133,6 +133,80 @@ UA 灰底（ed454b5）。
 6.38（rose 修复前为 2.64）；dark/light/forest 三主题 CDP 截图走查；本批无
 desktop/ 或构建脚本改动，桌面端无需重建（沿用 0.3.17 壳）。
 
+### macOS 系统设置风格设置页（2026-11-21，未发布）
+
+`SettingsModal` 从单列长表单改为两栏设置窗口：52px 标题栏、218px 左侧分类
+栏（General / GitHub / Application / Advanced）、右侧大标题
+与 inset grouped 卡片。Repository tools 已移至工具栏 More 菜单，不再作为
+设置分类；Advanced 仅 admin 可见。语言、浏览器 PAT、GitHub App、服务端 PAT、
+服务端数据、AI、A2A、快捷键与原有角色门禁全部保留。外观改为三张固定明暗预览的
+主题缩略图 + 带选中环的强调色色板；分类面板全部挂载，非当前页用 `hidden`
+隐藏，保持既有 `h3.settings-section` 测试契约。
+
+验证：1180 tests / 70 files；E2E 162/162；lint / typecheck:server / build
+全绿；Vite 预览走查管理员/成员、深/浅色、中/英、应用与高级页，1280px
+视口无溢出（900px 最小宽度为 CSS 计算，未做像素截图）。桌面门禁
+`desktop:native-test` / `BUNDLE_NODE=1 npm run desktop` / `desktop:smoke`
+全绿；新包 0.3.18 已安装到 `/Applications/PR Helper Git.app`，旧包备份为
+`PR Helper Git-0.3.18-before-settings.app`，安装版实测 General/GitHub 两页
+布局与对比度正常。提交 `006d65a`（设置页）、`526e9ea`（侧栏收起 12px 沟槽）。
+
+### 桌面端稳定端口与 localStorage（2026-11-22，未发布）
+
+现象：在桌面端切到 `pr-helper-git` 后重启又回到 `Hello-World`。
+
+根因：桌面壳每次都传 `--port=0`，WKWebView 的 localStorage 按
+`scheme + host + port` 隔离；端口一变就是新的空存储。当前
+`~/Library/WebKit/local.pr-helper-git/WebsiteData/Default` 下已积累
+55 份独立 `localstorage.sqlite3`，多个库仍各自保存着不同的
+`pr-helper-git:active-repo`，直接证明每次启动换了 origin。
+
+修复：新增 `desktop/ServerPort.swift`，把服务端口写入 `UserDefaults`
+（`desktopServerPort`），下次启动先探测该端口，仍可用才复用；被占用时
+回退 `--port=0`，并在 ready 握手后记住新端口。原生测试覆盖空存储、
+空闲端口复用、占用端口回退；README 与 CHANGELOG 的“临时端口”表述同步更正。
+
+验证：`desktop:native-test` 全绿；`BUNDLE_NODE=1 npm run desktop` +
+`desktop:smoke` 全绿；安装后实际在 55018 端口切到 `pr-helper-git`，
+退出再启动，端口仍为 55018，活动仓库仍为 `pr-helper-git`。
+提交 `23d1652`。
+
+### 设计 token 间距/控件标尺（2026-11-22，未发布）
+
+用户反馈设置页 Advanced 里输入框文字贴边框，追问是否有设计 token。核对：
+token 源 `design/tokens.json` 已覆盖颜色、字号、圆角、阴影，但没有间距和
+控件尺寸标尺；设置页输入框为 `padding: 5px 9px`，紧凑按钮 10–12px，卡片行
+14px，三套节奏并存。
+
+修复：`tokens.json` 新增 `spacing`（2/4/6/…/40px）与 `control`
+（30px 输入框、28px 紧凑按钮、12px 横向内边距、5px 输入框纵向、4px 按钮
+纵向）；`sync-tokens.mjs` 生成 `--space-*` 与 `--control-*`。设置页的
+`.settings-input`、`.settings-modal .dropdown-trigger`、`.settings-secondary`、
+`.settings-save-btn`、卡片行、设置面板内距改走 token，控件横向文字内边距
+统一 12px；`settings-nav-item` 等 3/5/7/9px 的零散值归一到偶数标尺。
+
+验证：1183 tests / 70 files（新增 spacing/control token 断言）；E2E
+162/162；lint / typecheck:server / build 全绿；`BUNDLE_NODE=1 npm run desktop`
++ `desktop:smoke` 全绿；安装版 Advanced 页 / A2A 高倍裁剪实测 Agent card
+输入框文字距左边框约 14px（12px padding + 1px 边框 + 字形留白），与 Copy
+按钮内距一致。0.3.18 已安装，旧包备份
+`PR Helper Git-0.3.18-before-tokens.app`。
+
+### 仓库工具迁出设置页（2026-11-22，未发布）
+
+用户指出 Repository tools 不应作为设置分类，因为工具栏 More 菜单已经有
+Manage remotes、git config、reflog、audit、compare、git grep、提交搜索、
+跨仓库搜索 8 个入口。已删除设置侧栏的 Repository tools 分类、整页重复入口、
+`settings-nav-repos` 样式与两条 i18n 词条；`SettingsModal` 不再接收 `activeRepo`，
+设置分类收敛为 General / GitHub / Application / Advanced。More 菜单本身未改。
+
+验证：SettingsModal 测试改为断言设置页不出现 Repository tools / Manage remotes /
+Compare two references；Toolbar 测试断言右侧 More 入口存在。完整门禁
+1183 tests / 70 files、E2E 162/162、lint / typecheck:server / build 全绿；
+`BUNDLE_NODE=1 npm run desktop` + `desktop:smoke` 全绿。安装版实测设置侧栏
+只剩 General / GitHub / Application / Advanced，More 菜单仍列出 8 个仓库工具
+入口；旧包备份 `PR Helper Git-0.3.18-before-repotools.app`。
+
 ## Release 0.3.17 (2026-11-20)
 
 范围：修复 0.3.16 桌面端顶部双击缩放的覆盖范围。0.3.16 把

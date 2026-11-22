@@ -54,9 +54,11 @@ application never pushes it for you.
   threshold + auto-merge + auto-advance toggles with immediate-effect
   confirmation, recovery policy), plus the **AI automation credential** card
   (base URL / model / key, server-side encrypted)
-- **AI message drafting**: auto-created PR messages draft from the configured
-  AI credential and generation rules (migrated `pr_helper_generation_rules`
-  library, selectable when enabling auto-create)
+- **AI message drafting**: auto-created PR messages draft in English from the
+  configured AI credential and generation rules (migrated
+  `pr_helper_generation_rules` library, selectable when enabling auto-create);
+  the generated title and body are validated before creation and retried once
+  if they break the Conventional Commits or section contract
 - **Failure notifications**: actionable automation failures (paused / failed
   actions) push **macOS local notifications**; an optional Feishu webhook
   activates with `PR_HELPER_GIT_FEISHU_WEBHOOK`
@@ -516,10 +518,13 @@ Double-click the app (or run `open "build/PR Helper Git.app"`). The shell:
   locations (Homebrew under `/opt/homebrew/bin/node`, then
   `/usr/local/bin/node`) because a GUI-launched process inherits a minimal
   `PATH`;
-- spawns the bundled server on an ephemeral port with the desktop flag
-  (`PR_HELPER_GIT_DESKTOP=1`, plus legacy `GIT2_DESKTOP=1` for older bundled
-  servers) and reads the machine-readable readiness line; the shell accepts
-  both `PR_HELPER_GIT_READY` and legacy `GIT2_READY`;
+- spawns the bundled server on a loopback port remembered from the previous
+  launch (falling back to an ephemeral port only when the remembered port is
+  occupied), so the WKWebView origin and its localStorage survive restarts,
+  with the desktop flag (`PR_HELPER_GIT_DESKTOP=1`, plus legacy
+  `GIT2_DESKTOP=1` for older bundled servers); the shell reads the
+  machine-readable readiness line and accepts both `PR_HELPER_GIT_READY` and
+  legacy `GIT2_READY`;
 - points the `WKWebView` at the one-time token URL, which sets the HttpOnly
   cookie, and keeps a persistent website data store so localStorage
   preferences survive restarts;

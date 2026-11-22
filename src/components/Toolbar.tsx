@@ -390,8 +390,8 @@ export default function Toolbar() {
       <button
         type="button"
         className="btn"
-        title={t("GitHub settings")}
-        aria-label={t("GitHub settings")}
+        title={t("Settings")}
+        aria-label={t("Settings")}
         onClick={() => setShowSettings(true)}
       >
         <IconGear />
@@ -416,7 +416,7 @@ export default function Toolbar() {
         />
       )}
       {showRepositories && <RepositoriesModal onClose={() => setShowRepositories(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} activeRepo={activeRepo} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showRemotes && <RemoteModal onClose={() => setShowRemotes(false)} />}
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
       {showStash && <StashModal onClose={() => setShowStash(false)} />}

@@ -57,6 +57,28 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-pill: 999px;
+  --radius-control: 7px;
+
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-30: 30px;
+  --space-32: 32px;
+  --space-40: 40px;
+
+  --control-height: 30px;
+  --control-height-compact: 28px;
+  --control-padding-x: 12px;
+  --control-padding-y: 5px;
+  --control-button-padding-y: 4px;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.22);
   --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.055), 0 18px 50px rgba(0, 0, 0, 0.55);

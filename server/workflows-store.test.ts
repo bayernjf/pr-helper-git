@@ -13,7 +13,7 @@ const SNAPSHOT_SRC = new URL('../docs/archive/pr-helper-source/src/', import.met
 
 import { describe, expect, it } from 'vitest';
 
-import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser } from './workflows-store.mjs';
+import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, buildPrPrompt, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, validateAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser } from './workflows-store.mjs';
 
 describe('stored workflow validation', () => {
   it('fetches a pull detail after discovery so mergeability is authoritative', () => {
@@ -1027,6 +1027,150 @@ describe('parseAutomationMessage', () => {
     const result = parseAutomationMessage(JSON.stringify({ title: longTitle, body: longBody }), 'stop');
     expect(result.title).toHaveLength(256);
     expect(result.body).toHaveLength(50000);
+  });
+});
+
+const validEnglishMessage = () => ({
+  title: 'refactor(ui): move repository tools out of settings',
+  body: [
+    'Overview: Move repository tools out of Settings so the navigation stays focused.',
+    '',
+    'Changes:',
+    '- Remove repository tools from Settings.',
+    '- Add the same tools to the More menu.',
+    '',
+    'Test Info: No test result stated in the input.',
+    '',
+    'Risk Notes: No risk; the entry points are unchanged.',
+  ].join('\n'),
+});
+
+describe('validateAutomationMessage', () => {
+  it('accepts a compliant English Conventional Commits message', () => {
+    expect(validateAutomationMessage(validEnglishMessage())).toEqual(validEnglishMessage());
+  });
+
+  it('accepts Markdown section headings without colons', () => {
+    const message = {
+      title: 'fix(ui): keep the sidebar gutter when collapsed',
+      body: [
+        '### Overview',
+        'Keep the sidebar gutter visible when the sidebar is collapsed.',
+        '',
+        '### Changes',
+        '- Preserve the gutter width.',
+        '',
+        '### Test Info',
+        'No test result stated in the input.',
+        '',
+        '### Risk Notes',
+        'No risk.',
+      ].join('\n'),
+    };
+    expect(validateAutomationMessage(message)).toEqual(message);
+  });
+
+  it('normalizes surrounding whitespace', () => {
+    const message = validEnglishMessage();
+    expect(validateAutomationMessage({ title: ` ${message.title} `, body: `\n${message.body}\n\n` }))
+      .toEqual(message);
+  });
+
+  it('rejects CJK text in the title', () => {
+    expect(() => validateAutomationMessage({ ...validEnglishMessage(), title: 'refactor(ui): 移动仓库工具' }))
+      .toThrow(/must be English/);
+  });
+
+  it('rejects CJK text in the body', () => {
+    const message = validEnglishMessage();
+    expect(() => validateAutomationMessage({ ...message, body: `${message.body}\n风险：无` }))
+      .toThrow(/must be English/);
+  });
+
+  it('rejects an unknown Conventional Commits type', () => {
+    expect(() => validateAutomationMessage({ ...validEnglishMessage(), title: 'feature(ui): move repository tools' }))
+      .toThrow(/allowed Conventional Commits type/);
+  });
+
+  it('rejects an uppercase subject', () => {
+    expect(() => validateAutomationMessage({ ...validEnglishMessage(), title: 'refactor(ui): Move repository tools' }))
+      .toThrow(/lowercase imperative verb/);
+  });
+
+  it('rejects trailing punctuation in the subject', () => {
+    expect(() => validateAutomationMessage({ ...validEnglishMessage(), title: 'refactor(ui): move repository tools.' }))
+      .toThrow(/must not end with punctuation/);
+  });
+
+  it('rejects title/description block markers in the body', () => {
+    const message = validEnglishMessage();
+    expect(() => validateAutomationMessage({ ...message, body: `【PR Title】\n${message.title}\n【PR Description】\n${message.body}` }))
+      .toThrow(/block markers/);
+  });
+
+  it('rejects a standalone PR Title heading without brackets', () => {
+    const message = validEnglishMessage();
+    expect(() => validateAutomationMessage({ ...message, body: `## PR Title\n${message.title}\n\n${message.body}` }))
+      .toThrow(/block markers/);
+  });
+
+  it('rejects a body that repeats the title', () => {
+    const message = validEnglishMessage();
+    expect(() => validateAutomationMessage({ ...message, body: `${message.title}\n\n${message.body}` }))
+      .toThrow(/must not repeat the PR title/);
+  });
+
+  it('rejects a body without every required section', () => {
+    expect(() => validateAutomationMessage({
+      ...validEnglishMessage(),
+      body: 'Overview: Move tools.\n\nChanges:\n- Remove tools from Settings.',
+    })).toThrow(/missing the required Test Info section/);
+  });
+
+  it('rejects sections that are out of order', () => {
+    expect(() => validateAutomationMessage({
+      ...validEnglishMessage(),
+      body: [
+        'Overview: Move tools.',
+        '',
+        'Test Info: No test result stated in the input.',
+        '',
+        'Changes:',
+        '- Remove tools from Settings.',
+        '',
+        'Risk Notes: No risk.',
+      ].join('\n'),
+    })).toThrow(/sections are out of order/);
+  });
+
+  it('accepts Related Issues only when it closes a named issue', () => {
+    const message = validEnglishMessage();
+    expect(validateAutomationMessage({
+      ...message,
+      body: message.body.replace('Test Info:', 'Related Issues: Closes #42\n\nTest Info:'),
+    })).toEqual({
+      ...message,
+      body: message.body.replace('Test Info:', 'Related Issues: Closes #42\n\nTest Info:'),
+    });
+  });
+
+  it('rejects a Related Issues section without Closes #<issue>', () => {
+    const message = validEnglishMessage();
+    expect(() => validateAutomationMessage({
+      ...message,
+      body: message.body.replace('Test Info:', 'Related Issues: None\n\nTest Info:'),
+    })).toThrow(/must omit Related Issues/);
+  });
+});
+
+describe('buildPrPrompt', () => {
+  it('produces an English-only JSON contract without legacy block-marker instructions', () => {
+    const prompt = buildPrPrompt('dev', 'main', ['feat(ui): add preview'], 'Rule: use Conventional Commits and English.');
+    expect(prompt).not.toMatch(/[\u3400-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/);
+    expect(prompt).toContain('Return JSON only');
+    expect(prompt).toContain('All output must be English.');
+    expect(prompt).toContain('Ignore any output-format instruction');
+    expect(prompt).toContain('Do not include a title block');
   });
 });
 

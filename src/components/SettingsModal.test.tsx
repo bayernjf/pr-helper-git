@@ -83,7 +83,7 @@ function context() {
   };
 }
 
-async function mount(role: 'admin' | 'member', options?: { activeRepo?: string | null; onClose?: () => void }) {
+async function mount(role: 'admin' | 'member', options?: { onClose?: () => void }) {
   vi.mocked(getMe).mockResolvedValue({ name: 'owner', role, instance: role === 'admin' } as never);
   act(() => root!.render(
     createElement(
@@ -91,7 +91,6 @@ async function mount(role: 'admin' | 'member', options?: { activeRepo?: string |
       { value: context() as never },
       createElement(ToastProvider, null, createElement(SettingsModal, {
         onClose: options?.onClose ?? (() => {}),
-        activeRepo: options?.activeRepo,
       })),
     ),
   ));
@@ -124,8 +123,9 @@ describe('SettingsModal role gating', () => {
     expect(headings()).not.toContain('AI generation');
     expect(headings()).not.toContain('GitHub account');
     expect(headings()).not.toContain('A2A / Agent Card');
-    // Repository tools need an active repository; Application is always shown.
+    // Repository tools live in the toolbar's More menu, not in Settings.
     expect(headings()).not.toContain('Repository tools');
+    expect(document.body.textContent).not.toContain('Manage remotes');
     expect(headings()).toContain('Application');
     expect(vi.mocked(getAiConfig)).not.toHaveBeenCalled();
     expect(vi.mocked(getStorage)).not.toHaveBeenCalled();
@@ -133,21 +133,10 @@ describe('SettingsModal role gating', () => {
     expect(document.body.textContent).toContain('localStorage');
   });
 
-  it('lists repository tools for the active repo and hands off via events', async () => {
-    const onClose = vi.fn();
-    const openRemotes = vi.fn();
-    window.addEventListener('git2:remotes', openRemotes);
-    try {
-      await mount('member', { activeRepo: '/tmp/repo', onClose });
-      expect(headings()).toContain('Repository tools');
-      const button = [...document.querySelectorAll('button')]
-        .find((el) => el.textContent === 'Manage remotes');
-      expect(button).toBeDefined();
-      await act(async () => { button!.click(); });
-      expect(openRemotes).toHaveBeenCalledTimes(1);
-      expect(onClose).toHaveBeenCalledTimes(1);
-    } finally {
-      window.removeEventListener('git2:remotes', openRemotes);
-    }
+  it('keeps repository tools out of the settings sidebar', async () => {
+    await mount('admin');
+    expect(headings()).not.toContain('Repository tools');
+    expect(document.body.textContent).not.toContain('Search across all repositories');
+    expect(document.body.textContent).not.toContain('Compare two references');
   });
 });

@@ -245,7 +245,7 @@ export default function CommandPalette() {
       },
       {
         id: 'settings',
-        label: 'Open GitHub settings',
+        label: 'Open settings',
         search: 'settings github token preferences gear',
         icon: <IconGear width={15} height={15} />,
         run: () => window.dispatchEvent(new CustomEvent('git2:settings')),
