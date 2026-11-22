@@ -270,9 +270,10 @@ application never pushes it for you.
   atomically, keeping the newest entries that fit a 1 MB / 10,000-entry
   budget; corrupt lines are dropped and the rewritten file always stays
   below the trigger so ordinary appends never re-rotate.
-- Appearance settings: dark / light / follow-system modes plus four accent
-  presets (violet, ocean, forest, amber), persisted locally and applied before
-  first paint; the toolbar button cycles dark → light → system.
+- Appearance settings: Apple system gray surfaces with dark / light /
+  follow-system modes and seven accent presets (blue, rose, forest, amber,
+  teal, crimson, indigo), persisted locally and applied before first paint;
+  the toolbar button cycles dark → light → system.
 - Server data maintenance in Settings: shows the data directory and file
   sizes, compacts the audit log on demand, and prunes registry entries whose
   paths no longer exist or are no longer Git worktrees (no files are deleted).

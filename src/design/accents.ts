@@ -4,12 +4,11 @@
 import type { Accent } from '../lib/appearance';
 
 export const ACCENT_SWATCH: Record<Accent, { dark: string; light: string; onDark: string; onLight: string }> = {
-  violet: { dark: '#c3a6f7', light: '#8839ef', onDark: '#1a1c2c', onLight: '#ffffff' },
-  ocean: { dark: '#89b4fa', light: '#1e66f5', onDark: '#1a1c2c', onLight: '#ffffff' },
-  forest: { dark: '#a6e3a1', light: '#40a02b', onDark: '#1a1c2c', onLight: '#1a1c2c' },
-  amber: { dark: '#fab387', light: '#df8e1d', onDark: '#1a1c2c', onLight: '#1a1c2c' },
-  rose: { dark: '#f5c2e7', light: '#ea76cb', onDark: '#1a1c2c', onLight: '#1a1c2c' },
-  teal: { dark: '#94e2d5', light: '#179299', onDark: '#1a1c2c', onLight: '#ffffff' },
-  crimson: { dark: '#f38ba8', light: '#d20f39', onDark: '#1a1c2c', onLight: '#ffffff' },
-  indigo: { dark: '#b4befe', light: '#7287fd', onDark: '#1a1c2c', onLight: '#ffffff' },
+  blue: { dark: '#0A84FF', light: '#007AFF', onDark: '#ffffff', onLight: '#ffffff' },
+  rose: { dark: '#FF375F', light: '#FF2D55', onDark: '#ffffff', onLight: '#ffffff' },
+  forest: { dark: '#30D158', light: '#28CD41', onDark: '#06250c', onLight: '#06250c' },
+  amber: { dark: '#FFD60A', light: '#FFCC00', onDark: '#3A2A00', onLight: '#3A2A00' },
+  teal: { dark: '#64D2FF', light: '#30B0C7', onDark: '#052F36', onLight: '#052F36' },
+  crimson: { dark: '#FF453A', light: '#FF3B30', onDark: '#ffffff', onLight: '#ffffff' },
+  indigo: { dark: '#5E5CE6', light: '#5856D6', onDark: '#ffffff', onLight: '#ffffff' },
 };

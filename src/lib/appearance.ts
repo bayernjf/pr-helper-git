@@ -4,9 +4,9 @@
 import { getPref } from './prefs';
 
 export type ThemeMode = 'dark' | 'light' | 'auto';
-export type Accent = 'violet' | 'rose' | 'ocean' | 'forest' | 'amber' | 'teal' | 'crimson' | 'indigo';
+export type Accent = 'blue' | 'rose' | 'forest' | 'amber' | 'teal' | 'crimson' | 'indigo';
 
-export const ACCENTS: Accent[] = ['violet', 'rose', 'ocean', 'forest', 'amber', 'teal', 'crimson', 'indigo'];
+export const ACCENTS: Accent[] = ['blue', 'rose', 'forest', 'amber', 'teal', 'crimson', 'indigo'];
 
 export function getThemeMode(): ThemeMode {
   const value = getPref<ThemeMode>('theme', 'dark');
@@ -14,8 +14,8 @@ export function getThemeMode(): ThemeMode {
 }
 
 export function getAccent(): Accent {
-  const value = getPref<Accent>('accent', 'violet');
-  return ACCENTS.includes(value) ? value : 'violet';
+  const value = getPref<Accent>('accent', 'blue');
+  return ACCENTS.includes(value) ? value : 'blue';
 }
 
 export function resolveLight(mode: ThemeMode): boolean {
@@ -26,7 +26,7 @@ export function resolveLight(mode: ThemeMode): boolean {
 /** Apply mode + accent to the document root; safe before first paint. */
 export function applyAppearance(mode: ThemeMode, accent: Accent): void {
   document.documentElement.dataset.theme = resolveLight(mode) ? 'light' : 'dark';
-  if (accent === 'violet') delete document.documentElement.dataset.accent;
+  if (accent === 'blue') delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = accent;
   // Desktop shell bridge (P4-3 desktop): the WKWebView host reads this to keep
   // the window titlebar chrome in the same theme as the content. No-op in a

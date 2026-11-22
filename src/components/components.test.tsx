@@ -31,7 +31,7 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
     activeBrief: null,
     view: 'git',
     theme: 'dark',
-    accent: 'violet',
+    accent: 'blue',
     pat: '',
     hasServerPat: false,
     busy: false,
@@ -81,7 +81,7 @@ function withPrefs(node: React.ReactNode, overrides: Record<string, unknown> = {
   const prefs = {
     view: 'git',
     theme: 'dark',
-    accent: 'violet',
+    accent: 'blue',
     pat: '',
     hasServerPat: false,
     setView: () => {},

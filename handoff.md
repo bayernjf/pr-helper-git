@@ -15,6 +15,15 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
 
+### 2026-11-22 五模块 Apple 风格视觉体系（未发布）
+
+- **范围**：Dashboard、Git、Pull Requests、CI Health、Flows 五个 Web 模块。Swift 薄壳未重写 UI，只同步窗口底色；业务逻辑、路由、测试基线不变。
+- **设计层**：`design/tokens.json` 切换为 Apple 系统灰阶/系统色、SF Pro/SF Mono 字体栈、11/13/15/17/24 字号层级、5/7/12/16 圆角、30/26 控件高度；默认强调色改为系统蓝 `#0A84FF`（浅色 `#007AFF`），色板为 blue/rose/forest/amber/teal/crimson/indigo。`sync-tokens.mjs` 按 `$default-accent` 跳过默认选择器。
+- **共享界面**：工具栏改为左侧分支/仓库、中部五页 segmented 导航、右侧 Fetch/Pull/Push/Stash 与 More/Settings/Theme；窄窗口同步动作降为 icon-only。按钮、输入框、下拉、菜单、弹窗统一 hairline + 系统材料。未选中提交时 `CommitDetail` 不再常驻空栏；PR 顶部改用独立 `.pr-toolbar`。
+- **模块细节**：Dashboard 卡片去掉左侧 activity 色条、改为 14px 圆角白/深灰卡；Git 侧栏分组标题恢复完整显示、分支排序改为 hover 动作，提交行 36px；PR 三列改 14px 圆角列 + 10px 圆角卡，骨架加标题/元信息占位；CI 指标卡去掉左侧色条、改为状态圆点，表格头/行使用 hairline；Flows lane/step 改 14/10px 圆角、状态编号 colored badge，header 主操作改实心蓝。
+- **桌面**：`desktop/main.swift` 深/浅窗口背景改为 `#121214` / `#f2f2f7`，与 `bg0` 对齐；无功能改动。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）、`desktop:native-test`、`BUNDLE_NODE=1 npm run desktop`、`desktop:smoke` 通过。Five-module screenshots checked at 1440×960 and 1000×700 in both themes via headless Chrome. `/Applications/PR Helper Git.app` replaced with the new bundle; old app backed up as `PR Helper Git 0.3.20-local-6c865a5.app`.
+
 ### 2026-11-22 本地 push reconcile 预算修正（0.3.20）
 
 - **根因**：0.3.19 产品界面 Push 后，`manual` reconcile run 253 复用普通手动刷新的 8 秒预算；GitHub compare/fetch 未在 8 秒内完成，run 被记 `degraded`，`SYNC HEALTH` 短暂显示 `last reconcile: degraded · 0 stages`。实际 action 4737 已入队，PR #77 正常创建并合并，功能未失败。

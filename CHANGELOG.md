@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
+## [Unreleased] - 2026-11-22
+
+### 变更
+- **五模块 Apple 风格视觉体系**：Dashboard、Git、Pull Requests、CI Health、Flows 统一改用 Apple 系统灰阶、SF 字体栈、hairline 分隔、系统蓝强调色与更克制的阴影。工具栏重排为左侧仓库/分支、中部五页 segmented 导航、右侧同步动作；默认强调色从 violet 切换为系统蓝，色板收敛为 blue / rose / forest / amber / teal / crimson / indigo。
+- **Git 与 PR 布局修正**：未选中提交时详情栏不再常驻占宽，提交图独占整行；PR 页顶部独立为 `.pr-toolbar`，避免与全局工具栏样式串扰；仓库卡、PR 卡、CI 指标卡、Flow lane 与步骤卡改用统一表面层级。
+- **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
+
+### 验证
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- 桌面：`desktop:native-test`、`BUNDLE_NODE=1 npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `6c865a5`。
+- 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口。
+
 ## [0.3.20] - 2026-11-22
 
 ### 修复

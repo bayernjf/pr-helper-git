@@ -28,6 +28,14 @@ try {
   ], { stdio: 'inherit' });
   execFileSync(serverPortBinary, [], { stdio: 'inherit' });
 
+  const windowGeometryBinary = path.join(work, 'window-geometry-test');
+  execFileSync('/usr/bin/swiftc', [
+    path.join(root, 'desktop/WindowGeometry.swift'),
+    path.join(root, 'desktop/WindowGeometryTest.swift'),
+    '-o', windowGeometryBinary,
+  ], { stdio: 'inherit' });
+  execFileSync(windowGeometryBinary, [], { stdio: 'inherit' });
+
   const updateBinary = path.join(work, 'update-fetch-test');
   execFileSync('/usr/bin/swiftc', [
     path.join(root, 'desktop/UpdateCheck.swift'),

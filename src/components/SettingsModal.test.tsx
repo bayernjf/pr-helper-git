@@ -77,7 +77,7 @@ function context() {
     setServerPat: vi.fn(),
     clearServerPat: vi.fn(),
     theme: 'dark',
-    accent: 'violet',
+    accent: 'blue',
     setTheme: vi.fn(),
     setAccent: vi.fn(),
   };
@@ -136,9 +136,9 @@ describe('SettingsModal role gating', () => {
   it('offers the expanded accent palette', async () => {
     await mount('admin');
     const swatches = [...document.querySelectorAll<HTMLButtonElement>('.settings-accent')];
-    expect(swatches).toHaveLength(8);
+    expect(swatches).toHaveLength(7);
     expect(swatches.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Violet', 'Rose', 'Ocean', 'Forest', 'Amber', 'Teal', 'Crimson', 'Indigo',
+      'Blue', 'Rose', 'Forest', 'Amber', 'Teal', 'Crimson', 'Indigo',
     ]);
   });
 

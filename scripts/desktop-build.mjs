@@ -21,6 +21,17 @@ const resourcesDir = path.join(contents, 'Resources');
 const appDir = path.join(resourcesDir, 'app');
 const pkg = JSON.parse(await fsp.readFile(path.join(root, 'package.json'), 'utf8'));
 const buildNumber = process.env.BUILD_NUMBER || '1';
+let buildCommit = process.env.BUILD_COMMIT || '';
+if (!buildCommit) {
+  try {
+    buildCommit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    // Source archives and non-git builds can omit the commit marker.
+  }
+}
 const bundleId = process.env.DESKTOP_BUNDLE_ID || 'local.pr-helper-git';
 const bundleNode = process.env.BUNDLE_NODE === '1';
 const nodeVersion = process.env.NODE_BUNDLE_VERSION || '22.23.5';
@@ -155,6 +166,8 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
   <string>${pkg.version}</string>
   <key>CFBundleVersion</key>
   <string>${buildNumber}</string>
+  <key>PRHelperGitCommit</key>
+  <string>${buildCommit}</string>
   <key>LSMinimumSystemVersion</key>
   <string>11.3</string>
   <key>NSHighResolutionCapable</key>
@@ -241,6 +254,7 @@ execFileSync(
     path.join(root, 'desktop/UpdateChecksum.swift'),
     path.join(root, 'desktop/UpdateManager.swift'),
     path.join(root, 'desktop/ServerPort.swift'),
+    path.join(root, 'desktop/WindowGeometry.swift'),
     path.join(root, 'desktop/main.swift'),
     '-target', `${swiftArch}-apple-macos11.3`,
     '-o', path.join(macosDir, appName),

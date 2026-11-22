@@ -46,6 +46,7 @@ import {
   IconMoon,
   IconPanel,
   IconMore,
+  IconRefresh,
   IconSearch,
   IconServer,
   IconSliders,
@@ -248,165 +249,184 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      {view === 'git' ? (
-        <button
-          type="button"
-          className="icon-btn"
-          title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-          aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-          aria-pressed={sidebarCollapsed}
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        >
-          <IconPanel width={15} height={15} />
-        </button>
-      ) : null}
-      <span className="branch-pill" title={activeRepo || ''}>
-        <span className="dot" />
-        {branchLabel}
-        {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, marginLeft: 2 }}>
-            {activeBrief.ahead > 0 && <span style={{ color: 'var(--green-strong)' }}>↑{activeBrief.ahead} </span>}
-            {activeBrief.behind > 0 && <span style={{ color: 'var(--red)' }}>↓{activeBrief.behind}</span>}
+      <div className="toolbar-left">
+        {view === 'git' ? (
+          <button
+            type="button"
+            className="icon-btn"
+            title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+            aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+            aria-pressed={sidebarCollapsed}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          >
+            <IconPanel width={15} height={15} />
+          </button>
+        ) : null}
+        <span className="branch-pill" title={activeRepo || ''}>
+          <span className="dot" />
+          {branchLabel}
+          {activeBrief && (activeBrief.ahead > 0 || activeBrief.behind > 0) && (
+            <span className="branch-ahead-behind">
+              {activeBrief.ahead > 0 && <span className="ahead">↑{activeBrief.ahead} </span>}
+              {activeBrief.behind > 0 && <span className="behind">↓{activeBrief.behind}</span>}
+            </span>
+          )}
+        </span>
+      </div>
+
+      <div className="toolbar-center">
+        <span className="segmented" role="tablist" aria-label={t('Workspace')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'dashboard'}
+            className={view === 'dashboard' ? 'active' : ''}
+            onClick={() => setView('dashboard')}
+          >
+            {t('Dashboard')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'git'}
+            className={view === 'git' ? 'active' : ''}
+            onClick={() => setView('git')}
+          >
+            {t('Git')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'pr'}
+            className={view === 'pr' ? 'active' : ''}
+            onClick={() => setView('pr')}
+          >
+            {t('Pull Requests')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'ci'}
+            className={view === 'ci' ? 'active' : ''}
+            onClick={() => setView('ci')}
+          >
+            {t('CI Health')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'flows'}
+            className={view === 'flows' ? 'active' : ''}
+            onClick={() => setView('flows')}
+          >
+            {t('Flows')}
+          </button>
+        </span>
+      </div>
+
+      <div className="toolbar-right">
+        <span className="toolbar-actions">
+          <button
+            type="button"
+            className="btn"
+            disabled={!activeRepo || busy}
+            title="git fetch --all"
+            onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
+          >
+            <IconRefresh width={14} height={14} />
+            <span className="btn-label">{t("Fetch")}</span>
+          </button>
+          <span className="btn-group">
+            <button
+              type="button"
+              className="btn"
+              disabled={!activeRepo || busy}
+              aria-label={t("Pull")}
+              onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
+            >
+              <IconDownload width={14} height={14} />
+              <span className="btn-label">{t("Pull")}</span>
+            </button>
+            <button
+              type="button"
+              className={`btn btn-caret${dropMenu?.kind === 'pull' ? ' open' : ''}`}
+              disabled={!activeRepo || busy}
+              aria-label={t("Pull options")}
+              data-menu-trigger="pull"
+              onMouseDown={caretDown('pull')}
+              onClick={(e) => caretClick(e, 'pull')}
+            >
+              <IconChevronDown width={12} height={12} />
+            </button>
           </span>
-        )}
-      </span>
+          <span className="btn-group">
+            <button
+              type="button"
+              className="btn"
+              disabled={!activeRepo || busy}
+              aria-label={t("Push")}
+              onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
+            >
+              <IconUpload width={14} height={14} />
+              <span className="btn-label">{t("Push")}</span>
+            </button>
+            <button
+              type="button"
+              className={`btn btn-caret${dropMenu?.kind === 'push' ? ' open' : ''}`}
+              disabled={!activeRepo || busy}
+              aria-label={t("Push options")}
+              data-menu-trigger="push"
+              onMouseDown={caretDown('push')}
+              onClick={(e) => caretClick(e, 'push')}
+            >
+              <IconChevronDown width={12} height={12} />
+            </button>
+          </span>
+          <button
+            type="button"
+            className="btn"
+            disabled={!activeRepo || busy}
+            title={t("Stash working changes")}
+            onClick={() => setShowStash(true)}
+          >
+            <IconStash width={14} height={14} />
+            <span className="btn-label">{t("Stash")}</span>
+          </button>
+        </span>
 
-      <span className="spacer" />
-
-      <button
-        type="button"
-        className="btn"
-        disabled={!activeRepo || busy}
-        title="git fetch --all"
-        onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
-      >
-        <span className="btn-label">{t("Fetch")}</span>
-      </button>
-      <span className="btn-group">
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          aria-label={t("Pull")}
-          onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
-        >
-          <IconDownload width={14} height={14} />
-          <span className="btn-label">{t("Pull")}</span>
-        </button>
-        <button
-          type="button"
-          className={`btn btn-caret${dropMenu?.kind === 'pull' ? ' open' : ''}`}
-          disabled={!activeRepo || busy}
-          aria-label={t("Pull options")}
-          data-menu-trigger="pull"
-          onMouseDown={caretDown('pull')}
-        onClick={(e) => caretClick(e, 'pull')}
-        >
-          <IconChevronDown width={12} height={12} />
-        </button>
-      </span>
-      <span className="btn-group">
-        <button
-          type="button"
-          className="btn"
-          disabled={!activeRepo || busy}
-          aria-label={t("Push")}
-          onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
-        >
-          <IconUpload width={14} height={14} />
-          <span className="btn-label">{t("Push")}</span>
-        </button>
-        <button
-          type="button"
-          className={`btn btn-caret${dropMenu?.kind === 'push' ? ' open' : ''}`}
-          disabled={!activeRepo || busy}
-          aria-label={t("Push options")}
-          data-menu-trigger="push"
-          onMouseDown={caretDown('push')}
-        onClick={(e) => caretClick(e, 'push')}
-        >
-          <IconChevronDown width={12} height={12} />
-        </button>
-      </span>
-      <button
-        type="button"
-        className="btn"
-        disabled={!activeRepo || busy}
-        title={t("Stash working changes")}
-        onClick={() => setShowStash(true)}
-      >
-        <IconStash width={14} height={14} />
-        <span className="btn-label">{t("Stash")}</span>
-      </button>
-
-      <span className="segmented">
-        <button
-          type="button"
-          className={view === 'dashboard' ? 'active' : ''}
-          onClick={() => setView('dashboard')}
-        >
-          {t('Dashboard')}
-        </button>
-        <button
-          type="button"
-          className={view === 'git' ? 'active' : ''}
-          onClick={() => setView('git')}
-        >
-          {t('Git')}
-        </button>
-        <button
-          type="button"
-          className={view === 'pr' ? 'active' : ''}
-          onClick={() => setView('pr')}
-        >
-          {t('Pull Requests')}
-        </button>
-        <button
-          type="button"
-          className={view === 'ci' ? 'active' : ''}
-          onClick={() => setView('ci')}
-        >
-          {t('CI Health')}
-        </button>
-        <button
-          type="button"
-          className={view === 'flows' ? 'active' : ''}
-          onClick={() => setView('flows')}
-        >
-          {t('Flows')}
-        </button>
-      </span>
-      <span className="spacer" />
-      <span className="toolbar-divider" />
-      <button
-        type="button"
-        className="btn"
-        data-menu-trigger="more"
-        aria-label={t('More')}
-        title={t('More')}
-        onMouseDown={caretDown('more')}
-        onClick={(e) => caretClick(e, 'more')}
-      >
-        <IconMore width={14} height={14} />
-      </button>
-      <button
-        type="button"
-        className="btn"
-        title={t("Settings")}
-        aria-label={t("Settings")}
-        onClick={() => setShowSettings(true)}
-      >
-        <IconGear />
-      </button>
-      <button
-        type="button"
-        className="btn"
-        title={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
-        aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
-        onClick={toggleTheme}
-      >
-        {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
-      </button>
+        <span className="toolbar-divider" />
+        <span className="toolbar-icons">
+          <button
+            type="button"
+            className="btn"
+            data-menu-trigger="more"
+            aria-label={t('More')}
+            title={t('More')}
+            onMouseDown={caretDown('more')}
+            onClick={(e) => caretClick(e, 'more')}
+          >
+            <IconMore width={14} height={14} />
+          </button>
+          <button
+            type="button"
+            className="btn"
+            title={t("Settings")}
+            aria-label={t("Settings")}
+            onClick={() => setShowSettings(true)}
+          >
+            <IconGear />
+          </button>
+          <button
+            type="button"
+            className="btn"
+            title={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
+            aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
+          </button>
+        </span>
+      </div>
 
       {showAdd && (
         <AddRepoModal

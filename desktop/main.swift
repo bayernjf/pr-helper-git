@@ -5,9 +5,11 @@
 import AppKit
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate, WKScriptMessageHandler {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var webView: WKWebView!
+    private var windowedFrame: NSRect?
+    private var isAdjustingZoomFrame = false
     private var server: Process?
     private let readySemaphore = DispatchSemaphore(value: 0)
     private var readyPort: Int?
@@ -69,7 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                 return event
             }
             if event.clickCount == 2 {
-                self.window.performZoom(nil)
+                self.toggleWindowZoom(nil)
                 return nil
             }
             self.window.performDrag(with: event)
@@ -333,11 +335,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             action: #selector(NSWindow.performMiniaturize(_:)),
             keyEquivalent: "m",
         )
-        windowMenu.addItem(
-            withTitle: "Zoom",
-            action: #selector(NSWindow.performZoom(_:)),
+        let zoomItem = NSMenuItem(
+            title: "Zoom",
+            action: #selector(toggleWindowZoom(_:)),
             keyEquivalent: "",
         )
+        zoomItem.target = self
+        windowMenu.addItem(zoomItem)
         windowMenuItem.submenu = windowMenu
 
         NSApp.mainMenu = mainMenu
@@ -456,18 +460,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         // hidden. window.title still names the window for Mission Control.
         window.titleVisibility = .hidden
         window.minSize = NSSize(width: 900, height: 600)
-        // Transparent titlebar over the dark window background: the web
-        // content now extends under it, so no light strip can appear. The
-        // web client corrects the appearance via the themeSync bridge on load.
+        // Transparent titlebar over the window background: the web content
+        // now extends under it, so no light strip can appear. The background
+        // matches the design token bg0 (#121214 dark, #f2f2f7 light); the web
+        // client corrects the appearance via the themeSync bridge on load.
         window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+        window.backgroundColor = NSColor(red: 0x12 / 255.0, green: 0x12 / 255.0, blue: 0x14 / 255.0, alpha: 1)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
+        window.delegate = self
+        restoreWindowedFrameIfNeeded()
         window.contentView = webView
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private func visibleFrameForWindow() -> NSRect? {
+        window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+    }
+
+    /// A frame saved while the window filled the desktop is not a useful
+    /// windowed frame: every edge is against the screen or Dock, and AppKit's
+    /// zoom action has nowhere to restore to. Replace it with a reachable
+    /// default and remember that as the windowed frame.
+    private func restoreWindowedFrameIfNeeded() {
+        guard let visibleFrame = visibleFrameForWindow() else { return }
+        if WindowFramePolicy.isFilled(window.frame, in: visibleFrame) {
+            let frame = WindowFramePolicy.normalFrame(in: visibleFrame)
+            window.setFrame(frame, display: false)
+            windowedFrame = frame
+        } else {
+            windowedFrame = window.frame
+        }
+    }
+
+    @objc private func toggleWindowZoom(_ sender: Any?) {
+        guard let visibleFrame = visibleFrameForWindow() else { return }
+        let filled = WindowFramePolicy.isFilled(window.frame, in: visibleFrame)
+        isAdjustingZoomFrame = true
+        if filled {
+            let frame = windowedFrame ?? WindowFramePolicy.normalFrame(in: visibleFrame)
+            window.setFrame(frame, display: true)
+            windowedFrame = frame
+        } else {
+            windowedFrame = window.frame
+            window.setFrame(visibleFrame, display: true)
+        }
+        isAdjustingZoomFrame = false
+    }
+
+    private func rememberWindowedFrame() {
+        guard !isAdjustingZoomFrame, let visibleFrame = visibleFrameForWindow() else { return }
+        if !WindowFramePolicy.isFilled(window.frame, in: visibleFrame) {
+            windowedFrame = window.frame
+        }
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        rememberWindowedFrame()
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        rememberWindowedFrame()
     }
 
     override func observeValue(
@@ -594,8 +650,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let light = mode == "light"
         window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         window.backgroundColor = light
-            ? NSColor(red: 0.93, green: 0.95, blue: 0.97, alpha: 1)
-            : NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+            ? NSColor(red: 0xf2 / 255.0, green: 0xf2 / 255.0, blue: 0xf7 / 255.0, alpha: 1)
+            : NSColor(red: 0x12 / 255.0, green: 0x12 / 255.0, blue: 0x14 / 255.0, alpha: 1)
     }
 
     // MARK: Titlebar chrome bridge
