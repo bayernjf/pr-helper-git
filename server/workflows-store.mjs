@@ -222,12 +222,29 @@ function summarizeChecks(checks) {
   const hasFailure = checks.some((check) => ["failure", "cancelled", "timed_out", "action_required"].includes(check.conclusion || ""));
   return { state: hasFailure ? "failure" : passed === checks.length && checks.length > 0 ? "success" : "pending", passed, total: checks.length };
 }
+function latestByKey(items, keyOf, timestampOf) {
+  const latest = new Map();
+  for (const item of items || []) {
+    const key = keyOf(item);
+    const previous = latest.get(key);
+    if (!previous || (timestampOf(item) || "") >= (timestampOf(previous) || "")) latest.set(key, item);
+  }
+  return [...latest.values()];
+}
+function countLiveApprovals(reviews, sha) {
+  const latest = latestByKey(reviews, (review) => String(review.user?.id ?? review.user?.login ?? review.id ?? ""), (review) => review.submitted_at || review.created_at);
+  return latest.filter((review) => review.state === "APPROVED" && (!review.commit_id || review.commit_id === sha)).length;
+}
 function summarizeGitHubChecks(checkRuns, commitStatuses) {
-  const legacyChecks = commitStatuses.map((status) => ({
+  // `check-runs` returns every attempt on the commit, not only the newest. Collapsing by context
+  // prevents an old failed attempt from vetoing a successful re-run (and vice versa).
+  const latestRuns = latestByKey(checkRuns, (run) => `${run.app?.slug || ""}:${run.name || ""}`, (run) => run.completed_at || run.started_at || run.created_at);
+  const latestStatuses = latestByKey(commitStatuses, (status) => status.context || "", (status) => status.created_at || status.updated_at);
+  const legacyChecks = latestStatuses.map((status) => ({
     status: status.state === "pending" ? "in_progress" : "completed",
     conclusion: status.state === "success" ? "success" : ["failure", "error"].includes(status.state) ? "failure" : null
   }));
-  return summarizeChecks([...checkRuns, ...legacyChecks]);
+  return summarizeChecks([...latestRuns, ...legacyChecks]);
 }
 
 // docs/archive/pr-helper-source/api/_lib/ai-credentials.ts
@@ -556,7 +573,9 @@ async function scheduleServerAutoMerge(sql, row, workflow, stageIndex, source, p
   if (!actionId) return;
   const outcome = automationMergeOutcome({ number: pullNumber, state: "open" }, gate);
   if (outcome.kind === "paused") {
-    await sql`UPDATE workflow_automation_actions SET failure_reason = ${/** @type {any} */ (outcome).reason.slice(0, 800)} WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued'`.catch(() => void 0);
+    // A pending checks gate is the normal state right after PR creation. Leave the action runnable so
+    // the 2-minute drain re-reads checks instead of sitting out the 5-minute transient-failure cooldown.
+    if (gate.checksState !== "pending") await sql`UPDATE workflow_automation_actions SET failure_reason = ${/** @type {any} */ (outcome).reason.slice(0, 800)} WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued'`.catch(() => void 0);
     return;
   }
   await sql`UPDATE workflow_automation_actions SET failure_reason = NULL, updated_at = now() WHERE user_id = ${row.user_id} AND id = ${actionId} AND state = 'queued' AND failure_reason IS NOT NULL`.catch(() => void 0);
@@ -741,6 +760,23 @@ function automationCreateOutcome(openPulls, commitCount) {
   if (commitCount <= 0) return { kind: "cancelled", reason: "Source \u5206\u652F\u6CA1\u6709\u53EF\u521B\u5EFA PR \u7684\u65B0\u63D0\u4EA4" };
   return { kind: "create" };
 }
+// A merge action is allowed to act only on the exact head it was scheduled for. Without this
+// guard a commit pushed after the last reconciliation could be merged on the previous head's
+// green checks, because GitHub's merge endpoint accepts a newer `head.sha` than the one the
+// gate was evaluated against.
+function automationMergeHeadGuard(pull, expectedHeadSha) {
+  const actualHeadSha = pull?.head?.sha || null;
+  if (!actualHeadSha || !expectedHeadSha) return { ok: false, reason: "无法确认 PR head SHA，暂不合并" };
+  if (actualHeadSha !== expectedHeadSha) {
+    return {
+      ok: false,
+      reason: `PR head 已变化（计划 ${expectedHeadSha.slice(0, 10)} → 当前 ${actualHeadSha.slice(0, 10)}），等待重新校准`,
+      headChanged: true,
+      actualHeadSha
+    };
+  }
+  return { ok: true, actualHeadSha };
+}
 function automationMergeOutcome(pull, gate) {
   if (!pull || !Number.isInteger(pull.number) || pull.number <= 0) return { kind: "paused", reason: "\u6CA1\u6709\u53EF\u5408\u5E76\u7684 PR" };
   if (pull.merged === true) return { kind: "idempotent", pullNumber: pull.number, pullUrl: pull.html_url || null };
@@ -751,6 +787,38 @@ function automationMergeOutcome(pull, gate) {
   if (gate.mergeableState === "behind") return { kind: "paused", reason: "\u5206\u652F\u843D\u540E\u4E8E\u76EE\u6807\u5206\u652F\uFF0C\u9700\u8981\u5148\u5728 GitHub \u66F4\u65B0\u5206\u652F" };
   if (gate.mergeableState !== "clean") return { kind: "paused", reason: `GitHub \u5408\u5E76\u72B6\u6001\u4E3A ${gate.mergeableState}`, ...gate.mergeableState === "unknown" || gate.mergeableState === "blocked" ? { retryable: true } : {} };
   return { kind: "merge", pullNumber: pull.number };
+}
+// Merge gating must read the checks for the PR head that is about to be merged, not the projection
+// written by the previous sweep. A failed checks/status/review request is also a gate failure: an
+// unreadable gate must never look like a green one.
+async function readLiveMergeGate(environment, installationId, workflow, stage, pull) {
+  const { owner, name } = ownerAndName(workflow.repository);
+  const config = parseGithubAppConfig(environment);
+  const sha = pull.head.sha;
+  const [checkRunsResult, statusesResult, reviewsResult, protectionResult, rulesResult] = await Promise.allSettled([
+    installationRequest(config, installationId, `/repos/${owner}/${name}/commits/${sha}/check-runs?per_page=100`),
+    installationRequest(config, installationId, `/repos/${owner}/${name}/commits/${sha}/status`),
+    installationRequest(config, installationId, `/repos/${owner}/${name}/pulls/${pull.number}/reviews?per_page=100`),
+    installationRequest(config, installationId, `/repos/${owner}/${name}/branches/${encodeURIComponent(stage.target)}/protection`).catch((error) => {
+      // 404: no classic protection. 403: GitHub cannot expose protection for this plan/visibility
+      // (private repos on free plans), but the merge endpoint still enforces it server-side. Do not
+      // turn an unreadable optional policy into a permanent gate failure.
+      if ([403, 404].includes(error?.status)) return null;
+      throw error;
+    }),
+    installationRequest(config, installationId, `/repos/${owner}/${name}/rules/branches/${encodeURIComponent(stage.target)}`).catch((error) => {
+      if ([403, 404].includes(error?.status)) return [];
+      throw error;
+    })
+  ]);
+  const failed = [checkRunsResult, statusesResult, reviewsResult, protectionResult, rulesResult].find((result) => result.status === "rejected");
+  if (failed) throw new Error(`无法实时读取合并门禁：${failed.reason?.message || "未知错误"}`);
+  const checkRuns = /** @type {any} */ (checkRunsResult).value?.check_runs || [];
+  const statuses = /** @type {any} */ (statusesResult).value?.statuses || [];
+  const checks = checkRuns.length || statuses.length ? summarizeGitHubChecks(checkRuns, statuses) : { state: "success", passed: 0, total: 0 };
+  const approvals = countLiveApprovals(/** @type {any} */ (reviewsResult).value || [], sha);
+  const requiredApprovals = requiredApprovalsFromProtection(/** @type {any} */ (protectionResult).value, /** @type {any} */ (rulesResult).value || []);
+  return { checksState: checks.state, checksPassed: checks.passed, checksTotal: checks.total, approvals, requiredApprovals };
 }
 var AUTOMATION_ACTION_ABANDON_MS = 12e4;
 var AUTOMATION_ACTION_STALE_MS = 12 * 60 * 60 * 1e3;
@@ -907,18 +975,64 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
   const { owner, name } = ownerAndName(workflow.repository);
   const config = parseGithubAppConfig(environment);
   const pull = await installationRequest(config, installationId, `/repos/${owner}/${name}/pulls/${pullNumber}`);
+  const expectedHeadSha = typeof action.payload?.headSha === "string" && action.payload.headSha ? action.payload.headSha : null;
+  if (!pull.merged_at && pull.state === "open") {
+    const headGuard = automationMergeHeadGuard(pull, expectedHeadSha);
+    if (!headGuard.ok) {
+      await sql`UPDATE workflow_stage_states SET pull_state = 'open', merged_at = NULL, head_sha = ${headGuard.actualHeadSha || null}, gate_sha = NULL, checks_state = 'pending', checks_passed = 0, checks_total = 0, mergeable = ${pull.mergeable ?? null}, mergeable_state = ${pull.mergeable_state || "unknown"}, last_event = 'head-changed', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
+      await sql`UPDATE workflow_automation_actions SET state = 'cancelled', failure_reason = ${headGuard.reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
+      await sql`UPDATE workflow_automation_runs SET state = 'cancelled', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
+      await recordWorkflowStageEvent(sql, userId, workflow.id, action.stage_index, action.source, `${workflow.id}:${action.stage_id}:${action.source}:head-changed:${headGuard.actualHeadSha}`, "head-changed", "PR head 已变化，旧 head 的自动合并已取消", action.stage_id, action.target);
+      console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} → ${action.target}`, reason: "head-changed", headSha: headGuard.actualHeadSha, pullNumber }));
+      return { state: "cancelled", pullNumber: null };
+    }
+  }
+  let gate;
+  if (!pull.merged_at && pull.state === "open") {
+    let evidence;
+    try {
+      evidence = await readLiveMergeGate(environment, installationId, workflow, stage, pull);
+    } catch (error) {
+      const reason = `合并门禁实时读取失败：${error instanceof Error ? error.message : "未知错误"}`;
+      await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
+      await sql`UPDATE workflow_automation_runs SET state = 'waiting-gates', updated_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
+      console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} → ${action.target}`, reason: "gate-read-failed", pullNumber, attempts: action.attempts + 1 }));
+      return { state: "queued", pullNumber: null };
+    }
+    gate = {
+      checksState: evidence.checksState,
+      checksPassed: evidence.checksPassed,
+      checksTotal: evidence.checksTotal,
+      approvals: evidence.approvals,
+      requiredApprovals: evidence.requiredApprovals,
+      mergeable: pull.mergeable ?? null,
+      mergeableState: pull.mergeable_state || "unknown"
+    };
+    await sql`UPDATE workflow_stage_states SET merged_at = NULL, head_sha = ${pull.head.sha}, gate_sha = ${pull.head.sha}, checks_state = ${evidence.checksState}, checks_passed = ${evidence.checksPassed}, checks_total = ${evidence.checksTotal}, approvals = ${evidence.approvals}, required_approvals = ${evidence.requiredApprovals}, mergeable = ${gate.mergeable}, mergeable_state = ${gate.mergeableState}, last_event = 'merge-checked', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
+  } else {
+    gate = {
+      checksState: pull.merged_at ? "success" : current.checks_state,
+      checksPassed: current.checks_passed,
+      checksTotal: current.checks_total,
+      approvals: current.approvals,
+      requiredApprovals: current.required_approvals,
+      mergeable: pull.mergeable ?? null,
+      mergeableState: pull.mergeable_state || "unknown"
+    };
+  }
   const outcome = automationMergeOutcome(
     { number: pull.number, state: pull.state, merged: Boolean(pull.merged_at), html_url: pull.html_url },
-    { checksState: current.checks_state, approvals: current.approvals, requiredApprovals: current.required_approvals, mergeable: pull.mergeable ?? null, mergeableState: pull.mergeable_state || "unknown" }
+    gate
   );
   if (outcome.kind === "paused" && /** @type {any} */ (outcome).retryable === true) {
-    await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${/** @type {any} */ (outcome).reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
+    await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${gate.checksState === "pending" ? null : /** @type {any} */ (outcome).reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'waiting-gates', updated_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} \u2192 ${action.target}`, reason: "gate-not-ready", gate: /** @type {any} */ (outcome).reason, pullNumber, attempts: action.attempts + 1 }));
     return { state: "queued", pullNumber: null };
   }
   if (outcome.kind === "paused") throw new Error(/** @type {any} */ (outcome).reason);
   if (outcome.kind === "cancelled") {
+    await sql`UPDATE workflow_stage_states SET pull_state = 'closed', merged_at = NULL, last_event = 'closed', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
     await sql`UPDATE workflow_automation_actions SET state = 'cancelled', failure_reason = ${/** @type {any} */ (outcome).reason}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'cancelled', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     return { state: "cancelled", pullNumber: null };
@@ -926,6 +1040,7 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
   if (outcome.kind === "merge") {
     await installationRequest(config, installationId, `/repos/${owner}/${name}/pulls/${pullNumber}/merge`, { method: "PUT", body: JSON.stringify({ merge_method: "merge", sha: pull.head.sha }) });
   }
+  await sql`UPDATE workflow_stage_states SET pull_state = 'merged', merged_at = ${pull.merged_at || new Date().toISOString()}, head_sha = ${pull.head?.sha || current.head_sha}, gate_sha = ${pull.head?.sha || current.gate_sha}, checks_state = ${gate.checksState}, checks_passed = ${gate.checksPassed}, checks_total = ${gate.checksTotal}, approvals = ${gate.approvals}, required_approvals = ${gate.requiredApprovals}, mergeable = ${pull.mergeable ?? null}, mergeable_state = ${pull.mergeable_state || "unknown"}, ahead_by = 0, last_event = 'merged', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
   await sql`UPDATE workflow_automation_actions SET state = 'succeeded', failure_reason = NULL, updated_at = now(), payload = ${sql.json({ ...action.payload || {}, pullNumber })} WHERE user_id = ${userId} AND id = ${actionId}`;
   await sql`UPDATE workflow_automation_runs SET state = 'succeeded', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
   await recordOperationAuditForUser(sql, userId, installationId, {
@@ -1006,6 +1121,10 @@ async function executeWorkflowAutomationActionForUser(environment, userId, insta
     const comparison = openPulls[0] ? { commits: [] } : await installationRequest(config, installationId, `/repos/${owner}/${name}/compare/${encodeURIComponent(action.target)}...${encodeURIComponent(action.source)}`);
     const outcome = automationCreateOutcome(openPulls, comparison.commits.length);
     if (outcome.kind === "idempotent") {
+      const existingPull = openPulls.find((item) => item.number === outcome.pullNumber);
+      const existingHeadSha = existingPull?.head?.sha || null;
+      await sql`UPDATE workflow_stage_states SET pull_number = ${outcome.pullNumber}, pull_state = 'open', merged_at = NULL, head_sha = ${existingHeadSha}, gate_sha = NULL, checks_state = 'pending', checks_passed = 0, checks_total = 0, approvals = 0, mergeable = ${existingPull?.mergeable ?? null}, mergeable_state = ${existingPull?.mergeable_state || "unknown"}, last_event = 'pull-existing', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
+      if (existingHeadSha) await scheduleServerAutoMerge(sql, { user_id: userId, github_installation_id: installationId }, workflow, action.stage_index, action.source, outcome.pullNumber, existingHeadSha, { checksState: "pending", approvals: 0, requiredApprovals: 0, mergeable: null, mergeableState: "unknown" });
       await sql`UPDATE workflow_automation_actions SET state = 'succeeded', failure_reason = NULL, updated_at = now(), payload = ${sql.json({ ...action.payload || {}, pullNumber: outcome.pullNumber })} WHERE user_id = ${userId} AND id = ${actionId}`;
       await sql`UPDATE workflow_automation_runs SET state = 'succeeded', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
       await recordOperationAuditForUser(sql, userId, installationId, {
@@ -1030,7 +1149,10 @@ async function executeWorkflowAutomationActionForUser(environment, userId, insta
     }
     const message = await generateAutomationMessage(credential.baseUrl, credential.apiKey, credential.model, action.source, action.target, comparison.commits.map((item) => item.commit.message), action.payload?.generationRule || "");
     const created = await installationRequest(config, installationId, `/repos/${owner}/${name}/pulls`, { method: "POST", body: JSON.stringify({ title: message.title, head: action.source, base: action.target, body: message.body }) });
-    await sql`UPDATE workflow_automation_actions SET state = 'succeeded', updated_at = now(), payload = ${sql.json({ ...action.payload || {}, pullNumber: created.number })} WHERE user_id = ${userId} AND id = ${actionId}`;
+    const createdHeadSha = created.head?.sha || null;
+    await sql`UPDATE workflow_stage_states SET pull_number = ${created.number}, pull_state = ${created.state || "open"}, merged_at = NULL, head_sha = ${createdHeadSha}, gate_sha = NULL, checks_state = 'pending', checks_passed = 0, checks_total = 0, approvals = 0, mergeable = ${created.mergeable ?? null}, mergeable_state = ${created.mergeable_state || "unknown"}, last_event = 'pull-created', updated_at = now() WHERE user_id = ${userId} AND workflow_id = ${workflow.id} AND stage_id = ${action.stage_id} AND source = ${action.source}`;
+    if (createdHeadSha) await scheduleServerAutoMerge(sql, { user_id: userId, github_installation_id: installationId }, workflow, action.stage_index, action.source, created.number, createdHeadSha, { checksState: "pending", approvals: 0, requiredApprovals: 0, mergeable: null, mergeableState: "unknown" });
+    await sql`UPDATE workflow_automation_actions SET state = 'succeeded', updated_at = now(), payload = ${sql.json({ ...action.payload || {}, pullNumber: created.number, headSha: createdHeadSha })} WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'succeeded', updated_at = now(), completed_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     await recordOperationAuditForUser(sql, userId, installationId, {
       action: "pull-created",
@@ -2494,7 +2616,10 @@ async function withStageDeadline(work, deadlineMs) {
 function deferredRunState(reconciled, failed, total) {
   return reconciled + failed >= total ? reconciliationState(failed, reconciled) : "degraded";
 }
-var RECONCILE_WORKFLOW_BATCH_SIZE = 8;
+// The desktop/local engine has no serverless 15-minute ceiling. Keep two ordinary sweeps' worth
+// of headroom so a dozen-plus active flows are all reconciled each cron tick instead of rotating
+// every other tick; CRON_RECONCILE_BATCH_SIZE still overrides this for large installs.
+var RECONCILE_WORKFLOW_BATCH_SIZE = 16;
 function reconciliationBatchSize(environment) {
   const configured = Number(environment.CRON_RECONCILE_BATCH_SIZE);
   return Number.isInteger(configured) && configured >= 0 ? configured : RECONCILE_WORKFLOW_BATCH_SIZE;
@@ -3286,6 +3411,7 @@ export {
   automationDrainHasStartBudget,
   automationGateWaitDelayMs,
   automationIdempotencyKey,
+  automationMergeHeadGuard,
   automationMergeOutcome,
   automationRetryIsExhausted,
   automationSkipLine,
@@ -3356,6 +3482,7 @@ export {
   pendingPhaseTotals,
   projectPullRequestWebhook,
   pullDetailPath,
+  summarizeGitHubChecks,
   readAiAutomationCredential,
   readConvergenceHealth,
   realtimeReconcileBudgetMs,

@@ -5,7 +5,16 @@ import { git, parsePorcelainV2 }from './git.mjs'
 import { fail, ok } from './http.mjs';
 import { validateRefName }from './security.mjs'
 import { appendAudit }from './store.mjs'
+import { reconcileRepositoryNow }from './automation.mjs'
 import { NETWORK_TIMEOUT_MS, gitFail }from './routes-git-helpers.mjs'
+
+/** Extract `owner/name` from the GitHub remote forms the desktop app can configure. */
+export function githubRepositoryFromRemote(raw) {
+  if (typeof raw !== 'string') return null;
+  const value = raw.trim();
+  const match = value.match(/^(?:https?:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/i);
+  return match ? `${match[1]}/${match[2]}` : null;
+}
 
 export async function handleGitWriteNetwork({ method, pathname, query, body, identity }, repo) {
   if (pathname === '/api/tag/push') {
@@ -71,7 +80,10 @@ export async function handleGitWriteNetwork({ method, pathname, query, body, ide
       else if (forceMode === 'force-with-lease') argv.push('--force-with-lease');
       const result = await git(argv, repo, { timeout: NETWORK_TIMEOUT_MS });
       await appendAudit({ ok: true, action: 'push', repo, force: forceMode || 'none' });
-      return ok({ ok: true, force: forceMode || 'none', result: result.trim() });
+      const remoteUrl = await git(['remote', 'get-url', 'origin'], repo).catch(() => '');
+      const repository = githubRepositoryFromRemote(remoteUrl);
+      if (repository) void reconcileRepositoryNow(repository);
+      return ok({ ok: true, force: forceMode || 'none', result: result.trim(), reconciliationScheduled: Boolean(repository) });
     } catch (err) {
       await appendAudit({ ok: false, action: 'push', repo, force: forceMode || 'none' });
       return gitFail(err, 'git push failed');

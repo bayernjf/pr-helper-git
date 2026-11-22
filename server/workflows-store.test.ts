@@ -8,12 +8,13 @@ import { readFileSync, readdirSync } from 'node:fs';
 // source-level assertions must read the snapshot, not the bundle.
 const MIGRATIONS_DIR = new URL('../docs/archive/pr-helper-source/supabase/migrations/', import.meta.url);
 const STORE_SOURCE = new URL('../docs/archive/pr-helper-source/api/_lib/workflows-store.ts', import.meta.url);
+const RUNTIME_STORE_SOURCE = new URL('./workflows-store.mjs', import.meta.url);
 const API_DIR = new URL('../docs/archive/pr-helper-source/api/', import.meta.url);
 const SNAPSHOT_SRC = new URL('../docs/archive/pr-helper-source/src/', import.meta.url);
 
 import { describe, expect, it } from 'vitest';
 
-import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, buildPrPrompt, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, validateAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser } from './workflows-store.mjs';
+import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeHeadGuard, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, buildPrPrompt, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, validateAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, summarizeGitHubChecks, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser } from './workflows-store.mjs';
 
 describe('stored workflow validation', () => {
   it('fetches a pull detail after discovery so mergeability is authoritative', () => {
@@ -256,8 +257,8 @@ describe('reconciliation state', () => {
 describe('cron reconciliation batch', () => {
   const candidate = (id: string, lastAttemptAt: string | null, pendingSince: string | null = null) => ({ id, lastAttemptAt, pendingSince });
 
-  it('keeps the scheduled sweep bounded so it can answer within the request timeout', () => {
-    expect(RECONCILE_WORKFLOW_BATCH_SIZE).toBe(8);
+  it('keeps the scheduled sweep bounded while covering the current fleet in one tick', () => {
+    expect(RECONCILE_WORKFLOW_BATCH_SIZE).toBe(16);
   });
 
   it('reconciles never-reconciled workflows first, then the stalest ones', () => {
@@ -1252,6 +1253,74 @@ describe('automationMergeOutcome', () => {
     expect(body).toContain("outcome.retryable");
     expect(body).toContain("state = 'queued'");
     expect(body).toContain("'waiting-gates'");
+  });
+});
+
+describe('summarizeGitHubChecks', () => {
+  it('uses the newest check-run attempt per app/context instead of an older failure', () => {
+    const checks = summarizeGitHubChecks([
+      { name: 'test', app: { slug: 'github-actions' }, conclusion: 'failure', completed_at: '2026-11-22T09:00:00Z' },
+      { name: 'test', app: { slug: 'github-actions' }, conclusion: 'success', completed_at: '2026-11-22T09:05:00Z' },
+    ], []);
+    expect(checks).toEqual({ state: 'success', passed: 1, total: 1 });
+  });
+
+  it('uses the newest legacy status per context', () => {
+    const checks = summarizeGitHubChecks([], [
+      { context: 'ci/test', state: 'failure', created_at: '2026-11-22T09:00:00Z' },
+      { context: 'ci/test', state: 'success', created_at: '2026-11-22T09:05:00Z' },
+    ]);
+    expect(checks).toEqual({ state: 'success', passed: 1, total: 1 });
+  });
+});
+
+describe('automationMergeHeadGuard', () => {
+  const pull = { number: 42, state: 'open', merged: false, head: { sha: 'abcdef1234567890' } };
+
+  it('accepts the exact head the merge action was scheduled for', () => {
+    expect(automationMergeHeadGuard(pull, 'abcdef1234567890')).toEqual({ ok: true, actualHeadSha: 'abcdef1234567890' });
+  });
+
+  it('refuses a newer head instead of merging it on the old green checks', () => {
+    const result = automationMergeHeadGuard(pull, '1234567890abcdef');
+    expect(result.ok).toBe(false);
+    expect(result.headChanged).toBe(true);
+    expect(result.reason).toContain('PR head 已变化');
+  });
+
+  it('fails closed when either SHA is unavailable', () => {
+    expect(automationMergeHeadGuard({ number: 42 }, 'abcdef1234567890').ok).toBe(false);
+    expect(automationMergeHeadGuard(pull, null).ok).toBe(false);
+  });
+});
+
+describe('live merge gate and immediate projection', () => {
+  const source = readFileSync(RUNTIME_STORE_SOURCE, 'utf8');
+  const runMerge = source.slice(source.indexOf('async function runAutomationMergeAction'), source.indexOf('async function runAutomationAdvanceAction'));
+
+  it('verifies the scheduled head and reads live checks before the merge PUT', () => {
+    expect(runMerge).toContain('automationMergeHeadGuard');
+    expect(runMerge).toContain('evidence = await readLiveMergeGate');
+    expect(source).toContain('/commits/${sha}/check-runs');
+    expect(source).toContain('/commits/${sha}/status');
+    expect(source).toContain('checksState: evidence.checksState');
+    expect(runMerge).toContain("state = 'cancelled'");
+    expect(runMerge).toContain('gate.checksState === "pending" ? null');
+  });
+
+  it('does not park a pending-checks merge action behind the transient-failure cooldown', () => {
+    expect(source).toContain('if (gate.checksState !== "pending")');
+  });
+
+  it('projects the created PR and queues the merge action immediately', () => {
+    expect(source).toContain('pull_state = ${created.state || "open"}');
+    expect(source).toContain('last_event = \'pull-created\'');
+    expect(source).toContain('await scheduleServerAutoMerge(sql, { user_id: userId, github_installation_id: installationId }, workflow, action.stage_index, action.source, created.number, createdHeadSha');
+  });
+
+  it('writes the merged projection before the action success record', () => {
+    expect(runMerge.indexOf("pull_state = 'merged'")).toBeLessThan(runMerge.indexOf("state = 'succeeded', failure_reason = NULL"));
+    expect(runMerge).toContain('last_event = \'merged\'');
   });
 });
 

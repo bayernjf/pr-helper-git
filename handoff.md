@@ -15,6 +15,15 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
 
+### 2026-11-22 自动合并门禁与时效修复（0.3.19）
+
+- **head guard**：merge action 必须匹配调度时的 `payload.headSha`；缺失即拒绝。PR head 推进后取消旧 action/run，stage 写 `head-changed` 并清空 `gate_sha`，不会用旧 green checks 合并新提交。
+- **live gate**：合并前实时读取目标 head 的 check-runs、commit status、reviews、classic protection 和 rules；checks/status/reviews 读取失败就保持 `queued + waiting-gates`，不把不可读当绿灯。check-run/status 按 context 取最新 attempt，Approval 按用户最新 review 且限制当前 head。private repo 的 protection/rules 403 视为不可读但不阻断，最终由 GitHub merge API 强制。
+- **即时投影与轮询**：`create-pr` 成功当秒写 `pull_number/pull_state/head_sha` 并排 merge action；`merge-pr` 成功当秒写 `merged`。pending checks 的 merge action 不吃 5 分钟 transient cooldown，按 2 分钟 drain 轮询。cron 批量 8→16，当前 15 个活跃流程一轮覆盖。
+- **本地 push 即时触发**：`POST /api/push` 成功后解析 GitHub remote，立即对该仓库 `reconcileRealtime(..., 'manual')`；手工 CLI push 仍由 cron 兜底。首次接线时 `trigger='push'` 被 `reconciliation_leases` CHECK 拒绝，已改为合法 `manual`。
+- **真实测试仓验证**：`bayernjf/git-e2e-test` PR #17（action 4731 create / 4733 merge）自动建 PR，两个同名 check 去重后 1/1 通过并自动合并；PR #18 验证 head guard：action 4735 计划 `c00812a`，PR 推进 `4fc21de` 后取消并写 `head-changed`，新 action 4736 在 checks 1/1 后自动合并。测试仓新增最小 CI workflow（`.github/workflows/ci.yml`）。
+- **门禁与产物**：`npm run lint`、`typecheck:server`、`npm test`（1221 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 与 `/Applications/PR Helper Git.app` 均为 0.3.19（0.3.18 安装包移至 `000mycodes-backups`）。
+
 ### 2026-11-22 Flows UI parity（第二批）
 - 按旧版 `src/app/render/lane.ts`、`detail.ts`、`editor.ts`、`dialogs/steps.ts`、`create-pr.ts` 逐项对齐可见 UI：lane 顺序控件/运行摘要/折叠图标、内联 board preflight、详情与抽屉 Actions gate、抽屉 `drawer-status` 卡片、Flows 内 Create PR 对话框、source 分支删除提示。
 - 验证：`npm run lint`、`npm run typecheck:server`、`npm test`（1209/72）、`npm run build`、`npm run e2e`（162/162）通过；在 4790 dev 实例以真实 projection 验收看板、详情、抽屉与 `Actions 1/1 Actions passed`。
