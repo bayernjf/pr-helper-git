@@ -268,8 +268,8 @@ export default function PrBoard() {
 
   return (
     <>
-      <div className="toolbar" style={{ height: 44, borderBottom: '1px solid var(--border)' }}>
-        <strong style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>
+      <div className="pr-toolbar">
+        <strong className="pr-toolbar-repo">
           {remote.owner}/{remote.repo}
         </strong>
         <div className="board-filter">

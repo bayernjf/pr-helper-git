@@ -460,12 +460,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         // hidden. window.title still names the window for Mission Control.
         window.titleVisibility = .hidden
         window.minSize = NSSize(width: 900, height: 600)
-        // Transparent titlebar over the dark window background: the web
-        // content now extends under it, so no light strip can appear. The
-        // web client corrects the appearance via the themeSync bridge on load.
+        // Transparent titlebar over the window background: the web content
+        // now extends under it, so no light strip can appear. The background
+        // matches the design token bg0 (#121214 dark, #f2f2f7 light); the web
+        // client corrects the appearance via the themeSync bridge on load.
         window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+        window.backgroundColor = NSColor(red: 0x12 / 255.0, green: 0x12 / 255.0, blue: 0x14 / 255.0, alpha: 1)
         // Persist and restore the window position/size across launches. On the
         // first run there is no saved frame, so the centering above is used.
         window.setFrameAutosaveName("PR Helper Git Main Window")
@@ -649,8 +650,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let light = mode == "light"
         window.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         window.backgroundColor = light
-            ? NSColor(red: 0.93, green: 0.95, blue: 0.97, alpha: 1)
-            : NSColor(red: 0x1a / 255.0, green: 0x1c / 255.0, blue: 0x2c / 255.0, alpha: 1)
+            ? NSColor(red: 0xf2 / 255.0, green: 0xf2 / 255.0, blue: 0xf7 / 255.0, alpha: 1)
+            : NSColor(red: 0x12 / 255.0, green: 0x12 / 255.0, blue: 0x14 / 255.0, alpha: 1)
     }
 
     // MARK: Titlebar chrome bridge

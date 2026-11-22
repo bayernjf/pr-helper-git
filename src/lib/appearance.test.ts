@@ -16,19 +16,19 @@ beforeEach(() => {
 });
 
 describe('appearance preferences', () => {
-  it('defaults to dark and the violet accent', () => {
+  it('defaults to dark and the blue accent', () => {
     expect(getThemeMode()).toBe('dark');
-    expect(getAccent()).toBe('violet');
+    expect(getAccent()).toBe('blue');
   });
 
   it('accepts only known theme and accent values', () => {
-    localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'light', accent: 'ocean' }));
+    localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'light', accent: 'rose' }));
     expect(getThemeMode()).toBe('light');
-    expect(getAccent()).toBe('ocean');
+    expect(getAccent()).toBe('rose');
     localStorage.setItem('pr-helper-git:prefs', JSON.stringify({ theme: 'bogus', accent: 'bogus' }));
     expect(getThemeMode()).toBe('dark');
-    expect(getAccent()).toBe('violet');
-    expect(ACCENTS).toEqual(['violet', 'rose', 'ocean', 'forest', 'amber', 'teal', 'crimson', 'indigo']);
+    expect(getAccent()).toBe('blue');
+    expect(ACCENTS).toEqual(['blue', 'rose', 'forest', 'amber', 'teal', 'crimson', 'indigo']);
   });
 
   it('uses matchMedia only in auto mode', () => {
@@ -39,7 +39,7 @@ describe('appearance preferences', () => {
   });
 
   it('writes data-theme and omits the default accent attribute', () => {
-    applyAppearance('light', 'violet');
+    applyAppearance('light', 'blue');
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.documentElement.dataset.accent).toBeUndefined();
 

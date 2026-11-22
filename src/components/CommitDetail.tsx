@@ -137,12 +137,9 @@ export default function CommitDetail() {
   }
 
   if (!commit) {
-    return (
-      <aside className="detail" style={detailStyle}>
-        <button type="button" className="col-resize" {...detailSeparator} />
-        <div className="diff-empty">{t("Select a commit in the graph to inspect its metadata.")}</div>
-      </aside>
-    );
+    // With no commit selected the graph owns the full width. A permanent
+    // empty inspector column only wasted space and flattened the layout.
+    return null;
   }
 
   return (
