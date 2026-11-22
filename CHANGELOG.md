@@ -5,7 +5,7 @@
 ## [0.3.20] - 2026-11-22
 
 ### 修复
-- **本地 push 触发的 reconcile 预算**：新增 `LOCAL_PUSH_RECONCILE_BUDGET_MS = 40s`，仅对 `eventName=local-push` 生效；交互式手动刷新仍保持 8s。`reconcileRealtime` 把 eventName 传入预算选择器；30s reconcile 租约每 10s 续租，40s 预算落在 45s 外层上限内。0.3.19 的 8s 预算曾把真实 push 记为 `degraded`；0.3.20 实测 20s 仍被 `pullForStage` 拖过预算，40s 后真实 push run 273 在 10.685s 内成功并自动创建 PR #78。
+- **本地 push 触发的 reconcile 预算**：新增 `LOCAL_PUSH_RECONCILE_BUDGET_MS = 40s`，仅对 `eventName=local-push` 生效；交互式手动刷新仍保持 8s。`reconcileRealtime` 把 eventName 传入预算选择器；30s reconcile 租约每 10s 续租，40s 预算落在 45s 外层上限内。0.3.19 的 8s 预算曾把真实 push 记为 `degraded`；0.3.20 实测 20s 仍被 `pullForStage` 拖过预算，40s 后真实 push run 273 在 10.685s 内成功并自动创建 PR #78，PR #78 checks 2/2 后自动合并为 `5a98a72`。
 - **PR 页面 Loading 核实**：Pull Requests 页面约 20 秒后正常加载 77 条已合并 PR；确认是 GitHub 列表请求慢，不是前端死锁或接口错误，未改代码。
 
 ### 文档
