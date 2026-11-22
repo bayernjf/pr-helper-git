@@ -17,7 +17,7 @@ every committed file as world-readable.
 
 ### 2026-11-22 Flows UI parity（第二批）
 - 按旧版 `src/app/render/lane.ts`、`detail.ts`、`editor.ts`、`dialogs/steps.ts`、`create-pr.ts` 逐项对齐可见 UI：lane 顺序控件/运行摘要/折叠图标、内联 board preflight、详情与抽屉 Actions gate、抽屉 `drawer-status` 卡片、Flows 内 Create PR 对话框、source 分支删除提示。
-- 验证：`npm run lint`、`npm run typecheck:server`、`npm test`（1207/71）、`npm run build`、`npm run e2e`（162/162）通过；在 4790 dev 实例以真实 projection 验收看板、详情、抽屉与 `Actions 1/1 Actions passed`。
+- 验证：`npm run lint`、`npm run typecheck:server`、`npm test`（1209/72）、`npm run build`、`npm run e2e`（162/162）通过；在 4790 dev 实例以真实 projection 验收看板、详情、抽屉与 `Actions 1/1 Actions passed`。
 
 | 任务 | 状态 |
 |---|---|

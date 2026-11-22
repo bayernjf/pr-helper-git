@@ -6,6 +6,7 @@ describe('github allowlist', () => {
     expect(isAllowed('GET', '/repos/o/r/commits/abc123/check-runs')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/commits/abc123/status')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/pulls/7')).toBe(true);
+    expect(isAllowed('GET', '/repos/o/r/pulls')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/branches/main/protection')).toBe(true);
     expect(isAllowed('GET', '/repos/o/r/branches/feature%2Fx')).toBe(true);
   });

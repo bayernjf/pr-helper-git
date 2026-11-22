@@ -586,6 +586,8 @@ export const ZH: Record<string, string> = {
   'Untracked files ({count}) — not part of the diff': '未跟踪文件（{count}）—— 不计入 diff',
   'New pull request': '新建 Pull Request',
   'Create pull request': '创建 Pull Request',
+  'Open the repository in Git to use AI generation': '在 Git 中打开该仓库后才能使用 AI 生成',
+  'An open PR #{number} already exists for this branch.': '该分支已存在 PR #{number}，请先处理现有 PR。',
   'Step detail': '步骤详情',
   'No pull request yet': '暂无 Pull Request',
   'Filter pull requests': '过滤 Pull Request',

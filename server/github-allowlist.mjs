@@ -26,6 +26,7 @@ export const ALLOWLIST = [
   // warning and the required-check summary before merging.
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/branches/${SEG}/protection$`) },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/issues/\\d+/comments$`) },
+  { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls$`) },
   { method: 'GET', regex: new RegExp(`^/repos/${SEG}/${SEG}/pulls/\\d+$`) },
   // Line-level review comments live under pulls (not issues); POST anchors a
   // comment to a commit/path/line inside a PR diff.

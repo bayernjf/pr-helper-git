@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { githubProxy } from '../api';
-import { usePreferences } from '../app-state/hooks';
+import { useEffect, useMemo, useState } from 'react';
+import { generatePrDescription, githubProxy } from '../api';
+import { usePreferences, useRepoData } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { errorDetail, errorMessage } from '../lib/errors';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { IconX } from './icons';
 
 interface Props {
@@ -22,13 +22,28 @@ interface Props {
  */
 export default function FlowCreatePrModal({ repository, source, target, onClose, onCreated }: Props) {
   const { pat } = usePreferences();
+  const { remote, activeRepo } = useRepoData();
   const toast = useAppToast();
   useEscape(onClose);
-  const [title, setTitle] = useState(`${source} → ${target}`);
-  const [body, setBody] = useState('');
+  const draftKey = `pr-helper-git:flow-pr-draft:${repository}:${source}:${target}`;
+  const restored = useMemo(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(draftKey) ?? 'null') as { title?: string; body?: string } | null;
+      return parsed && typeof parsed.title === 'string' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [draftKey]);
+  const [title, setTitle] = useState(restored?.title || `${source} → ${target}`);
+  const [body, setBody] = useState(restored?.body || '');
   const [draft, setDraft] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [inlineError, setInlineError] = useState('');
+  const canGenerate = Boolean(activeRepo && remote?.owner && `${remote.owner}/${remote.repo}` === repository);
+  useEffect(() => {
+    localStorage.setItem(draftKey, JSON.stringify({ title, body }));
+  }, [draftKey, title, body]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -36,6 +51,12 @@ export default function FlowCreatePrModal({ repository, source, target, onClose,
     setSaving(true);
     setInlineError('');
     try {
+      const owner = repository.split('/')[0];
+      const existing = await githubProxy<Array<{ number: number }>>(
+        pat,
+        `/repos/${repository}/pulls?state=open&head=${encodeURIComponent(`${owner}:${source}`)}&base=${encodeURIComponent(target)}&per_page=10`,
+      );
+      if (existing.data?.[0]) throw new Error(tp('An open PR #{number} already exists for this branch.', { number: existing.data[0].number }));
       await githubProxy(pat, `/repos/${repository}/pulls`, 'POST', {
         title: title.trim(),
         head: source,
@@ -43,6 +64,7 @@ export default function FlowCreatePrModal({ repository, source, target, onClose,
         body,
         draft,
       });
+      localStorage.removeItem(draftKey);
       toast(t('Pull request created'), 'success');
       onCreated();
     } catch (err) {
@@ -50,6 +72,22 @@ export default function FlowCreatePrModal({ repository, source, target, onClose,
       setInlineError(msg);
       toast(msg, 'error');
       setSaving(false);
+    }
+  }
+
+  async function generate() {
+    if (!activeRepo || !canGenerate) return;
+    setGenerating(true);
+    setInlineError('');
+    try {
+      const generated = await generatePrDescription(activeRepo, source, target);
+      if (generated.title) setTitle(generated.title);
+      if (generated.body) setBody(generated.body);
+    } catch (err) {
+      const msg = errorDetail(err) ? `${errorMessage(err)}: ${errorDetail(err)}` : errorMessage(err);
+      setInlineError(msg);
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -82,7 +120,18 @@ export default function FlowCreatePrModal({ repository, source, target, onClose,
             />
           </div>
           <div className="form-group">
-            <label htmlFor="flow-pr-body">{t('Description')}</label>
+            <div className="label-row">
+              <label htmlFor="flow-pr-body">{t('Description')}</label>
+              <button
+                type="button"
+                className="btn btn-small"
+                disabled={generating || saving || !canGenerate}
+                title={canGenerate ? undefined : t('Open the repository in Git to use AI generation')}
+                onClick={() => void generate()}
+              >
+                {generating ? t('Generating…') : t('Generate with AI')}
+              </button>
+            </div>
             <textarea
               id="flow-pr-body"
               rows={7}
