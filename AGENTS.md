@@ -242,8 +242,8 @@ As of 0.3.20 (2026-11-22):
   and 4 app-state context-isolation tests in
   `src/app-state/context-isolation.test.tsx`)
 - 0.3.20 adds 2 local-push reconcile budget tests in
-  `server/workflows-store.test.ts` (local-push 20s, manual stays 8s, lease
-  ceiling, eventName propagation).
+  `server/workflows-store.test.ts` (local-push 40s, manual stays 8s, lease
+  renewal, 45s outer ceiling, eventName propagation).
 - 0.3.19 adds 9 live merge-gate/head-guard/check-dedup tests in
   `server/workflows-store.test.ts` and 2 remote-parser tests in
   `server/routes.test.mjs`.

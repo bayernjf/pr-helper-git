@@ -2584,10 +2584,10 @@ function reconciliationRunInterrupted(run, now) {
 var REALTIME_RECONCILE_BUDGET_MS = 8e3;
 // A local push is fire-and-forget: nobody is blocked on the response, so the
 // sweep can spend longer than an interactive manual click before yielding.
-// GitHub compare/fetch calls for one repository can take ~8s under load; the
-// previous shared 8s budget marked a real push-triggered run `degraded` even
-// though it had already queued the create-PR action.
-var LOCAL_PUSH_RECONCILE_BUDGET_MS = 20e3;
+// GitHub compare/fetch calls for one repository can take ~8s under load; a
+// real 0.3.20 push then spent >20s inside `pullForStage` (list + detail),
+// so 20s was still too tight. 40s fits under the 45s outer ceiling.
+var LOCAL_PUSH_RECONCILE_BUDGET_MS = 40e3;
 var INBOX_REFRESH_RECONCILE_BUDGET_MS = 6e3;
 var INBOX_REFRESH_RECONCILE_CEILING_GAP_MS = 5e3;
 var WEBHOOK_RECONCILE_BUDGET_MS = 25e3;

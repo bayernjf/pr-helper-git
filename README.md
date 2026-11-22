@@ -68,9 +68,9 @@ application never pushes it for you.
   action and is never merged on the previous green checks. A local
   `POST /api/push` also triggers an immediate targeted reconcile instead of
   waiting for the 5-minute cron (CLI pushes still fall back to cron); that
-  push-triggered sweep gets a 20s budget (manual refresh stays 8s), so a slow
-  GitHub compare does not mark the run `degraded` before the create-PR action
-  can be queued.
+  push-triggered sweep gets a 40s budget (manual refresh stays 8s), so a slow
+  GitHub compare or pull lookup does not mark the run `degraded` before the
+  create-PR action can be queued; its 30s lease renews every 10s.
 - **Auto-advance persists**: the legacy pr-helper schema never stored the
   auto-advance flag (local migration 048 fixes it — a capability the cloud
   never had)

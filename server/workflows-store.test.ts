@@ -1702,7 +1702,10 @@ describe('realtimeReconcileBudgetMs', () => {
     const budget = realtimeReconcileBudgetMs({}, 'manual', 'local-push');
     expect(budget).toBe(LOCAL_PUSH_RECONCILE_BUDGET_MS);
     expect(budget).toBeGreaterThan(realtimeReconcileBudgetMs({}, 'manual'));
-    expect(RECONCILIATION_LEASE_TTL_SECONDS * 1000).toBeGreaterThan(budget);
+    // The sweep renews its 30s lease every 10s, so a 40s budget stays leased.
+    expect(reconciliationLeaseRenewIntervalMs(RECONCILIATION_LEASE_TTL_SECONDS)).toBeLessThan(budget);
+    // 40s + the 15s backstop is capped to the 60s function ceiling minus 15s.
+    expect(realtimeReconcileCeilingMs(budget, 'manual')).toBe(AUTOMATION_FUNCTION_CEILING_MS - 15e3);
     expect(realtimeReconcileBudgetMs({ REALTIME_RECONCILE_BUDGET_MS: '20000' }, 'manual', 'local-push')).toBe(20000);
   });
 
