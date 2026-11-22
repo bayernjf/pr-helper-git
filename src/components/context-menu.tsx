@@ -8,6 +8,8 @@ export interface MenuItem {
   danger?: boolean;
   disabled?: boolean;
   separator?: boolean;
+  /** Native title attribute; the delegated tooltip upgrades it to data-tip. */
+  title?: string;
 }
 
 interface ContextMenuProps {
@@ -70,6 +72,7 @@ export function ContextMenu({ x, y, items, title, onSelect, onClose }: ContextMe
             role="menuitem"
             className={`ctx-item${item.danger ? ' danger' : ''}`}
             disabled={item.disabled}
+            title={item.title}
             onClick={() => {
               if (item.id) onSelect(item.id);
             }}

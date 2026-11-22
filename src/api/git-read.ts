@@ -23,6 +23,20 @@ export interface GrepOptions {
   glob?: string;
 }
 
+export interface WorktreeEntry {
+  path: string;
+  head: string;
+  branch: string | null;
+  bare: boolean;
+  detached: boolean;
+  locked: boolean;
+  lockReason: string | null;
+  prunable: boolean;
+  pruneReason: string | null;
+  isMain: boolean;
+  current: boolean;
+}
+
 export const searchGrep = (
   repo: string,
   pattern: string,
@@ -143,6 +157,9 @@ export const rebaseInteractive = (
 
 export const getRefs = (repo: string) =>
   request<{ refs: Ref[] }>(`/api/refs?repo=${encodeURIComponent(repo)}`);
+
+export const getWorktrees = (repo: string) =>
+  request<{ worktrees: WorktreeEntry[] }>(`/api/worktrees?repo=${encodeURIComponent(repo)}`);
 
 export const getDiff = (
   repo: string,

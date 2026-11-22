@@ -248,16 +248,18 @@ export default function Toolbar() {
 
   return (
     <header className="toolbar">
-      <button
-        type="button"
-        className="icon-btn"
-        title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-        aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-        aria-pressed={sidebarCollapsed}
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-      >
-        <IconPanel width={15} height={15} />
-      </button>
+      {view === 'git' ? (
+        <button
+          type="button"
+          className="icon-btn"
+          title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+          aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+          aria-pressed={sidebarCollapsed}
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        >
+          <IconPanel width={15} height={15} />
+        </button>
+      ) : null}
       <span className="branch-pill" title={activeRepo || ''}>
         <span className="dot" />
         {branchLabel}

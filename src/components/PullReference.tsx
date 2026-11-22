@@ -54,7 +54,7 @@ export default function PullReference({ url, label }: { url: string; label?: str
         type="button"
         className="pr-ref"
         aria-label={t('Copy PR link')}
-        onClick={() => void copy()}
+        onClick={(event) => { event.stopPropagation(); void copy(); }}
       >
         {label ?? url}
       </button>

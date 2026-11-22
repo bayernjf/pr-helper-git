@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AUDIT_KEEP_ENTRIES, AUDIT_ROTATE_BYTES } from './store.mjs';
+import { parseWorktreeList } from './routes-git-read.mjs';
 
 const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const serverPath = path.join(projectRoot, 'server', 'main.mjs');
@@ -1748,5 +1749,41 @@ describe('GitHub Device Flow and A2A surfaces', () => {
     const revoked = await api('/api/a2a/token', { method: 'DELETE' });
     expect(revoked.status).toBe(200);
     expect(revoked.json).toMatchObject({ configured: false, source: null });
+  });
+});
+
+describe('worktree list parsing', () => {
+  it('separates the main, detached, locked and prunable worktrees', () => {
+    const raw = [
+      'worktree /repo',
+      'HEAD 1111111111111111111111111111111111111111',
+      'branch refs/heads/dev',
+      '',
+      'worktree /tmp/agent-task',
+      'HEAD 2222222222222222222222222222222222222222',
+      'detached',
+      'locked agent task',
+      'prunable missing directory',
+    ].join('\n');
+    const list = parseWorktreeList(raw, '/repo');
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatchObject({
+      path: '/repo',
+      branch: 'dev',
+      isMain: true,
+      current: true,
+      detached: false,
+    });
+    expect(list[1]).toMatchObject({
+      path: '/tmp/agent-task',
+      branch: null,
+      isMain: false,
+      current: false,
+      detached: true,
+      locked: true,
+      lockReason: 'agent task',
+      prunable: true,
+      pruneReason: 'missing directory',
+    });
   });
 });

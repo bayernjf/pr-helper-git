@@ -12,9 +12,10 @@ import { t, tp } from '../i18n';
 import { IconX } from './icons';
 import PreflightReport from './PreflightReport';
 
-export default function BoardPreflightModal({ workflows, onClose }: {
+export default function BoardPreflightModal({ workflows, onClose, inline = false }: {
   workflows: readonly Workflow[];
   onClose: () => void;
+  inline?: boolean;
 }) {
   const [payload, setPayload] = useState<BoardPreflightPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,9 +42,8 @@ export default function BoardPreflightModal({ workflows, onClose }: {
   );
   const nameFor = (workflowId: string) => workflows.find((workflow) => workflow.id === workflowId)?.name ?? workflowId;
 
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="modal modal-wide flow-preflight-modal" onClick={(event) => event.stopPropagation()}>
+  const panel = (
+    <>
         <div className="modal-header">
           <div>
             <h2>{t('Board preflight')}</h2>
@@ -99,6 +99,15 @@ export default function BoardPreflightModal({ workflows, onClose }: {
           </button>
           <button type="button" className="drawer-btn primary" onClick={onClose}>{t('Close')}</button>
         </div>
+    </>
+  );
+  if (inline) {
+    return <section className="flow-preflight-panel" aria-label={t('Board preflight')}>{panel}</section>;
+  }
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="modal modal-wide flow-preflight-modal" onClick={(event) => event.stopPropagation()}>
+        {panel}
       </div>
     </div>
   );

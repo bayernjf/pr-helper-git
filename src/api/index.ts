@@ -78,6 +78,7 @@ export {
   getStorage,
   getSubmodules,
   getTagShow,
+  getWorktrees,
   markBisect,
   pruneRepos,
   rebaseInteractive,
@@ -105,6 +106,7 @@ export {
   type StorageInfo,
   type SubmoduleEntry,
   type TagDetail,
+  type WorktreeEntry,
 } from './git-read';
 
 export {

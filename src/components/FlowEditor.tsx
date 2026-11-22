@@ -17,6 +17,7 @@ import {
   setStageAutoCreate,
   setStageAutoMerge,
   setStageAutoAdvance,
+  setStageRouteMode,
   addStage,
   removeStage,
   reorderStages,
@@ -59,6 +60,17 @@ type EditorStage = Workflow['stages'][number];
 /** Stable key for the per-stage collapse state; stageId survives reorders. */
 function stageKey(stage: EditorStage, index: number): string {
   return stage.stageId ?? `index:${index}`;
+}
+
+/** Three mutually exclusive route triggers, mirrored from the upstream editor. */
+function routeModeKind(stage: EditorStage): 'sequential' | 'independent' | 'wait-for' {
+  if (stage.waitFor?.length) return 'wait-for';
+  return stage.independent ? 'independent' : 'sequential';
+}
+
+function routeModeBadge(stage: EditorStage): string | null {
+  if (stage.waitFor?.length) return tp('Waits for {count} steps', { count: stage.waitFor.length });
+  return stage.independent ? t('Independent') : null;
 }
 
 /**
@@ -162,6 +174,8 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
   const [expandedStages, setExpandedStages] = useState<Set<string>>(() => new Set(
     workflow ? [] : initial.stages.map((stage, index) => stageKey(stage, index)),
   ));
+  const [addRouteMode, setAddRouteMode] = useState<'sequential' | 'independent' | 'wait-for'>('sequential');
+  const [addWaitFor, setAddWaitFor] = useState<number[]>([]);
   const [repositoryInput, setRepositoryInput] = useState(initial.repository);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -208,6 +222,29 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
       ...current,
       stages: current.stages.map((stage, index) => (index === stageIndex ? patch(stage) : stage)),
     }));
+  }
+
+  function updateRouteMode(stageIndex: number, kind: 'sequential' | 'independent' | 'wait-for') {
+    setDraft((current) => setStageRouteMode(
+      current,
+      stageIndex,
+      kind === 'wait-for'
+        ? { kind: 'wait-for', waitFor: [stageIndex - 1] }
+        : { kind },
+    ));
+  }
+
+  function toggleWaitFor(stageIndex: number, dependency: number) {
+    const currentStage = draft.stages[stageIndex];
+    const current = currentStage?.waitFor ?? [];
+    const next = current.includes(dependency)
+      ? current.filter((index) => index !== dependency)
+      : [...current, dependency];
+    if (!next.length) {
+      toast.error(t('Select at least one route to wait for.'));
+      return;
+    }
+    setDraft((currentDraft) => setStageRouteMode(currentDraft, stageIndex, { kind: 'wait-for', waitFor: next }));
   }
 
   const [aiForm, setAiForm] = useState({
@@ -601,6 +638,7 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
             >
               <span className="step-index">{index + 1}</span>
               <b>{stage.source} → {stage.target}</b>
+              {routeModeBadge(stage) ? <small className="editor-route-badge">{routeModeBadge(stage)}</small> : null}
               <span className="editor-stage-toggle">{t(expanded ? 'collapse' : 'expand')}</span>
             </button>
             {expanded ? (
@@ -627,6 +665,38 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
                   ariaLabel={t('target branch')}
                 />
               </label>
+            </div>
+            <div className="editor-route-mode">
+              <label>
+                {t('Route trigger condition')}
+                <select
+                  value={routeModeKind(stage)}
+                  onChange={(event) => updateRouteMode(index, event.target.value as 'sequential' | 'independent' | 'wait-for')}
+                >
+                  <option value="sequential">{t('Wait for the previous step to merge')}</option>
+                  <option value="independent">{t('Independent route, does not wait for the previous step')}</option>
+                  <option value="wait-for" disabled={index === 0}>{t('Wait for selected routes')}</option>
+                </select>
+              </label>
+              {routeModeKind(stage) === 'wait-for' ? (
+                <fieldset className="editor-route-dependencies">
+                  <legend>{t('Release convergence gate (optional)')}</legend>
+                  <small>{t('This PR can be created only after every selected route merges and its post-merge Actions pass.')}</small>
+                  <div>
+                    {draft.stages.slice(0, index).map((candidate, candidateIndex) => (
+                      <label key={candidate.stageId ?? candidateIndex}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(stage.waitFor?.includes(candidateIndex))}
+                          disabled={Boolean(stage.waitFor?.length === 1 && stage.waitFor?.includes(candidateIndex))}
+                          onChange={() => toggleWaitFor(index, candidateIndex)}
+                        />
+                        <span>{candidate.source} → {candidate.target}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
             </div>
             <div className="editor-automation">
               <label className="editor-toggle">
@@ -718,17 +788,63 @@ export default function FlowEditor({ workflow, initialDraft, state, inbox, onClo
           </article>
           );
         })}
-        <button
-          type="button"
-          className="drawer-btn"
-          onClick={() => {
-            setDraft((current) => addStage(current, 'feature', current.stages[current.stages.length - 1]?.target || 'main'));
-            // The upstream editor folds every step after adding a new one (#5).
-            setExpandedStages(new Set());
-          }}
-        >
-          {t('add step')}
-        </button>
+        <div className="editor-add-stage">
+          <label>
+            {t('Route trigger condition')}
+            <select
+              value={addRouteMode}
+              onChange={(event) => {
+                const mode = event.target.value as 'sequential' | 'independent' | 'wait-for';
+                setAddRouteMode(mode);
+                setAddWaitFor(mode === 'wait-for' ? [draft.stages.length - 1] : []);
+              }}
+            >
+              <option value="sequential">{t('Wait for the previous step to merge')}</option>
+              <option value="independent">{t('Independent route, does not wait for the previous step')}</option>
+              <option value="wait-for" disabled={draft.stages.length === 0}>{t('Wait for selected routes')}</option>
+            </select>
+          </label>
+          {addRouteMode === 'wait-for' ? (
+            <fieldset className="editor-route-dependencies">
+              <legend>{t('Release convergence gate (optional)')}</legend>
+              <small>{t('This PR can be created only after every selected route merges and its post-merge Actions pass.')}</small>
+              <div>
+                {draft.stages.map((stage, candidateIndex) => (
+                  <label key={stage.stageId ?? candidateIndex}>
+                    <input
+                      type="checkbox"
+                      checked={addWaitFor.includes(candidateIndex)}
+                      onChange={() => setAddWaitFor((current) => current.includes(candidateIndex)
+                        ? current.filter((index) => index !== candidateIndex)
+                        : [...current, candidateIndex])}
+                    />
+                    <span>{stage.source} → {stage.target}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          <button
+            type="button"
+            className="drawer-btn"
+            disabled={addRouteMode === 'wait-for' && !addWaitFor.length}
+            onClick={() => {
+              setDraft((current) => addStage(
+                current,
+                'feature',
+                current.stages[current.stages.length - 1]?.target || 'main',
+                addRouteMode === 'independent',
+                addRouteMode === 'wait-for' ? addWaitFor : [],
+              ));
+              setAddRouteMode('sequential');
+              setAddWaitFor([]);
+              // The upstream editor folds every step after adding a new one (#5).
+              setExpandedStages(new Set());
+            }}
+          >
+            {t('add step')}
+          </button>
+        </div>
       </section>
 
       <section className="editor-card">

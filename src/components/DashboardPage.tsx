@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; repo: RepoBrief } | null>(null);
   const lastFetchAll = useRef(Date.now());
+  const removeHint = t('Only removes it from this list. The local clone and GitHub remote stay untouched.');
 
   // 30s status refresh while the dashboard is visible.
   useEffect(() => {
@@ -158,7 +159,7 @@ export default function DashboardPage() {
   async function remove(path: string, name: string) {
     const ok = await confirm({
       title: t('Remove {name} from the list?').replace('{name}', name),
-      detail: t('Disk files stay untouched.'),
+      detail: removeHint,
       confirmLabel: t('Remove'),
       danger: true,
     });
@@ -231,7 +232,7 @@ export default function DashboardPage() {
     { id: 'terminal', label: t('Open in Terminal') },
     { id: 'editor', label: t('Open in VS Code') },
     { separator: true },
-    { id: 'remove', label: t('Remove from list'), danger: true },
+    { id: 'remove', label: t('Remove from list'), title: removeHint, danger: true },
   ];
 
   const onMenuSelect = (repo: RepoBrief, id: string) => {
@@ -425,6 +426,7 @@ export default function DashboardPage() {
                     type="button"
                     className="icon-btn dash-remove"
                     aria-label={`${t('Remove from list')}: ${r.name}`}
+                    title={removeHint}
                     onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
                   >
                     <IconTrash width={13} height={13} />
@@ -519,6 +521,7 @@ export default function DashboardPage() {
                   type="button"
                   className="icon-btn dash-remove"
                   aria-label={`${t('Remove from list')}: ${r.name}`}
+                  title={removeHint}
                   onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
                 >
                   <IconTrash width={13} height={13} />

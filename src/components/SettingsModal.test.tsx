@@ -133,6 +133,15 @@ describe('SettingsModal role gating', () => {
     expect(document.body.textContent).toContain('localStorage');
   });
 
+  it('offers the expanded accent palette', async () => {
+    await mount('admin');
+    const swatches = [...document.querySelectorAll<HTMLButtonElement>('.settings-accent')];
+    expect(swatches).toHaveLength(8);
+    expect(swatches.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Violet', 'Rose', 'Ocean', 'Forest', 'Amber', 'Teal', 'Crimson', 'Indigo',
+    ]);
+  });
+
   it('keeps repository tools out of the settings sidebar', async () => {
     await mount('admin');
     expect(headings()).not.toContain('Repository tools');

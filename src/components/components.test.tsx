@@ -298,6 +298,10 @@ describe('Toolbar', () => {
     const html = withApp(<Toolbar />, { activeRepo: '/tmp/example' });
     expect(html).toContain('aria-label="Settings"');
     expect(html).toContain('aria-label="More"');
+    // The reference sidebar only exists in the Git view.
+    expect(html).toContain('aria-label="Hide sidebar (⌘B)"');
+    expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' })).not.toContain('Hide sidebar');
+    expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'flows' })).not.toContain('Hide sidebar');
     // Repository tools and help surfaces live in the More menu / command palette.
     expect(html).not.toContain('Compare two references');
     expect(html).not.toContain('Repository options');

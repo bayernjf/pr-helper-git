@@ -15,6 +15,10 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
 
+### 2026-11-22 Flows UI parity（第二批）
+- 按旧版 `src/app/render/lane.ts`、`detail.ts`、`editor.ts`、`dialogs/steps.ts`、`create-pr.ts` 逐项对齐可见 UI：lane 顺序控件/运行摘要/折叠图标、内联 board preflight、详情与抽屉 Actions gate、抽屉 `drawer-status` 卡片、Flows 内 Create PR 对话框、source 分支删除提示。
+- 验证：`npm run lint`、`npm run typecheck:server`、`npm test`（1209/72）、`npm run build`、`npm run e2e`（162/162）通过；在 4790 dev 实例以真实 projection 验收看板、详情、抽屉与 `Actions 1/1 Actions passed`。
+
 | 任务 | 状态 |
 |---|---|
 | P0-1…P0-5（冻结/基线/导出/快照/推送） | ✅ 全部完成（2026-11-14，见台账 §12）|

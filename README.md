@@ -111,8 +111,11 @@ application never pushes it for you.
   remain) or Abort (`git revert --abort`).
 - Switch the graph's history scope between every branch (`--all`) and the
   current branch only, straight from the graph toolbar.
-- Ref sidebar with collapsible local branches, remote branches, tags and stash
-  groups; a right-click context menu exposes the full action set. A read-only
+- Ref sidebar with collapsible local branches, remote branches, worktrees, tags
+  and stash groups; a right-click context menu exposes the full action set. The
+  read-only `WORKTREES` group lists linked worktrees (path, branch or detached
+  HEAD, current marker and locked/prunable state), so parallel coding-task
+  worktrees are visible from the repository they belong to. A read-only
   Submodules group appears when the repository has submodules, showing git's
   four states (up to date, not initialized, checked-out commit differs,
   conflicted) with the pinned SHA and describe string.
@@ -427,9 +430,10 @@ it publicly. The one-time token in the URL is still the only credential.
 
 ### Deliberately out of scope
 
-Worktrees, adding or updating submodules (status is read-only), creating GPG
-signatures (verification is supported), and web push. The GitHub App Device
-Flow connection is optional and identity-only: local token auth stays the
+Creating, removing, locking or pruning worktrees (the Git sidebar lists existing
+linked worktrees read-only), adding or updating submodules (status is read-only),
+creating GPG signatures (verification is supported), and web push. The GitHub App
+Device Flow connection is optional and identity-only: local token auth stays the
 boundary and GitHub writes keep using the PAT/automation credentials.
 Conflicts are handled per file from the in-app panel (Use current / Use
 incoming / Mark resolved) plus the three-way merge editor for

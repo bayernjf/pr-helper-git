@@ -52,7 +52,11 @@ wins; otherwise this file is the default contract.
     actions; production rollback always escalates to the operator (D-021);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
-  - **Worktrees, submodule writes, GPG signing**: still prohibited outright.
+  - **Worktrees**: read-only visibility is supported in the Git sidebar
+    (`WORKTREES` group fed by `git worktree list --porcelain`), so linked
+    task worktrees are visible. Creating, removing, locking or pruning
+    worktrees is not implemented yet. Submodule writes and GPG signing remain
+    prohibited.
   - **Deployment gates for managed repositories are in scope** (D-002-v2):
     pr-helper-git itself is not deployed to Cloudflare/Vercel and must not
     require their APIs; but it still tracks the managed repository's GitHub
@@ -220,7 +224,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of 0.3.18 (2026-11-21):
 
-- unit/route tests: **1199 tests / 70 files** (includes the migrated pr-helper
+- unit/route tests: **1210 tests / 72 files** (includes the migrated pr-helper
   engine test nets: 434 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor

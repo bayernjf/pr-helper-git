@@ -117,22 +117,43 @@ export type RunRow = {
   stageIndex?: number | null;
   stageId?: string | null;
   source?: string | null;
+  target?: string | null;
   state?: string;
   conclusion?: string | null;
   pullNumber?: number | null;
   version?: number | null;
-  startedAt?: string;
+  startedAt?: string | null;
   completedAt?: string | null;
 };
 
 export type TimelineRow = {
   workflowId: string;
   stageIndex: number;
+  stageId?: string | null;
   source?: string | null;
+  target?: string | null;
   kind?: string;
   message?: string;
   occurredAt?: string;
+  pullNumber?: number | null;
+  runId?: number | string | null;
 };
+
+/** Icons from the upstream timeline renderer, kept identical for scanability. */
+export function timelineEntryIcon(kind?: string | null): string {
+  if (!kind) return '•';
+  if (kind.startsWith('run-')) return '🚀';
+  if (kind === 'pull-merged') return '✅';
+  if (kind === 'pull-detected') return '📝';
+  if (kind === 'checks-success') return '✓';
+  if (kind === 'checks-failure') return '✗';
+  if (kind === 'deployment-success') return '🟢';
+  if (kind === 'deployment-failure') return '🔴';
+  if (kind === 'deployment-rollback') return '↩️';
+  if (kind === 'actions-rerun') return '🔄';
+  if (kind === 'pull-cleared') return '🔁';
+  return '•';
+}
 
 export type BoardState = {
   workflows: readonly Workflow[];
@@ -403,6 +424,28 @@ export function stageStaleness(state: BoardState, workflowId: string, stageIndex
 /** Configuration warnings for one flow (lane-config-warning source). */
 export function configurationWarningsFor(state: BoardState, workflowId: string): ConfigurationWarningRow[] {
   return (state.configurationWarnings ?? []).filter((w) => w.workflowId === workflowId);
+}
+
+/** Human-readable warning copy for the lane banner (old laneConfigurationWarningText). */
+export function configurationWarningText(warning: ConfigurationWarningRow): string {
+  switch (warning.code) {
+    case 'no-deployments':
+      return t('No deployment gates — the deployment gate is not holding this stage');
+    case 'actions-unavailable':
+      return t('Could not read GitHub Actions workflows — existing gates are kept as configured');
+    case 'workflow-not-found':
+      return tp('Workflow not found in this repository: {value}', { value: warning.value ?? '' });
+    case 'environment-missing':
+      return t('GitHub Environment is empty — leave it blank only when the repository has none');
+    case 'environment-not-found':
+      return tp('GitHub Environment not found in this repository: {value}', { value: warning.value ?? '' });
+    case 'health-path-invalid':
+      return t('Health check path must start with /');
+    case 'rollback-workflow-not-found':
+      return tp('Rollback workflow not found in this repository: {value}', { value: warning.value ?? '' });
+    default:
+      return warning.code;
+  }
 }
 
 /** Full lane models for rendering, in visible order. */
