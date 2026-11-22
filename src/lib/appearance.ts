@@ -4,9 +4,9 @@
 import { getPref } from './prefs';
 
 export type ThemeMode = 'dark' | 'light' | 'auto';
-export type Accent = 'violet' | 'rose' | 'ocean' | 'forest' | 'amber';
+export type Accent = 'violet' | 'rose' | 'ocean' | 'forest' | 'amber' | 'teal' | 'crimson' | 'indigo';
 
-export const ACCENTS: Accent[] = ['violet', 'rose', 'ocean', 'forest', 'amber'];
+export const ACCENTS: Accent[] = ['violet', 'rose', 'ocean', 'forest', 'amber', 'teal', 'crimson', 'indigo'];
 
 export function getThemeMode(): ThemeMode {
   const value = getPref<ThemeMode>('theme', 'dark');

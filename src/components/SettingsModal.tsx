@@ -23,6 +23,8 @@ type SettingsPane = 'general' | 'github' | 'application' | 'advanced';
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { pat, setPat, hasServerPat, setServerPat, clearServerPat, theme, accent, setTheme, setAccent } = usePreferences();
   const toast = useAppToast();
+  const resolvedLight = theme === 'light'
+    || (theme === 'auto' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: light)').matches);
   const [value, setValue] = useState(pat);
   const [serverPatValue, setServerPatValue] = useState('');
   const [storage, setStorage] = useState<StorageInfo | null>(null);
@@ -445,8 +447,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                           <span
                             className="settings-accent-dot"
                             style={{
-                              background: theme === 'light' ? ACCENT_SWATCH[name].light : ACCENT_SWATCH[name].dark,
-                              color: name === 'amber' ? '#1a1c2c' : '#ffffff',
+                              background: resolvedLight ? ACCENT_SWATCH[name].light : ACCENT_SWATCH[name].dark,
+                              color: resolvedLight ? ACCENT_SWATCH[name].onLight : ACCENT_SWATCH[name].onDark,
                             }}
                           >
                             {accent === name && <IconCheck width={12} height={12} />}

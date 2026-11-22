@@ -224,7 +224,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of 0.3.18 (2026-11-21):
 
-- unit/route tests: **1209 tests / 72 files** (includes the migrated pr-helper
+- unit/route tests: **1210 tests / 72 files** (includes the migrated pr-helper
   engine test nets: 434 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor

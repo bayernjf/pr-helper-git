@@ -9,4 +9,7 @@ export const ACCENT_SWATCH: Record<Accent, { dark: string; light: string; onDark
   forest: { dark: '#a6e3a1', light: '#40a02b', onDark: '#1a1c2c', onLight: '#1a1c2c' },
   amber: { dark: '#fab387', light: '#df8e1d', onDark: '#1a1c2c', onLight: '#1a1c2c' },
   rose: { dark: '#f5c2e7', light: '#ea76cb', onDark: '#1a1c2c', onLight: '#1a1c2c' },
+  teal: { dark: '#94e2d5', light: '#179299', onDark: '#1a1c2c', onLight: '#ffffff' },
+  crimson: { dark: '#f38ba8', light: '#d20f39', onDark: '#1a1c2c', onLight: '#ffffff' },
+  indigo: { dark: '#b4befe', light: '#7287fd', onDark: '#1a1c2c', onLight: '#ffffff' },
 };
