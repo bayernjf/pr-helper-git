@@ -15,6 +15,7 @@ import {
   getStashShow,
   getSubmodules,
   getTagShow,
+  getWorktrees,
   pushBranch,
   pushTag,
   renameBranch,
@@ -24,6 +25,7 @@ import {
   type StashEntry,
   type SubmoduleEntry,
   type TagDetail,
+  type WorktreeEntry,
 } from '../api';
 import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
@@ -47,6 +49,8 @@ import {
   IconDownload,
   IconEdit,
   IconEye,
+  IconFolder,
+  IconHome,
   IconMerge,
   IconPin,
   IconPlus,
@@ -105,11 +109,14 @@ export default function RefSidebar() {
   const [resolveOpen, setResolveOpen] = useState(false);
   const [filter, setFilter] = useState('');
   const [submodules, setSubmodules] = useState<SubmoduleEntry[]>([]);
-  const defaultGroups = { local: true, remote: true, tag: true, stash: true, submodules: true };
+  const [worktrees, setWorktrees] = useState<WorktreeEntry[]>([]);
+  const defaultGroups = { local: true, remote: true, tag: true, stash: true, submodules: true, worktrees: true };
+  const readGroups = (repo: string) => ({
+    ...defaultGroups,
+    ...(getPref<Partial<typeof defaultGroups>>(repoPref(repo, 'refGroups'), {})),
+  });
   const [openGroups, setOpenGroups] = useState(() =>
-    activeRepo
-      ? getPref(repoPref(activeRepo, 'refGroups'), defaultGroups)
-      : defaultGroups);
+    activeRepo ? readGroups(activeRepo) : defaultGroups);
 
   // Restore the collapsed/expanded state when switching repositories.
   // Submodule states are read-only: `git submodule status` never touches the
@@ -124,9 +131,21 @@ export default function RefSidebar() {
     return () => { cancelled = true; };
   }, [activeRepo]);
 
+  // Worktrees are read-only here: `git worktree list --porcelain` gives the
+  // paths and branches already checked out without touching either tree.
+  useEffect(() => {
+    let cancelled = false;
+    setWorktrees([]);
+    if (!activeRepo) return;
+    getWorktrees(activeRepo)
+      .then((res) => { if (!cancelled) setWorktrees(res.worktrees); })
+      .catch(() => { if (!cancelled) setWorktrees([]); });
+    return () => { cancelled = true; };
+  }, [activeRepo]);
+
   useEffect(() => {
     if (!activeRepo) return;
-    setOpenGroups(getPref(repoPref(activeRepo, 'refGroups'), defaultGroups));
+    setOpenGroups(readGroups(activeRepo));
   }, [activeRepo]);
 
   type BranchSort = 'default' | 'name' | 'recent';
@@ -172,6 +191,50 @@ export default function RefSidebar() {
     const term = filter.trim().toLowerCase();
     return term ? stashList.filter((s) => s.subject.toLowerCase().includes(term)) : stashList;
   }, [stashList, filter]);
+
+  const visibleWorktrees = useMemo(() => {
+    const term = filter.trim().toLowerCase();
+    const linked = worktrees.filter((w) => !w.isMain);
+    return term
+      ? linked.filter((w) => `${w.branch || ''} ${w.path}`.toLowerCase().includes(term))
+      : linked;
+  }, [worktrees, filter]);
+
+  function worktreeFolder(w: WorktreeEntry): string {
+    const segments = w.path.split(/[\\/]/).filter(Boolean);
+    const base = segments.pop() || w.path;
+    const parent = segments.pop();
+    if (base === 'work' && parent && /^[0-9a-f]{8}-/i.test(parent)) {
+      return `${parent.slice(0, 8)}/work`;
+    }
+    return base;
+  }
+
+  function worktreeName(w: WorktreeEntry): string {
+    return w.branch || worktreeFolder(w);
+  }
+
+  function worktreeDetail(w: WorktreeEntry): string {
+    return w.branch ? worktreeFolder(w) : '';
+  }
+
+  function worktreeBadge(w: WorktreeEntry): string {
+    const parts = [worktreeDetail(w)];
+    if (w.locked) parts.push(t('locked'));
+    if (w.prunable) parts.push(t('prunable'));
+    return parts.filter(Boolean).join(' · ');
+  }
+
+  function copyWorktreePath(w: WorktreeEntry) {
+    if (!navigator.clipboard?.writeText) {
+      toast(t('Unable to copy to clipboard'), 'error');
+      return;
+    }
+    void navigator.clipboard.writeText(w.path).then(
+      () => toast(t('Worktree path copied'), 'success'),
+      () => toast(t('Unable to copy to clipboard'), 'error'),
+    );
+  }
 
   // Tip-commit date per branch, used for the "recently committed" sort.
   const tipDate = useMemo(() => {
@@ -436,6 +499,32 @@ export default function RefSidebar() {
           name={r.shortName}
           onOpen={() => runAction(checkoutRef(activeRepo!, r.shortName), `Checked out ${r.shortName}`)}
           onMenu={(e) => openMenu(e, 'remote', r.shortName)}
+        />
+      ))}
+
+      {visibleWorktrees.length > 0 && (
+        <GroupHead
+          label={t("Worktrees")}
+          count={visibleWorktrees.length}
+          open={openGroups.worktrees !== false}
+          onToggle={() => toggle('worktrees')}
+        />
+      )}
+      {visibleWorktrees.length > 0 && openGroups.worktrees !== false && visibleWorktrees.map((w) => (
+        <Row
+          key={w.path}
+          icon={w.isMain
+            ? <IconHome width={15} height={15} />
+            : <IconFolder width={15} height={15} />}
+          name={worktreeName(w)}
+          current={w.current}
+          title={w.path}
+          badge={worktreeBadge(w) ? (
+            <span className="worktree-badge">
+              {worktreeBadge(w)}
+            </span>
+          ) : undefined}
+          onOpen={() => copyWorktreePath(w)}
         />
       ))}
 

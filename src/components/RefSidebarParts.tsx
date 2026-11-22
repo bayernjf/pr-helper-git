@@ -38,6 +38,7 @@ export function Row({
   name,
   current,
   badge,
+  title,
   onOpen,
   onMenu,
 }: {
@@ -45,8 +46,9 @@ export function Row({
   name: string;
   current?: boolean;
   badge?: ReactNode;
+  title?: string;
   onOpen: () => void;
-  onMenu: (e: MouseEvent) => void;
+  onMenu?: (e: MouseEvent) => void;
 }) {
   return (
     <div
@@ -54,6 +56,7 @@ export function Row({
       role="button"
       tabIndex={0}
       aria-current={current || undefined}
+      title={title}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -65,17 +68,19 @@ export function Row({
       <span className="ref-icon">{icon}</span>
       <span className="ref-name">{name}</span>
       {badge}
-      <button
-        type="button"
-        className="row-more"
-        aria-label={`Actions for ${name}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onMenu(e);
-        }}
-      >
-        <IconMore width={15} height={15} />
-      </button>
+      {onMenu ? (
+        <button
+          type="button"
+          className="row-more"
+          aria-label={`Actions for ${name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenu(e);
+          }}
+        >
+          <IconMore width={15} height={15} />
+        </button>
+      ) : null}
     </div>
   );
 }

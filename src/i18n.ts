@@ -142,6 +142,11 @@ export const ZH: Record<string, string> = {
   // ----- refs / details / repos / audit -----
   'Local branches': '本地分支',
   'Remote branches': '远程分支',
+  'Worktrees': '工作树',
+  'detached': '游离 HEAD',
+  'locked': '已锁定',
+  'prunable': '可清理',
+  'Worktree path copied': '工作树路径已复制',
   'Tags': '标签',
   'Changed files ({count})': '改动文件（{count}）',
   'With changes': '仅显示有改动',

@@ -206,6 +206,15 @@ export async function handleGitRead({ method, pathname, query, body, identity },
     return ok({ base, commits, ...guardrails });
   }
 
+  if (pathname === '/api/worktrees' && method === 'GET') {
+    try {
+      const raw = await git(['worktree', 'list', '--porcelain'], repo);
+      return ok({ worktrees: parseWorktreeList(raw, repo) });
+    } catch (err) {
+      return gitFail(err, 'git worktree list failed');
+    }
+  }
+
   if (pathname === '/api/refs' && method === 'GET') {
     try {
       const raw = await git(
@@ -673,4 +682,48 @@ export async function handleGitRead({ method, pathname, query, body, identity },
   }
 
   return null;
+}
+
+/**
+ * Parse `git worktree list --porcelain` into display rows. The first block is
+ * the main worktree by definition; `current` marks the repository path this
+ * request was made from.
+ */
+export function parseWorktreeList(raw, repo) {
+  const blocks = String(raw || '').replace(/\r\n/g, '\n').trim().split(/\n\n+/).filter(Boolean);
+  const currentPath = path.resolve(repo);
+  return blocks.map((block, index) => {
+    const entry = {
+      path: '',
+      head: '',
+      branch: null,
+      bare: false,
+      detached: false,
+      locked: false,
+      lockReason: null,
+      prunable: false,
+      pruneReason: null,
+      isMain: index === 0,
+      current: false,
+    };
+    for (const line of block.split('\n')) {
+      if (line.startsWith('worktree ')) entry.path = line.slice('worktree '.length);
+      else if (line.startsWith('HEAD ')) entry.head = line.slice('HEAD '.length);
+      else if (line.startsWith('branch ')) entry.branch = line.slice('branch '.length).replace(/^refs\/heads\//, '');
+      else if (line === 'bare') entry.bare = true;
+      else if (line === 'detached') entry.detached = true;
+      else if (line === 'locked' || line.startsWith('locked ')) {
+        entry.locked = true;
+        entry.lockReason = line.startsWith('locked ') ? line.slice('locked '.length) : null;
+      } else if (line === 'prunable' || line.startsWith('prunable ')) {
+        entry.prunable = true;
+        entry.pruneReason = line.startsWith('prunable ') ? line.slice('prunable '.length) : null;
+      }
+    }
+    if (entry.path) {
+      entry.path = path.resolve(entry.path);
+      entry.current = entry.path === currentPath;
+    }
+    return entry;
+  }).filter((entry) => entry.path);
 }

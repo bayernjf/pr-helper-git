@@ -65,6 +65,9 @@ export const IconTag = (p: SVGProps<SVGSVGElement>) => (
 export const IconFolder = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z" /></Svg>
 );
+export const IconHome = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M10 20v-6h4v6" /></Svg>
+);
 export const IconFile = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /></Svg>
 );

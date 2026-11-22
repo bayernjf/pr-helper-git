@@ -471,6 +471,17 @@ div.ref-group-head { gap: 8px; }
   font-family: var(--mono);
   font-size: var(--fs-body);
 }
+.ref-row .worktree-badge {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-meta);
+}
 .ref-row .row-more {
   margin-left: auto;
   flex: 0 0 auto;

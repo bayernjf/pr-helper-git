@@ -19,7 +19,7 @@ function isModalOpen(): boolean {
 // Global keyboard shortcuts. Plain-key shortcuts are ignored while a form
 // field is focused so they never interfere with typing.
 export function useShortcuts() {
-  const { setView, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
+  const { view, setView, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
   const { refresh, activeRepo } = useRepoData();
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function useShortcuts() {
         setView('pr');
         return;
       }
-      if (mod && key === 'b' && !modalOpen) {
+      if (mod && key === 'b' && !modalOpen && view === 'git') {
         event.preventDefault();
         setSidebarCollapsed(!sidebarCollapsed);
         return;
@@ -62,5 +62,5 @@ export function useShortcuts() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [setView, sidebarCollapsed, setSidebarCollapsed, refresh, activeRepo]);
+  }, [view, setView, sidebarCollapsed, setSidebarCollapsed, refresh, activeRepo]);
 }
