@@ -2582,6 +2582,12 @@ function reconciliationRunInterrupted(run, now) {
   return run.state === "running" && reconciliationRunIsAbandoned(run.startedAt, now);
 }
 var REALTIME_RECONCILE_BUDGET_MS = 8e3;
+// A local push is fire-and-forget: nobody is blocked on the response, so the
+// sweep can spend longer than an interactive manual click before yielding.
+// GitHub compare/fetch calls for one repository can take ~8s under load; the
+// previous shared 8s budget marked a real push-triggered run `degraded` even
+// though it had already queued the create-PR action.
+var LOCAL_PUSH_RECONCILE_BUDGET_MS = 20e3;
 var INBOX_REFRESH_RECONCILE_BUDGET_MS = 6e3;
 var INBOX_REFRESH_RECONCILE_CEILING_GAP_MS = 5e3;
 var WEBHOOK_RECONCILE_BUDGET_MS = 25e3;
@@ -2590,9 +2596,10 @@ function cronReconcileBudgetMs(environment) {
   const configured = Number(environment.CRON_RECONCILE_BUDGET_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : CRON_RECONCILE_BUDGET_MS;
 }
-function realtimeReconcileBudgetMs(environment, trigger) {
+function realtimeReconcileBudgetMs(environment, trigger, eventName) {
   const configured = Number(environment.REALTIME_RECONCILE_BUDGET_MS);
   if (Number.isFinite(configured) && configured > 0) return configured;
+  if (eventName === "local-push") return LOCAL_PUSH_RECONCILE_BUDGET_MS;
   if (trigger === "webhook") return WEBHOOK_RECONCILE_BUDGET_MS;
   if (trigger === "inbox_refresh") return INBOX_REFRESH_RECONCILE_BUDGET_MS;
   return REALTIME_RECONCILE_BUDGET_MS;
@@ -2688,7 +2695,7 @@ async function reconcileWorkflowStages(environment, filter = {}, trigger = "cron
   return { reconciled: reconciledTotal, outcome: deferred ? "deferred" : "completed" };
 }
 async function reconcileRealtime(environment, filter, trigger) {
-  const budgetMs = realtimeReconcileBudgetMs(environment, trigger);
+  const budgetMs = realtimeReconcileBudgetMs(environment, trigger, filter.eventName);
   const startedRunIds = [];
   const sweep = reconcileWorkflowStages(environment, filter, trigger, { deadlineMs: budgetMs, onRunStarted: (runId) => startedRunIds.push(runId) }).catch(() => ({ outcome: "failed", reconciled: 0 }));
   const raced = await withStageDeadline(sweep, realtimeReconcileCeilingMs(budgetMs, trigger));
@@ -3383,6 +3390,7 @@ export {
   DEFAULT_RECOVERY_POLICY,
   INBOX_REFRESH_RECONCILE_BUDGET_MS,
   INBOX_REFRESH_RECONCILE_CEILING_GAP_MS,
+  LOCAL_PUSH_RECONCILE_BUDGET_MS,
   REALTIME_CATCH_UP_LIMIT,
   REALTIME_RECONCILE_BUDGET_MS,
   RECONCILE_WORKFLOW_BATCH_SIZE,
