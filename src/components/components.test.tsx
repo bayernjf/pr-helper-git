@@ -30,6 +30,12 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
     activeRepo: null,
     activeBrief: null,
     view: 'git',
+    sidebarCollapsed: false,
+    setSidebarCollapsed: () => {},
+    detailCollapsed: false,
+    setDetailCollapsed: () => {},
+    workPanelCollapsed: false,
+    setWorkPanelCollapsed: () => {},
     theme: 'dark',
     accent: 'blue',
     pat: '',
@@ -80,6 +86,12 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
 function withPrefs(node: React.ReactNode, overrides: Record<string, unknown> = {}): string {
   const prefs = {
     view: 'git',
+    sidebarCollapsed: false,
+    setSidebarCollapsed: () => {},
+    detailCollapsed: false,
+    setDetailCollapsed: () => {},
+    workPanelCollapsed: false,
+    setWorkPanelCollapsed: () => {},
     theme: 'dark',
     accent: 'blue',
     pat: '',
@@ -300,8 +312,18 @@ describe('Toolbar', () => {
     expect(html).toContain('aria-label="More"');
     // The reference sidebar only exists in the Git view.
     expect(html).toContain('aria-label="Hide sidebar (⌘B)"');
+    expect(html).toContain('aria-label="Hide working tree"');
+    expect(html).toContain('aria-label="Hide commit detail"');
+    const collapsed = withApp(<Toolbar />, {
+      activeRepo: '/tmp/example',
+      workPanelCollapsed: true,
+      detailCollapsed: true,
+    });
+    expect(collapsed).toContain('aria-label="Show working tree"');
+    expect(collapsed).toContain('aria-label="Show commit detail"');
     expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' })).not.toContain('Hide sidebar');
     expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'flows' })).not.toContain('Hide sidebar');
+    expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' })).not.toContain('Hide working tree');
     // Repository tools and help surfaces live in the More menu / command palette.
     expect(html).not.toContain('Compare two references');
     expect(html).not.toContain('Repository options');

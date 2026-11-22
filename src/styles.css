@@ -5612,6 +5612,9 @@ h1, h2, h3, h4 {
 }
 .toolbar > * { min-width: 0; }
 .toolbar-left { display: flex; align-items: center; gap: 8px; justify-self: start; }
+.layout-toggles { display: inline-flex; align-items: center; gap: 2px; }
+.layout-toggles .icon-btn { width: 28px; height: 28px; }
+.layout-toggles .icon-btn[aria-pressed="true"] { background: var(--hover); color: var(--text-dim); }
 .toolbar-center { display: flex; align-items: center; justify-content: center; justify-self: center; }
 .toolbar-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .toolbar-actions { display: inline-flex; align-items: center; gap: 4px; }

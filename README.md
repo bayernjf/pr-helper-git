@@ -326,13 +326,16 @@ application never pushes it for you.
   `aria-label`s, and a keyboard-shortcut reference modal (toolbar button or
   the `?` key) lists every shortcut grouped by context.
 - Persistent UI preferences in `localStorage` (one JSON object): the
-  Git/PR view, collapsed sidebar groups, the work-panel height, and the
-  branch pinning and sort order are all restored per repository after a
-  reload, with safe fallbacks if storage is unavailable.
-- Resizable three-pane layout: the sidebar and detail panels expose
-  draggable edge separators (pointer or keyboard arrows, Shift for a larger
-  step) that clamp to a minimum/maximum and persist their widths, with the
-  ARIA `separator` role. The stylesheet also honors
+  Git/PR view, collapsed sidebar groups, the collapsed work panel and commit
+  detail, the work-panel height, and the branch pinning and sort order are all
+  restored per repository after a reload, with safe fallbacks if storage is
+  unavailable.
+- Resizable three-pane layout: the sidebar, work panel and detail panel each
+  have an independent toolbar toggle, so any combination of the three can be
+  folded away while the remaining panes reclaim the space. The sidebar and
+  detail panels expose draggable edge separators (pointer or keyboard arrows,
+  Shift for a larger step) that clamp to a minimum/maximum and persist their
+  widths, with the ARIA `separator` role. The stylesheet also honors
   `prefers-reduced-motion`, collapsing every animation and transition to a
   near-instant change instead of disabling the underlying state updates.
 - Cross-repository search from a global `git grep` modal that runs the

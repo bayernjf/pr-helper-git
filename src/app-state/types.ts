@@ -19,6 +19,10 @@ export interface Preferences {
   view: View;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  detailCollapsed: boolean;
+  setDetailCollapsed: (collapsed: boolean) => void;
+  workPanelCollapsed: boolean;
+  setWorkPanelCollapsed: (collapsed: boolean) => void;
   theme: Theme;
   accent: Accent;
   pat: string;

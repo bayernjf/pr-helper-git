@@ -15,6 +15,8 @@ export const PreferencesContext = createContext<Preferences | null>(null);
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [view, setViewState] = useState<View>(() => getPref<View>('view', 'git'));
   const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => getPref<boolean>('sidebarCollapsed', false));
+  const [detailCollapsed, setDetailCollapsedState] = useState<boolean>(() => getPref<boolean>('detailCollapsed', false));
+  const [workPanelCollapsed, setWorkPanelCollapsedState] = useState<boolean>(() => getPref<boolean>('workPanelCollapsed', false));
   const [theme, setTheme] = useState<Theme>(() => getThemeMode());
   const [accent, setAccentState] = useState<Accent>(() => getAccent());
   const [pat, setPatState] = useState<string>(() => localStorage.getItem(PAT_KEY) || '');
@@ -50,6 +52,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setSidebarCollapsedState(collapsed);
     setPref('sidebarCollapsed', collapsed);
   }, []);
+  const setDetailCollapsed = useCallback((collapsed: boolean) => {
+    setDetailCollapsedState(collapsed);
+    setPref('detailCollapsed', collapsed);
+  }, []);
+  const setWorkPanelCollapsed = useCallback((collapsed: boolean) => {
+    setWorkPanelCollapsedState(collapsed);
+    setPref('workPanelCollapsed', collapsed);
+  }, []);
 
   const setView = useCallback((next: View) => {
     setViewState(next);
@@ -79,6 +89,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     view,
     sidebarCollapsed,
     setSidebarCollapsed,
+    detailCollapsed,
+    setDetailCollapsed,
+    workPanelCollapsed,
+    setWorkPanelCollapsed,
     theme,
     accent,
     pat,
@@ -92,7 +106,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     clearServerPat,
     refreshServerPat,
   }), [
-    view, sidebarCollapsed, setSidebarCollapsed, theme, accent, pat, hasServerPat,
+    view, sidebarCollapsed, setSidebarCollapsed, detailCollapsed, setDetailCollapsed,
+    workPanelCollapsed, setWorkPanelCollapsed, theme, accent, pat, hasServerPat,
     setView, setTheme, setAccent, toggleTheme,
     setPat, setServerPat, clearServerPat, refreshServerPat,
   ]);

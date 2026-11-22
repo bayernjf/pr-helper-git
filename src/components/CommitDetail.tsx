@@ -1,7 +1,7 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
 import { getCommitDiff, getCommitFiles, getCommitInfo, getCommitSignature, type CommitFile, type CommitSignature } from '../api';
-import { useRepoData } from '../app-state/hooks';
+import { usePreferences, useRepoData } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { useEscape } from '../hooks/use-escape';
 import { useResizable } from '../hooks/use-resizable';
@@ -37,6 +37,7 @@ function statusColor(status: string): string {
 
 export default function CommitDetail() {
   const { commits, selectedHash, selectCommit, activeRepo } = useRepoData();
+  const { detailCollapsed } = usePreferences();
   const toast = useAppToast();
   // Whole-history search can select a commit outside the loaded log window;
   // fall back to an on-demand lookup so the detail pane is not blank.
@@ -136,9 +137,9 @@ export default function CommitDetail() {
     void openPatch(patchFileRef.current, !ignoreWs);
   }
 
-  if (!commit) {
-    // With no commit selected the graph owns the full width. A permanent
-    // empty inspector column only wasted space and flattened the layout.
+  if (!commit || detailCollapsed) {
+    // With no commit selected the graph owns the full width. The toolbar
+    // toggle can also fold this inspector away while keeping the selection.
     return null;
   }
 

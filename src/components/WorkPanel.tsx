@@ -14,7 +14,7 @@ import {
   stageAll,
   stageFile,
 } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
@@ -51,6 +51,7 @@ function countLine(message: string): string {
 
 export default function WorkPanel() {
   const { activeRepo, status, commits } = useRepoData();
+  const { workPanelCollapsed } = usePreferences();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const confirm = useConfirm();
@@ -326,6 +327,8 @@ export default function WorkPanel() {
 
   const canSubmit = !!message.trim()
     && (amend || groups.staged.length > 0 || allowEmpty);
+
+  if (workPanelCollapsed) return null;
 
   return (
     <section className="work-panel" style={{ height: panelHeight }}>
