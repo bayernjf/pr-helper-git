@@ -15,6 +15,15 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–4 未批准，P5-1 判定证据未补齐）**
 
+### 2026-11-23 P1 收口与 app-state 切片
+
+- **危险操作影响范围/恢复路径**（`9b96f02`）：统一确认弹窗接受 `impact` / `recovery`，覆盖强制推送、清理未跟踪文件、硬重置、删除流程；明确远端 ref、未跟踪文件和工作区改动的恢复边界，不提供假装可 undo 的按钮。
+- **Linked worktree 写操作**（`879df8d`）：新增 `routes-git-worktrees.mjs` 与 `WorktreeModal`；支持创建（新分支/已有分支、绝对路径且在所有已登记工作树之外）、移除（保护主/当前/锁定条目，脏树需二次确认）、锁定/解锁、prune 失效元数据。侧栏 Worktrees 分组常显管理入口。
+- **app-state 仓库切片**（`181dafd`）：仓库数据拆为 registry / active repo / active brief / status / refs / history 六个 context，38 个生产消费者迁到精确 hooks；`selectedHash`、日志过滤和加载更多归入 history。切片 hook 不再订阅聚合 context，聚合 `useRepoData` 仅作测试注入与兼容回退。隔离测试扩到 6 例，验证 `selectCommit` / `setLogFilters` 只触发 history 探针。
+- **Phase 5 状态收口**（`f255d35`）：如实记录 P5-2 动作 1 已在无事前审批下发生于 2026-11-22 01:33 CST；owner 2026-11-23 选择承认现状并继续，但明确动作 2–4 仍需逐项批准。P5-1 判定证据仍未补齐，不把事后确认写成事前审批。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1228 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；无头 Chrome 复核 Git 列表、提交选择和 worktree 管理模态。
+- **桌面**：`npm run desktop`、`desktop:smoke` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `f255d35`，旧包备份为 `PR Helper Git 0.3.20-local-2569c12.app`。
+
 ### 2026-11-22 五模块 Apple 风格视觉体系（未发布）
 
 - **范围**：Dashboard、Git、Pull Requests、CI Health、Flows 五个 Web 模块。Swift 薄壳未重写 UI，只同步窗口底色；业务逻辑、路由、测试基线不变。
