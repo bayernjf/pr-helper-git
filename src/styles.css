@@ -1150,17 +1150,19 @@ pre.diff {
 /* ---------- Commit form ---------- */
 .commit-form {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: 12px;
   padding: 10px 12px;
   border-top: 1px solid var(--border);
   background: var(--panel);
 }
 .commit-form textarea {
   flex: 1 1 auto;
+  width: 100%;
   resize: none;
-  height: 38px;
+  height: 62px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1170,7 +1172,18 @@ pre.diff {
   font-size: var(--fs-body);
 }
 .commit-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.commit-form .form-side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.commit-form .form-side {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  align-items: center;
+  justify-content: end;
+  gap: 6px 12px;
+}
+.commit-form .form-side > .btn-primary {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-width: 116px;
+}
 .amend-toggle {
   display: inline-flex;
   align-items: center;
@@ -4385,12 +4398,12 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 
 
 /* ---------- commit form extras ---------- */
-.commit-form-row { display: flex; flex-direction: column; gap: 2px; }
+.commit-form-row { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .commit-count { align-self: flex-end; font-family: var(--mono); font-size: var(--fs-meta); color: var(--faint); }
 .commit-history {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  bottom: calc(100% + 6px);
+  right: 0;
   z-index: var(--z-tip-top);
   min-width: 260px;
   max-height: 240px;
