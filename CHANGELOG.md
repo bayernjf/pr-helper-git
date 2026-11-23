@@ -9,12 +9,14 @@
 - **Linked worktree 管理**：Git 侧栏 Worktrees 分组新增「管理」入口，可创建关联工作树（新分支或已有分支）、锁定/解锁、移除与清理失效元数据。创建要求绝对路径且位于所有已登记工作树之外；移除前展示影响范围与恢复路径，脏工作树需二次确认强制移除；主工作树、当前工作树和已锁定工作树受保护；目录已丢失的条目只能走 prune，不删除任何文件。
 - **Git 三面板独立收起**：工具栏新增左侧边栏、底部工作区、右侧提交详情三个布局开关；底部与右侧状态分别持久化为 `workPanelCollapsed` / `detailCollapsed`，刷新和重启后保持。收起后提交图自动回收空间，选中提交、暂存、diff 与提交表单逻辑不变；左侧继续沿用 `⌘B` 与 `sidebarCollapsed`。
 - **危险操作影响范围与恢复路径**：确认弹窗新增 `Impact` / `Recovery path` 两段，先说明动作会改变什么，再给出可行的恢复方式。覆盖强制推送、清理未跟踪文件、硬重置和删除流程；明确远端 ref 移动、未跟踪文件/工作区改动不可由 Git 恢复，以及 reflog、其他克隆、文件系统备份、数据库备份等恢复边界。
+- **Git 操作按模块收口**：Fetch / Pull / Push / Stash 只在 Git 页的工具栏出现，Dashboard、Pull Requests、CI Health、Flows 不再显示这组仓库写操作；Dashboard 卡片与列表行新增 Push 快捷按钮和右键菜单入口，继续支持无 upstream 的 `push -u origin <branch>`。
 - **五模块 Apple 风格视觉体系**：Dashboard、Git、Pull Requests、CI Health、Flows 统一改用 Apple 系统灰阶、SF 字体栈、hairline 分隔、系统蓝强调色与更克制的阴影。工具栏重排为左侧仓库/分支、中部五页 segmented 导航、右侧同步动作；默认强调色从 violet 切换为系统蓝，色板收敛为 blue / rose / forest / amber / teal / crimson / indigo。
 - **Git 与 PR 布局修正**：未选中提交时详情栏不再常驻占宽，提交图独占整行；PR 页顶部独立为 `.pr-toolbar`，避免与全局工具栏样式串扰；仓库卡、PR 卡、CI 指标卡、Flow lane 与步骤卡改用统一表面层级。
 - **无 upstream 一键推送**：当前分支没有 upstream 时，工具栏 Push 直接走 `push -u origin <branch>`，不再先失败再要求用户去 Git 侧栏设置；Push 下拉菜单同时显示显式的「Push and set upstream」。`observability/dev` 这类新分支可直接在 Dashboard/Git 工具栏完成推送与上游设置。
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
 ### 修复
+- **顶部工具栏中段视觉偏移**：仓库操作组此前在所有页面都与五页导航同排，整组视觉中心被拉到窗口右侧。现在非 Git 页只保留居中的导航 tabs 和右侧全局图标，Git 页才显示仓库操作组。
 - **顶部工具栏图标偏小**：Apple 风格工具栏把同步图标压到 14px、右侧独立图标 16px，窄宽时 SVG 还会被 flex 压到 10px。现在同步图标统一 16px，More / Settings / Theme 提升到 18px，独立按钮改为 32×30，并禁止工具栏 SVG 收缩。
 - **设置弹层被工具栏顶出视口**：Settings 原先作为工具栏子节点渲染，Apple 风格工具栏新增 `backdrop-filter` 后成为 `position: fixed` 的包含块，弹层按 46px 工具栏居中，顶部标题和大部分内容被裁到视口上方。现在通过 `createPortal` 挂到 `document.body`，仍由 Toolbar 控制开关；实测弹层回到视口内居中（`y=25.9`，viewport `811`），新增 portal 回归测试。
 - **Dashboard 首屏读取过期快照**：`lastFetchAll` 初始值从 `Date.now()` 改为 `0`，并把「注册表就绪后 fetch 全部仓库」提前到首屏 effect，不再等 10 分钟后台轮询。首屏 fetch 静默执行，不弹 toast；30 秒状态刷新继续只读缓存。实测此前首屏显示 `↑41`、`23 dirty` 而真实为 72 个未推送提交、5 个脏文件，修复后应立即对齐。
@@ -25,7 +27,7 @@
 - **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
 
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1240 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1242 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - 产品 UI 实测：Dashboard 首屏立即进入 `Fetching…`，完成后 `observability` 显示 `no upstream` 而非 `clean`；汇总的 dirty、ahead 与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
 - 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。

@@ -20,6 +20,7 @@ vi.mock('../api', () => ({
   getRefs: vi.fn(() => Promise.resolve({ refs: [] })),
   getRemote: vi.fn(() => Promise.resolve({ remote: null })),
   fetchRepo: vi.fn(() => Promise.resolve({ repo: null })),
+  pushRepo: vi.fn(() => Promise.resolve({ repo: null })),
   getPatStatus: vi.fn(() => Promise.resolve({ hasServerPat: false })),
   storeServerPat: vi.fn(() => Promise.resolve({ hasServerPat: true })),
   deleteServerPat: vi.fn(() => Promise.resolve({ hasServerPat: false })),
@@ -47,6 +48,7 @@ afterEach(() => {
   root = null;
   vi.mocked(api.getRepos).mockClear();
   vi.mocked(api.fetchRepo).mockClear();
+  vi.mocked(api.pushRepo).mockClear();
   localStorage.clear();
 });
 
@@ -125,6 +127,22 @@ describe('Dashboard first paint freshness', () => {
     });
     expect(c.textContent).toContain('no upstream');
     expect(c.querySelector('.repo-panel-clean')).toBeNull();
+  });
+
+  it('offers a card push for a branch without an upstream and sets it', async () => {
+    vi.mocked(api.getRepos).mockImplementation(async () => ({ repos: [repo] }));
+    const c = mount(<Providers><DashboardPage /></Providers>);
+    await act(async () => {
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    const button = c.querySelector('.dash-push') as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+    expect(button!.getAttribute('aria-label')).toBe('Push and set upstream');
+    await act(async () => {
+      button!.click();
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    expect(api.pushRepo).toHaveBeenCalledWith(repo.path, true);
   });
 });
 

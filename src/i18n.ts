@@ -327,6 +327,7 @@ export const ZH: Record<string, string> = {
   'Pulled with rebase': '已以 rebase 方式拉取',
   'Pushed': '已推送',
   'Pushed and set upstream': '已推送并设置上游',
+  'push failed': '推送失败',
   'Force pushed': '已强制推送',
   'Staged all': '已全部暂存',
   'Unstaged all': '已全部取消暂存',

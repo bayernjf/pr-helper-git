@@ -22,8 +22,10 @@ every committed file as world-readable.
 - **unstable 自动合并**：`automationMergeOutcome` 把 `unstable` 视为可重试门禁；`automationGateWaitDelayMs` 对 `unstable` 走 30 秒快速复查，不再套用 5/10/20 分钟 approval 退避。重排不按尝试次数硬停，由 12 小时 stale 窗口兜底；实测 `loom` PR #225 因重复 CI 连续 `unstable` 时，早期 3 次上限曾误暂停动作，已移除。步骤抽屉新增 `failureReason` 与 `N attempts` 展示，样式用黄色原因行。
 - **Flows 同路由去重**：`failureSections` 按 `workflowId:stageIndex:source` 合并同 stage 的 CI/部署失败与 blocked merge action，`atlas` 的同一路由不再在 NEEDS ATTENTION 里计两次；paused create-pr 因带 takeover 入口而保留。
 - **无 upstream 一键推送**：工具栏 Push 在 `activeBrief.upstream === null` 时直接调用 `pushRepo(repo, true)`，服务端走 `git push -u origin <branch>`；Push 下拉菜单同时提供「Push and set upstream」。此前 `observability/dev` 只能在 Git 侧栏右键 `Push to origin`。
+- **Git 工具栏按模块收口**：`Fetch / Pull / Push / Stash` 只在 Git 页渲染，Dashboard、Pull Requests、CI Health、Flows 的工具栏只保留居中的五页导航和右侧 More / Settings / Theme。Dashboard 卡片与列表行新增 Push 图标、右键 `Push <branch>` 菜单，无 upstream 时仍走 `push -u`；避免了仓库操作组在所有页面与导航 tabs 同排造成的整组视觉右偏。
 - **Flows 原因回退**：`failureSections` 的 automation 条目按 `message → failureReason → automation reason unknown` 回退；`atlas` 的 `门禁尚未全绿（当前 failure）` 不再显示为原因未知。
-- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1240 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退/同路由去重 2 例、Push 菜单 upstream 条件 1 例、设置弹层 portal 1 例。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1242 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退/同路由去重 2 例、Push 菜单 upstream 条件 1 例、设置弹层 portal 1 例、工具栏模块收口 1 例、Dashboard 推送快捷入口 1 例。浏览器实测 Flows/Dashboard 的 `.toolbar-actions` 为 0，Git 页为 1；Dashboard `atlas` 列表行与右键菜单均出现 `Push dev`。
+- **桌面**：`npm run build`、`npm run desktop`、`desktop:smoke` 通过；`/Applications/PR Helper Git.app` 已替换为当前 Web 产物（仍为 0.3.20），旧包备份为 `PR Helper Git 0.3.20-local-pre-toolbar-scope.app` / `PR Helper Git 0.3.20-local-pre-row-push.app`。桌面窗口实测 Dashboard 工具栏只剩 More/Settings/Theme，Git 页仍显示 Fetch/Pull/Push/Stash；Dashboard 列表 `atlas` 行显示 `Push dev`，右键菜单同样提供 `Push dev`。
 
 ### 2026-11-23 P1 收口与 app-state 切片
 

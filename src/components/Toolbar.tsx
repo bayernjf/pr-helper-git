@@ -366,6 +366,7 @@ export default function Toolbar() {
       </div>
 
       <div className="toolbar-right">
+        {view === 'git' && (
         <span className="toolbar-actions">
           <button
             type="button"
@@ -437,8 +438,9 @@ export default function Toolbar() {
             <span className="btn-label">{t("Stash")}</span>
           </button>
         </span>
+        )}
+        {view === 'git' && <span className="toolbar-divider" />}
 
-        <span className="toolbar-divider" />
         <span className="toolbar-icons">
           <button
             type="button"

@@ -4361,7 +4361,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 }
 .dash-list-head, .dash-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1.2fr) minmax(90px, 0.7fr) 130px minmax(200px, 1.8fr) minmax(170px, 1.4fr) 30px;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(90px, 0.7fr) 130px minmax(200px, 1.8fr) minmax(170px, 1.4fr) 64px;
   align-items: center; gap: 10px; padding: 8px 14px;
   min-width: 780px;
 }
@@ -4386,12 +4386,13 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .dash-row-commit { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dash-row .dash-remove { opacity: 0; }
 .dash-row:hover .dash-remove { opacity: 1; }
+.dash-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
 @media (max-width: 1080px) {
-  .dash-list-head, .dash-row { grid-template-columns: minmax(150px, 1.2fr) 130px minmax(190px, 1.8fr) minmax(160px, 1.4fr) 30px; min-width: 680px; }
+  .dash-list-head, .dash-row { grid-template-columns: minmax(150px, 1.2fr) 130px minmax(190px, 1.8fr) minmax(160px, 1.4fr) 64px; min-width: 680px; }
   .dash-row-path, .dash-list-head > span:nth-child(2) { display: none; }
 }
 @media (max-width: 780px) {
-  .dash-list-head, .dash-row { grid-template-columns: minmax(140px, 1.2fr) 120px minmax(170px, 1.8fr) 30px; min-width: 0; }
+  .dash-list-head, .dash-row { grid-template-columns: minmax(140px, 1.2fr) 120px minmax(170px, 1.8fr) 64px; min-width: 0; }
   .dash-row-commit, .dash-list-head > span:nth-child(5) { display: none; }
 }
 
@@ -5945,6 +5946,9 @@ textarea { height: auto; min-height: 64px; padding: 8px 10px; line-height: 1.48;
 .dash-card-meta { gap: 6px; margin-top: 2px; }
 .dash-card-commit { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--hairline); color: var(--text-dim); font-size: var(--fs-meta); }
 .dash-remove { color: var(--text-faint); }
+.dash-push { color: var(--accent); }
+.dash-push:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.dash-push:disabled { opacity: 0.55; }
 .dash-pill {
   padding: 2px 7px;
   border: 1px solid var(--hairline);
