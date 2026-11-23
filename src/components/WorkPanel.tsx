@@ -14,7 +14,7 @@ import {
   stageAll,
   stageFile,
 } from '../api';
-import { useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory, useRepoStatus, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import type { DiffResult, FileArea, StatusFile } from '../types';
 import { buildFileTree, flattenTree, type TreeNode } from '../lib/file-tree';
@@ -50,7 +50,10 @@ function countLine(message: string): string {
 }
 
 export default function WorkPanel() {
-  const { activeRepo, status, commits } = useRepoData();
+  const { activeRepo } = useActiveRepo();
+  const { status } = useRepoStatus();
+  const { commits } = useRepoHistory();
+  const { workPanelCollapsed } = usePreferences();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const confirm = useConfirm();
@@ -252,10 +255,14 @@ export default function WorkPanel() {
         toast(t("Nothing to clean"), 'info');
         return;
       }
-      const proceed = await confirm(
-        `Remove ${preview.paths.length} untracked item${preview.paths.length === 1 ? '' : 's'}?`,
-        preview.paths.slice(0, 12).join('\n') + (preview.paths.length > 12 ? '\n…' : ''),
-      );
+      const proceed = await confirm({
+        title: `Remove ${preview.paths.length} untracked item${preview.paths.length === 1 ? '' : 's'}?`,
+        detail: preview.paths.slice(0, 12).join('\n') + (preview.paths.length > 12 ? '\n…' : ''),
+        impact: tp('Delete {count} untracked item(s) from disk.', { count: preview.paths.length }),
+        recovery: t('Untracked files are not in Git history. Git cannot restore them; use a filesystem backup if needed.'),
+        confirmLabel: t('Clean untracked files'),
+        danger: true,
+      });
       if (!proceed) return;
       const result = await cleanForce(activeRepo!);
       toast(`Removed ${result.removed.length} item${result.removed.length === 1 ? '' : 's'}`, 'success');
@@ -326,6 +333,8 @@ export default function WorkPanel() {
 
   const canSubmit = !!message.trim()
     && (amend || groups.staged.length > 0 || allowEmpty);
+
+  if (workPanelCollapsed) return null;
 
   return (
     <section className="work-panel" style={{ height: panelHeight }}>

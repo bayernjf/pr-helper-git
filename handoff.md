@@ -13,7 +13,19 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
-**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 影子期（P5-1 运行中，P5-2/P5-3 未开始）**
+**当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据仍未补齐）**
+
+### 2026-11-23 P1 收口与 app-state 切片
+
+- **危险操作影响范围/恢复路径**（`9b96f02`）：统一确认弹窗接受 `impact` / `recovery`，覆盖强制推送、清理未跟踪文件、硬重置、删除流程；明确远端 ref、未跟踪文件和工作区改动的恢复边界，不提供假装可 undo 的按钮。
+- **Linked worktree 写操作**（`879df8d`）：新增 `routes-git-worktrees.mjs` 与 `WorktreeModal`；支持创建（新分支/已有分支、绝对路径且在所有已登记工作树之外）、移除（保护主/当前/锁定条目，脏树需二次确认）、锁定/解锁、prune 失效元数据。侧栏 Worktrees 分组常显管理入口。
+- **app-state 仓库切片**（`181dafd`）：仓库数据拆为 registry / active repo / active brief / status / refs / history 六个 context，38 个生产消费者迁到精确 hooks；`selectedHash`、日志过滤和加载更多归入 history。切片 hook 不再订阅聚合 context，聚合 `useRepoData` 仅作测试注入与兼容回退。隔离测试扩到 6 例，验证 `selectCommit` / `setLogFilters` 只触发 history 探针。
+- **Phase 5 状态收口**（`f255d35`）：如实记录 P5-2 动作 1 已在无事前审批下发生于 2026-11-22 01:33 CST；owner 2026-11-23 选择承认现状并继续，但明确动作 2–4 仍需逐项批准。P5-1 判定证据仍未补齐，不把事后确认写成事前审批。
+- **动作 4 本地实跑**（`c454be5`）：单 stage PR #20 自动创建/合并，merge `3ed0c50`；双 stage PR #23/#24 自动创建/合并，`stage-advanced` action `4754` 成功，merge `bb59b9b` / `ac2ac7e`。双 stage 首轮暴露“自动合并后 advance 不调度”，修复为 merge action 直接入队 advance，并加回归测试。
+- **桌面**：`npm run desktop`、`desktop:smoke`、`desktop:native-test` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `714120c`，旧包 `f255d35` 备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；无头 Chrome 复核 Git 列表、提交选择和 worktree 管理模态。
+- **产品 UI Push 复验**：测试仓提交 `db20323`；在产品 Git 页点击 Push 后远端 `dev` 更新，PR #25 自动创建并自动合并（merge `20bd916`）；5 分钟后 cron reconcile 自动接续 stage 1，PR #26 自动创建并合并（merge `eae1c5f`）。最终 `origin/main=20bd916`、`origin/release=eae1c5f`，每个 stage 仅 1 个 create-pr、1 个 merge-pr。
+- **桌面**：`npm run desktop`、`desktop:smoke` 通过；`/Applications/PR Helper Git.app` 更新为 0.3.20 / `f255d35`，旧包备份为 `PR Helper Git 0.3.20-local-2569c12.app`。
 
 ### 2026-11-22 五模块 Apple 风格视觉体系（未发布）
 
@@ -70,7 +82,7 @@ every committed file as world-readable.
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ✅（11-15 团队 UI 收口，原暂缓裁决已被后续实现覆盖）；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。**A2A 实网 ✅**；Device Flow 实网待账号启用 2FA / 刷新 GitHub 会话后重试 |
-| Phase 5 影子并行→切换→下线 | 🔶 **影子期运行中**（11-14 16:24 启动）：launchd 4789 shadow=1 + PAT 凭据 + 影子日志积累；P5-2/P5-3 未开始，需 P5-1 连续 5–7 天一致 + D-016 逐动作审批；P5-2 审批清单草案见 `docs/phase5-p5-2-approval.md`（未批准、未执行） |
+| Phase 5 影子并行→切换→下线 | 🔶 **执行态，审批未闭环**：11-14 16:24 启动影子期；launchd 4789 在 2026-11-22 01:33 CST 实际切为 `automation=1/shadow=0`，但审批表仍为空；owner 2026-11-23 选择承认现状并继续；动作 2–3 仍需 D-016 逐项审批；动作 4 已完成单 stage + 双 stage 本地实跑（PR #20、PR #23/#24、advance `4754`）；P5-1 判定证据未补齐；见 `docs/phase5-p5-2-approval.md` |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token

@@ -5,7 +5,7 @@ import {
   pushRepo,
   type ForcePushMode,
 } from '../api';
-import { usePreferences, useRepoData, useRunAction, useBusy } from '../app-state/hooks';
+import { useActiveBrief, useActiveRepo, usePreferences, useRunAction, useBusy } from '../app-state/hooks';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
 import CommitSearchModal from './CommitSearchModal';
@@ -45,6 +45,8 @@ import {
   IconMonitor,
   IconMoon,
   IconPanel,
+  IconPanelBottom,
+  IconPanelRight,
   IconMore,
   IconRefresh,
   IconSearch,
@@ -58,8 +60,14 @@ import {
 } from './icons';
 
 export default function Toolbar() {
-  const { activeRepo, activeBrief } = useRepoData();
-  const { view, theme, setView, toggleTheme, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
+  const { activeRepo } = useActiveRepo();
+  const activeBrief = useActiveBrief();
+  const {
+    view, theme, setView, toggleTheme,
+    sidebarCollapsed, setSidebarCollapsed,
+    detailCollapsed, setDetailCollapsed,
+    workPanelCollapsed, setWorkPanelCollapsed,
+  } = usePreferences();
   const busy = useBusy();
   const { runAction } = useRunAction();
   const [showAdd, setShowAdd] = useState(false);
@@ -205,12 +213,17 @@ export default function Toolbar() {
     else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
     else if (id === 'push-lease' || id === 'push-force') {
       const mode: ForcePushMode = id === 'push-lease' ? 'force-with-lease' : 'force';
-      const ok = await confirm(
-        tp('Force push ({mode})?', { mode }),
-        mode === 'force'
-          ? t('This overwrites the remote ref and can discard other commits. Prefer force-with-lease.')
-          : 'This updates the remote only if nobody else pushed in the meantime.',
-      );
+      const ok = await confirm({
+        title: tp('Force push ({mode})?', { mode }),
+        impact: mode === 'force'
+          ? t('The remote branch will be moved to your local HEAD. Commits that existed only on the remote can become unreachable.')
+          : t('The remote branch will move to your local HEAD only if its current value still matches the last fetch.'),
+        recovery: mode === 'force'
+          ? t('Force push has no remote undo. Recover discarded commits from another clone, the local reflog, or a backup.')
+          : t('If the lease check fails, nothing is pushed. Fetch, inspect the remote, and retry.'),
+        confirmLabel: t('Force push'),
+        danger: true,
+      });
       if (ok) await runAction(pushRepo(activeRepo, false, mode, true), 'Force pushed');
     }
   }
@@ -251,16 +264,38 @@ export default function Toolbar() {
     <header className="toolbar">
       <div className="toolbar-left">
         {view === 'git' ? (
-          <button
-            type="button"
-            className="icon-btn"
-            title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-            aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
-            aria-pressed={sidebarCollapsed}
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          >
-            <IconPanel width={15} height={15} />
-          </button>
+          <span className="layout-toggles">
+            <button
+              type="button"
+              className="icon-btn"
+              title={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+              aria-label={sidebarCollapsed ? t('Show sidebar (⌘B)') : t('Hide sidebar (⌘B)')}
+              aria-pressed={sidebarCollapsed}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            >
+              <IconPanel width={15} height={15} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={workPanelCollapsed ? t('Show working tree') : t('Hide working tree')}
+              aria-label={workPanelCollapsed ? t('Show working tree') : t('Hide working tree')}
+              aria-pressed={workPanelCollapsed}
+              onClick={() => setWorkPanelCollapsed(!workPanelCollapsed)}
+            >
+              <IconPanelBottom width={15} height={15} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={detailCollapsed ? t('Show commit detail') : t('Hide commit detail')}
+              aria-label={detailCollapsed ? t('Show commit detail') : t('Hide commit detail')}
+              aria-pressed={detailCollapsed}
+              onClick={() => setDetailCollapsed(!detailCollapsed)}
+            >
+              <IconPanelRight width={15} height={15} />
+            </button>
+          </span>
         ) : null}
         <span className="branch-pill" title={activeRepo || ''}>
           <span className="dot" />

@@ -39,7 +39,12 @@ function ToastHarness() {
   return createElement('button', { onClick: () => toast.error('disk full') }, 'show');
 }
 
-function ConfirmHarness({ danger, confirmLabel }: { danger: boolean; confirmLabel: string }) {
+function ConfirmHarness({ danger, confirmLabel, impact, recovery }: {
+  danger: boolean;
+  confirmLabel: string;
+  impact?: string;
+  recovery?: string;
+}) {
   const confirm = useConfirm();
   return createElement(
     'button',
@@ -48,6 +53,8 @@ function ConfirmHarness({ danger, confirmLabel }: { danger: boolean; confirmLabe
         const result = await confirm({
           title: 'Delete file?',
           detail: 'This cannot be undone.',
+          impact,
+          recovery,
           confirmLabel,
           danger,
         });
@@ -83,6 +90,23 @@ describe('confirm contract', () => {
     expect(dialog.getAttribute('aria-labelledby')).toBe('confirm-dialog-title');
     expect(dialog.getAttribute('aria-describedby')).toBe('confirm-dialog-detail');
     expect(dialog.querySelector('.btn-danger')?.textContent).toBe('Delete');
+  });
+
+  it('shows impact and recovery sections for destructive actions', () => {
+    mount(createElement(ConfirmHarness, {
+      danger: true,
+      confirmLabel: 'Delete',
+      impact: 'Deletes the local record.',
+      recovery: 'Restore from a backup.',
+    }));
+    act(() => (host.querySelector('button') as HTMLButtonElement).click());
+
+    const impact = document.querySelector('[data-testid="confirm-impact"]') as HTMLElement;
+    const recovery = document.querySelector('[data-testid="confirm-recovery"]') as HTMLElement;
+    expect(impact.textContent).toContain('Deletes the local record.');
+    expect(recovery.textContent).toContain('Restore from a backup.');
+    expect(impact.querySelector('h3')).not.toBeNull();
+    expect(recovery.querySelector('h3')).not.toBeNull();
   });
 
   it('uses the primary button for a neutral action and resolves false on Cancel', async () => {

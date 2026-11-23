@@ -450,6 +450,8 @@ export default function FlowDetail({ flowId, state, events, inbox, onClose, onOp
                 const confirmed = await confirm({
                   title: tp('Delete {name}?', { name: flow.name }),
                   detail: t('This removes the flow from the local database. It cannot be undone.'),
+                  impact: t('The flow and its local automation configuration are removed; pending automation stops.'),
+                  recovery: t('There is no in-app undo. Restore from a database backup or recreate the flow.'),
                   confirmLabel: t('Delete'),
                   danger: true,
                 });

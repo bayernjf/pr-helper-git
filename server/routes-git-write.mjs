@@ -1,5 +1,6 @@
 // Write-route dispatcher. Each sub-handler matches its own endpoints and
 // returns { status, json } or null; the first non-null result wins.
+import { handleGitWorktrees } from './routes-git-worktrees.mjs';
 import { handleGitWriteWorktree } from './routes-git-write-worktree.mjs';
 import { handleGitWriteRefs } from './routes-git-write-refs.mjs';
 import { handleGitWriteHistory } from './routes-git-write-history.mjs';
@@ -13,6 +14,9 @@ export async function handleGitWrite({ method, pathname, query, body, identity }
   // otherwise reach e.g. /api/merge/abort?repo=… because the sub-handlers only
   // match on pathname).
   if (method !== 'POST') return null;
+
+  const worktrees = await handleGitWorktrees({ method, pathname, query, body, identity }, repo);
+  if (worktrees) return worktrees;
 
   const worktree = await handleGitWriteWorktree({ method, pathname, query, body, identity }, repo);
   if (worktree) return worktree;

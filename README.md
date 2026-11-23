@@ -111,7 +111,8 @@ application never pushes it for you.
   pattern and since/until calendar dates, so commits outside the loaded page
   are still searchable; invalid dates are rejected with a 400.
 - Reset the current branch to any commit with soft, mixed or hard semantics
-  (hard reset requires an explicit confirmation).
+  (hard reset requires an explicit confirmation that names the target SHA,
+  the discarded index/working-tree changes, and the reflog recovery boundary).
 - Safely revert a commit without rewriting history: a normal commit becomes a
   new "Revert" commit, while reverting a merge commit asks for the mainline
   parent (`-m 1..N`) in a dialog. When a revert stops on conflicts the working
@@ -122,9 +123,12 @@ application never pushes it for you.
   current branch only, straight from the graph toolbar.
 - Ref sidebar with collapsible local branches, remote branches, worktrees, tags
   and stash groups; a right-click context menu exposes the full action set. The
-  read-only `WORKTREES` group lists linked worktrees (path, branch or detached
-  HEAD, current marker and locked/prunable state), so parallel coding-task
-  worktrees are visible from the repository they belong to. A read-only
+  `WORKTREES` group lists linked worktrees (path, branch or detached HEAD,
+  current marker and locked/prunable state), so parallel coding-task worktrees
+  are visible from the repository they belong to. The group's **Manage** action
+  opens a worktree manager: create a linked worktree from a new or existing
+  branch, lock/unlock it, remove it (with impact and recovery shown first), or
+  prune entries whose directories are gone. A read-only
   Submodules group appears when the repository has submodules, showing git's
   four states (up to date, not initialized, checked-out commit differs,
   conflicted) with the pinned SHA and describe string.
@@ -155,7 +159,8 @@ application never pushes it for you.
   Escape.
 - Clean untracked files safely: a dry-run confirmation lists every path (files
   and directories) before removal, while ignored files such as `.env` are never
-  touched.
+  touched. The confirmation separates the deletion impact from the recovery
+  path and states that untracked files are not in Git history.
 - Bisect wizard from the command palette: start from a good and a bad commit
   (prefilled with the ends of the loaded history), mark the current commit
   good/bad, and reset back to the starting branch. State is read from git's
@@ -190,6 +195,9 @@ application never pushes it for you.
 - Pull and push through split button groups with a caret: pull using the
   default merge or `--rebase`, and force-push with either `--force` or the
   safer `--force-with-lease`, each protected by an explicit confirmation.
+  The confirmation shows the affected remote ref and the recovery boundary:
+  `--force` has no remote undo, while a rejected force-with-lease changes
+  nothing.
 - Abort a conflicted merge (`git merge --abort`) from an automatic banner that
   appears while a merge is in progress, and force-create a tag (`-f`) to
   overwrite an existing name from the create-tag dialog.
@@ -326,13 +334,16 @@ application never pushes it for you.
   `aria-label`s, and a keyboard-shortcut reference modal (toolbar button or
   the `?` key) lists every shortcut grouped by context.
 - Persistent UI preferences in `localStorage` (one JSON object): the
-  Git/PR view, collapsed sidebar groups, the work-panel height, and the
-  branch pinning and sort order are all restored per repository after a
-  reload, with safe fallbacks if storage is unavailable.
-- Resizable three-pane layout: the sidebar and detail panels expose
-  draggable edge separators (pointer or keyboard arrows, Shift for a larger
-  step) that clamp to a minimum/maximum and persist their widths, with the
-  ARIA `separator` role. The stylesheet also honors
+  Git/PR view, collapsed sidebar groups, the collapsed work panel and commit
+  detail, the work-panel height, and the branch pinning and sort order are all
+  restored per repository after a reload, with safe fallbacks if storage is
+  unavailable.
+- Resizable three-pane layout: the sidebar, work panel and detail panel each
+  have an independent toolbar toggle, so any combination of the three can be
+  folded away while the remaining panes reclaim the space. The sidebar and
+  detail panels expose draggable edge separators (pointer or keyboard arrows,
+  Shift for a larger step) that clamp to a minimum/maximum and persist their
+  widths, with the ARIA `separator` role. The stylesheet also honors
   `prefers-reduced-motion`, collapsing every animation and transition to a
   near-instant change instead of disabling the underlying state updates.
 - Cross-repository search from a global `git grep` modal that runs the
@@ -440,9 +451,9 @@ it publicly. The one-time token in the URL is still the only credential.
 
 ### Deliberately out of scope
 
-Creating, removing, locking or pruning worktrees (the Git sidebar lists existing
-linked worktrees read-only), adding or updating submodules (status is read-only),
-creating GPG signatures (verification is supported), and web push. The GitHub App
+Adding or updating submodules (status is read-only), creating GPG signatures
+(verification is supported), and web push. Linked-worktree create/remove/lock/
+unlock/prune is supported from the Git sidebar manager. The GitHub App
 Device Flow connection is optional and identity-only: local token auth stays the
 boundary and GitHub writes keep using the PAT/automation credentials.
 Conflicts are handled per file from the in-app panel (Use current / Use
@@ -691,7 +702,8 @@ server/
   routes-git-helpers.mjs  Shared validation, repo brief, sensitive-path and rebase helpers
   routes-git-meta.mjs     Health, audit, storage, repo registry, PAT, users, team endpoints
   routes-git-read.mjs     Read-only history/status/diff/grep/config endpoints
-  routes-git-write.mjs    Write dispatcher: worktree, refs, history, files, network, stash
+  routes-git-write.mjs    Write dispatcher: worktrees, staging, refs, history, files, network, stash
+  routes-git-worktrees.mjs  Linked-worktree add/remove/lock/unlock/prune
   routes-git-write-worktree.mjs  Stage/commit/checkout/PR checkout/amend
   routes-git-write-refs.mjs      Branch, tag and remote writes
   routes-git-write-history.mjs   Merge, rebase, bisect, reset, cherry-pick, revert
@@ -703,7 +715,9 @@ server/
   github-http.mjs    proxy-aware HTTPS client for the github.com OAuth endpoints
   a2a.mjs            Agent Card + JSON-RPC task surface (opt-in, fail-closed)
 src/
-  app-state.tsx      central data/state provider
+  app-state.tsx      compatibility barrel + AppDataProvider
+  app-state/         preferences/actions/busy providers and six repo slices
+                     (registry, active, brief, status, refs, history)
   api/               typed API client, split by domain (core, git-read,
                      git-write, repos, github, team, ai, github-auth, a2a)
   components/        UI components, inline SVG icons, context menu, modals
@@ -720,7 +734,7 @@ desktop/make-icon.swift  CoreGraphics icon renderer feeding the .icns build
 ## Checks
 
 ```bash
-npm test           # Vitest unit + route-level HTTP tests (1089 tests, 59 files)
+npm test           # Vitest unit + route-level HTTP tests (1228 tests, 72 files)
 npm run lint       # tsc --noEmit
 npm run typecheck:server  # checkJs over server/*.mjs
 npm run build      # production build into dist/

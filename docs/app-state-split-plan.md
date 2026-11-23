@@ -1,8 +1,9 @@
 # app-state 上下文拆分方案
 
 状态：✅ 已完成（2026-11-19）；S1a/S1b/S1c + Phase 2/3/4 全部落地，PR #40
-已合并。剩余可选后续见 §7。
-日期：2026-11-19
+已合并。2026-11-23 又完成 §7 的可选后续：`selectedHash` 及仓库数据进一步
+拆为六个精确切片，38 个生产消费者已迁移。见 §10。
+日期：2026-11-19（2026-11-23 补充实现记录）
 范围：`src/app-state.tsx`（411 行、`AppData` 37 个字段、43 个生产
 `useApp()` 调用点；`rg 'useApp\('` 共 44 个匹配，含 `app-state.tsx` 里
 `export function useApp():` 这 1 个声明）。
@@ -393,12 +394,13 @@ npm run e2e
 - 无 API/数据库/存储格式变化，回滚不需要迁移；
 - Phase 1 保留兼容层，Phase 1 之后任何时点都可以停在“已拆分但未迁移消费者”的安全状态。
 
-### 可选后续（不在本次范围）
+### 可选后续（2026-11-23 已完成）
 
 `selectedHash` / `selectCommit` 是第二热点：选择 commit 会触发所有
-RepoData 消费者。若 Phase 3 后性能仍不达标，再评估独立
-`SelectionContext`。它需要处理“切仓时清空选择”的跨 provider 协调，
-不建议和本次拆分一起做。
+RepoData 消费者。原计划留到后续；2026-11-23 已把仓库数据继续拆成
+registry / active repo / active brief / status / refs / history 六个切片，
+`selectedHash`、`selectCommit`、日志窗口与过滤均归入 history。它同时覆盖了
+“切仓时清空选择”的跨 provider 协调，详见 §10。
 
 ## 8. 工作量与执行建议
 
@@ -430,3 +432,33 @@ Phase 3。这样即使中途暂停，也不会留下半迁移的核心视图。
 
 - 只在 `dev` 本地提交，推送/发版另等明确指令；
 - 每步 gate 全绿并停下确认后，才进入下一步。
+
+## 10. 2026-11-23 仓库切片补充实施
+
+原 Phase 4 的四个领域 context 已落地后，仓库数据内部仍是单一热点：
+任何日志、提交选择或 refs 更新都会重建整个 `RepoData` value。本次补充
+把仓库数据拆为六个 context，并迁移全部生产消费者：
+
+| Context | 内容 | 典型消费者 |
+|---|---|---|
+| `RepoRegistryContext` | `repos`、`reposLoaded`、`refreshRepos`、稳定 `refresh` | 仓库列表、设置、Dashboard |
+| `ActiveRepoContext` | `activeRepo`、`selectRepo` | 侧栏、标题栏、快捷键 |
+| `ActiveBriefContext` | `activeBrief`（允许 null，未提供用 `undefined` 区分） | 标题栏、侧栏摘要 |
+| `RepoStatusContext` | `status`、`repoLoading` | 工作区、暂存区、提交表单 |
+| `RepoRefsContext` | `refs`、`remote` | 侧栏、分支/远程/变基弹窗 |
+| `RepoHistoryContext` | `commits`、`selectedHash`、`logLimit`、`logScope`、`logPath`、`logFilters`、`setLogPath`、`setLogFilters`、`setLogScope`、`selectCommit`、`loadMore` | 提交图、详情、过滤器、加载更多 |
+
+实现要点：
+
+- `useRepoData` 保留为聚合兼容入口与测试注入回退；切片 hook 在切片
+  context 存在时立即返回，不再订阅聚合 context。
+- `refresh` 改为稳定身份，避免日志变化导致仅需刷新能力的消费者重渲染。
+- `RepoHistoryContext.Provider` 用稳定的 memo children 包裹子树，避免
+  provider 自身值变化时整体重渲染。
+- `context-isolation.test.tsx` 扩到 6 个用例，新增 active / registry /
+  status / refs / history / brief 探针；验证 `selectCommit` 与
+  `setLogFilters` 只让 history 探针重渲染。
+
+门禁：`lint`、`typecheck:server`、`npm test`（1228/72）、`build`、
+`e2e`（162/162）通过；无头 Chrome 复核 Git 列表、提交选择和 worktree
+管理模态均正常。

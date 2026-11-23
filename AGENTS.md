@@ -52,11 +52,13 @@ wins; otherwise this file is the default contract.
     actions; production rollback always escalates to the operator (D-021);
   - **Web push**: not used; failure notifications go through macOS local
     notifications plus an optional Feishu webhook (D-005);
-  - **Worktrees**: read-only visibility is supported in the Git sidebar
-    (`WORKTREES` group fed by `git worktree list --porcelain`), so linked
-    task worktrees are visible. Creating, removing, locking or pruning
-    worktrees is not implemented yet. Submodule writes and GPG signing remain
-    prohibited.
+  - **Worktrees**: the Git sidebar lists linked worktrees and manages them
+    through `server/routes-git-worktrees.mjs` (`git worktree add/remove/
+    lock/unlock/prune`). Creation requires an absolute path outside every
+    registered worktree; removal refuses dirty trees unless an explicit force
+    confirmation is sent; main/current/locked worktrees are protected. A
+    missing directory is pruned, never deleted. Submodule writes and GPG
+    signing remain prohibited.
   - **Deployment gates for managed repositories are in scope** (D-002-v2):
     pr-helper-git itself is not deployed to Cloudflare/Vercel and must not
     require their APIs; but it still tracks the managed repository's GitHub
@@ -84,6 +86,8 @@ src/                    React client
   components/           UI components and modals
   lib/                  pure helpers and storage keys
   lib/automation/       migrated pr-helper pure domain modules + board/detail semantics
+  app-state/            preferences/actions/busy providers plus six repo slices
+                        (registry, active repo, active brief, status, refs, history)
 server/                 Node HTTP server and Git/GitHub routes
   main.mjs              entry, auth, static hosting, SSE
   routes-git*.mjs       Git API dispatcher and domain modules
@@ -222,9 +226,9 @@ it never reads or writes `~/.pr-helper-git`.
 
 ## Verification baseline
 
-As of 0.3.20 (2026-11-22):
+As of 0.3.20 (2026-11-23):
 
-- unit/route tests: **1223 tests / 72 files** (includes the migrated pr-helper
+- unit/route tests: **1228 tests / 72 files** (includes the migrated pr-helper
   engine test nets: 434 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
@@ -239,7 +243,7 @@ As of 0.3.20 (2026-11-22):
   `server/pat-oauth-merge.test.mjs`; the parity batch adds 17 resolve-mark
   semantics tests, 4 preflight-aggregate tests, 3 branch-filter tests,
   4 toast-undo jsdom tests, 8 open-PR StepDrawer/GateDisclosure jsdom tests
-  and 4 app-state context-isolation tests in
+  and 6 app-state context-isolation tests in
   `src/app-state/context-isolation.test.tsx`)
 - 0.3.20 adds 2 local-push reconcile budget tests in
   `server/workflows-store.test.ts` (local-push 40s, manual stays 8s, lease

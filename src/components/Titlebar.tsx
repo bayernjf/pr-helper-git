@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
-import { useRepoData } from '../app-state/hooks';
+import { useActiveRepo, useRepoRegistry } from '../app-state/hooks';
 import { syncChromeRects } from '../lib/desktop-bridge';
 import { Dropdown } from './Dropdown';
 import { IconList } from './icons';
 import { t } from '../i18n';
 
 export default function Titlebar() {
-  const { repos, activeRepo, selectRepo } = useRepoData();
+  const { repos } = useRepoRegistry();
+  const { activeRepo, selectRepo } = useActiveRepo();
 
   // The desktop shell drags the window from the titlebar strip and reports
   // double-click zooms there. The dropdown trigger is the strip's only

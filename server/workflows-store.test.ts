@@ -1254,6 +1254,16 @@ describe('automationMergeOutcome', () => {
     expect(body).toContain("state = 'queued'");
     expect(body).toContain("'waiting-gates'");
   });
+
+  it('queues the next-stage advance from the merge action before reconciliation can settle the stage', () => {
+    const source = readFileSync(RUNTIME_STORE_SOURCE, 'utf8');
+    const body = source.slice(source.indexOf('async function runAutomationMergeAction'), source.indexOf('async function runAutomationAdvanceAction'));
+    const mergedWrite = body.indexOf("pull_state = 'merged'");
+    const advanceSchedule = body.indexOf('scheduleServerAdvance(sql');
+    expect(mergedWrite).toBeGreaterThan(-1);
+    expect(advanceSchedule).toBeGreaterThan(mergedWrite);
+    expect(body).toContain('failed to queue stage advance');
+  });
 });
 
 describe('summarizeGitHubChecks', () => {

@@ -5,14 +5,21 @@
 ## [Unreleased] - 2026-11-22
 
 ### 变更
+- **app-state 仓库切片**：仓库数据 context 进一步拆为 registry、active repo、active brief、status、refs、history 六个切片，并提供精确 hooks；38 个生产消费者从聚合 `useRepoData` 迁移到对应切片。提交选择、日志过滤与加载更多只更新 history 订阅者，不再连带触发侧栏、工具栏和详情面板重渲染；聚合 context 仅保留给测试注入与兼容回退。
+- **Linked worktree 管理**：Git 侧栏 Worktrees 分组新增「管理」入口，可创建关联工作树（新分支或已有分支）、锁定/解锁、移除与清理失效元数据。创建要求绝对路径且位于所有已登记工作树之外；移除前展示影响范围与恢复路径，脏工作树需二次确认强制移除；主工作树、当前工作树和已锁定工作树受保护；目录已丢失的条目只能走 prune，不删除任何文件。
+- **Git 三面板独立收起**：工具栏新增左侧边栏、底部工作区、右侧提交详情三个布局开关；底部与右侧状态分别持久化为 `workPanelCollapsed` / `detailCollapsed`，刷新和重启后保持。收起后提交图自动回收空间，选中提交、暂存、diff 与提交表单逻辑不变；左侧继续沿用 `⌘B` 与 `sidebarCollapsed`。
+- **危险操作影响范围与恢复路径**：确认弹窗新增 `Impact` / `Recovery path` 两段，先说明动作会改变什么，再给出可行的恢复方式。覆盖强制推送、清理未跟踪文件、硬重置和删除流程；明确远端 ref 移动、未跟踪文件/工作区改动不可由 Git 恢复，以及 reflog、其他克隆、文件系统备份、数据库备份等恢复边界。
 - **五模块 Apple 风格视觉体系**：Dashboard、Git、Pull Requests、CI Health、Flows 统一改用 Apple 系统灰阶、SF 字体栈、hairline 分隔、系统蓝强调色与更克制的阴影。工具栏重排为左侧仓库/分支、中部五页 segmented 导航、右侧同步动作；默认强调色从 violet 切换为系统蓝，色板收敛为 blue / rose / forest / amber / teal / crimson / indigo。
 - **Git 与 PR 布局修正**：未选中提交时详情栏不再常驻占宽，提交图独占整行；PR 页顶部独立为 `.pr-toolbar`，避免与全局工具栏样式串扰；仓库卡、PR 卡、CI 指标卡、Flow lane 与步骤卡改用统一表面层级。
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
+### 修复
+- **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
+
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1223 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
-- 桌面：`desktop:native-test`、`BUNDLE_NODE=1 npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `6c865a5`。
-- 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1229 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
+- 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。
 
 ## [0.3.20] - 2026-11-22
 

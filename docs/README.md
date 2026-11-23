@@ -31,7 +31,7 @@ Start with the document that matches your question. Do not read all of
 | `docs/parity-archive.md` | Record of cross-repo parity work with the archived product | Parity work changes |
 | `docs/pr-helper-migration.md` | **Core migration ledger**: pr-helper → pr-helper-git plan, traceability matrix, decisions, acceptance, change log | Any migration scope/acceptance/status change |
 | `docs/phase5-p5-2-approval.md` | P5-2 switch approval checklist: prerequisite evidence, four actions, verification, rollback, sign-off table | P5-1 judgment passes or the switch plan changes |
-| `docs/app-state-split-plan.md` | Phased plan for splitting the single app-state context into repo/preferences/actions/busy domains | App-state architecture or migration phases change |
+| `docs/app-state-split-plan.md` | App-state split plan and implementation record: preferences/actions/busy domains plus six precise repo slices | App-state architecture or migration phases change |
 | `docs/desktop-distribution.md` | macOS signing, notarization, zip/dmg artifacts and verification | Desktop distribution workflow changes |
 | `docs/archive/` | Frozen historical material; do not append new decisions here | Only when archiving |
 | `test-repos.md` | Pointer to the canonical test repository registry in `bayjf/docs/TEST_REPOS.md` | Only when the canonical path changes |

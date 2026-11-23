@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { PreferencesContext } from '../app-state/preferences-provider';
 import { RepoDataContext } from '../app-state/repo-provider';
 import { ActionsContext, BusyContext } from '../app-state/actions-provider';
-import { ToastProvider } from './ui';
+import { ConfirmProvider, ToastProvider } from './ui';
 import type { RepoBrief } from '../types';
 import AddRepoModal from './AddRepoModal';
 import AuditModal from './AuditModal';
@@ -18,6 +18,7 @@ import PrFileReview from './PrFileReview';
 import RepositoriesModal from './RepositoriesModal';
 import ResolveConflictsModal from './ResolveConflictsModal';
 import Titlebar from './Titlebar';
+import WorktreeModal from './WorktreeModal';
 import Toolbar from './Toolbar';
 
 function render(node: React.ReactNode): string {
@@ -30,6 +31,12 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
     activeRepo: null,
     activeBrief: null,
     view: 'git',
+    sidebarCollapsed: false,
+    setSidebarCollapsed: () => {},
+    detailCollapsed: false,
+    setDetailCollapsed: () => {},
+    workPanelCollapsed: false,
+    setWorkPanelCollapsed: () => {},
     theme: 'dark',
     accent: 'blue',
     pat: '',
@@ -80,6 +87,12 @@ function withApp(node: React.ReactNode, overrides: Record<string, unknown> = {})
 function withPrefs(node: React.ReactNode, overrides: Record<string, unknown> = {}): string {
   const prefs = {
     view: 'git',
+    sidebarCollapsed: false,
+    setSidebarCollapsed: () => {},
+    detailCollapsed: false,
+    setDetailCollapsed: () => {},
+    workPanelCollapsed: false,
+    setWorkPanelCollapsed: () => {},
     theme: 'dark',
     accent: 'blue',
     pat: '',
@@ -300,8 +313,18 @@ describe('Toolbar', () => {
     expect(html).toContain('aria-label="More"');
     // The reference sidebar only exists in the Git view.
     expect(html).toContain('aria-label="Hide sidebar (⌘B)"');
+    expect(html).toContain('aria-label="Hide working tree"');
+    expect(html).toContain('aria-label="Hide commit detail"');
+    const collapsed = withApp(<Toolbar />, {
+      activeRepo: '/tmp/example',
+      workPanelCollapsed: true,
+      detailCollapsed: true,
+    });
+    expect(collapsed).toContain('aria-label="Show working tree"');
+    expect(collapsed).toContain('aria-label="Show commit detail"');
     expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' })).not.toContain('Hide sidebar');
     expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'flows' })).not.toContain('Hide sidebar');
+    expect(withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' })).not.toContain('Hide working tree');
     // Repository tools and help surfaces live in the More menu / command palette.
     expect(html).not.toContain('Compare two references');
     expect(html).not.toContain('Repository options');
@@ -442,5 +465,47 @@ describe('CommitGraph accessibility', () => {
     const html = graphHtml('bbbb2222');
     expect(html).toContain('aria-activedescendant="commit-row-bbbb2222"');
     expect(html).toContain('aria-selected="true"');
+  });
+});
+
+describe('worktree manager', () => {
+  it('lists linked worktrees with lock, remove and prune actions', () => {
+    const html = render(createElement(
+      ToastProvider,
+      null,
+      createElement(
+        ConfirmProvider,
+        null,
+        createElement(WorktreeModal, {
+          repo: '/tmp/repo',
+          worktrees: [
+            {
+              path: '/tmp/repo', head: 'aaaa', branch: 'main', bare: false, detached: false,
+              locked: false, lockReason: null, prunable: false, pruneReason: null,
+              isMain: true, current: true,
+            },
+            {
+              path: '/tmp/wt-feature', head: 'bbbb', branch: 'feature', bare: false, detached: false,
+              locked: true, lockReason: 'agent task', prunable: false, pruneReason: null,
+              isMain: false, current: false,
+            },
+            {
+              path: '/tmp/wt-stale', head: 'cccc', branch: null, bare: false, detached: true,
+              locked: false, lockReason: null, prunable: true, pruneReason: 'missing directory',
+              isMain: false, current: false,
+            },
+          ],
+          onClose: () => {},
+          onChanged: () => {},
+        }),
+      ),
+    ));
+    expect(html).toContain('feature');
+    expect(html).toContain('/tmp/wt-feature');
+    expect(html).toContain('Unlock');
+    expect(html).toContain('agent task');
+    expect(html).toContain('Prune stale (1)');
+    expect(html).toContain('Add worktree');
+    expect(html).not.toContain('/tmp/repo</div>');
   });
 });

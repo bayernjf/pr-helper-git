@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cherryPick, resetCommit, revertCommit, revertCommitsBatch, undoLastCommit } from '../api';
 import { LOG_MAX } from '../app-state';
-import { usePreferences, useRepoData, useRunAction } from '../app-state/hooks';
+import { useActiveRepo, usePreferences, useRepoHistory, useRepoRefs, useRepoStatus, useRunAction } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { isGraphNavKey, nextCommitIndex, pageSizeForViewport } from '../lib/graph-nav';
 import { layoutGraph } from '../lib/graph-layout';
@@ -46,14 +46,13 @@ interface MenuState {
 
 export default function CommitGraph() {
   const { pat, hasServerPat } = usePreferences();
+  const { remote, refs } = useRepoRefs();
+  const { status, repoLoading } = useRepoStatus();
+  const { activeRepo: currentRepo } = useActiveRepo();
   const {
-    remote,
     commits,
-    refs,
-    status,
     selectedHash,
     selectCommit,
-    activeRepo: currentRepo,
     loadMore,
     logLimit,
     logScope,
@@ -61,8 +60,7 @@ export default function CommitGraph() {
     logPath,
     setLogPath,
     logFilters,
-    repoLoading,
-  } = useRepoData();
+  } = useRepoHistory();
   const { runAction } = useRunAction();
   const toast = useAppToast();
   const confirm = useConfirm();
@@ -243,10 +241,13 @@ export default function CommitGraph() {
     if (!menu || !currentRepo) return;
     const sha = menu.hash;
     if (mode === 'hard') {
-      const yes = await confirm(
-        'Hard reset to this commit?',
-        'git reset --hard moves the branch and discards index and working-tree changes permanently.',
-      );
+      const yes = await confirm({
+        title: t('Hard reset to this commit?'),
+        impact: tp('The branch moves to {sha}; staged and working-tree changes are discarded.', { sha: shortHash(sha) }),
+        recovery: t('Uncommitted changes cannot be recovered by Git. Commits remain recoverable through the reflog until it is pruned.'),
+        confirmLabel: t('Hard reset'),
+        danger: true,
+      });
       if (!yes) return;
     }
     await runAction(

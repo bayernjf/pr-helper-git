@@ -1056,6 +1056,12 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
     metadata: { via: "workflow-automation", ...outcome.kind === "idempotent" ? { idempotent: true } : {} },
     failureReason: null
   });
+  // The merge action writes pull_state=merged before the next reconciliation. That reconciliation
+  // then treats the stage as settled and skips the transition, so auto-advance must be queued here
+  // while the merged state is still in hand.
+  await scheduleServerAdvance(sql, { user_id: userId, github_installation_id: installationId }, workflow, action.stage_index, action.source).catch((error) => {
+    console.error(`[automation] failed to queue stage advance after merging PR #${pullNumber}: ${error instanceof Error ? error.message : "unknown error"}`);
+  });
   return { state: "succeeded", pullNumber };
 }
 async function runAutomationAdvanceAction(environment, sql, userId, installationId, actionId, action, workflow, stage) {
