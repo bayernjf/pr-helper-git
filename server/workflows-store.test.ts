@@ -1254,12 +1254,12 @@ describe('automationMergeOutcome', () => {
     expect(body).toContain("outcome.retryable");
     expect(body).toContain("state = 'queued'");
     expect(body).toContain("'waiting-gates'");
-  });
-
-  it('caps unstable and transient requeues at the same bounded attempt budget', () => {
-    const source = readFileSync(RUNTIME_STORE_SOURCE, 'utf8');
-    const body = source.slice(source.indexOf('async function runAutomationMergeAction'), source.indexOf('async function runAutomationAdvanceAction'));
-    expect(body).toContain('action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS');
+    const runtimeSource = readFileSync(RUNTIME_STORE_SOURCE, 'utf8');
+    const runtimeBody = runtimeSource.slice(
+      runtimeSource.indexOf('async function runAutomationMergeAction'),
+      runtimeSource.indexOf('async function runAutomationAdvanceAction'),
+    );
+    expect(runtimeBody).not.toContain('action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS');
   });
 
   it('queues the next-stage advance from the merge action before reconciliation can settle the stage', () => {
@@ -1431,6 +1431,7 @@ describe('automationAttemptWasReached', () => {
     expect(automationAttemptWasReached('GitHub 合并状态为 dirty')).toBe(true);
     expect(automationAttemptWasReached('分支落后于目标分支，需要先在 GitHub 更新分支')).toBe(true);
     expect(automationAttemptWasReached('流程步骤自动化策略已失效')).toBe(true);
+    expect(automationAttemptWasReached('GitHub 合并状态为 unstable')).toBe(false);
   });
 
   it('rolls the attempt back at the pause site rather than only classifying it', () => {
@@ -2128,6 +2129,10 @@ describe('automationDrainDecision', () => {
 
   it('stops requeueing once the attempts the executor charged reach the cap', () => {
     expect(automationDrainDecision(action({ state: 'paused', failureReason: 'GitHub 请求超时，请稍后重试', updatedAt: '2026-08-15T01:30:00.000Z', attempts: AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS }), now)).toEqual({ kind: 'skip' });
+  });
+
+  it('keeps a paused unstable action alive past the transient attempt cap', () => {
+    expect(automationDrainDecision(action({ state: 'paused', failureReason: 'GitHub 合并状态为 unstable', updatedAt: '2026-08-15T01:30:00.000Z', attempts: AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS + 1 }), now)).toEqual({ kind: 'requeue' });
   });
 
   // Nothing bounded this: the gate-wait requeue keeps the row queued, which the cap on attempts never
