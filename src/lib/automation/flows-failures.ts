@@ -145,10 +145,21 @@ export function failureSections(state: BoardState): FailureSections {
     }];
   });
 
+  // A blocked merge action is a symptom of the same stage failure already shown
+  // above. Collapse it so one route does not count twice in NEEDS ATTENTION.
+  // Paused create-pr keeps its takeover entry: that is an actionable recovery,
+  // not a duplicate of the CI failure.
+  const causeKeys = new Set(
+    [...failures, ...deployItems].map((item) => `${item.workflowId}:${item.stageIndex}:${item.source}`),
+  );
+  const visibleAutomationItems = automationItems.filter(
+    (item) => item.takeoverActionId !== undefined || !causeKeys.has(`${item.workflowId}:${item.stageIndex}:${item.source}`),
+  );
+
   return {
     items: failures,
     deployItems,
-    automationItems,
-    total: failures.length + deployItems.length + automationItems.length,
+    automationItems: visibleAutomationItems,
+    total: failures.length + deployItems.length + visibleAutomationItems.length,
   };
 }

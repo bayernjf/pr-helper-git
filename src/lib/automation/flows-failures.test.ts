@@ -65,6 +65,22 @@ describe('failureSections', () => {
     expect(sections.automationItems[1].takeoverActionId).toBeUndefined();
   });
 
+  it('collapses a blocked merge action into the same-stage failure but keeps create-pr takeover', () => {
+    const sections = failureSections(state({
+      actionQueue: [
+        { workflowId: 'flow-f', stageIndex: 0, source: 'dev', target: 'main', kind: 'checks-failed', message: 'CI 红', pullNumber: 9 },
+      ],
+      automationActions: [
+        { workflowId: 'flow-f', stageIndex: 0, stageId: 's-1', source: 'dev', target: 'main', state: 'paused', kind: 'merge-pr', failureReason: '门禁尚未全绿（当前 failure）', id: 6 },
+        { workflowId: 'flow-f', stageIndex: 0, stageId: 's-1', source: 'dev', target: 'main', state: 'paused', kind: 'create-pr', failureReason: 'AI 生成失败', id: 5 },
+      ],
+    }));
+    expect(sections.items).toHaveLength(1);
+    expect(sections.automationItems).toHaveLength(1);
+    expect(sections.automationItems[0].takeoverActionId).toBe(5);
+    expect(sections.total).toBe(2);
+  });
+
   it('falls back to the recorded failure reason instead of saying the reason is unknown', () => {
     const sections = failureSections(state({
       automationActions: [
