@@ -11,6 +11,7 @@
 - **危险操作影响范围与恢复路径**：确认弹窗新增 `Impact` / `Recovery path` 两段，先说明动作会改变什么，再给出可行的恢复方式。覆盖强制推送、清理未跟踪文件、硬重置和删除流程；明确远端 ref 移动、未跟踪文件/工作区改动不可由 Git 恢复，以及 reflog、其他克隆、文件系统备份、数据库备份等恢复边界。
 - **五模块 Apple 风格视觉体系**：Dashboard、Git、Pull Requests、CI Health、Flows 统一改用 Apple 系统灰阶、SF 字体栈、hairline 分隔、系统蓝强调色与更克制的阴影。工具栏重排为左侧仓库/分支、中部五页 segmented 导航、右侧同步动作；默认强调色从 violet 切换为系统蓝，色板收敛为 blue / rose / forest / amber / teal / crimson / indigo。
 - **Git 与 PR 布局修正**：未选中提交时详情栏不再常驻占宽，提交图独占整行；PR 页顶部独立为 `.pr-toolbar`，避免与全局工具栏样式串扰；仓库卡、PR 卡、CI 指标卡、Flow lane 与步骤卡改用统一表面层级。
+- **无 upstream 一键推送**：当前分支没有 upstream 时，工具栏 Push 直接走 `push -u origin <branch>`，不再先失败再要求用户去 Git 侧栏设置；Push 下拉菜单同时显示显式的「Push and set upstream」。`observability/dev` 这类新分支可直接在 Dashboard/Git 工具栏完成推送与上游设置。
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
 ### 修复
@@ -21,7 +22,7 @@
 - **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
 
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1237 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1238 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - 产品 UI 实测：Dashboard 首屏立即进入 `Fetching…`，完成后 `observability` 显示 `no upstream` 而非 `clean`；汇总的 dirty、ahead 与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
 - 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。

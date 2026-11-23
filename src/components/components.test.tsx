@@ -19,7 +19,7 @@ import RepositoriesModal from './RepositoriesModal';
 import ResolveConflictsModal from './ResolveConflictsModal';
 import Titlebar from './Titlebar';
 import WorktreeModal from './WorktreeModal';
-import Toolbar from './Toolbar';
+import Toolbar, { pushMenuItems } from './Toolbar';
 
 function render(node: React.ReactNode): string {
   return renderToString(node);
@@ -305,6 +305,11 @@ describe('Toolbar', () => {
     expect(html).toContain('main');
     // renderToString places comment nodes between the arrow and the number.
     expect(html).toMatch(/↑<!-- -->2/);
+  });
+
+  it('offers Push and set upstream only when the branch has no upstream', () => {
+    expect(pushMenuItems(true).map((item) => item.id)).not.toContain('push-upstream');
+    expect(pushMenuItems(false).map((item) => item.id)).toContain('push-upstream');
   });
 
   it('keeps low-frequency entries out of the toolbar strip', () => {
