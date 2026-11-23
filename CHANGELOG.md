@@ -17,10 +17,11 @@
 - **Dashboard 首屏读取过期快照**：`lastFetchAll` 初始值从 `Date.now()` 改为 `0`，并把「注册表就绪后 fetch 全部仓库」提前到首屏 effect，不再等 10 分钟后台轮询。首屏 fetch 静默执行，不弹 toast；30 秒状态刷新继续只读缓存。实测此前首屏显示 `↑41`、`23 dirty` 而真实为 72 个未推送提交、5 个脏文件，修复后应立即对齐。
 - **无 upstream 分支被误报 clean**：新增 `hasUpstream()` / `repoIsClean()`，`clean` 现在要求分支有 upstream 且 WIP、ahead、behind、冲突全部为零。Dashboard 卡片与列表新增 `no upstream` 徽标和汇总计数，`observability/dev` 这类没有 `origin/dev` 的分支不再显示为干净。
 - **自动合并 `unstable` 等待过久**：`automationMergeOutcome` 把 `unstable` 纳入可重试门禁；`automationGateWaitDelayMs` 对 `unstable` 使用 30 秒快速复查，不再套用 5/10/20 分钟的 approval 退避；同一动作最多重排 3 次后转人工暂停，避免无限重试。步骤抽屉同时展示 `failureReason` 与 `attempts`，让等待/失败原因可见。
+- **Flows 自动化阻塞原因不可读**：`failureSections` 的 automation 条目原先只读 `action.message`，`failureReason` 非空时仍显示 `automation reason unknown`。现在按 `message → failureReason → unknown` 回退，`atlas` 的阻止项直接显示 `门禁尚未全绿（当前 failure）`。
 - **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
 
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1236 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1237 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - 产品 UI 实测：Dashboard 首屏立即进入 `Fetching…`，完成后 `observability` 显示 `no upstream` 而非 `clean`；汇总的 dirty、ahead 与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
 - 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。

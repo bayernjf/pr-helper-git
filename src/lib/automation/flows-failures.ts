@@ -138,7 +138,7 @@ export function failureSections(state: BoardState): FailureSections {
       workflowName: flow.name,
       route: `${action.source} → ${action.target ?? '—'}`,
       pullNumber: null,
-      message: action.message?.trim() || t('automation reason unknown'),
+      message: action.message?.trim() || action.failureReason?.trim() || t('automation reason unknown'),
       takeoverActionId: action.kind === 'create-pr' && action.state === 'paused' ? action.id : undefined,
       stageIndex: action.stageIndex ?? 0,
       source: action.source,

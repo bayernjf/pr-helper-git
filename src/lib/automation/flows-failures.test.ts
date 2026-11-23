@@ -1,6 +1,7 @@
 // Failure center semantics tests (P3-5): the three aggregated sections and
 // the total counter mirror pr-helper failureCenterPanel.
 import { describe, expect, it } from 'vitest';
+import { t } from '../../i18n';
 import { blockedAutomation, failureSections, recoveryBadge } from './flows-failures';
 import type { BoardState, RecoveryStatusRow, WorkflowStageStateRow } from './flows-board';
 
@@ -62,6 +63,17 @@ describe('failureSections', () => {
     expect(sections.automationItems[0]).toMatchObject({ tone: 'attention', icon: '⏸', takeoverActionId: 5 });
     expect(sections.automationItems[1]).toMatchObject({ tone: 'failed', icon: '✗' });
     expect(sections.automationItems[1].takeoverActionId).toBeUndefined();
+  });
+
+  it('falls back to the recorded failure reason instead of saying the reason is unknown', () => {
+    const sections = failureSections(state({
+      automationActions: [
+        { workflowId: 'flow-f', stageIndex: 0, stageId: 's-1', source: 'dev', target: 'main', state: 'paused', kind: 'merge-pr', failureReason: '门禁尚未全绿（当前 failure）' },
+        { workflowId: 'flow-f', stageIndex: 0, stageId: 's-1', source: 'dev', target: 'main', state: 'failed', kind: 'merge-pr' },
+      ],
+    }));
+    expect(sections.automationItems[0].message).toBe('门禁尚未全绿（当前 failure）');
+    expect(sections.automationItems[1].message).toBe(t('automation reason unknown'));
   });
 });
 
