@@ -850,7 +850,8 @@ function automationDrainDecision(action, now, policy) {
     if (!action.failureReason || automationAttemptWasReached(action.failureReason)) return { kind: "skip" };
     if (now - Date.parse(action.createdAt) > AUTOMATION_ACTION_STALE_MS) return { kind: "cancel", reason: "stale" };
     if (now - Date.parse(action.updatedAt) < AUTOMATION_TRANSIENT_REQUEUE_COOLDOWN_MS) return { kind: "skip" };
-    if (action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS) return { kind: "skip" };
+    const unstableGate = typeof action.failureReason === "string" && action.failureReason.includes("unstable");
+    if (!unstableGate && action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS) return { kind: "skip" };
     return { kind: "requeue" };
   }
   if (action.state !== "queued" && action.state !== "running") return { kind: "skip" };
@@ -968,7 +969,7 @@ function automationRetryIsExhausted(attempts, policy) {
   return attempts >= maxRetries;
 }
 function automationAttemptWasReached(reason) {
-  return !/rate limit|请求超时|timed? ?out|aborted|internal server error|bad gateway|service unavailable/i.test(reason);
+  return !/rate limit|请求超时|timed? ?out|aborted|internal server error|bad gateway|service unavailable|unstable/i.test(reason);
 }
 async function runAutomationMergeAction(environment, sql, userId, installationId, actionId, action, workflow, stage) {
   if (stage.automation?.autoMergePullRequest !== true || stage.automation.executionMode !== "server") throw new Error("\u6D41\u7A0B\u6B65\u9AA4\u81EA\u52A8\u5408\u5E76\u7B56\u7565\u5DF2\u5931\u6548");
@@ -1030,7 +1031,6 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
     gate
   );
   if (outcome.kind === "paused" && /** @type {any} */ (outcome).retryable === true) {
-    if (action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS) throw new Error(/** @type {any} */ (outcome).reason);
     await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${gate.checksState === "pending" ? null : /** @type {any} */ (outcome).reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'waiting-gates', updated_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} \u2192 ${action.target}`, reason: "gate-not-ready", gate: /** @type {any} */ (outcome).reason, pullNumber, attempts: action.attempts + 1 }));
