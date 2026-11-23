@@ -20,8 +20,9 @@ every committed file as world-readable.
 - **Dashboard 首屏**：`lastFetchAll` 初值改为 `0`，注册表就绪后新增一次性静默 `fetchAll({silent:true})`，不再等 10 分钟后台轮询；手动 Fetch all 保留 toast，后台轮询继续只刷新缓存。此前首屏显示 `↑41` / `23 dirty`，真实为 72 个未推送提交 / 5 个脏文件；本次产品 UI 实测首屏立即进入 `Fetching…`，完成后汇总与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
 - **无 upstream**：新增 `hasUpstream()` / `repoIsClean()`，`clean` 必须有 upstream 且 WIP/ahead/behind/冲突为零。Dashboard 卡片与列表新增 `no upstream` 徽标，标题汇总新增 `N no upstream`；`observability/dev` 在实测中正确显示 `no upstream`，不再误报 clean。
 - **unstable 自动合并**：`automationMergeOutcome` 把 `unstable` 视为可重试门禁；`automationGateWaitDelayMs` 对 `unstable` 走 30 秒快速复查，不再套用 5/10/20 分钟 approval 退避。重排不按尝试次数硬停，由 12 小时 stale 窗口兜底；实测 `loom` PR #225 因重复 CI 连续 `unstable` 时，早期 3 次上限曾误暂停动作，已移除。步骤抽屉新增 `failureReason` 与 `N attempts` 展示，样式用黄色原因行。
+- **无 upstream 一键推送**：工具栏 Push 在 `activeBrief.upstream === null` 时直接调用 `pushRepo(repo, true)`，服务端走 `git push -u origin <branch>`；Push 下拉菜单同时提供「Push and set upstream」。此前 `observability/dev` 只能在 Git 侧栏右键 `Push to origin`。
 - **Flows 原因回退**：`failureSections` 的 automation 条目按 `message → failureReason → automation reason unknown` 回退；`atlas` 的 `门禁尚未全绿（当前 failure）` 不再显示为原因未知。
-- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1237 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退 1 例。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1238 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退 1 例、Push 菜单 upstream 条件 1 例。
 
 ### 2026-11-23 P1 收口与 app-state 切片
 

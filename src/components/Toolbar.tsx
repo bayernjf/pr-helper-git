@@ -59,6 +59,15 @@ import {
   IconUser,
 } from './icons';
 
+export function pushMenuItems(hasUpstream: boolean): MenuItem[] {
+  return [
+    { id: 'push-normal', label: t('Push') },
+    ...(hasUpstream ? [] : [{ id: 'push-upstream', label: t('Push and set upstream') }]),
+    { id: 'push-lease', label: t('Force push (--force-with-lease)') },
+    { id: 'push-force', label: t('Force push (--force)'), danger: true },
+  ];
+}
+
 export default function Toolbar() {
   const { activeRepo } = useActiveRepo();
   const activeBrief = useActiveBrief();
@@ -171,11 +180,7 @@ export default function Toolbar() {
           { id: 'pull-rebase', label: t('Pull with rebase') },
         ];
       case 'push':
-        return [
-          { id: 'push-normal', label: t('Push') },
-          { id: 'push-lease', label: t('Force push (--force-with-lease)') },
-          { id: 'push-force', label: t('Force push (--force)'), danger: true },
-        ];
+        return pushMenuItems(activeBrief ? Boolean(activeBrief.upstream) : true);
       case 'more':
         return [
           { id: 'grep', label: t('Search repository contents (git grep)'), icon: <IconSearch width={13} height={13} /> },
@@ -211,6 +216,7 @@ export default function Toolbar() {
     if (id === 'pull-merge') await runAction(pullRepo(activeRepo, false), 'Pulled');
     else if (id === 'pull-rebase') await runAction(pullRepo(activeRepo, true), 'Pulled with rebase');
     else if (id === 'push-normal') await runAction(pushRepo(activeRepo), 'Pushed');
+    else if (id === 'push-upstream') await runAction(pushRepo(activeRepo, true), 'Pushed and set upstream');
     else if (id === 'push-lease' || id === 'push-force') {
       const mode: ForcePushMode = id === 'push-lease' ? 'force-with-lease' : 'force';
       const ok = await confirm({
@@ -400,7 +406,10 @@ export default function Toolbar() {
               className="btn"
               disabled={!activeRepo || busy}
               aria-label={t("Push")}
-              onClick={() => runAction(pushRepo(activeRepo!), 'Pushed')}
+              onClick={() => runAction(
+                pushRepo(activeRepo!, Boolean(activeBrief && !activeBrief.upstream)),
+                activeBrief && !activeBrief.upstream ? 'Pushed and set upstream' : 'Pushed',
+              )}
             >
               <IconUpload width={14} height={14} />
               <span className="btn-label">{t("Push")}</span>

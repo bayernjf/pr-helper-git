@@ -147,7 +147,10 @@ application never pushes it for you.
   and review syntax-colored diffs in unified or side-by-side split view, with
   the changed words of a replaced line highlighted in both modes.
 - Commit with a message or amend the last commit, plus fetch, pull, push
-  (upstream tracking supported), and stash create/apply/pop/drop.
+  (upstream tracking supported). When the current branch has no upstream and
+  the first Push would otherwise fail, the toolbar pushes with `-u` and records
+  the upstream; the Push menu also exposes **Push and set upstream** explicitly.
+  Stash create/apply/pop/drop remains available.
 - Open a file content viewer from the working tree or any commit: line-numbered
   contents from the working tree or a chosen ref, binary detection, a 1 MB size
   cap, a one-click git blame tab that attributes every line to its author and
