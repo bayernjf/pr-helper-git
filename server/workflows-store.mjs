@@ -785,7 +785,7 @@ function automationMergeOutcome(pull, gate) {
   if (gate.approvals < gate.requiredApprovals) return { kind: "paused", reason: `PR \u8FD8\u9700\u8981 ${gate.requiredApprovals - gate.approvals} \u4E2A Approval`, retryable: true };
   if (gate.mergeable !== true) return { kind: "paused", reason: "GitHub \u672A\u5224\u5B9A\u8BE5 PR \u53EF\u5408\u5E76", ...gate.mergeable === null ? { retryable: true } : {} };
   if (gate.mergeableState === "behind") return { kind: "paused", reason: "\u5206\u652F\u843D\u540E\u4E8E\u76EE\u6807\u5206\u652F\uFF0C\u9700\u8981\u5148\u5728 GitHub \u66F4\u65B0\u5206\u652F" };
-  if (gate.mergeableState !== "clean") return { kind: "paused", reason: `GitHub \u5408\u5E76\u72B6\u6001\u4E3A ${gate.mergeableState}`, ...gate.mergeableState === "unknown" || gate.mergeableState === "blocked" ? { retryable: true } : {} };
+  if (gate.mergeableState !== "clean") return { kind: "paused", reason: `GitHub \u5408\u5E76\u72B6\u6001\u4E3A ${gate.mergeableState}`, ...gate.mergeableState === "unknown" || gate.mergeableState === "blocked" || gate.mergeableState === "unstable" ? { retryable: true } : {} };
   return { kind: "merge", pullNumber: pull.number };
 }
 // Merge gating must read the checks for the PR head that is about to be merged, not the projection
@@ -824,8 +824,13 @@ var AUTOMATION_ACTION_ABANDON_MS = 12e4;
 var AUTOMATION_ACTION_STALE_MS = 12 * 60 * 60 * 1e3;
 var AUTOMATION_TRANSIENT_REQUEUE_COOLDOWN_MS = 15 * 60 * 1e3;
 var AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS = 3;
+var AUTOMATION_UNSTABLE_RECHECK_MS = 30 * 1e3;
 var AUTOMATION_GATE_WAIT_MAX_MS = 30 * 60 * 1e3;
-function automationGateWaitDelayMs(attempts, policy) {
+function automationGateWaitDelayMs(attempts, policy, reason) {
+  // UNSTABLE is GitHub's "mergeable but not settled yet" state. Waiting the
+  // approval backoff (5/10/20 min) hides a gate that usually clears seconds
+  // later, so re-read it on a short, bounded cadence instead.
+  if (typeof reason === "string" && reason.includes("GitHub 合并状态为 unstable")) return AUTOMATION_UNSTABLE_RECHECK_MS;
   const configured = policy?.cooldownSeconds;
   const base = (typeof configured === "number" && Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_RECOVERY_POLICY.cooldownSeconds) * 1e3;
   return Math.min(base * 2 ** Math.max(0, Math.min(attempts, 8) - 1), AUTOMATION_GATE_WAIT_MAX_MS);
@@ -854,7 +859,7 @@ function automationDrainDecision(action, now, policy) {
   if (action.hasNewer) return { kind: "cancel", reason: "superseded" };
   if (now - Date.parse(action.createdAt) > AUTOMATION_ACTION_STALE_MS) return { kind: "cancel", reason: "stale" };
   if (abandoned) return { kind: "reclaim", refundAttempt: action.failureReason === null };
-  if (action.state === "queued" && action.failureReason && now - Date.parse(action.updatedAt) < automationGateWaitDelayMs(action.attempts, policy)) return { kind: "skip" };
+  if (action.state === "queued" && action.failureReason && now - Date.parse(action.updatedAt) < automationGateWaitDelayMs(action.attempts, policy, action.failureReason)) return { kind: "skip" };
   return { kind: "execute" };
 }
 var AUTOMATION_FUNCTION_CEILING_MS = 6e4;
@@ -1025,6 +1030,7 @@ async function runAutomationMergeAction(environment, sql, userId, installationId
     gate
   );
   if (outcome.kind === "paused" && /** @type {any} */ (outcome).retryable === true) {
+    if (action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS) throw new Error(/** @type {any} */ (outcome).reason);
     await sql`UPDATE workflow_automation_actions SET state = 'queued', failure_reason = ${gate.checksState === "pending" ? null : /** @type {any} */ (outcome).reason.slice(0, 800)}, updated_at = now() WHERE user_id = ${userId} AND id = ${actionId}`;
     await sql`UPDATE workflow_automation_runs SET state = 'waiting-gates', updated_at = now() WHERE user_id = ${userId} AND id = ${action.run_id}`;
     console.info(automationSkipLine({ kind: "merge-pr", repository: workflow.repository, route: `${action.source} \u2192 ${action.target}`, reason: "gate-not-ready", gate: /** @type {any} */ (outcome).reason, pullNumber, attempts: action.attempts + 1 }));

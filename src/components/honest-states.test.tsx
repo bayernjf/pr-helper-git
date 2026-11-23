@@ -11,6 +11,7 @@ import { PreferencesProvider } from '../app-state/preferences-provider';
 import { ToastProvider } from './ui';
 import { useRepoData } from '../app-state/hooks';
 import { ReviewPill } from './PrBoard';
+import DashboardPage from './DashboardPage';
 
 vi.mock('../api', () => ({
   getRepos: vi.fn(() => Promise.resolve({ repos: [] })),
@@ -18,6 +19,7 @@ vi.mock('../api', () => ({
   getLog: vi.fn(() => Promise.resolve({ commits: [] })),
   getRefs: vi.fn(() => Promise.resolve({ refs: [] })),
   getRemote: vi.fn(() => Promise.resolve({ remote: null })),
+  fetchRepo: vi.fn(() => Promise.resolve({ repo: null })),
   getPatStatus: vi.fn(() => Promise.resolve({ hasServerPat: false })),
   storeServerPat: vi.fn(() => Promise.resolve({ hasServerPat: true })),
   deleteServerPat: vi.fn(() => Promise.resolve({ hasServerPat: false })),
@@ -44,6 +46,7 @@ afterEach(() => {
   root?.unmount();
   root = null;
   vi.mocked(api.getRepos).mockClear();
+  vi.mocked(api.fetchRepo).mockClear();
   localStorage.clear();
 });
 
@@ -86,6 +89,42 @@ describe('registry loading honesty (reposLoaded)', () => {
       await Promise.resolve();
     });
     expect(loaded).toBe(true);
+  });
+});
+
+describe('Dashboard first paint freshness', () => {
+  const repo = {
+    path: '/tmp/first',
+    name: 'first',
+    branch: 'dev',
+    upstream: null as string | null,
+    ahead: 0,
+    behind: 0,
+    staged: 0,
+    unstaged: 0,
+    unmerged: 0,
+    untracked: 0,
+    lastCommit: { at: new Date().toISOString(), subject: 'initial commit' },
+    error: null,
+  };
+
+  it('fetches registered repos on first paint instead of waiting for the 10-minute poll', async () => {
+    vi.mocked(api.getRepos).mockImplementation(async () => ({ repos: [repo] }));
+    mount(<Providers><DashboardPage /></Providers>);
+    await act(async () => {
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    expect(api.fetchRepo).toHaveBeenCalledWith(repo.path);
+  });
+
+  it('calls a branch without an upstream out, instead of reporting it clean', async () => {
+    vi.mocked(api.getRepos).mockImplementation(async () => ({ repos: [repo] }));
+    const c = mount(<Providers><DashboardPage /></Providers>);
+    await act(async () => {
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    expect(c.textContent).toContain('no upstream');
+    expect(c.querySelector('.repo-panel-clean')).toBeNull();
   });
 });
 

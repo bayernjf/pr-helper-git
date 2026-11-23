@@ -19,11 +19,15 @@ application never pushes it for you.
   status / last-commit columns. Status badges use pencil + **WIP total** (staged / modified /
   untracked split in the tooltip), **↑ ahead** (local commits not pushed), **↓ behind** (remote
   commits not pulled), conflicts and **open-PR count** (GitHub-hosted repos); conflicted repos
-  sort first, pinned next, then a persisted sort order (name / recent / change count)
+  sort first, pinned next, then a persisted sort order (name / recent / change count).
+  A branch with no upstream is marked **no upstream** and never reported as `clean`, because
+  its ahead/behind comparison does not exist until an upstream is set.
 - Right-click a card or row: open / pin / Reveal in Finder / Open in Terminal / Open in VS Code / remove
   from list (`POST /api/repos/open-external`, audited, registered repos only)
-- **Background fetch-all** every 10 minutes while the page is open (toggle, persisted) + manual fetch-all +
-  30-second status auto-refresh
+- **First paint fetches every registered repository** as soon as the registry loads, then a
+  **background fetch-all** runs every 10 minutes while the page is open (toggle, persisted).
+  The first-paint fetch is silent; manual fetch-all reports its result, and status auto-refreshes
+  every 30 seconds.
 
 ### CI health (read-only)
 

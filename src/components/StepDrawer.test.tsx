@@ -120,6 +120,26 @@ afterEach(() => {
   root = null;
 });
 
+describe('StepDrawer automation diagnostics', () => {
+  it('shows the gate reason and the attempt count on the latest action', () => {
+    renderDrawer(openState, {
+      automation: [{
+        workflowId: 'wf-1',
+        stageIndex: 0,
+        stageId: 's-1',
+        source: 'dev',
+        target: 'main',
+        kind: 'merge-pr',
+        state: 'paused',
+        failureReason: 'GitHub 合并状态为 unstable',
+        attempts: 3,
+      }],
+    });
+    expect(document.body.textContent).toContain('GitHub 合并状态为 unstable');
+    expect(document.body.textContent).toContain(tp('{count} attempts', { count: 3 }));
+  });
+});
+
 describe('StepDrawer merge method menu', () => {
   it('opens from the split-button arrow with merge commit active and squash/rebase disabled', () => {
     renderDrawer();
