@@ -6,7 +6,7 @@ import { errorMessage } from '../lib/errors';
 //   right-click menu (open / pin / Finder / Terminal / VS Code / remove),
 //   30s auto-refresh, silent background fetch-all every 10 minutes.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy } from '../api';
+import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy, pushRepo } from '../api';
 import { useActiveRepo, usePreferences, useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
 import { activityLevel, relativeAge, repoIsClean, wipCount } from '../lib/repo-sort';
@@ -14,7 +14,7 @@ import type { RepoBrief } from '../types';
 import { Dropdown } from './Dropdown';
 import { ContextMenu } from './context-menu';
 import type { MenuItem } from './context-menu';
-import { IconBranch, IconPencil, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, IconDownload } from './icons';
+import { IconBranch, IconPencil, IconPin, IconPlus, IconRefresh, IconSearch, IconTrash, IconDownload, IconUpload } from './icons';
 import { useConfirm } from './ui';
 import { t, tp } from '../i18n';
 
@@ -43,6 +43,13 @@ function parentDir(p: string) {
   return idx > 0 ? p.slice(0, idx) : p;
 }
 
+// Dashboard keeps one repository shortcut for the operation that used to live
+// in the global toolbar: push a branch that has commits to publish, or one
+// that still needs its upstream configured. Fetch/Pull/Stash stay in Git.
+function canPushRepository(r: RepoBrief) {
+  return Boolean(r.branch && !r.error && (r.ahead > 0 || !r.upstream));
+}
+
 export default function DashboardPage() {
   const { repos, reposLoaded, refresh } = useRepoRegistry();
   const { activeRepo, selectRepo } = useActiveRepo();
@@ -57,6 +64,7 @@ export default function DashboardPage() {
   const [owners, setOwners] = useState<Record<string, string | null>>({});
   const [autoFetch, setAutoFetch] = useState(() => localStorage.getItem(AUTO_FETCH_KEY) !== '0');
   const [fetchingAll, setFetchingAll] = useState(false);
+  const [pushingPath, setPushingPath] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; repo: RepoBrief } | null>(null);
   const lastFetchAll = useRef(0);
@@ -238,20 +246,53 @@ export default function DashboardPage() {
     }
   }
 
-  const cardMenu = (repo: RepoBrief): MenuItem[] => [
-    { id: 'open', label: t('Open repository') },
-    { id: 'pin', label: pinned.includes(repo.path) ? t('Unpin') : t('Pin to top') },
-    { separator: true },
-    { id: 'finder', label: t('Reveal in Finder') },
-    { id: 'terminal', label: t('Open in Terminal') },
-    { id: 'editor', label: t('Open in VS Code') },
-    { separator: true },
-    { id: 'remove', label: t('Remove from list'), title: removeHint, danger: true },
-  ];
+  async function pushRepository(repo: RepoBrief) {
+    if (!repo.branch || pushingPath) return;
+    const setUpstream = !repo.upstream;
+    setPushingPath(repo.path);
+    try {
+      await pushRepo(repo.path, setUpstream);
+      await refresh();
+      toast(setUpstream ? t('Pushed and set upstream') : t('Pushed'), 'success');
+    } catch (err) {
+      await refresh().catch(() => undefined);
+      toast(errorMessage(err) || t('push failed'), 'error');
+    } finally {
+      setPushingPath(null);
+    }
+  }
+
+  const cardMenu = (repo: RepoBrief): MenuItem[] => {
+    const items: MenuItem[] = [
+      { id: 'open', label: t('Open repository') },
+      { id: 'pin', label: pinned.includes(repo.path) ? t('Unpin') : t('Pin to top') },
+      { separator: true },
+    ];
+    if (canPushRepository(repo)) {
+      items.push(
+        {
+          id: 'push',
+          label: repo.upstream ? `${t('Push')} ${repo.branch}` : t('Push and set upstream'),
+          icon: <IconUpload width={13} height={13} />,
+          disabled: pushingPath !== null,
+        },
+        { separator: true },
+      );
+    }
+    items.push(
+      { id: 'finder', label: t('Reveal in Finder') },
+      { id: 'terminal', label: t('Open in Terminal') },
+      { id: 'editor', label: t('Open in VS Code') },
+      { separator: true },
+      { id: 'remove', label: t('Remove from list'), title: removeHint, danger: true },
+    );
+    return items;
+  };
 
   const onMenuSelect = (repo: RepoBrief, id: string) => {
     if (id === 'open') selectRepo(repo.path);
     else if (id === 'pin') togglePin(repo.path);
+    else if (id === 'push') void pushRepository(repo);
     else if (id === 'finder') external(repo.path, 'finder');
     else if (id === 'terminal') external(repo.path, 'terminal');
     else if (id === 'editor') external(repo.path, 'editor');
@@ -296,6 +337,23 @@ export default function DashboardPage() {
   };
 
   const isClean = (r: RepoBrief) => repoIsClean(r);
+
+  const renderPushButton = (r: RepoBrief) => {
+    if (!canPushRepository(r)) return null;
+    return (
+      <button
+        type="button"
+        className="icon-btn dash-push"
+        aria-label={r.upstream ? `${t('Push')} ${r.branch}` : t('Push and set upstream')}
+        title={r.upstream ? `${t('Push')} ${r.branch}` : t('Push and set upstream')}
+        aria-busy={pushingPath === r.path}
+        disabled={pushingPath !== null}
+        onClick={(e) => { e.stopPropagation(); void pushRepository(r); }}
+      >
+        <IconUpload width={14} height={14} />
+      </button>
+    );
+  };
 
   const staleBadge = (r: RepoBrief) => {
     // Parity with pr-helper-git: repos dormant for 90+ days get a visible stale
@@ -448,6 +506,7 @@ export default function DashboardPage() {
                   )}
                   {staleBadge(r)}
                   <span className="spacer" />
+                  {renderPushButton(r)}
                   <button
                     type="button"
                     className="icon-btn dash-remove"
@@ -543,15 +602,18 @@ export default function DashboardPage() {
                 <span className="dash-row-commit">
                   {r.lastCommit ? `${relativeAge(r.lastCommit.at)} · ${r.lastCommit.subject}` : t('No commits yet.')}
                 </span>
-                <button
-                  type="button"
-                  className="icon-btn dash-remove"
-                  aria-label={`${t('Remove from list')}: ${r.name}`}
-                  title={removeHint}
-                  onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
-                >
-                  <IconTrash width={13} height={13} />
-                </button>
+                <span className="dash-row-actions">
+                  {renderPushButton(r)}
+                  <button
+                    type="button"
+                    className="icon-btn dash-remove"
+                    aria-label={`${t('Remove from list')}: ${r.name}`}
+                    title={removeHint}
+                    onClick={(e) => { e.stopPropagation(); void remove(r.path, r.name); }}
+                  >
+                    <IconTrash width={13} height={13} />
+                  </button>
+                </span>
               </div>
             );
           })}

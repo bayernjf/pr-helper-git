@@ -312,6 +312,23 @@ describe('Toolbar', () => {
     expect(pushMenuItems(false).map((item) => item.id)).toContain('push-upstream');
   });
 
+  it('keeps repository write actions scoped to the Git view', () => {
+    const git = withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'git' });
+    expect(git).toContain('title="git fetch --all"');
+    expect(git).toContain('aria-label="Pull"');
+    expect(git).toContain('aria-label="Push"');
+    expect(git).toContain('title="Stash working changes"');
+
+    const dashboard = withApp(<Toolbar />, { activeRepo: '/tmp/example', view: 'dashboard' });
+    expect(dashboard).not.toContain('title="git fetch --all"');
+    expect(dashboard).not.toContain('aria-label="Pull"');
+    expect(dashboard).not.toContain('aria-label="Push"');
+    expect(dashboard).not.toContain('title="Stash working changes"');
+    // Only the Git page owns those write actions; global utilities stay.
+    expect(dashboard).toContain('aria-label="Settings"');
+    expect(dashboard).toContain('aria-label="More"');
+  });
+
   it('keeps low-frequency entries out of the toolbar strip', () => {
     const html = withApp(<Toolbar />, { activeRepo: '/tmp/example' });
     expect(html).toContain('aria-label="Settings"');
