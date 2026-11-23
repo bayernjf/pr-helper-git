@@ -374,7 +374,7 @@ export default function Toolbar() {
             title="git fetch --all"
             onClick={() => runAction(fetchRepo(activeRepo!), 'Fetched')}
           >
-            <IconRefresh width={14} height={14} />
+            <IconRefresh width={16} height={16} />
             <span className="btn-label">{t("Fetch")}</span>
           </button>
           <span className="btn-group">
@@ -385,7 +385,7 @@ export default function Toolbar() {
               aria-label={t("Pull")}
               onClick={() => runAction(pullRepo(activeRepo!), 'Pulled')}
             >
-              <IconDownload width={14} height={14} />
+              <IconDownload width={16} height={16} />
               <span className="btn-label">{t("Pull")}</span>
             </button>
             <button
@@ -411,7 +411,7 @@ export default function Toolbar() {
                 activeBrief && !activeBrief.upstream ? 'Pushed and set upstream' : 'Pushed',
               )}
             >
-              <IconUpload width={14} height={14} />
+              <IconUpload width={16} height={16} />
               <span className="btn-label">{t("Push")}</span>
             </button>
             <button
@@ -433,7 +433,7 @@ export default function Toolbar() {
             title={t("Stash working changes")}
             onClick={() => setShowStash(true)}
           >
-            <IconStash width={14} height={14} />
+            <IconStash width={16} height={16} />
             <span className="btn-label">{t("Stash")}</span>
           </button>
         </span>
@@ -449,7 +449,7 @@ export default function Toolbar() {
             onMouseDown={caretDown('more')}
             onClick={(e) => caretClick(e, 'more')}
           >
-            <IconMore width={14} height={14} />
+            <IconMore width={16} height={16} />
           </button>
           <button
             type="button"
@@ -458,7 +458,7 @@ export default function Toolbar() {
             aria-label={t("Settings")}
             onClick={() => setShowSettings(true)}
           >
-            <IconGear />
+            <IconGear width={18} height={18} />
           </button>
           <button
             type="button"
@@ -467,7 +467,7 @@ export default function Toolbar() {
             aria-label={theme === 'dark' ? t('Theme: dark (click for light)') : theme === 'light' ? t('Theme: light (click for system)') : t('Theme: system (click for dark)')}
             onClick={toggleTheme}
           >
-            {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconMonitor />}
+            {theme === 'dark' ? <IconMoon width={18} height={18} /> : theme === 'light' ? <IconSun width={18} height={18} /> : <IconMonitor width={18} height={18} />}
           </button>
         </span>
       </div>

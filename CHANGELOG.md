@@ -15,6 +15,7 @@
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
 ### 修复
+- **顶部工具栏图标偏小**：Apple 风格工具栏把同步图标压到 14px、右侧独立图标 16px，窄宽时 SVG 还会被 flex 压到 10px。现在同步图标统一 16px，More / Settings / Theme 提升到 18px，独立按钮改为 32×30，并禁止工具栏 SVG 收缩。
 - **设置弹层被工具栏顶出视口**：Settings 原先作为工具栏子节点渲染，Apple 风格工具栏新增 `backdrop-filter` 后成为 `position: fixed` 的包含块，弹层按 46px 工具栏居中，顶部标题和大部分内容被裁到视口上方。现在通过 `createPortal` 挂到 `document.body`，仍由 Toolbar 控制开关；实测弹层回到视口内居中（`y=25.9`，viewport `811`），新增 portal 回归测试。
 - **Dashboard 首屏读取过期快照**：`lastFetchAll` 初始值从 `Date.now()` 改为 `0`，并把「注册表就绪后 fetch 全部仓库」提前到首屏 effect，不再等 10 分钟后台轮询。首屏 fetch 静默执行，不弹 toast；30 秒状态刷新继续只读缓存。实测此前首屏显示 `↑41`、`23 dirty` 而真实为 72 个未推送提交、5 个脏文件，修复后应立即对齐。
 - **无 upstream 分支被误报 clean**：新增 `hasUpstream()` / `repoIsClean()`，`clean` 现在要求分支有 upstream 且 WIP、ahead、behind、冲突全部为零。Dashboard 卡片与列表新增 `no upstream` 徽标和汇总计数，`observability/dev` 这类没有 `origin/dev` 的分支不再显示为干净。
