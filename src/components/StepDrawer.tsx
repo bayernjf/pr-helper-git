@@ -597,6 +597,10 @@ export default function StepDrawer({ flow, stageIndex, source, inbox, onClose, o
                       <b>{t(ACTION_KIND_LABEL[action.kind ?? ''] ?? action.kind ?? '—')}</b>
                       <span className="automation-state">{t(STATE_TONE_LABEL[action.state] ?? action.state)}</span>
                       {action.message ? <small>{action.message}</small> : null}
+                      {action.failureReason ? <small className="automation-reason">{action.failureReason}</small> : null}
+                      {typeof action.attempts === 'number' && action.attempts > 0 ? (
+                        <small>{tp('{count} attempts', { count: action.attempts })}</small>
+                      ) : null}
                     </div>
                     <div className="automation-row-ops">
                       {action.state === 'queued' || action.state === 'running' || action.state === 'paused' ? (

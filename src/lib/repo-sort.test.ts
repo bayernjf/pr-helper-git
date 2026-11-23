@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityLevel, relativeAge, sortRepos, summarizeRepos, wipCount } from './repo-sort';
+import { activityLevel, hasUpstream, relativeAge, repoIsClean, sortRepos, summarizeRepos, wipCount } from './repo-sort';
 
 const NOW = new Date('2026-11-08T12:00:00Z').getTime();
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -66,6 +66,34 @@ describe('wipCount', () => {
   it('counts staged, modified and untracked as one working-tree total', () => {
     expect(wipCount({ staged: 2, unstaged: 1, untracked: 3 })).toBe(6);
     expect(wipCount({ staged: 0, unstaged: 0, untracked: 0 })).toBe(0);
+  });
+});
+
+describe('upstream health', () => {
+  const base = {
+    branch: 'dev',
+    upstream: 'origin/dev',
+    ahead: 0,
+    behind: 0,
+    unmerged: 0,
+    staged: 0,
+    unstaged: 0,
+    untracked: 0,
+  };
+
+  it('requires a branch and an upstream before calling a repo clean', () => {
+    expect(hasUpstream(base)).toBe(true);
+    expect(repoIsClean(base)).toBe(true);
+    expect(hasUpstream({ branch: 'dev', upstream: null })).toBe(false);
+    expect(repoIsClean({ ...base, upstream: null })).toBe(false);
+    expect(repoIsClean({ ...base, branch: null, upstream: null })).toBe(false);
+  });
+
+  it('does not hide diverged, conflicted or dirty work behind clean', () => {
+    expect(repoIsClean({ ...base, ahead: 4 })).toBe(false);
+    expect(repoIsClean({ ...base, behind: 2 })).toBe(false);
+    expect(repoIsClean({ ...base, unmerged: 1 })).toBe(false);
+    expect(repoIsClean({ ...base, staged: 1 })).toBe(false);
   });
 });
 

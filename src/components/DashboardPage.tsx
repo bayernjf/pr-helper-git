@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { openExternal, removeRepo, fetchRepo, getRemote, githubProxy } from '../api';
 import { useActiveRepo, usePreferences, useRepoRegistry } from '../app-state/hooks';
 import { useAppToast } from '../app-state/toast';
-import { activityLevel, relativeAge, wipCount } from '../lib/repo-sort';
+import { activityLevel, relativeAge, repoIsClean, wipCount } from '../lib/repo-sort';
 import type { RepoBrief } from '../types';
 import { Dropdown } from './Dropdown';
 import { ContextMenu } from './context-menu';
@@ -59,7 +59,8 @@ export default function DashboardPage() {
   const [fetchingAll, setFetchingAll] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; repo: RepoBrief } | null>(null);
-  const lastFetchAll = useRef(Date.now());
+  const lastFetchAll = useRef(0);
+  const initialFetchStarted = useRef(false);
   const removeHint = t('Only removes it from this list. The local clone and GitHub remote stay untouched.');
 
   // 30s status refresh while the dashboard is visible.
@@ -74,6 +75,15 @@ export default function DashboardPage() {
       window.clearInterval(timer);
     };
   }, [refresh]);
+
+  // The first paint must not wait for the 10-minute poll. The dashboard can
+  // open long after the last status snapshot, so fetch every repo once when
+  // the registry is ready; auto-fetch only owns the periodic refresh after that.
+  useEffect(() => {
+    if (initialFetchStarted.current || !reposLoaded || repos.length === 0) return;
+    initialFetchStarted.current = true;
+    void fetchAll({ silent: true });
+  }, [reposLoaded, repos.length]);
 
   // Silent background fetch-all every 10 minutes. The interval is stable —
   // repos/fetchingAll are read from refs so every status refresh does not
@@ -207,11 +217,12 @@ export default function DashboardPage() {
       conflicts: repos.reduce((n, r) => n + r.unmerged, 0),
       behind: repos.reduce((n, r) => n + r.behind, 0),
       ahead: repos.reduce((n, r) => n + r.ahead, 0),
+      noUpstream: repos.reduce((n, r) => n + (r.branch && !r.upstream ? 1 : 0), 0),
     }),
     [repos],
   );
 
-  async function fetchAll() {
+  async function fetchAll({ silent = false }: { silent?: boolean } = {}) {
     setFetchingAll(true);
     const results = await Promise.allSettled(repos.map((r) => fetchRepo(r.path)));
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -221,8 +232,10 @@ export default function DashboardPage() {
     } finally {
       setFetchingAll(false);
     }
-    if (failed === 0) toast(tp('{count} repositories fetched', { count: repos.length }), 'success');
-    else toast(tp('{ok} fetched, {failed} failed', { ok: repos.length - failed, failed }), 'error');
+    if (!silent) {
+      if (failed === 0) toast(tp('{count} repositories fetched', { count: repos.length }), 'success');
+      else toast(tp('{ok} fetched, {failed} failed', { ok: repos.length - failed, failed }), 'error');
+    }
   }
 
   const cardMenu = (repo: RepoBrief): MenuItem[] => [
@@ -270,12 +283,19 @@ export default function DashboardPage() {
         )}
         {r.ahead > 0 && <span className="dash-pill ahead">↑{r.ahead}</span>}
         {r.behind > 0 && <span className="dash-pill behind">↓{r.behind}</span>}
+        {r.branch && !r.upstream && (
+          <span
+            className="dash-pill no-upstream"
+            title={t('This branch has no upstream. Set one before pushing.')}
+          >
+            {t('no upstream')}
+          </span>
+        )}
       </>
     );
   };
 
-  const isClean = (r: RepoBrief) =>
-    wipCount(r) === 0 && r.ahead === 0 && r.behind === 0 && r.unmerged === 0;
+  const isClean = (r: RepoBrief) => repoIsClean(r);
 
   const staleBadge = (r: RepoBrief) => {
     // Parity with pr-helper-git: repos dormant for 90+ days get a visible stale
@@ -300,6 +320,11 @@ export default function DashboardPage() {
             {aggregate.conflicts > 0 && <span className="dash-pill conflict">{tp('{count} conflicts', { count: aggregate.conflicts })}</span>}
             {aggregate.behind > 0 && <span className="dash-pill behind">↓{aggregate.behind}</span>}
             {aggregate.ahead > 0 && <span className="dash-pill ahead">↑{aggregate.ahead}</span>}
+            {aggregate.noUpstream > 0 && (
+              <span className="dash-pill no-upstream">
+                {tp('{count} no upstream', { count: aggregate.noUpstream })}
+              </span>
+            )}
           </div>
         </div>
         <span className="spacer" />
@@ -347,7 +372,7 @@ export default function DashboardPage() {
         <button type="button" className="icon-btn" aria-label={t('Refresh status')} disabled={refreshing} onClick={async () => { setRefreshing(true); try { await refresh(); } finally { setRefreshing(false); } }}>
           <IconRefresh width={14} height={14} />
         </button>
-        <button type="button" className="icon-btn" aria-label={t('Fetch all repositories')} disabled={fetchingAll || repos.length === 0} onClick={fetchAll}>
+        <button type="button" className="icon-btn" aria-label={t('Fetch all repositories')} disabled={fetchingAll || repos.length === 0} onClick={() => void fetchAll()}>
           <IconDownload width={14} height={14} />
         </button>
         <button type="button" className="icon-btn" aria-label={t('Add repository…')} onClick={() => window.dispatchEvent(new CustomEvent('git2:add-repo'))}>

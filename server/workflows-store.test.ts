@@ -1233,6 +1233,7 @@ describe('automationMergeOutcome', () => {
     expect(retryable({ mergeable: null })).toBe(true);
     expect(retryable({ mergeableState: 'unknown' })).toBe(true);
     expect(retryable({ mergeableState: 'blocked' })).toBe(true);
+    expect(retryable({ mergeableState: 'unstable' })).toBe(true);
   });
 
   it('leaves a pause only a human can clear non-retryable, so a conflict is not re-attempted on every event', () => {
@@ -1253,6 +1254,12 @@ describe('automationMergeOutcome', () => {
     expect(body).toContain("outcome.retryable");
     expect(body).toContain("state = 'queued'");
     expect(body).toContain("'waiting-gates'");
+  });
+
+  it('caps unstable and transient requeues at the same bounded attempt budget', () => {
+    const source = readFileSync(RUNTIME_STORE_SOURCE, 'utf8');
+    const body = source.slice(source.indexOf('async function runAutomationMergeAction'), source.indexOf('async function runAutomationAdvanceAction'));
+    expect(body).toContain('action.attempts >= AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS');
   });
 
   it('queues the next-stage advance from the merge action before reconciliation can settle the stage', () => {
@@ -2154,6 +2161,13 @@ describe('automationDrainDecision', () => {
   it('honours the cooldown the workflow configured instead of the default', () => {
     expect(automationDrainDecision(gateWait({ updatedAt: '2026-08-15T02:24:00.000Z' }), now, { cooldownSeconds: 60 })).toEqual({ kind: 'execute' });
     expect(automationDrainDecision(gateWait({ updatedAt: '2026-08-15T02:25:59.000Z' }), now, { cooldownSeconds: 0 })).toEqual({ kind: 'execute' });
+  });
+
+  // UNSTABLE is a short-lived GitHub verdict, not an approval that needs a five-minute wait.
+  it('rechecks an unstable merge gate on the short cadence', () => {
+    const unstable = gateWait({ failureReason: 'GitHub 合并状态为 unstable', attempts: 1 });
+    expect(automationDrainDecision({ ...unstable, updatedAt: '2026-08-15T02:25:45.000Z' }, now)).toEqual({ kind: 'skip' });
+    expect(automationDrainDecision({ ...unstable, updatedAt: '2026-08-15T02:25:20.000Z' }, now)).toEqual({ kind: 'execute' });
   });
 
   // A fresh action carries no reason, and delaying it would put the whole point of reading the queue —

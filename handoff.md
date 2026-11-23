@@ -15,6 +15,13 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据仍未补齐）**
 
+### 2026-11-23 Dashboard 首屏、无 upstream 与 unstable 重试
+
+- **Dashboard 首屏**：`lastFetchAll` 初值改为 `0`，注册表就绪后新增一次性静默 `fetchAll({silent:true})`，不再等 10 分钟后台轮询；手动 Fetch all 保留 toast，后台轮询继续只刷新缓存。此前首屏显示 `↑41` / `23 dirty`，真实为 72 个未推送提交 / 5 个脏文件；本次产品 UI 实测首屏立即进入 `Fetching…`，完成后汇总与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
+- **无 upstream**：新增 `hasUpstream()` / `repoIsClean()`，`clean` 必须有 upstream 且 WIP/ahead/behind/冲突为零。Dashboard 卡片与列表新增 `no upstream` 徽标，标题汇总新增 `N no upstream`；`observability/dev` 在实测中正确显示 `no upstream`，不再误报 clean。
+- **unstable 自动合并**：`automationMergeOutcome` 把 `unstable` 视为可重试门禁；`automationGateWaitDelayMs` 对 `unstable` 走 30 秒快速复查，不再套用 5/10/20 分钟 approval 退避；同一动作最多尝试 3 次后抛出门禁原因转人工暂停。步骤抽屉新增 `failureReason` 与 `N attempts` 展示，样式用黄色原因行。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1236 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例。
+
 ### 2026-11-23 P1 收口与 app-state 切片
 
 - **危险操作影响范围/恢复路径**（`9b96f02`）：统一确认弹窗接受 `impact` / `recovery`，覆盖强制推送、清理未跟踪文件、硬重置、删除流程；明确远端 ref、未跟踪文件和工作区改动的恢复边界，不提供假装可 undo 的按钮。

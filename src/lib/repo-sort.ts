@@ -49,6 +49,29 @@ export function relativeAge(at: string | null | undefined, now: number = Date.no
   return `${Math.floor(age / (365 * DAY))}y ago`;
 }
 
+export type UpstreamRepo = { branch: string | null; upstream: string | null };
+
+/** A branch with a configured upstream can report meaningful ahead/behind and can be pushed. */
+export function hasUpstream(repo: UpstreamRepo): boolean {
+  return Boolean(repo.branch && repo.upstream);
+}
+
+/** Clean means no WIP, no sync drift, no conflicts — and an upstream that makes that comparison real. */
+export function repoIsClean(repo: UpstreamRepo & {
+  ahead: number;
+  behind: number;
+  unmerged: number;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+}): boolean {
+  return hasUpstream(repo)
+    && repo.unmerged === 0
+    && repo.ahead === 0
+    && repo.behind === 0
+    && wipCount(repo) === 0;
+}
+
 type Sortable = { path: string; name: string; staged: number; unstaged: number; untracked: number };
 
 /** Files with uncommitted changes: staged + modified + untracked. */
