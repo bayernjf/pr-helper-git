@@ -148,4 +148,14 @@ describe('SettingsModal role gating', () => {
     expect(document.body.textContent).not.toContain('Search across all repositories');
     expect(document.body.textContent).not.toContain('Compare two references');
   });
+
+  it('portals the dialog out of the toolbar stacking context', async () => {
+    // The toolbar carries backdrop-filter, which turns it into a containing
+    // block for position: fixed descendants. The dialog must escape to body
+    // or it will be centered on the 46px toolbar and clipped off-screen.
+    await mount('admin');
+    expect(host.querySelector('.settings-modal')).toBeNull();
+    expect(document.body.querySelector('.settings-backdrop')?.parentElement).toBe(document.body);
+    expect(document.body.querySelector('.settings-modal')).not.toBeNull();
+  });
 });
