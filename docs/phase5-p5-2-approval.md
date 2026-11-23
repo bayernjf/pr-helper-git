@@ -201,10 +201,12 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 | 自动建 PR | action `4757`，`18:27:09` 入队，`18:27:18` 成功，PR #25（dev → main） |
 | 自动合并 | action `4758`，`18:27:18` 入队，`18:29:28` 成功（attempts=2），无人工执行 |
 | 合并结果 | PR #25 于 `18:29:27` 合并，merge commit `20bd916` |
-| Flows 页面 | `Step 2/2`；stage 1 `dev → main` 显示 `#25 checks passed`，stage 2 `main → release` 仍为上一轮 `#24 checks passed` |
-| 重复检查 | 仅 1 个 create-pr、1 个 merge-pr；本轮没有新的 `advance-stage` 动作 |
+| Flows 页面（合并后即时） | `Step 2/2`；stage 1 `dev → main` 显示 `#25 checks passed`，stage 2 `main → release` 显示 `#24 checks passed` |
+| stage 1 自动接续 | 5 分钟后 cron reconcile 创建 action `4759`（`18:34:26` 入队，`18:34:31` 成功，PR #26），action `4760` 于 `18:34:31` 入队，`18:35:27` 自动合并（attempts=1），merge `eae1c5f` |
+| 最终状态 | stage 0 #25 / stage 1 #26 均 `merged` / `success`；`origin/main=20bd916`、`origin/release=eae1c5f` |
+| 重复检查 | 每个 stage 仅 1 个 create-pr、1 个 merge-pr；本轮没有新的 `advance-stage` 动作 |
 
-**说明**：这轮验证的是“产品 UI Push → stage 0 自动建 PR → 自动合并”这一段；`stage 1 main → release` 没有生成新的 release PR，仍是上一轮已合并的 PR #24。`advance-stage` 的幂等键按 stage/source/target 生成，本 stage 已在 PR #23 后成功推进过，因此不会为 PR #25 重复生成 advance 动作。若产品语义要求每次 stage 0 合并都重新推进 stage 1，需要另行设计 cycle/run 级状态，不在本轮改动范围。
+**说明**：产品 UI Push 后，stage 0 在 2 分钟内自动合并；stage 1 没有立刻出现，而是在下一轮 5 分钟 cron reconcile 自动接上 PR #26 并合并。该 round 完整覆盖“UI Push → stage 0 PR/merge → cron 接续 stage 1 PR/merge”。`advance-stage` 的幂等键按 stage/source/target 生成，本 stage 已在 PR #23 后成功推进过，因此不会为 PR #25 重复生成 advance 动作，这不影响 stage 1 的自动接续。
 
 
 
@@ -218,7 +220,7 @@ PR_HELPER_GIT_AUTOMATION=1 PR_HELPER_AUTOMATION_SHADOW=1 bash launchd/install.sh
 | 1. 本地转执行 | owner（2026-11-23 事后承认现状；无事前审批） | 2026-11-23 01:20 CST | 已于 2026-11-22 01:33 CST 实际发生 | 违反 D-016 顺序；动作 2–3 未批准 |
 | 2. 摘 webhook |  |  |  |  |
 | 3. 停 Vercel cron |  |  |  |  |
-| 4. 真实端到端 | owner（口头“那你搞”） | 2026-11-23 01:51 CST | PR #20 单 stage；PR #23/#24 多 stage；PR #25 产品 UI Push；`stage-advanced` action 4754 | 动作 4746/4747、4752/4753/4754、4755/4756、4757/4758；首次 merge 读 `unstable`，随后重试成功 |
+| 4. 真实端到端 | owner（口头“那你搞”） | 2026-11-23 01:51 CST | PR #20 单 stage；PR #23/#24 多 stage；PR #25/#26 产品 UI Push 双 stage；`stage-advanced` action 4754 | 动作 4746/4747、4752/4753/4754、4755/4756、4757/4758、4759/4760；首次 merge 读 `unstable`，随后重试成功 |
 
 ## 5. 回滚顺序与停止条件
 
