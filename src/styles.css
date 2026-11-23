@@ -5639,9 +5639,12 @@ h1, h2, h3, h4 {
 .toolbar-actions { display: inline-flex; align-items: center; gap: 4px; }
 .toolbar-divider { width: 1px; height: 18px; background: var(--hairline); margin: 0 2px; }
 .toolbar-icons { display: inline-flex; align-items: center; gap: 2px; }
+/* Toolbar glyphs must keep their intrinsic size; flex shrinking turned the
+   16-18px icons into 10px slivers when the bar ran out of room. */
+.toolbar .btn > svg { flex: 0 0 auto; }
 .toolbar-icons .btn {
-  width: 30px;
-  height: 28px;
+  width: 32px;
+  height: 30px;
   padding: 0;
   justify-content: center;
   border-color: transparent;
