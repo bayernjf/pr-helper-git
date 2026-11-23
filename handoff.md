@@ -23,7 +23,7 @@ every committed file as world-readable.
 - **Flows 同路由去重**：`failureSections` 按 `workflowId:stageIndex:source` 合并同 stage 的 CI/部署失败与 blocked merge action，`atlas` 的同一路由不再在 NEEDS ATTENTION 里计两次；paused create-pr 因带 takeover 入口而保留。
 - **无 upstream 一键推送**：工具栏 Push 在 `activeBrief.upstream === null` 时直接调用 `pushRepo(repo, true)`，服务端走 `git push -u origin <branch>`；Push 下拉菜单同时提供「Push and set upstream」。此前 `observability/dev` 只能在 Git 侧栏右键 `Push to origin`。
 - **Flows 原因回退**：`failureSections` 的 automation 条目按 `message → failureReason → automation reason unknown` 回退；`atlas` 的 `门禁尚未全绿（当前 failure）` 不再显示为原因未知。
-- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1239 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退/同路由去重 2 例、Push 菜单 upstream 条件 1 例。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1240 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过；定向新增 repo-sort 2 例、Dashboard 首屏 2 例、unstable 行为/源码 3 例、StepDrawer 诊断 1 例、Flows 原因回退/同路由去重 2 例、Push 菜单 upstream 条件 1 例、设置弹层 portal 1 例。
 
 ### 2026-11-23 P1 收口与 app-state 切片
 

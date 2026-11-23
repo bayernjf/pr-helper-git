@@ -1,5 +1,6 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getAiConfig, getMe, saveAiConfig, testAi, getStorage, rotateAudit, pruneRepos,
   getGithubAuthStatus, getGithubInstallations, logoutGithub, pollGithubDeviceFlow, startGithubDeviceFlow,
@@ -294,7 +295,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     onClose();
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop settings-backdrop"
       role="dialog"
@@ -834,6 +835,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </main>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
