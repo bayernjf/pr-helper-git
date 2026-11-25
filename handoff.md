@@ -18,7 +18,7 @@ every committed file as world-readable.
 ### 2026-11-25 Flows 首载空态
 
 - **Flows 首载**：`FlowBoard` 在首屏投影读取完成前不再渲染 `.board-empty`；此前会同时出现 `Refreshing…` 与 `No flows yet — create one from a repository`，看起来像整个看板没有流程。新增 `src/components/FlowBoard.test.tsx`，用 pending fetch 锁定“加载中无空态、完成后才显示空态”。
-- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 已重建为 0.3.20，`/Applications/PR Helper Git.app` 本次未替换。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 已重建为 0.3.20。`/Applications/PR Helper Git.app` 已替换为同一构建，并实测首次进入 Flows 只显示 `Refreshing…`，加载完成后出现 15 条流程，不再闪现 `No flows yet — create one from a repository`。旧包备份为 `PR Helper Git 0.3.20-local-before-flows-initial-load.app`。
 
 ### 2026-11-23 Dashboard 首屏、无 upstream 与 unstable 重试
 
