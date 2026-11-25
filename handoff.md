@@ -7,6 +7,20 @@ pushes nothing. This repository, however, **is** on GitHub as the public
 every committed file as world-readable.
 
 
+## 待办登记（标准）
+
+> 本段是本产品唯一活跃待办入口；详细背景见下方原有章节。
+> 最近同步：2026-11-25
+
+<!-- tier:todos v1 -->
+| id | title | status | priority | owner | next | evidence | updated |
+|---|---|---|---|---|---|---|---|
+| PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
+| PH-02 | P5-1 判定证据补齐 | open | p1 | self | 补齐 P5-1 判定证据 | `handoff.md` Phase 5 | 2026-11-25 |
+| PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
+<!-- /tier:todos -->
+
+
 ## pr-helper 迁移进度（实时段，随会话更新）
 
 > 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-021 与验收标准在
