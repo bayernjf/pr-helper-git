@@ -15,6 +15,11 @@ every committed file as world-readable.
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据仍未补齐）**
 
+### 2026-11-25 Flows 首载空态
+
+- **Flows 首载**：`FlowBoard` 在首屏投影读取完成前不再渲染 `.board-empty`；此前会同时出现 `Refreshing…` 与 `No flows yet — create one from a repository`，看起来像整个看板没有流程。新增 `src/components/FlowBoard.test.tsx`，用 pending fetch 锁定“加载中无空态、完成后才显示空态”。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 已重建为 0.3.20，`/Applications/PR Helper Git.app` 本次未替换。
+
 ### 2026-11-23 Dashboard 首屏、无 upstream 与 unstable 重试
 
 - **Dashboard 首屏**：`lastFetchAll` 初值改为 `0`，注册表就绪后新增一次性静默 `fetchAll({silent:true})`，不再等 10 分钟后台轮询；手动 Fetch all 保留 toast，后台轮询继续只刷新缓存。此前首屏显示 `↑41` / `23 dirty`，真实为 72 个未推送提交 / 5 个脏文件；本次产品 UI 实测首屏立即进入 `Fetching…`，完成后汇总与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。

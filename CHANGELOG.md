@@ -16,6 +16,7 @@
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
 ### 修复
+- **Flows 首次进入误报空看板**：首屏投影读取完成前 `workflows` 仍为空，`Refreshing…` 会与 `No flows yet — create one from a repository` 同时出现，看起来像整个看板没有流程。现在空态只在首屏加载结束后渲染；新增 `FlowBoard` jsdom 回归测试，用 pending fetch 锁定“加载中无空态、完成后才显示空态”。
 - **顶部工具栏中段视觉偏移**：仓库操作组此前在所有页面都与五页导航同排，整组视觉中心被拉到窗口右侧。现在非 Git 页只保留居中的导航 tabs 和右侧全局图标，Git 页才显示仓库操作组。
 - **顶部工具栏图标偏小**：Apple 风格工具栏把同步图标压到 14px、右侧独立图标 16px，窄宽时 SVG 还会被 flex 压到 10px。现在同步图标统一 16px，More / Settings / Theme 提升到 18px，独立按钮改为 32×30，并禁止工具栏 SVG 收缩。
 - **设置弹层被工具栏顶出视口**：Settings 原先作为工具栏子节点渲染，Apple 风格工具栏新增 `backdrop-filter` 后成为 `position: fixed` 的包含块，弹层按 46px 工具栏居中，顶部标题和大部分内容被裁到视口上方。现在通过 `createPortal` 挂到 `document.body`，仍由 Toolbar 控制开关；实测弹层回到视口内居中（`y=25.9`，viewport `811`），新增 portal 回归测试。
@@ -27,7 +28,7 @@
 - **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
 
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1242 tests / 72 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）通过。
 - 产品 UI 实测：Dashboard 首屏立即进入 `Fetching…`，完成后 `observability` 显示 `no upstream` 而非 `clean`；汇总的 dirty、ahead 与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
 - 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
 - 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。
