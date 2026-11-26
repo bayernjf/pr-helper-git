@@ -863,7 +863,7 @@ export default function FlowBoard() {
               timeline={inbox?.timeline ?? []}
             />
           </article>
-        )) : error ? null : (
+        )) : error || loading ? null : (
           <article className="board-empty">
             <h3>{workflows.length ? t('No flows match this filter') : t('No flows yet — create one from a repository')}</h3>
             {workflows.length ? (

@@ -228,7 +228,7 @@ it never reads or writes `~/.pr-helper-git`.
 
 As of 0.3.20 (2026-11-23):
 
-- unit/route tests: **1242 tests / 72 files** (includes the migrated pr-helper
+- unit/route tests: **1243 tests / 73 files** (includes the migrated pr-helper
   engine test nets: 434 store invariants in `server/workflows-store.test.ts, server/ci-health.test.mjs`,
   workflow-rows / github-api / ai-credentials suites in `server/`, 143
   automation domain tests plus 13 flow-board semantics tests and 3 editor
@@ -245,6 +245,8 @@ As of 0.3.20 (2026-11-23):
   4 toast-undo jsdom tests, 8 open-PR StepDrawer/GateDisclosure jsdom tests
   and 6 app-state context-isolation tests in
   `src/app-state/context-isolation.test.tsx`)
+- 0.3.20 adds 1 FlowBoard initial-load empty-state test in
+  `src/components/FlowBoard.test.tsx`.
 - 0.3.20 adds 2 local-push reconcile budget tests in
   `server/workflows-store.test.ts` (local-push 40s, manual stays 8s, lease
   renewal, 45s outer ceiling, eventName propagation).

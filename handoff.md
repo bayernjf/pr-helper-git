@@ -7,6 +7,20 @@ pushes nothing. This repository, however, **is** on GitHub as the public
 every committed file as world-readable.
 
 
+## 待办登记（标准）
+
+> 本段是本产品唯一活跃待办入口；详细背景见下方原有章节。
+> 最近同步：2026-11-25
+
+<!-- tier:todos v1 -->
+| id | title | status | priority | owner | next | evidence | updated |
+|---|---|---|---|---|---|---|---|
+| PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
+| PH-02 | P5-1 判定证据补齐 | open | p1 | self | 补齐 P5-1 判定证据 | `handoff.md` Phase 5 | 2026-11-25 |
+| PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
+<!-- /tier:todos -->
+
+
 ## pr-helper 迁移进度（实时段，随会话更新）
 
 > 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-021 与验收标准在
@@ -14,6 +28,11 @@ every committed file as world-readable.
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据仍未补齐）**
+
+### 2026-11-25 Flows 首载空态
+
+- **Flows 首载**：`FlowBoard` 在首屏投影读取完成前不再渲染 `.board-empty`；此前会同时出现 `Refreshing…` 与 `No flows yet — create one from a repository`，看起来像整个看板没有流程。新增 `src/components/FlowBoard.test.tsx`，用 pending fetch 锁定“加载中无空态、完成后才显示空态”。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）、`npm run desktop`、`desktop:smoke` 通过；`build/PR Helper Git.app` 已重建为 0.3.20。`/Applications/PR Helper Git.app` 已替换为同一构建，并实测首次进入 Flows 只显示 `Refreshing…`，加载完成后出现 15 条流程，不再闪现 `No flows yet — create one from a repository`。旧包备份为 `PR Helper Git 0.3.20-local-before-flows-initial-load.app`。
 
 ### 2026-11-23 Dashboard 首屏、无 upstream 与 unstable 重试
 
