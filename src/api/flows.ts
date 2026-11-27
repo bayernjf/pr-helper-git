@@ -1,5 +1,6 @@
 // Control-tower API client (Phase 3). Server surface: server/flows.mjs.
 import { request } from './core';
+import { peekSnapshot, putSnapshot } from './snapshot';
 import type { Workflow } from '../lib/automation/workflow';
 import type {
   ActionQueueItem,
@@ -162,16 +163,36 @@ export type InboxRequest = {
   repository?: string;
 };
 
-export function fetchInbox(options: InboxRequest = {}): Promise<InboxPayload> {
+/**
+ * Last successful projection, kept at module scope so switching pages does not
+ * blank the board while the next fetch is in flight. The page renders this
+ * immediately and replaces it when the fresh payload arrives.
+ */
+const INBOX_SNAPSHOT_KEY = 'flows:inbox';
+const FLOWS_SNAPSHOT_KEY = 'flows:workflows';
+
+export function peekInboxSnapshot(): InboxPayload | null {
+  return peekSnapshot<InboxPayload>(INBOX_SNAPSHOT_KEY);
+}
+
+export function peekFlowsSnapshot(): Workflow[] | null {
+  return peekSnapshot<Workflow[]>(FLOWS_SNAPSHOT_KEY);
+}
+
+export async function fetchInbox(options: InboxRequest = {}): Promise<InboxPayload> {
   const params = new URLSearchParams();
   if (options.refresh) params.set('refresh', '1');
   if (options.repository) params.set('repository', options.repository);
   const query = params.toString();
-  return request<InboxPayload>(`/api/flows/inbox${query ? `?${query}` : ''}`);
+  const payload = await request<InboxPayload>(`/api/flows/inbox${query ? `?${query}` : ''}`);
+  putSnapshot(INBOX_SNAPSHOT_KEY, payload);
+  return payload;
 }
 
-export function fetchFlows(): Promise<{ workflows: Workflow[] }> {
-  return request<{ workflows: Workflow[] }>('/api/flows/workflows');
+export async function fetchFlows(): Promise<{ workflows: Workflow[] }> {
+  const payload = await request<{ workflows: Workflow[] }>('/api/flows/workflows');
+  putSnapshot(FLOWS_SNAPSHOT_KEY, payload.workflows);
+  return payload;
 }
 
 // Teams (P2-8): the engine's four-role model. Owner-only writes; members and

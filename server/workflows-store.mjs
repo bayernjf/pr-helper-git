@@ -1287,7 +1287,7 @@ async function takeoverAutomationAction(environment, identity, actionId, title, 
   });
   return { state: "succeeded", pullNumber: created.number, pullUrl: created.html_url };
 }
-var AUTOMATION_ACTION_VIEW_LIMIT = 200;
+var AUTOMATION_ACTION_VIEW_LIMIT = 60;
 async function listWorkflowAutomationActions(environment, identity, workflowId, unfinishedOnly = false, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId, reads);
   const sql = query(environment);
@@ -3067,7 +3067,7 @@ async function listWorkflowConfigurationWarnings(environment, identity, reads) {
 async function listRecentWorkflowStageEvents(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId, reads);
   const sql = query(environment);
-  const rows = await sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 100`;
+  const rows = await sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 60`;
   return rows.map((row) => ({ workflowId: row.workflow_id, stageIndex: row.stage_index, stageId: row.stage_id, source: row.source, target: row.target, kind: row.kind, message: row.message, occurredAt: row.occurred_at }));
 }
 async function listActionableStages(environment, identity, reads) {
@@ -3152,7 +3152,7 @@ async function completeWorkflowRun(environment, identity, workflowId, pullNumber
 async function listWorkflowRuns(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId, reads);
   const sql = query(environment);
-  const rows = await sql`SELECT runs.id, runs.workflow_id, runs.version, runs.stage_index, runs.stage_id, runs.source, runs.target, runs.pull_number, runs.state, runs.started_at, runs.completed_at FROM workflow_runs runs WHERE ${visibleWorkflowPredicate(sql, user.id, "runs.user_id", "runs.workflow_id")} ORDER BY runs.started_at DESC LIMIT 50`;
+  const rows = await sql`SELECT runs.id, runs.workflow_id, runs.version, runs.stage_index, runs.stage_id, runs.source, runs.target, runs.pull_number, runs.state, runs.started_at, runs.completed_at FROM workflow_runs runs WHERE ${visibleWorkflowPredicate(sql, user.id, "runs.user_id", "runs.workflow_id")} ORDER BY runs.started_at DESC LIMIT 30`;
   return rows.map((row) => ({
     id: row.id,
     workflowId: row.workflow_id,
@@ -3225,8 +3225,8 @@ async function listWorkflowTimeline(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId);
   const sql = query(environment);
   const [events, runs] = await Promise.all([
-    sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 200`,
-    sql`SELECT runs.workflow_id, runs.stage_index, runs.stage_id, runs.source, runs.target, runs.pull_number, runs.id, runs.state, runs.started_at, runs.completed_at FROM workflow_runs runs WHERE ${visibleWorkflowPredicate(sql, user.id, "runs.user_id", "runs.workflow_id")} ORDER BY runs.started_at DESC LIMIT 100`
+    sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 80`,
+    sql`SELECT runs.workflow_id, runs.stage_index, runs.stage_id, runs.source, runs.target, runs.pull_number, runs.id, runs.state, runs.started_at, runs.completed_at FROM workflow_runs runs WHERE ${visibleWorkflowPredicate(sql, user.id, "runs.user_id", "runs.workflow_id")} ORDER BY runs.started_at DESC LIMIT 40`
   ]);
   const workflows = await visibleWorkflowRows(sql, user.id, reads);
   const workflowMap = new Map(workflows.map((row) => {

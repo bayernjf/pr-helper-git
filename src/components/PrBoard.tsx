@@ -1,6 +1,7 @@
 import { errorMessage, errorDetail } from '../lib/errors';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { githubProxy, pullMergeability } from '../api';
+import { peekSnapshot, putSnapshot } from '../api/snapshot';
 import { applyPullMergeability } from '../lib/pull-mergeability';
 import { useActiveRepo, usePreferences, useRepoRefs, useRepoRegistry } from '../app-state/hooks';
 import type { PullRequest, ReviewState } from '../types';
@@ -118,7 +119,9 @@ export default function PrBoard() {
   const { refresh } = useRepoRegistry();
   const { activeRepo } = useActiveRepo();
   const { remote, refs } = useRepoRefs();
-  const [pulls, setPulls] = useState<PullRequest[]>([]);
+  const [pulls, setPulls] = useState<PullRequest[]>(() => (
+    activeRepo ? peekSnapshot<PullRequest[]>(`pulls:${activeRepo}`) ?? [] : []
+  ));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -178,6 +181,7 @@ export default function PrBoard() {
       const list = await fetchPage(1);
       if (seq !== loadSeq.current) return;
       setPulls(list);
+      if (activeRepo) putSnapshot(`pulls:${activeRepo}`, list);
       setPage(1);
       setHasMore(list.length >= PAGE_SIZE);
     } catch (err) {
@@ -186,7 +190,7 @@ export default function PrBoard() {
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [pat, hasServerPat, remote, fetchPage]);
+  }, [pat, hasServerPat, remote, fetchPage, activeRepo]);
 
   // Append the next page; GitHub numbers PRs so a number-based merge keeps the
   // list stable even if a PR is edited between requests.
