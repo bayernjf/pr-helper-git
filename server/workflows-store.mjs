@@ -1287,7 +1287,7 @@ async function takeoverAutomationAction(environment, identity, actionId, title, 
   });
   return { state: "succeeded", pullNumber: created.number, pullUrl: created.html_url };
 }
-var AUTOMATION_ACTION_VIEW_LIMIT = 80;
+var AUTOMATION_ACTION_VIEW_LIMIT = 60;
 async function listWorkflowAutomationActions(environment, identity, workflowId, unfinishedOnly = false, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId, reads);
   const sql = query(environment);
@@ -3067,7 +3067,7 @@ async function listWorkflowConfigurationWarnings(environment, identity, reads) {
 async function listRecentWorkflowStageEvents(environment, identity, reads) {
   const user = await userForLogin(environment, identity.login, identity.githubUserId, identity.installationId, reads);
   const sql = query(environment);
-  const rows = await sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 100`;
+  const rows = await sql`SELECT events.workflow_id, events.stage_index, events.stage_id, events.source, events.target, events.kind, events.message, events.occurred_at FROM workflow_stage_events events WHERE ${visibleWorkflowPredicate(sql, user.id, "events.user_id", "events.workflow_id")} ORDER BY events.occurred_at DESC LIMIT 60`;
   return rows.map((row) => ({ workflowId: row.workflow_id, stageIndex: row.stage_index, stageId: row.stage_id, source: row.source, target: row.target, kind: row.kind, message: row.message, occurredAt: row.occurred_at }));
 }
 async function listActionableStages(environment, identity, reads) {
