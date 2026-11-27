@@ -479,18 +479,21 @@ export default function FlowBoard() {
           <h1>{t('Flow board')}</h1>
           <p>{t('Release lanes across your repositories')}</p>
         </div>
-        <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
-          {t('Audit log')}
-        </button>
-        <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
-          {t('Teams')}
-        </button>
-        <button type="button" className="drawer-btn" onClick={() => setBoardPreflightOpen(true)}>
-          {t('Preflight all flows')}
-        </button>
-        <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
-          {t('New flow')}
-        </button>
+        <div className="board-actions">
+          <button type="button" className="drawer-btn" onClick={() => setAuditOpen(true)}>
+            {t('Audit log')}
+          </button>
+          <button type="button" className="drawer-btn" onClick={() => setTeamsOpen(true)}>
+            {t('Teams')}
+          </button>
+          <button type="button" className="drawer-btn" onClick={() => setBoardPreflightOpen(true)}>
+            {t('Preflight all flows')}
+          </button>
+          <button type="button" className="drawer-btn primary" onClick={() => setCreating(true)}>
+            {t('New flow')}
+          </button>
+        </div>
+        <div className="board-head-spacer" aria-hidden="true" />
       </section>
 
       {inbox?.syncHealth ? (

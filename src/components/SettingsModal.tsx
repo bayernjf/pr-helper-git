@@ -21,7 +21,7 @@ import { ACCENT_SWATCH } from '../design/accents';
 
 type SettingsPane = 'general' | 'github' | 'application' | 'advanced';
 
-export default function SettingsModal({ onClose }: { onClose: () => void }) {
+export default function SettingsModal({ onClose, activeRepo }: { onClose: () => void; activeRepo?: string | null }) {
   const { pat, setPat, hasServerPat, setServerPat, clearServerPat, theme, accent, setTheme, setAccent } = usePreferences();
   const toast = useAppToast();
   const resolvedLight = theme === 'light'
@@ -677,6 +677,34 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             >
               <h3 id="settings-application-title" className="settings-section settings-pane-title">{t("Application")}</h3>
               <p className="settings-pane-description">{t('Application behavior and help.')}</p>
+              {activeRepo && (
+                <div className="settings-card">
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:remotes')}>
+                    <span>{t('Manage remotes')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:config')}>
+                    <span>{t('Repository settings (git config)')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:reflog')}>
+                    <span>{t('View reference log (reflog)')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:audit')}>
+                    <span>{t('View audit log')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:compare')}>
+                    <span>{t('Compare two references')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:grep')}>
+                    <span>{t('Search repository contents (git grep)')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:search-commits')}>
+                    <span>{t('Search commits in all branches')}</span><IconChevronRight />
+                  </button>
+                  <button type="button" className="settings-link-row" onClick={() => openTool('git2:global-grep')}>
+                    <span>{t('Search across all repositories')}</span><IconChevronRight />
+                  </button>
+                </div>
+              )}
               <div className="settings-card">
                 <button type="button" className="settings-link-row" onClick={() => openTool('git2:team')}>
                   <span>{t('Team members and configuration')}</span><IconChevronRight />
