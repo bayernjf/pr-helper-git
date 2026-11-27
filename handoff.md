@@ -41,6 +41,13 @@ every committed file as world-readable.
 - **保存校验负向验证**：向 4789 的 `POST /api/flows/rules` 提交旧格式 `## Summary / ## Testing`，返回 400 `Generation rule is missing required PR sections: Overview, Changes, Test Info, Risk Notes`，规则库仍为 3 条（未落库）。
 - **action 4904 现状（未推进）**：state `paused`、attempts `9`、`updated_at` 2026-11-27T17:57:30Z（regenerate 后未变）。`failure_reason` 为 `AI PR message generation failed: AI PR body is missing the required Overview section`，非瞬态关键词，`automationDrainDecision` 走 `automationAttemptWasReached` → `skip`，因此**不会自动重排队**，与 PH-04 的预期一致。人工推进只能 `takeover`（paused 可直接接管）或先置 `queued` 再 `execute`；两者都会真实创建 dev→main PR，而 stage 的 `autoMergePullRequest=true` 会把 PR 排入服务端自动合并。为避免修配置时合并 atlas main，本轮未执行。
 
+### 2026-11-28 全仓状态复核（无待提交变更）
+
+- **复核范围**：`000mycodes` 下 32 个 git 仓；`bayjf` 按用户要求本轮跳过实际操作，仅只读核对。
+- **结果**：32 仓工作区全干净（`git status --porcelain` 为空），本地均不领先 upstream，`origin/main..origin/dev` 全部为 0，GitHub 上 open PR 数量为 0，无 commit / push / 手动建 PR 的必要。
+- **自动化闭环**：pr-helper-git 自身 #93 / #94 / #95 均由 automation 自动合并，其中 #95（页面快照优化的 handoff 记录）19:28:07Z 合并。
+- **两条 `checks-failed` 投影是历史遗留**：`bayjf` 的 PR #245 已于 19:11:19Z 合并、dev 与 main 已一致；`pr-helper-git-sync-test` 的 `feature/pr-gates` PR #2 早已 CLOSED，该仓 `feature/pr-gates` 仍领先 main 2 / 落后 1，属本地测试分支，不参与发布。
+
 ### 2026-11-28 首屏空白与 inbox 体积优化
 
 - **现象**：切到 Flows / Pull Requests / CI Health 时每次都先空白 1–2 秒。根因是三个页面在导航时卸载，本地 state 清空，重新请求期间没有可渲染内容；Flows 首次进入还叠加了 `/api/flows/inbox` 的 228 KB 全量投影。
