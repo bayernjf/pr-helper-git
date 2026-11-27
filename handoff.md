@@ -18,7 +18,7 @@ every committed file as world-readable.
 | PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
 | PH-02 | P5-1 判定证据补齐 | closed | p1 | self | 已补齐（通过，间接证据，2026-11-27） | `docs/phase5-p5-2-approval.md` §3 | 2026-11-27 |
 | PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
-| PH-04 | atlas Flow 规则切换到 Standard PR | open | p1 | owner | 规则已切到 `798c878…`（2026-11-28，落库已验）；剩：决定是否接管 paused action `4904`——takeover/execute 会真实建 dev→main PR 并排入 stage 的 auto-merge | `handoff.md` 2026-11-28 | 2026-11-28 |
+| PH-04 | atlas Flow 规则切换到 Standard PR | closed | p1 | self | 规则切到 `798c878…` 后 drain 自动重生成并建 PR #191，gitleaks 修好后 CI 绿，action `4912` 自动合并成功（2026-11-28） | [atlas#191](https://github.com/bayernjf/atlas/pull/191) | 2026-11-28 |
 <!-- /tier:todos -->
 
 
@@ -40,6 +40,15 @@ every committed file as world-readable.
 - **桌面 app 已重建（2026-11-28）**：`/Applications/PR Helper Git.app` 原先内含旧 server 副本（不含新契约），与仓库源码服务是两个进程。已 `npm run desktop` 重建（vite build 923ms，含既有 >500kB chunk warning）、旧 app 备份到 `/tmp/PR Helper Git.app.bak-20261128`、新 app 覆盖安装并重启（PID 52362，内嵌 server `--port=55018`，HTTP 200）。`grep "Required body sections"` 在 app 副本内为 1。Swift 壳只设 `PR_HELPER_GIT_DESKTOP=1`，不设 `PR_HELPER_GIT_AUTOMATION`，因此 app 内 server 不跑 drain——automation 仍只在 launchd 的 4789 服务上（两进程共用同一 PG，数据一致）。
 - **保存校验负向验证**：向 4789 的 `POST /api/flows/rules` 提交旧格式 `## Summary / ## Testing`，返回 400 `Generation rule is missing required PR sections: Overview, Changes, Test Info, Risk Notes`，规则库仍为 3 条（未落库）。
 - **action 4904 现状（未推进）**：state `paused`、attempts `9`、`updated_at` 2026-11-27T17:57:30Z（regenerate 后未变）。`failure_reason` 为 `AI PR message generation failed: AI PR body is missing the required Overview section`，非瞬态关键词，`automationDrainDecision` 走 `automationAttemptWasReached` → `skip`，因此**不会自动重排队**，与 PH-04 的预期一致。人工推进只能 `takeover`（paused 可直接接管）或先置 `queued` 再 `execute`；两者都会真实创建 dev→main PR，而 stage 的 `autoMergePullRequest=true` 会把 PR 排入服务端自动合并。为避免修配置时合并 atlas main，本轮未执行。
+
+### 2026-11-28 全仓纳管：33 个 Flow 全部自动建 PR + 自动合并
+
+- **纳管范围**：`000mycodes` 下 32 个 git 仓全部有 Flow。原有 15 条（agent-ops、agent-world、atlas、bayjf、commerce-os、git-e2e-test、growth-agent、growth-os、job-agent、loom、model-hub、ops-console、pr-helper、pr-helper-git、zeus）本就是 `create=True / merge=True / server`；本轮经服务自身 `PUT /api/flows/workflows` 新建 18 条：agent-world-landing、ai-agent-learning、argus、atlas-landing、code-audit、console-ui、job-agent-landing、landing-ui、loom-landing、observability、pr-helper-git-sync-test、rich-sim、soft-desk、tab-manager、word-base、word-picker、work-learn、zeus-landing。统一 `dev→main`、`triggerMinCommits=1`、`executionMode=server`、generationRule 复用 Standard PR 规则 `798c878…`。全部 HTTP 200，GET 复核 33 条、无一条 `autoCreatePullRequest` / `autoMergePullRequest` 为假。
+- **sweep 与新动作 id 段**：保存动作触发的 reconcile 在 18:20–18:21 直接为已领先的仓生成 `merge-pr`：`4913 argus`、`4914 rich-sim`、`4915 word-base`、`4916 word-picker`、`4917 work-learn`，另 `4912 atlas`。六条均 attempts=1、`succeeded`，对应 PR 全部 MERGED（atlas #191、argus #17、rich-sim #83、word-base #126、word-picker #67、work-learn #64）。
+- **建 PR 与合并的实际证据**：atlas #191 由旧规则时期的 create-pr `4904` 在规则切换后由 drain 重新生成标题/正文并建出（四段齐全），gitleaks 修好后 CI 全绿，`4912` 自动合并；`4903` 因 head 变化该轮取消（`86f8dda` → `a5b89b6`），属预期重校准。
+- **`pr-helper-git-sync-test` 例外**：该仓只有 `main` / `feature/pr-gates`，没有 `dev`，所以 `dev→main` stage 永不触发；按“全仓统一模型”保留配置，如要它参与需另建 stage。`bayernjf/pr-helper` 的 Flow 也保留（对应仓库已不在本地盘）。
+- **未纳管状态汇总**：`bayjf` dev 仍领先 main 12（用户明确本轮不处理），其 `merge-pr` `4905` 因 Actions 计费失败停在 paused；其余 31 仓 `dev_ahead_main=0`、dirty=0、unpushed=0。
+
 
 ### 2026-11-25 Flows 首载空态
 
