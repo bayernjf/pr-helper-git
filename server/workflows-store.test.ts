@@ -14,7 +14,7 @@ const SNAPSHOT_SRC = new URL('../docs/archive/pr-helper-source/src/', import.met
 
 import { describe, expect, it } from 'vitest';
 
-import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeHeadGuard, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, buildPrPrompt, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, validateAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, summarizeGitHubChecks, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, LOCAL_PUSH_RECONCILE_BUDGET_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser } from './workflows-store.mjs';
+import { automationAdvanceVerdict, stageRoutesComplete, addPhaseTotals, pendingPhaseTotals, createPhaseRecorder, dehydrateGenerationRules, deploymentRowChanged, generationRuleContent, generationRuleContentHash, generationRuleHashes, hydrateGenerationRules, staleDeploymentProviders, type StagePhaseTracker, AUTOMATION_TRANSIENT_REQUEUE_MAX_ATTEMPTS, automationDrainDecision, AUTOMATION_GATE_WAIT_MAX_MS, automationGateWaitDelayMs, automationCancelReason, automationDrainFailureReason, automationDrainHasStartBudget, AUTOMATION_DRAIN_START_BUDGET_MS, AUTOMATION_FUNCTION_CEILING_MS, missingDeploymentSummary, serverAutomationActivated, stageGateChanged, stageGateSatisfactionAdvanced, downstreamStagesToRecheck, reconcileTimingLine, automationSkipLine, actionableStageEntry, automationActionId, reconciliationLeaseTtlSeconds, reconciliationLeaseRenewIntervalMs, RECONCILIATION_LEASE_TTL_SECONDS, reconciliationRunInterrupted, RECONCILIATION_ABANDONED_MESSAGE, RECONCILIATION_DEFERRED_MESSAGE, reconciliationLockKey, realtimeReconcileBudgetMs, realtimeReconcileCeilingMs, WEBHOOK_RECONCILE_BUDGET_MS, withStageDeadline, deferredRunState, reconciliationBranchScope, reconciliationRunIsAbandoned, webhookBranchesForEvent, webhookCanChangeStageState, automationCreateOutcome, automationIdempotencyKey, automationMergeHeadGuard, automationMergeOutcome, automationRetryIsExhausted, automationAttemptWasReached, workflowArchiveTransition, workflowSaveConflicts, branchSourcesForRule, buildPrPrompt, canCheckDeploymentUrl, compactFailureDetails, deriveStageDecision, deploymentFailureSummary, deploymentNotification, deploymentParentState, deploymentProviderForWorkflowRun, autoCreateCommitThreshold, autoCreateReachedThreshold, deploymentRunState, deploymentStateWithHealth, dynamicSourceCandidates, ensureStageIds, findWorkflowStageIndexForRemoval, initialWebhookChecksState, isStoredWorkflow, jsonFromModelText, parseAutomationMessage, validateAutomationMessage, mergeChecksWithDeployments, matchingWorkflowStages, pullDetailPath, reconciliationBatchSize, reconciliationState, repairCommitSha, requiredApprovalsFromProtection, retentionCutoffs, rollbackDeploymentIsAvailable, selectReconciliationBatch, mergeCatchUpCandidates, REALTIME_CATCH_UP_LIMIT, selectRepairPullNumber, sortStoredWorkflows, stageIdentity, stageReconciliationIsSettled, summarizeGitHubChecks, storedWorkflowFromPayload, trackedWorkflowFromSingleRow, RECONCILE_WORKFLOW_BATCH_SIZE, REALTIME_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_BUDGET_MS, INBOX_REFRESH_RECONCILE_CEILING_GAP_MS, LOCAL_PUSH_RECONCILE_BUDGET_MS, STAGE_STALE_THRESHOLD_SECONDS, STAGE_UNCONVERGED_THRESHOLD_SECONDS, stageUnconvergedThresholdSeconds, stageConvergenceVerdict, DEFAULT_RECOVERY_POLICY, workflowConfigurationWarnings, workflowRunCompletionState, workflowStageStateMatchesDefinition, requestUser, validateGenerationRuleContent } from './workflows-store.mjs';
 
 describe('stored workflow validation', () => {
   it('fetches a pull detail after discovery so mergeability is authoritative', () => {
@@ -1172,6 +1172,30 @@ describe('buildPrPrompt', () => {
     expect(prompt).toContain('All output must be English.');
     expect(prompt).toContain('Ignore any output-format instruction');
     expect(prompt).toContain('Do not include a title block');
+  });
+
+  it('keeps the required section contract mandatory even when a legacy rule asks for Summary/Testing', () => {
+    const prompt = buildPrPrompt('dev', 'main', ['feat(ui): add preview'], 'Write a concise English PR body with ## Summary and ## Testing.');
+    expect(prompt).toContain('Required body sections, in this exact order: Overview, Changes, Test Info, Risk Notes.');
+    expect(prompt).toContain('mandatory even when the generation rules use different names');
+    expect(prompt).toContain('Related Issues is optional');
+  });
+});
+
+describe('validateGenerationRuleContent', () => {
+  it('rejects the legacy Summary/Testing rule that cannot satisfy the PR body validator', () => {
+    expect(() => validateGenerationRuleContent('Write a concise English PR body with ## Summary and ## Testing.'))
+      .toThrow(/missing required PR sections: Overview, Changes, Test Info, Risk Notes/);
+  });
+
+  it('accepts a rule that names every required section', () => {
+    expect(validateGenerationRuleContent([
+      'Overview: Explain the change.',
+      'Changes:',
+      '- Add the preview.',
+      'Test Info: No test result stated in the input.',
+      'Risk Notes: No risk.',
+    ].join('\n'))).toContain('Overview');
   });
 });
 

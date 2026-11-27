@@ -16,6 +16,7 @@
 - **桌面窗口底色同步**：Swift 薄壳的深色/浅色窗口背景分别改为新 token `#121214` / `#f2f2f7`，与 Web 内容边缘保持一致。
 
 ### 修复
+- **AI PR message 与 required section 契约不一致**：`buildPrPrompt` 现在在提示词中固定要求 `Overview / Changes / Test Info / Risk Notes`，并声明该 section 契约覆盖 generation rule 中冲突的 section 名；保存 generation rule 时新增校验，拒绝缺少 required sections 的规则。修复 `atlas` Flow 因旧 `Summary/Testing` 规则连续生成不合格 PR body 后暂停的问题。
 - **Flows 首次进入误报空看板**：首屏投影读取完成前 `workflows` 仍为空，`Refreshing…` 会与 `No flows yet — create one from a repository` 同时出现，看起来像整个看板没有流程。现在空态只在首屏加载结束后渲染；新增 `FlowBoard` jsdom 回归测试，用 pending fetch 锁定“加载中无空态、完成后才显示空态”。
 - **顶部工具栏中段视觉偏移**：仓库操作组此前在所有页面都与五页导航同排，整组视觉中心被拉到窗口右侧。现在非 Git 页只保留居中的导航 tabs 和右侧全局图标，Git 页才显示仓库操作组。
 - **顶部工具栏图标偏小**：Apple 风格工具栏把同步图标压到 14px、右侧独立图标 16px，窄宽时 SVG 还会被 flex 压到 10px。现在同步图标统一 16px，More / Settings / Theme 提升到 18px，独立按钮改为 32×30，并禁止工具栏 SVG 收缩。

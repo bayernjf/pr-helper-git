@@ -10,7 +10,7 @@ every committed file as world-readable.
 ## 待办登记（标准）
 
 > 本段是本产品唯一活跃待办入口；详细背景见下方原有章节。
-> 最近同步：2026-11-27
+> 最近同步：2026-11-28
 
 <!-- tier:todos v1 -->
 | id | title | status | priority | owner | next | evidence | updated |
@@ -18,6 +18,7 @@ every committed file as world-readable.
 | PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
 | PH-02 | P5-1 判定证据补齐 | closed | p1 | self | 已补齐（通过，间接证据，2026-11-27） | `docs/phase5-p5-2-approval.md` §3 | 2026-11-27 |
 | PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
+| PH-04 | atlas Flow 规则切换到 Standard PR | open | p1 | owner | 规则已切到 `798c878…`（2026-11-28，落库已验）；剩：决定是否接管 paused action `4904`——takeover/execute 会真实建 dev→main PR 并排入 stage 的 auto-merge | `handoff.md` 2026-11-28 | 2026-11-28 |
 <!-- /tier:todos -->
 
 
@@ -28,6 +29,17 @@ every committed file as world-readable.
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据已于 2026-11-27 补齐为通过（间接证据））**
+
+### 2026-11-28 AI PR message section contract
+
+- **根因**：`atlas` Flow 的 generation rule 是旧格式 `## Summary and ## Testing`，而 `validateAutomationMessage` 强制要求 `Overview / Changes / Test Info / Risk Notes`。AI 连续 6 次生成不可通过校验，`create-pr` action `4904` 以 `missing the required Overview section` 暂停。不是 atlas 仓库或 atlas Actions 的问题。
+- **代码修复**：`buildPrPrompt` 现在把 required section 契约写进提示词，并明确 section/format contract 覆盖 generation rule 中的冲突 section 名；`validateGenerationRuleContent` 在保存规则时拒绝缺少 required sections 的规则。`atlas` 的旧规则仍可在仓库外 DB 中保留，但新 prompt 会将其意图映射到 required sections。
+- **验证**：`npm test` 1246 passed / 73 files；`npm run lint`、`npm run typecheck:server`、`npm run build` 通过（build 仍有既有的 >500kB chunk warning）。新增 1 例 prompt contract、2 例 generation rule 校验。
+- **数据侧（2026-11-28 已落地）**：代码已推 origin/dev（`5d207a9..587b20e`）；launchd 服务已重启（PID 44617，新代码生效）。经服务自身 `PUT /api/flows/workflows` 把 atlas Flow（`bayernjf/atlas-1789282281771-f87ma`，stage `s-mtzgh0kr-surs`）的 generationRule 从 `60d2777…` 切到 `798c878…`（Standard PR），HTTP 200，`workflow_stages.rule_content_hash` 已落库 `798c878f8c26…`，workflow version 40。
+- **生成契约实测**：`POST /api/flows/automation?action=regenerate`（actionId 4904，零副作用，不改库不建 PR）返回的 body 依次含 `## Overview` / `## Changes` / `## Test Info` / `## Risk Notes`，无 `Related Issues`。旧规则快照 `## Summary / ## Testing` 仍被正确映射——证明 prompt 覆盖生效。
+- **桌面 app 已重建（2026-11-28）**：`/Applications/PR Helper Git.app` 原先内含旧 server 副本（不含新契约），与仓库源码服务是两个进程。已 `npm run desktop` 重建（vite build 923ms，含既有 >500kB chunk warning）、旧 app 备份到 `/tmp/PR Helper Git.app.bak-20261128`、新 app 覆盖安装并重启（PID 52362，内嵌 server `--port=55018`，HTTP 200）。`grep "Required body sections"` 在 app 副本内为 1。Swift 壳只设 `PR_HELPER_GIT_DESKTOP=1`，不设 `PR_HELPER_GIT_AUTOMATION`，因此 app 内 server 不跑 drain——automation 仍只在 launchd 的 4789 服务上（两进程共用同一 PG，数据一致）。
+- **保存校验负向验证**：向 4789 的 `POST /api/flows/rules` 提交旧格式 `## Summary / ## Testing`，返回 400 `Generation rule is missing required PR sections: Overview, Changes, Test Info, Risk Notes`，规则库仍为 3 条（未落库）。
+- **action 4904 现状（未推进）**：state `paused`、attempts `9`、`updated_at` 2026-11-27T17:57:30Z（regenerate 后未变）。`failure_reason` 为 `AI PR message generation failed: AI PR body is missing the required Overview section`，非瞬态关键词，`automationDrainDecision` 走 `automationAttemptWasReached` → `skip`，因此**不会自动重排队**，与 PH-04 的预期一致。人工推进只能 `takeover`（paused 可直接接管）或先置 `queued` 再 `execute`；两者都会真实创建 dev→main PR，而 stage 的 `autoMergePullRequest=true` 会把 PR 排入服务端自动合并。为避免修配置时合并 atlas main，本轮未执行。
 
 ### 2026-11-25 Flows 首载空态
 

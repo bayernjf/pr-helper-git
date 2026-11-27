@@ -380,6 +380,13 @@ export async function handleFlowsRoute(ctx) {
       if (method === 'POST' && (!name || !content.trim())) {
         return { status: 400, json: { error: 'rule needs a name and non-empty content' } };
       }
+      if (method === 'POST') {
+        try {
+          store.validateGenerationRuleContent(content);
+        } catch (error) {
+          return { status: 400, json: { error: error instanceof Error ? error.message : 'invalid generation rule' } };
+        }
+      }
       if (method === 'DELETE' && !contentHash) {
         return { status: 400, json: { error: 'contentHash required' } };
       }
