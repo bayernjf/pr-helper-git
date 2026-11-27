@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchCiHealth } from '../api/ci-health';
+import { fetchCiHealth, peekCiHealthSnapshot } from '../api/ci-health';
 import { usePreferences } from '../app-state/preferences-provider';
 import { useAppToast } from '../app-state/toast';
 import { errorMessage } from '../lib/errors';
@@ -122,7 +122,9 @@ export default function CiHealthPage() {
   const toast = useAppToast();
   const [days, setDays] = useState<number>(readDays);
   const [selected, setSelected] = useState<string[]>(readSelected);
-  const [data, setData] = useState<CiHealthReport | null>(null);
+  // Paint the last report for this window immediately; the scan still runs on
+  // mount and replaces it when it answers.
+  const [data, setData] = useState<CiHealthReport | null>(() => peekCiHealthSnapshot(readDays()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showRepos, setShowRepos] = useState(false);

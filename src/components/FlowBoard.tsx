@@ -4,7 +4,7 @@
 // tones, run summary) live in src/lib/automation/flows-board.ts and are
 // unit-tested against the original pr-helper behaviour there.
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
-import { fetchFlows, fetchInbox, type InboxPayload } from '../api/flows';
+import { fetchFlows, fetchInbox, peekFlowsSnapshot, peekInboxSnapshot, type InboxPayload } from '../api/flows';
 import { errorMessage } from '../lib/errors';
 import {
   boardCounts,
@@ -196,9 +196,11 @@ export default function FlowBoard() {
   const confirm = useConfirm();
   const [laneBusy, setLaneBusy] = useState('');
   const [sortError, setSortError] = useState('');
-  const [inbox, setInbox] = useState<InboxPayload | null>(null);
-  const [workflows, setWorkflows] = useState<BoardState['workflows']>([]);
-  const [loading, setLoading] = useState(true);
+  // Seed from the last projection so re-entering the page never paints an
+  // empty board; the mount fetch below replaces it with fresh data.
+  const [inbox, setInbox] = useState<InboxPayload | null>(() => peekInboxSnapshot());
+  const [workflows, setWorkflows] = useState<BoardState['workflows']>(() => peekFlowsSnapshot() ?? []);
+  const [loading, setLoading] = useState(() => peekInboxSnapshot() === null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<BoardFilter>('all');
   const [search, setSearch] = useState('');
