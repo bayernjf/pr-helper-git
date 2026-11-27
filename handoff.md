@@ -41,6 +41,17 @@ every committed file as world-readable.
 - **保存校验负向验证**：向 4789 的 `POST /api/flows/rules` 提交旧格式 `## Summary / ## Testing`，返回 400 `Generation rule is missing required PR sections: Overview, Changes, Test Info, Risk Notes`，规则库仍为 3 条（未落库）。
 - **action 4904 现状（未推进）**：state `paused`、attempts `9`、`updated_at` 2026-11-27T17:57:30Z（regenerate 后未变）。`failure_reason` 为 `AI PR message generation failed: AI PR body is missing the required Overview section`，非瞬态关键词，`automationDrainDecision` 走 `automationAttemptWasReached` → `skip`，因此**不会自动重排队**，与 PH-04 的预期一致。人工推进只能 `takeover`（paused 可直接接管）或先置 `queued` 再 `execute`；两者都会真实创建 dev→main PR，而 stage 的 `autoMergePullRequest=true` 会把 PR 排入服务端自动合并。为避免修配置时合并 atlas main，本轮未执行。
 
+### 2026-11-28 首屏空白与 inbox 体积优化
+
+- **现象**：切到 Flows / Pull Requests / CI Health 时每次都先空白 1–2 秒。根因是三个页面在导航时卸载，本地 state 清空，重新请求期间没有可渲染内容；Flows 首次进入还叠加了 `/api/flows/inbox` 的 228 KB 全量投影。
+- **前端修复**：新增 `src/api/snapshot.ts`（模块级快照表），`fetchInbox` / `fetchFlows` / `fetchCiHealth` 成功后写入；`FlowBoard`、`PrBoard`、`CiHealthPage` 用 `peek*` 初始化 state，进入页面即渲染上次投影，新响应到达后替换。后台仍会在挂载时刷新，行为不变。
+- **服务端裁剪**：`AUTOMATION_ACTION_VIEW_LIMIT` 200→60；timeline 200 events / 100 runs → 80 / 40；runs 50→30；`listRecentWorkflowStageEvents` 100→60。inbox 体积 228 KB → 125 KB，热请求 0.6–0.85 s（`?refresh=1` 仍会跑实时 reconcile，实测 8 s，属于主动刷新路径）。
+- **33 → 32**：删除 `bayernjf/pr-helper` 的遗留 Flow（该仓本地目录已不存在），Flows 与 dashboard 的 32 个仓库一一对应。
+- **验证**：`npm run lint`、`npm run typecheck:server`、`npm test`（1246 passed / 73 files）、`npm run build` 通过；PR #94 CI 全绿并由 `merge-pr` 自动合并（19:24:07Z）。
+- **桌面 app**：`npm run desktop` 重建后替换 `/Applications/PR Helper Git.app`（旧包备份 `/tmp/PR Helper Git.app.bak-20261128-2`），新进程 PID 18164，内嵌 server 55018，产物内已含三个快照 key。
+
+
+
 ### 2026-11-28 全仓纳管：33 个 Flow 全部自动建 PR + 自动合并
 
 - **纳管范围**：`000mycodes` 下 32 个 git 仓全部有 Flow。原有 15 条（agent-ops、agent-world、atlas、bayjf、commerce-os、git-e2e-test、growth-agent、growth-os、job-agent、loom、model-hub、ops-console、pr-helper、pr-helper-git、zeus）本就是 `create=True / merge=True / server`；本轮经服务自身 `PUT /api/flows/workflows` 新建 18 条：agent-world-landing、ai-agent-learning、argus、atlas-landing、code-audit、console-ui、job-agent-landing、landing-ui、loom-landing、observability、pr-helper-git-sync-test、rich-sim、soft-desk、tab-manager、word-base、word-picker、work-learn、zeus-landing。统一 `dev→main`、`triggerMinCommits=1`、`executionMode=server`、generationRule 复用 Standard PR 规则 `798c878…`。全部 HTTP 200，GET 复核 33 条、无一条 `autoCreatePullRequest` / `autoMergePullRequest` 为假。
