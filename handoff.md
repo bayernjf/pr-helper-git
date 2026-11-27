@@ -10,7 +10,7 @@ every committed file as world-readable.
 ## 待办登记（标准）
 
 > 本段是本产品唯一活跃待办入口；详细背景见下方原有章节。
-> 最近同步：2026-11-27
+> 最近同步：2026-11-28
 
 <!-- tier:todos v1 -->
 | id | title | status | priority | owner | next | evidence | updated |
@@ -18,6 +18,7 @@ every committed file as world-readable.
 | PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
 | PH-02 | P5-1 判定证据补齐 | closed | p1 | self | 已补齐（通过，间接证据，2026-11-27） | `docs/phase5-p5-2-approval.md` §3 | 2026-11-27 |
 | PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
+| PH-04 | atlas Flow 规则切换到 Standard PR | open | p1 | owner | 在 Pr Helper UI 将 atlas Flow 的旧 `Summary/Testing` 规则切到 `Standard PR`（hash `798c878…`），再接管/重试 paused action `4904` | `handoff.md` 2026-11-28 | 2026-11-28 |
 <!-- /tier:todos -->
 
 
@@ -28,6 +29,13 @@ every committed file as world-readable.
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据已于 2026-11-27 补齐为通过（间接证据））**
+
+### 2026-11-28 AI PR message section contract
+
+- **根因**：`atlas` Flow 的 generation rule 是旧格式 `## Summary and ## Testing`，而 `validateAutomationMessage` 强制要求 `Overview / Changes / Test Info / Risk Notes`。AI 连续 6 次生成不可通过校验，`create-pr` action `4904` 以 `missing the required Overview section` 暂停。不是 atlas 仓库或 atlas Actions 的问题。
+- **代码修复**：`buildPrPrompt` 现在把 required section 契约写进提示词，并明确 section/format contract 覆盖 generation rule 中的冲突 section 名；`validateGenerationRuleContent` 在保存规则时拒绝缺少 required sections 的规则。`atlas` 的旧规则仍可在仓库外 DB 中保留，但新 prompt 会将其意图映射到 required sections。
+- **验证**：`npm test` 1246 passed / 73 files；`npm run lint`、`npm run typecheck:server`、`npm run build` 通过（build 仍有既有的 >500kB chunk warning）。新增 1 例 prompt contract、2 例 generation rule 校验。
+- **数据侧待办**：`pr_helper_generation_rules` 中 atlas 仍引用旧 hash `60d2777…`；需要在 Pr Helper UI 把 atlas Flow 的规则切换到 `Standard PR`（hash `798c878…`），或允许 agent 执行 DB 更新。当前 paused action `4904` 未自动重排队，避免修配置时自动合并 atlas。
 
 ### 2026-11-25 Flows 首载空态
 

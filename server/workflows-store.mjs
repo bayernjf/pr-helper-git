@@ -297,7 +297,8 @@ Generation rules:
 ${rule}
 
 Rule priority:
-- The generation rules define the required content, structure, and wording.
+- The generation rules define the required content and wording.
+- The section/format contract below is mandatory and overrides any conflicting section names or output-format instruction in the generation rules.
 - Ignore any output-format instruction in the generation rules that asks for a title block, a description block, bracketed section markers, or a title repeated inside the description. This engine consumes JSON only.
 - All generated text must be English, even if the generation rules mention another language.` : "";
   return `Generate a concise GitHub Pull Request title and description in English.
@@ -309,6 +310,8 @@ Integration contract:
 - Return JSON only: {"title":"...","body":"..."}
 - title: one line, Conventional Commits, lowercase imperative subject, no trailing punctuation.
 - body: the PR description only. Do not include a title block, a description block, bracketed section markers, or a repeated title.
+- Required body sections, in this exact order: Overview, Changes, Test Info, Risk Notes. These sections are mandatory even when the generation rules use different names; map the rule's intent into them.
+- Related Issues is optional. Include it only when the input explicitly names an issue, and only as "Closes #<issue>".
 - All output must be English.`;
 }
 
@@ -685,6 +688,16 @@ var PR_TITLE_RE = /^(feat|fix|docs|style|refactor|perf|test|chore|revert)(?:\([^
 var PR_CJK_RE = /[\u3400-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/;
 var PR_SECTION_ORDER = ["Overview", "Changes", "Related Issues", "Test Info", "Risk Notes"];
 var PR_REQUIRED_SECTIONS = ["Overview", "Changes", "Test Info", "Risk Notes"];
+function generationRuleMissingSections(content) {
+  if (typeof content !== "string" || !content.trim()) return [...PR_REQUIRED_SECTIONS];
+  const headings = [...content.matchAll(/^(?:[-*]\s+)?(?:#{1,4}\s+)?(Overview|Changes|Test Info|Risk Notes)\s*(?::|$)/gm)].map((match) => match[1]);
+  return PR_REQUIRED_SECTIONS.filter((section) => !headings.includes(section));
+}
+function validateGenerationRuleContent(content) {
+  const missing = generationRuleMissingSections(content);
+  if (missing.length) throw new Error(`Generation rule is missing required PR sections: ${missing.join(", ")}`);
+  return content.trim();
+}
 function validateAutomationMessage(message) {
   if (!message || typeof message.title !== "string" || typeof message.body !== "string") {
     throw new Error("AI PR message must contain string title and body fields");
@@ -3557,6 +3570,7 @@ export {
   trackedWorkflowFromSingleRow,
   upsertWorkflow,
   validateAutomationMessage,
+  validateGenerationRuleContent,
   webhookBranchesForEvent,
   webhookCanChangeStageState,
   withStageDeadline,
