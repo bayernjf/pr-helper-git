@@ -37,7 +37,7 @@ every committed file as world-readable.
 | Phase 3.5 功能缺口回补 | ✅ **关闭**（11-15）：P3-10 ✅（PAT/凭据修复后 Actions 4/Environment 5、4 条真实部署 run、回滚确认 UX；实际 dispatch 按用户裁决不执行）、P3-11 ✅、P3-12 ✅、P3-13 ✅、P3-14 ✅、P3-16 ✅；P3-15 ✅（11-15 团队 UI 收口，原暂缓裁决已被后续实现覆盖）；P3-7 四项前置禁用 ✅；P3-9 的 #19/#34 已通过 |
 | Phase 4 通知/AGENTS 修订/脚本 | ✅ P4-1/P4-3/P4-4 完成（11-14，990/47）；P4-2 按 D-014 用户裁决修订：pr-helper 仓保持 PUBLIC+非归档、仅停止迭代（已还原）；AGENTS 已补 D-002-v2 部署门禁边界 |
 | GitHub Device Flow + A2A（D-020/D-021） | ✅ **2026-11-15 落地**：Device Flow 身份连接（identity-only，token 0600 落 config、永不回传）+ Agent Card/JSON-RPC 真接线（fail-closed bearer；execute enqueue 引擎动作；production-rollback 永远升级）；门禁 1089/59 + E2E 162/162 + build 绿。**A2A 实网 ✅**；Device Flow 实网待账号启用 2FA / 刷新 GitHub 会话后重试 |
-| Phase 5 影子并行→切换→下线 | 🔶 **执行态，审批未闭环**：11-14 16:24 启动影子期；launchd 4789 在 2026-11-22 01:33 CST 实际切为 `automation=1/shadow=0`，但审批表仍为空；owner 2026-11-23 选择承认现状并继续；动作 2–3 仍需 D-016 逐项审批；动作 4 已完成单 stage + 双 stage 本地实跑（PR #20、PR #23/#24、advance `4754`）；P5-1 判定证据未补齐；见 [`phase5-p5-2-approval.md`](phase5-p5-2-approval.md) |
+| Phase 5 影子并行→切换→下线 | 🔶 **执行态，审批未闭环**：11-14 16:24 启动影子期；launchd 4789 在 2026-11-22 01:33 CST 实际切为 `automation=1/shadow=0`，但审批表仍为空；owner 2026-11-23 选择承认现状并继续；**动作 2–3 于 2026-11-28 由 owner 决定暂缓不碰**（潜在执行面维持现状，出现问题时再按清单逐项审批）；动作 4 已完成单 stage + 双 stage 本地实跑（PR #20、PR #23/#24、advance `4754`）；P5-1 判定证据已于 2026-11-27 补齐为通过（间接证据）；影子镜像 2026-11-28 fresh 刷新对账（3829 actions / 8767 audit）；见 [`phase5-p5-2-approval.md`](phase5-p5-2-approval.md) |
 
 Phase 2 接线状态（2026-11-14）：`server/automation.mjs` 桥接调度器（drain 120s / reconcile 300s / retention 每日），
 启动 opt-in `PR_HELPER_GIT_AUTOMATION=1`（e2e/临时 server 零接触）；webhook `POST /api/github-webhook` 位于 token

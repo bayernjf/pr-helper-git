@@ -15,7 +15,7 @@ every committed file as world-readable.
 <!-- tier:todos v1 -->
 | id | title | status | priority | owner | next | evidence | updated |
 |---|---|---|---|---|---|---|---|
-| PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | 逐项批准后再执行 | `handoff.md` Phase 5 | 2026-11-25 |
+| PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | owner 2026-11-28 决定暂缓：现在都不碰，出现问题时再回来按清单逐项审批 | `docs/phase5-p5-2-approval.md` 状态段 | 2026-11-28 |
 | PH-02 | P5-1 判定证据补齐 | closed | p1 | self | 已补齐（通过，间接证据，2026-11-27） | `docs/phase5-p5-2-approval.md` §3 | 2026-11-27 |
 | PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
 | PH-04 | atlas Flow 规则切换到 Standard PR | closed | p1 | self | 规则切到 `798c878…` 后 drain 自动重生成并建 PR #191，gitleaks 修好后 CI 绿，action `4912` 自动合并成功（2026-11-28） | [atlas#191](https://github.com/bayernjf/atlas/pull/191) | 2026-11-28 |
