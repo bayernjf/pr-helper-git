@@ -34,6 +34,10 @@ h2 { font-size: var(--fs-md); font-weight: 600; }
   --success: var(--green);
   --danger: var(--red);
   --warning: var(--amber);
+  /* Legacy alias: two repo-panel rules referenced --warn with a hardcoded
+     fallback that silently won because the token never existed. Resolve it
+     through the same semantic warning color as every other warn surface. */
+  --warn: var(--warning);
   /* UI v3 motion system: one duration scale + one easing for the whole app. */
   --dur-fast: 120ms;
   --dur: 170ms;
@@ -409,6 +413,7 @@ button {
   display: flex;
   align-items: center;
   width: 100%;
+  min-height: 20px;
   padding: 4px 12px;
   border: 0;
   background: transparent;
@@ -495,11 +500,11 @@ div.ref-group-head { gap: 8px; }
   background: transparent;
   color: var(--faint);
   border-radius: var(--radius-xs);
-  opacity: 0;
   transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
-.ref-row:hover .row-more { opacity: 1; }
-.ref-row .row-more:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 1px; }
+/* Always visible at faint color (hover-only reveal left keyboard and
+   pointer-discovery users nothing to aim at); hover and focus brighten. */
+.ref-row .row-more:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .ref-row .row-more:hover { color: var(--text); background: var(--active); }
 
 /* ---------- Center column ---------- */
@@ -755,6 +760,16 @@ div.ref-group-head { gap: 8px; }
    8px hit strip (and the painted line's center) unreachable. */
 .sidebar .col-resize { right: 0; }
 .detail .col-resize { left: 0; }
+/* Invisible hit-zone extension: the visual strip stays 8px, the draggable
+   area becomes 16px+ (target-size audit; pointer users kept missing it). */
+.col-resize::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
 .col-resize::after {
   content: '';
   width: 3px;
@@ -3856,10 +3871,10 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   color: var(--faint);
   border-bottom: 1px solid var(--border-soft);
 }
-.repo-panel-agg .agg-dirty { color: var(--warn, #d79b4a); }
-.repo-panel-agg .agg-behind { color: var(--warn, #d79b4a); }
+.repo-panel-agg .agg-dirty { color: var(--warn); }
+.repo-panel-agg .agg-behind { color: var(--warn); }
 .repo-panel-agg .agg-ahead { color: var(--accent); }
-.repo-panel-agg .agg-err { color: var(--danger, #d9534f); }
+.repo-panel-agg .agg-err { color: var(--danger); }
 .repo-panel-activity {
   position: absolute;
   left: 0;
@@ -4550,7 +4565,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 
 .flow-board-page .project-board { display: flex; flex-direction: column; gap: 10px; }
 .flow-board-page .board-scroll-controls {
-  position: fixed; right: 22px; bottom: 24px; z-index: 30;
+  position: fixed; right: 22px; bottom: 24px; z-index: var(--z-menu);
   display: flex; flex-direction: column; gap: 6px; padding: 4px;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
@@ -4656,7 +4671,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   background: transparent; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer;
 }
 .flow-board-page .lane-move-btn:hover { background: var(--hover); color: var(--text); }
-.flow-board-page .lane-collapse-btn { width: 22px; font-size: 14px; font-weight: 700; }
+.flow-board-page .lane-collapse-btn { width: 24px; font-size: 14px; font-weight: 700; }
 .flow-board-page .lane-position-input {
   width: 30px; height: 22px; padding: 0; border: 0; background: transparent;
   color: var(--text); text-align: center; font-size: var(--fs-meta); font-variant-numeric: tabular-nums;
@@ -5243,7 +5258,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .board-sort button { padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: var(--fs-meta); cursor: pointer; }
 .board-sort button.active { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
 .lane-move { display: inline-flex; gap: 2px; margin-right: 4px; }
-.lane-move-btn { width: 20px; height: 20px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--panel-2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-meta); }
+.lane-move-btn { width: 22px; height: 22px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--panel-2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-meta); }
 .lane-move-btn:hover { color: var(--text); border-color: var(--border-strong); }
 
 /* Editor AI credential card (M-E5 tail) */
@@ -5410,7 +5425,7 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 .editor-stage-body input:disabled { color: var(--faint); }
 .branch-picker { position: relative; display: flex; align-items: center; }
 .branch-picker input { width: 100%; padding-right: 26px; }
-.branch-picker-toggle { position: absolute; right: 4px; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--muted); cursor: pointer; }
+.branch-picker-toggle { position: absolute; right: 2px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--muted); cursor: pointer; }
 .branch-picker-toggle:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .branch-picker-toggle:disabled { opacity: 0.5; cursor: default; }
 .branch-options { position: absolute; z-index: var(--z-menu); top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; display: grid; padding: 4px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
@@ -6033,7 +6048,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 10px; line-height: 1.48;
 .ref-row.current .ref-icon { color: var(--accent); }
 .ref-row .ref-name { font-size: var(--fs-meta); font-weight: 500; }
 .ref-row .worktree-badge { color: var(--text-faint); font-size: 10px; }
-.ref-row .row-more { width: 22px; height: 22px; border-radius: 6px; }
+.ref-row .row-more { width: 24px; height: 24px; border-radius: 6px; }
 
 .graph-toolbar {
   gap: 8px;
@@ -6197,7 +6212,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 10px; line-height: 1.48;
 }
 .board-filter:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--bg1); }
 .board-filter input { height: 26px; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: var(--fs-meta); }
-.board-filter .icon-btn { width: 22px; height: 22px; }
+.board-filter .icon-btn { width: 24px; height: 24px; }
 
 .pr-board {
   gap: 12px;
