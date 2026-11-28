@@ -49,6 +49,20 @@ h1, h2, h3 { line-height: 1.25; letter-spacing: -0.01em; }
 h1 { font-size: var(--fs-title); font-weight: 650; }
 h2 { font-size: var(--fs-md); font-weight: 600; }
 
+/* button.text-link had no base style: anchors got UA link styling while the
+   button variant fell through to UA button chrome (a bare gray blob — seen
+   on the sidebar Worktrees "Manage" action). */
+button.text-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+button.text-link:hover:not(:disabled) { text-decoration: underline; }
+button.text-link:disabled { opacity: 0.5; cursor: default; }
+
 /* Legacy variable aliases — git2's own names now resolve to the shared
    design tokens; theme flips cascade automatically via var() indirection. */
 :root {
@@ -1470,7 +1484,7 @@ html[data-theme='light'] .modal.settings-modal {
 }
 html[data-theme='light'] .settings-card {
   border-color: var(--border);
-  background: #ffffff;
+  background: var(--bg1);
 }
 .settings-row {
   display: flex;
@@ -2044,6 +2058,9 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
 }
 .empty-state h3 { margin: 0; font-size: var(--fs-title); }
 .empty-state p { margin: 0; color: var(--muted); max-width: 420px; font-size: var(--fs-body); }
+/* Error flavor of the shared empty state (CI Health load failure). */
+.empty-state.is-error .empty-icon { color: var(--red); background: var(--pill-bad-bg); }
+.empty-state.is-error h3 { color: var(--red); }
 .loading {
   display: flex;
   align-items: center;
@@ -4088,12 +4105,12 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
 }
-.m-clean { color: var(--green, #3fb950); }
+.m-clean { color: var(--green); }
 .m-error {
   margin: 0 12px 12px;
   padding: 10px 12px;
   font-size: var(--fs-ui);
-  color: var(--red, #f85149);
+  color: var(--red);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--panel);
@@ -4200,8 +4217,8 @@ html[data-theme='light'] .settings-modal .dropdown-trigger { background: #f5f7fc
   white-space: nowrap;
 }
 .m-file-stat { display: flex; gap: 6px; font-family: var(--mono); font-size: var(--fs-body); }
-.m-add { color: var(--green, #3fb950); }
-.m-del { color: var(--red, #f85149); }
+.m-add { color: var(--green); }
+.m-del { color: var(--red); }
 .m-diff {
   margin: 0 12px;
   padding: 12px;

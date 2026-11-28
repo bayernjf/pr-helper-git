@@ -13,7 +13,7 @@ import type {
   CiHealthTotals,
 } from '../types';
 import { t } from '../i18n';
-import { IconAlert, IconRefresh } from './icons';
+import { IconAlert, IconInfo, IconRefresh } from './icons';
 
 const WINDOW_KEY = STORAGE_KEYS.ciHealthWindow;
 const REPOS_KEY = STORAGE_KEYS.ciHealthRepos;
@@ -272,8 +272,9 @@ export default function CiHealthPage() {
       )}
 
       {authMissing && (
-        <div className="ci-empty">
-          <h2>{t('GitHub token required')}</h2>
+        <div className="empty-state">
+          <div className="empty-icon"><IconInfo width={28} height={28} /></div>
+          <h3>{t('GitHub token required')}</h3>
           <p>{t('Store a PAT in Settings, or keep one in the browser, to read private and public CI results.')}</p>
         </div>
       )}
@@ -287,8 +288,9 @@ export default function CiHealthPage() {
       )}
 
       {!authMissing && error && !data && (
-        <div className="ci-empty is-error">
-          <h2>{t('Could not load CI health')}</h2>
+        <div className="empty-state is-error">
+          <div className="empty-icon"><IconAlert width={28} height={28} /></div>
+          <h3>{t('Could not load CI health')}</h3>
           <p>{error}</p>
         </div>
       )}
@@ -408,8 +410,9 @@ export default function CiHealthPage() {
       )}
 
       {!authMissing && data && !loading && totals && !totals.prCount && (
-        <div className="ci-empty">
-          <h2>{t('No PR CI in this window')}</h2>
+        <div className="empty-state">
+          <div className="empty-icon"><IconRefresh width={28} height={28} /></div>
+          <h3>{t('No PR CI in this window')}</h3>
           <p>{t('Try a longer window, or confirm the repositories have Actions/check runs enabled.')}</p>
         </div>
       )}
