@@ -150,10 +150,14 @@ export default function DiffView({
   result,
   repo,
   staged = false,
+  emptyHint,
 }: {
   result: DiffResult | null;
   repo?: string;
   staged?: boolean;
+  /** Overrides the generic no-diff hint; callers that know why the body is
+      empty (e.g. merge commits) pass a truthful message. */
+  emptyHint?: string;
 }) {
   const { runAction } = useRunAction();
   const FONT_SIZES = [12, 13, 14];
@@ -263,7 +267,7 @@ export default function DiffView({
     return <EmptyHint>{tp("{path} is sensitive — its contents are masked.", { path: result.path })}</EmptyHint>;
   }
   if (!result.diff) {
-    return <EmptyHint>{t("No diff available for this file.")}</EmptyHint>;
+    return <EmptyHint>{emptyHint ?? t("No diff available for this file.")}</EmptyHint>;
   }
 
   // Assign sequential hunk indices while walking the parsed rows, and number

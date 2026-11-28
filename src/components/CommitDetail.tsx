@@ -257,7 +257,12 @@ export default function CommitDetail() {
               </button>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <DiffView result={patch} />
+              <DiffView
+                result={patch}
+                emptyHint={commit.parents.length > 1
+                  ? t("Merge commit — no single patch body is rendered for merge commits.")
+                  : undefined}
+              />
             </div>
           </div>
         </div>

@@ -668,6 +668,7 @@ export const ZH: Record<string, string> = {
   'Preview truncated at 1 MB.': '预览已截断（1 MB）。',
   'Diff truncated at 2000 lines.': '差异已截断（2000 行）。',
   'No diff available for this file.': '该文件没有可用差异。',
+  'Merge commit — no single patch body is rendered for merge commits.': '合并提交——merge commit 不渲染单一补丁正文。',
   'No text diff available for this file.': '该文件没有文本差异。',
   'No history found for this file.': '该文件没有历史记录。',
   'Select a file to review its changes.': '选择文件以查看改动。',
