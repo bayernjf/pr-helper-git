@@ -700,11 +700,18 @@ div.ref-group-head { gap: 8px; }
 
 .graph-check {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: var(--accent);
   cursor: pointer;
+}
+/* Focus-not-obscured (keyboard walkthrough): the commit toolbar is sticky at
+   the top of .graph-scroll; without headroom Tab-scrolling parked the first
+   row's checkbox underneath it. */
+.graph-row,
+.graph-check {
+  scroll-margin-top: 52px;
 }
 
 .graph-subject {
