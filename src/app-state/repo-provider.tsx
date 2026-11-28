@@ -50,6 +50,10 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
   const [remote, setRemote] = useState<RepoData['remote']>(null);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
   const [repoLoading, setRepoLoading] = useState(false);
+  // Mirror for non-React readers (the SSE listener) that must skip while a
+  // user-initiated load is in flight.
+  const repoLoadingRef = useRef(false);
+  useEffect(() => { repoLoadingRef.current = repoLoading; }, [repoLoading]);
   const [logLimit, setLogLimit] = useState(LOG_PAGE_SIZE);
   const [logScope, setLogScopeState] = useState<'all' | 'current'>('all');
   const [logPath, setLogPathState] = useState('');
@@ -187,6 +191,10 @@ export function RepoDataProvider({ children }: { children: ReactNode }) {
         const params = sseParamsRef.current;
         const repoPath = params.activeRepo;
         if (repoPath && data.type === 'repo-changed' && data.path === repoPath) {
+          // Skip while a user-initiated load is in flight: that load fetches
+          // fresh data anyway, and an interleaved background reload would
+          // bump the load seq past it, leaving the loading bar stuck.
+          if (repoLoadingRef.current) return;
           loadRepoData(repoPath, params.logLimit, params.logScope, params.logPath, params.logFilters)
             .catch(() => {});
         }
