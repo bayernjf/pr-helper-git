@@ -203,11 +203,17 @@ it never reads or writes `~/.pr-helper-git`.
    git push origin vX.Y.Z
    ```
 
-7b. **Publish the GitHub Release** on that tag (`gh release create vX.Y.Z
-   --title ... --notes ...`). The in-app version check compares against
-   `releases/latest` — a tag without a Release object makes the app report
-   "You're ahead of the latest release" (missed on 0.3.21, fixed the same
-   day). Verify with `gh api repos/.../releases/latest --jq .tag_name`.
+7b. **Publish the GitHub Release with distribution assets** on that tag:
+   `BUNDLE_NODE=1 npm run desktop:smoke`, then `gh release create vX.Y.Z
+   --title ... --notes ...`, then `gh release upload vX.Y.Z "build/release/
+   PR Helper Git-X.Y.Z-macos.dmg" "...-macos.zip" "build/release/SHA256SUMS"`.
+   The in-app update check reads `releases/latest`, looks for the
+   `PR Helper Git-X.Y.Z-macos.dmg` asset (dot-sanitized by GitHub) and
+   verifies it against SHA256SUMS — a tag without a Release, or a Release
+   without the dmg/zip/sums assets, makes the app report "ahead of the
+   latest release" / "Update check failed: asset is missing" (both missed
+   on 0.3.21, fixed the same day). Verify with `gh release view vX.Y.Z
+   --json assets`.
 
 8. Sync the local `main` first (`git fetch origin main:main`) — the backup
    bundles **local** refs, and a remote automation merge never moves the
