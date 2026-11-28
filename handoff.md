@@ -17,7 +17,7 @@ every committed file as world-readable.
 |---|---|---|---|---|---|---|---|
 | PH-01 | Phase 5 P5-2 动作 2–3 逐项批准 | blocked | p1 | owner | owner 2026-11-28 决定暂缓：现在都不碰，出现问题时再回来按清单逐项审批 | `docs/phase5-p5-2-approval.md` 状态段 | 2026-11-28 |
 | PH-02 | P5-1 判定证据补齐 | closed | p1 | self | 已补齐（通过，间接证据，2026-11-27） | `docs/phase5-p5-2-approval.md` §3 | 2026-11-27 |
-| PH-03 | GitHub Device Flow 实网授权走查 | blocked | p1 | owner | 启用 2FA/重新登录后 Settings → GitHub account → Connect | `handoff.md` 实网待办 | 2026-11-25 |
+| PH-03 | GitHub Device Flow 实网授权走查 | closed | p1 | self | 实网 ✅（2026-11-28）：owner 启用 2FA 后内置浏览器走通 start→输码→Authorize→poll connected；身份 `bayernjf`（id 41980865）落 config.json `github.oauth`（0600）；installations 发现 1 个安装 | `docs/pr-helper-migration.md` Device Flow 行 | 2026-11-28 |
 | PH-04 | atlas Flow 规则切换到 Standard PR | closed | p1 | self | 规则切到 `798c878…` 后 drain 自动重生成并建 PR #191，gitleaks 修好后 CI 绿，action `4912` 自动合并成功（2026-11-28） | [atlas#191](https://github.com/bayernjf/atlas/pull/191) | 2026-11-28 |
 <!-- /tier:todos -->
 
@@ -27,6 +27,14 @@ every committed file as world-readable.
 > 迁移方案、能力追踪矩阵（122 行）、决策记录 D-001…D-021 与验收标准在
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
+
+### 2026-11-28 Device Flow 实网授权走查（PH-03 收尾）
+
+- **根因澄清**：此前"待 2FA/刷新会话"的真实阻塞是账号未启用 2FA——GitHub 对强制 2FA 名单内的账号**硬禁用 OAuth App 的 Authorize 按钮**（横幅期限 2026-12-23）。owner 在 ZCode 内置浏览器里完成 2FA 注册后按钮即解禁。
+- **实网链路**：探针实例（18778，GIT2_DEV=1，真实 home）`POST /api/auth/github/device/start` → 内置浏览器登录态输码（userCode `62D3-50B5`）→ Continue → confirmation → Authorize → GitHub success 页 → `POST device/poll` 返回 `connected`。
+- **落库验证**：config.json `github.oauth` = login `bayernjf` / githubUserId 41980865 / connectedAt 2026-11-28T10:24:05Z（0600，token 值未打印）；`GET /api/auth/github/status` → connected:true；`GET /api/auth/github/installations` → 1 个安装（User 账号）。复用云端 App `pr-helper-by-bayernjf`（identity-only，不动其 webhook）。
+- **注意事项**：device flow 的 pendingFlows 在服务端内存里——**必须由发起它的同一进程 poll 才会完成换 token**（首次授权后无人 poll 导致状态滞后，补 poll 即回 connected）；launchd 4789 与桌面 app 共读同一 config.json，无需重启即生效。
+- **2FA 本身**：账号已启用（GitHub 强制项，原 12-23 期限解除）。
 
 ### 2026-11-28 Release 0.3.21（四 Skill 交叉审计 UI/UX 收口）
 
