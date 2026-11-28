@@ -203,6 +203,12 @@ it never reads or writes `~/.pr-helper-git`.
    git push origin vX.Y.Z
    ```
 
+7b. **Publish the GitHub Release** on that tag (`gh release create vX.Y.Z
+   --title ... --notes ...`). The in-app version check compares against
+   `releases/latest` — a tag without a Release object makes the app report
+   "You're ahead of the latest release" (missed on 0.3.21, fixed the same
+   day). Verify with `gh api repos/.../releases/latest --jq .tag_name`.
+
 8. Sync the local `main` first (`git fetch origin main:main`) — the backup
    bundles **local** refs, and a remote automation merge never moves the
    local `main`. Then refresh the backup and verify the bundle heads
