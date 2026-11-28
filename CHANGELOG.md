@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。版本号在 `package.json` 与 `handoff.md` 之间保持同步。
 
-## [Unreleased] - 2026-11-22
+## [0.3.21] - 2026-11-28
 
 ### 变更
 - **app-state 仓库切片**：仓库数据 context 进一步拆为 registry、active repo、active brief、status、refs、history 六个切片，并提供精确 hooks；38 个生产消费者从聚合 `useRepoData` 迁移到对应切片。提交选择、日志过滤与加载更多只更新 history 订阅者，不再连带触发侧栏、工具栏和详情面板重渲染；聚合 context 仅保留给测试注入与兼容回退。
@@ -27,12 +27,20 @@
 - **Flows 同路由重复 attention**：同一 stage 已有 CI/部署失败时，`failureSections` 不再把同 stage 的 blocked merge action 再计一条，`atlas` 的「Actions 失败 + 门禁尚未全绿」从 2 条收敛为 1 条；paused create-pr 仍保留 takeover 入口，避免把可恢复动作一并隐藏。
 - **Flows 自动化阻塞原因不可读**：`failureSections` 的 automation 条目原先只读 `action.message`，`failureReason` 非空时仍显示 `automation reason unknown`。现在按 `message → failureReason → unknown` 回退，`atlas` 的阻止项直接显示 `门禁尚未全绿（当前 failure）`。
 - **自动合并后 stage-advance 未调度**：`runAutomationMergeAction` 先把 stage 写成 `pull_state=merged`，下一次 reconcile 因 `ahead_by=0`、状态终态而按 settled 提前返回，导致 `auto_advance` 永远不入队。现在 merge action 在写完 merged 与审计后直接调用 `scheduleServerAdvance`，advance 调度失败只记日志、不回写合并失败；新增回归测试。双 stage 实测 PR #23 合并后 `advance-stage` action `4754` 自动入队并成功，随后 PR #24 自动创建/合并。
+- **`--warn` 令牌从未定义**：仓库面板聚合条的 dirty/behind 文字一直渲染硬编码 fallback `#d79b4a`，与全局警告色脱节。现在 `--warn` 经语义别名指向统一警告色（amber 系），与 `track-behind`、`dash-pill.dirty` 一致；顺带清理 `--green/--red/--danger` 上同类的死 fallback。
+- **侧栏 ⋯ 菜单按钮 hover 才可见**：分支/远端/标签行的 `row-more` 原先 `opacity: 0`，键盘与指针发现都没有可见目标。现在常显淡色、hover/焦点增亮。
+- **`button.text-link` 无基础样式**：锚点靠 UA 链接样式侥幸正常，按钮变体吃到 UA 默认按钮灰底——侧栏 Worktrees「管理」一直渲染为无文字灰块。现在两者共享同一链接外观（accent 色 + hover 下划线）。
+- **触控目标不达标**（多 Skill 交叉审计）：列分隔条视觉保持 8px 但透明热区扩到 16px+；ref-group-head 最小行高 20px；lane-collapse/lane-move/branch-picker/board-filter/row-more 六处按钮提到 ≥22px；提交图批量选择复选框 14→16px。
+- **圆角刻度失控**：全站 9 档散值（4/5/6/7/8/9/10/12/14px）收敛为 `--radius-xs/sm/md/lg/pill` 令牌刻度，71 处硬编码清零，视觉漂移 ≤2px；字号地板抬到 10px（9px/9.5px 档清零），11px/15px 等值接入 `--fs-meta`/`--fs-md`。
+- **按钮无按压反馈**：141 处 hover 规则 vs 仅 7 处 active。现在离散按钮按下时 `scale(0.98)`，`transform` 纳入共享动效刻度。
+- **reduced-motion 覆盖不足**：新增全局兜底（动画/过渡时长归零），spinner、CI 待检脉冲、顶部加载条给静态回退而不是冻结在半帧。
+- **CI Health 空态与 PR 页不一致**：无 token / 加载失败 / 无数据三种空态从裸文本改为与 PR 页同构图（图标芯片 + 标题 + 描述），错误态红色调；加载态保留 spinner。
+- **键盘走查 focus-not-obscured**：真实 Tab 逐视图走查 162 个停靠点，唯一违例是提交图 sticky 工具栏把 Tab 滚入的第一行复选框盖住；`.graph-row/.graph-check` 增加 `scroll-margin-top` 头部余量后复验归零。焦点环基建（`:where():focus-visible` + 替换型 `outline: none`）审计全部合规。
 
 ### 验证
-- `npm run lint`、`npm run typecheck:server`、`npm test`（1243 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）通过。
+- `npm run lint`、`npm run typecheck:server`、`npm test`（1246 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）通过（四批 UI 修复每批各跑一次全门禁）。
 - 产品 UI 实测：Dashboard 首屏立即进入 `Fetching…`，完成后 `observability` 显示 `no upstream` 而非 `clean`；汇总的 dirty、ahead 与 18 个仓库真实 `git status --porcelain` / `git rev-list --count @{u}..HEAD` 一致。
-- 桌面：`desktop:native-test`、`npm run desktop`、`desktop:smoke` 通过；包内版本 0.3.20，本地 commit 标记 `714120c`；`/Applications/PR Helper Git.app` 已替换，旧包备份为 `PR Helper Git 0.3.20-local-f255d35.app`。
-- 无头 Chrome 逐页检查五个模块的 dark/light 与 1440×960 / 1000×700 两种窗口；Git 页额外验证展开、仅收底部、仅收右侧、两者全收四种组合，并确认刷新后状态保持。
+- 隔离实例 + 无头浏览器逐页截图核对暗/亮双主题与五个模块；Git/Dashboard/Flows 键盘走查（69+39+54 停靠点）零遮挡；本批 UI 变更（row-more 常显、Manage 链接、空态构图、圆角）均眼见为实后提交。
 
 ## [0.3.20] - 2026-11-22
 

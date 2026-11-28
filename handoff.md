@@ -28,6 +28,14 @@ every committed file as world-readable.
 > [`docs/pr-helper-migration.md`](docs/pr-helper-migration.md) — 本段只记**实时进度**。
 > 每个迁移会话收尾必须更新本段（这是会话协议的一部分，见该文档 §0 规则 5-6）。
 
+### 2026-11-28 Release 0.3.21（四 Skill 交叉审计 UI/UX 收口）
+
+- **背景**：ui-ux-pro-max × design-system × design-taste-frontend × ui-styling 四 Skill 交叉评审（7.1/10，交叉矩阵 10 项发现），用户拍板 P0 → 继续 → P1 → P2 → 键盘走查全链执行。
+- **四批提交**：`c855bba`（--warn 未定义、z-index 具名、row-more 常显、13 处触控目标）→ `7eba278`（圆角 9→4 档令牌化 71 处、字号地板 10px、:active 按压态、reduced-motion 全局兜底+三个状态动画静态回退）→ `1d977ba`（button.text-link 基础样式、CI Health 三处空态统一 empty-state 构图、死 fallback 清理）→ `9d03095`（键盘走查：graph-check 滚入 sticky 工具栏底下的唯一 focus-not-obscured 违例，scroll-margin-top 修复后 162 停靠点零遮挡）。
+- **方法沉淀**：隔离实例（`PR_HELPER_HOME=/tmp/... GIT2_DEV=1 node server/main.mjs --port=18774`，token `dev-token`）+ 无头浏览器截图/走查回路。抓到两轮静态审计都漏掉的 text-link UA 灰块真 bug；`:focus-visible` 探针读数在无 OS 焦点窗口恒为 false（环境假象，走查只看遮挡）。flows 数据在共享 Postgres，验证服务器用完必须立即 kill。
+- **验证**：每批全门禁通过（lint / typecheck:server / 1246 tests / 73 files / build / e2e 162/0）；暗亮双主题 + 五视图截图核对；字号层 10/10.5/12px 完整归并评估后明确不做（26+ 处密度视觉变化，收益低于风险）。
+- **发布**：dev 推送（`9e054ed..9d03095`）→ merge origin/main（PR #98 合并提交对齐）→ version 0.3.21 → CHANGELOG `[Unreleased]` 并入 `[0.3.21]` → 本节登记 → 全门禁 → `chore(release): 0.3.21`。
+
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据已于 2026-11-27 补齐为通过（间接证据））**
 
 ### 2026-11-28 AI PR message section contract
@@ -228,6 +236,29 @@ GraphQL 的 `mergeable` 是 `MERGEABLE / CONFLICTING / UNKNOWN` 枚举，代码�
 `++loadSeqRef.current`，于是 `finally` 的 `seq === loadSeqRef.current`
 永远不成立。改为捕获即将占用的序号（`current + 1`），并用 18777
 浏览器实测：切换仓库完成后 `.loading-bar` 数量为 0。
+
+## Release 0.3.21 (2026-11-28)
+
+范围：四 Skill（ui-ux-pro-max / design-system / design-taste-frontend /
+ui-styling）交叉审计报告 10 项发现的全链收口，P0→P1→P2→键盘走查四个提交：
+`c855bba` / `7eba278` / `1d977ba` / `9d03095`。同时把 0.3.20 tag 之后经
+PR #97/#98 进 main 的改动（app-state 切片、worktree 管理、三面板收起、
+Apple 视觉体系等）以 CHANGELOG `[0.3.21]` 正式发布。
+
+要点：
+- 令牌体系补漏：`--warn` 经语义别名定义（此前两处静默走 `#d79b4a` 私藏色），
+  `--green/--red/--danger` 死 fallback 清理，z-index 具名化收尾；
+- 可及性：row-more 常显、触控目标 13 处达标（分隔条透明热区 16px+）、
+  `button.text-link` 基础样式（Worktrees「管理」灰块真修复）、
+  CI Health 空态统一、focus-not-obscured 全站走查零遮挡；
+- 系统化：圆角 9 档→4 档令牌、字号地板 10px、按压态 scale(0.98)、
+  reduced-motion 全局兜底（spinner/CI 脉冲/加载条给静态回退）。
+
+验证：`npm run lint`、`npm run typecheck:server`、`npm test`
+（1246 tests / 73 files）、`npm run build`、`npm run e2e`（162/162）
+全部通过（四批各跑一次）；隔离实例 + 无头浏览器暗/亮双主题五视图截图
+核对，键盘走查 Git/Dashboard/Flows 69+39+54 停靠点。桌面安装记录见上方
+实时段（发版后执行）。
 
 ## Release 0.3.18 (2026-11-21)
 
