@@ -34,7 +34,8 @@ every committed file as world-readable.
 - **四批提交**：`c855bba`（--warn 未定义、z-index 具名、row-more 常显、13 处触控目标）→ `7eba278`（圆角 9→4 档令牌化 71 处、字号地板 10px、:active 按压态、reduced-motion 全局兜底+三个状态动画静态回退）→ `1d977ba`（button.text-link 基础样式、CI Health 三处空态统一 empty-state 构图、死 fallback 清理）→ `9d03095`（键盘走查：graph-check 滚入 sticky 工具栏底下的唯一 focus-not-obscured 违例，scroll-margin-top 修复后 162 停靠点零遮挡）。
 - **方法沉淀**：隔离实例（`PR_HELPER_HOME=/tmp/... GIT2_DEV=1 node server/main.mjs --port=18774`，token `dev-token`）+ 无头浏览器截图/走查回路。抓到两轮静态审计都漏掉的 text-link UA 灰块真 bug；`:focus-visible` 探针读数在无 OS 焦点窗口恒为 false（环境假象，走查只看遮挡）。flows 数据在共享 Postgres，验证服务器用完必须立即 kill。
 - **验证**：每批全门禁通过（lint / typecheck:server / 1246 tests / 73 files / build / e2e 162/0）；暗亮双主题 + 五视图截图核对；字号层 10/10.5/12px 完整归并评估后明确不做（26+ 处密度视觉变化，收益低于风险）。
-- **发布**：dev 推送（`9e054ed..9d03095`）→ merge origin/main（PR #98 合并提交对齐）→ version 0.3.21 → CHANGELOG `[Unreleased]` 并入 `[0.3.21]` → 本节登记 → 全门禁 → `chore(release): 0.3.21`。
+- **发布**：dev 推送（`9e054ed..9d03095`）→ merge origin/main（PR #98 合并提交对齐）→ version 0.3.21 → CHANGELOG `[Unreleased]` 并入 `[0.3.21]` → 本节登记 → 全门禁 → `chore(release): 0.3.21` → PR #100 CI 绿（test+desktop 双 job）→ 合并为 `bbe166f` → annotated tag `v0.3.21`（钉 `19868ac`）→ 本地 main 同步 → 备份 bundle 验证三 heads 齐。
+- **桌面安装（2026-11-28 16:47，五步法）**：`npm run desktop` + `desktop:smoke`（bundle OK: 0.3.21）→ pkill app 与内嵌 node（0 残留；4789 launchd 引擎不动）→ ditto → **发现 ditto 是合并语义**：装到目录里历代旧 hash 资源全残留（此前每次"等值"校验被同路径假象掩盖）→ 清掉 dist 重装后 5 文件逐字节等值（`761d15a493d8d41c`）→ `open -a` → 运行实例（内嵌端口 53764）served 入口 `index-CJ3qjKpe.js` 与 build 一致。
 
 **当前阶段：Phase 0 ✅ → Phase 1 ✅（数据层）→ Phase 2 ✅（P2-1…P2-10 全部收口；P2-3/P2-6 真实外部副作用已验证）→ Phase 3 ✅（P3-1…P3-16 全部收口，含 P3-15 团队 UI；验收 ✅33/🔶0/🔀1）→ Phase 3.5 ✅（P3-10 ✅）→ Phase 4 ✅ → Phase 5 执行态（P5-2 动作 1 已于 2026-11-22 01:33 CST 实际发生，但无事前审批；owner 2026-11-23 选择承认现状并继续；动作 2–3 未批准；动作 4 已完成单 stage 与双 stage 本地实跑：PR #20、PR #23/#24、stage-advanced action `4754`；P5-1 判定证据已于 2026-11-27 补齐为通过（间接证据））**
 
